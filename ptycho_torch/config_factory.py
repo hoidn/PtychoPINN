@@ -43,8 +43,10 @@ Override Precedence (highest to lowest):
 """
 
 from dataclasses import dataclass, field, fields
+import math
 from pathlib import Path
 from typing import Dict, Any, Optional, Union
+import warnings
 
 # Import canonical TensorFlow configs (single source of truth)
 from ptycho.config.config import (
@@ -76,6 +78,17 @@ from ptycho_torch.scaling_contract import (
     validate_contract_coherence,
 )
 from ptycho_torch.model_spec import ModelSpec, derive_model_spec
+from ptycho_torch.execution_request import (
+    ExecutionCapabilities,
+    ExecutionRequest,
+    NormalizedExecutionInput,
+    OPTIMIZER_EXECUTION_COMPAT_FIELDS,
+    ResolutionNotice,
+    normalize_execution_input,
+    resolve_runtime_execution_request,
+    validate_execution_input_phase,
+    validate_execution_input_structure,
+)
 
 # Conformance D3 (Theme 3, docs/superpowers/plans/
 # 2026-07-14-ci-paper-conformance-audit.md): the paper's "PtychoPINN-CI" as a
@@ -109,12 +122,49 @@ CI_PROFILE_BUNDLE: Dict[str, Any] = {
 # runtime-only PyTorchExecutionConfig. They remain accepted there only as
 # deprecated input aliases at this factory boundary. All downstream model
 # construction reads the resolved PTModelConfig.
-DEPRECATED_EXECUTION_MODEL_ALIASES = (
-    "spectral_bottleneck_blocks",
-    "spectral_bottleneck_modes",
-    "spectral_bottleneck_share_weights",
-    "spectral_bottleneck_gate_init",
-    "spectral_bottleneck_gate_mode",
+DEPRECATED_EXECUTION_MODEL_ALIASES = {
+    "ffno_encoder_blocks": "fno_blocks",
+    "ffno_encoder_modes": "fno_modes",
+    "spectral_bottleneck_blocks": "spectral_bottleneck_blocks",
+    "spectral_bottleneck_modes": "spectral_bottleneck_modes",
+    "spectral_bottleneck_share_weights": "spectral_bottleneck_share_weights",
+    "spectral_bottleneck_gate_init": "spectral_bottleneck_gate_init",
+    "spectral_bottleneck_gate_mode": "spectral_bottleneck_gate_mode",
+}
+UNOWNED_EXECUTION_MODEL_ALIASES = frozenset(
+    {
+        "ffno_encoder_share_weights",
+        "ffno_encoder_gate_init",
+        "ffno_encoder_norm",
+        "ffno_encoder_mlp_ratio",
+    }
+)
+TRAINING_OWNER_FIELDS = frozenset(
+    {
+        "learning_rate",
+        "scheduler",
+        "lr_warmup_epochs",
+        "lr_min_ratio",
+        "plateau_factor",
+        "plateau_patience",
+        "plateau_min_lr",
+        "plateau_threshold",
+        "gradient_clip_val",
+        "gradient_clip_algorithm",
+        "accum_steps",
+        "optimizer",
+        "momentum",
+        "weight_decay",
+        "adam_beta1",
+        "adam_beta2",
+        "epochs_fine_tune",
+        "fine_tune_gamma",
+        "stage_1_epochs",
+        "stage_2_epochs",
+        "stage_3_epochs",
+        "physics_weight_schedule",
+        "stage_3_lr_factor",
+    }
 )
 
 _TRAINING_OVERRIDE_ALIASES = frozenset(
@@ -147,42 +197,179 @@ def _reject_unknown_training_overrides(overrides: Dict[str, Any]) -> None:
         )
 
 
-def _merge_deprecated_execution_model_aliases(
-    overrides: Dict[str, Any],
-    execution_config: Optional[PyTorchExecutionConfig],
-) -> tuple[str, ...]:
-    """Resolve explicitly supplied execution aliases into structural inputs."""
-    if execution_config is None:
-        return ()
+def resolve_topology_compatibility(
+    canonical_model_patch: Dict[str, Any],
+    normalized_execution: NormalizedExecutionInput | None,
+) -> tuple[Dict[str, Any], Dict[str, str], tuple[ResolutionNotice, ...]]:
+    """Resolve explicit execution topology aliases without effects or mutation."""
 
-    explicit_aliases = getattr(
-        execution_config, "_explicit_structural_aliases", frozenset()
-    )
-    used = []
-    for name in DEPRECATED_EXECUTION_MODEL_ALIASES:
-        if name not in explicit_aliases:
+    resolved = dict(canonical_model_patch)
+    if normalized_execution is None:
+        return resolved, {}, ()
+
+    explicit = normalized_execution.explicit_fields
+    unowned = sorted(explicit & UNOWNED_EXECUTION_MODEL_ALIASES)
+    if unowned:
+        raise ValueError(
+            "deprecated execution topology field(s) "
+            + ", ".join(unowned)
+            + " have no ModelConfig owner; remove them from the supported "
+            "execution request"
+        )
+
+    consumed: Dict[str, str] = {}
+    for source_name, target_name in DEPRECATED_EXECUTION_MODEL_ALIASES.items():
+        if source_name not in explicit:
             continue
-        alias_value = getattr(execution_config, name)
-        if name in overrides and overrides[name] != alias_value:
+        alias_value = normalized_execution.values[source_name]
+        if target_name in resolved and resolved[target_name] != alias_value:
             raise ValueError(
-                f"structural field {name!r} conflicts between ModelConfig input "
-                f"({overrides[name]!r}) and deprecated PyTorchExecutionConfig "
-                f"alias ({alias_value!r})"
+                f"structural field {target_name!r} conflicts between "
+                f"ModelConfig input ({resolved[target_name]!r}) and "
+                "deprecated execution alias "
+                f"{source_name!r} ({alias_value!r})"
             )
-        overrides[name] = alias_value
-        used.append(name)
+        resolved[target_name] = alias_value
+        consumed[source_name] = target_name
 
-    if used:
-        import warnings
+    notices: tuple[ResolutionNotice, ...] = ()
+    if consumed:
+        notices = (
+            ResolutionNotice(
+                DeprecationWarning,
+                "PyTorchExecutionConfig topology fields are deprecated "
+                "aliases; pass their canonical values through ModelConfig "
+                "instead: "
+                + ", ".join(sorted(consumed)),
+            ),
+        )
+    return resolved, consumed, notices
 
+
+def _extract_training_baseline(
+    training_baseline: TFTrainingConfig | PTTrainingConfig | None,
+) -> Dict[str, Any]:
+    if training_baseline is None:
+        return {}
+    if not isinstance(
+        training_baseline,
+        (TFTrainingConfig, PTTrainingConfig),
+    ):
+        raise TypeError(
+            "training_baseline must be a public TrainingConfig, "
+            "Torch TrainingConfig, or None"
+        )
+    owned_by_type = {
+        field_info.name for field_info in fields(type(training_baseline))
+    }
+    return {
+        name: getattr(training_baseline, name)
+        for name in TRAINING_OWNER_FIELDS & owned_by_type
+    }
+
+
+def _validate_training_owner_domains(config: PTTrainingConfig) -> None:
+    schedulers = {
+        "Default",
+        "Exponential",
+        "MultiStage",
+        "Adaptive",
+        "WarmupCosine",
+        "ReduceLROnPlateau",
+    }
+    if config.scheduler not in schedulers:
+        raise ValueError(
+            f"scheduler must be one of {sorted(schedulers)}, "
+            f"got {config.scheduler!r}"
+        )
+    clip_algorithms = {"norm", "value", "agc"}
+    if config.gradient_clip_algorithm not in clip_algorithms:
+        raise ValueError(
+            "gradient_clip_algorithm must be one of "
+            f"{sorted(clip_algorithms)}, "
+            f"got {config.gradient_clip_algorithm!r}"
+        )
+    if (
+        isinstance(config.learning_rate, bool)
+        or not isinstance(config.learning_rate, (int, float))
+        or not math.isfinite(float(config.learning_rate))
+        or config.learning_rate <= 0
+    ):
+        raise ValueError(
+            "learning_rate must be finite and positive, "
+            f"got {config.learning_rate!r}"
+        )
+    if (
+        isinstance(config.accum_steps, bool)
+        or not isinstance(config.accum_steps, int)
+        or config.accum_steps <= 0
+    ):
+        raise ValueError(
+            f"accum_steps must be a positive integer, got {config.accum_steps!r}"
+        )
+    if config.gradient_clip_val is not None and (
+        isinstance(config.gradient_clip_val, bool)
+        or not isinstance(config.gradient_clip_val, (int, float))
+        or not math.isfinite(float(config.gradient_clip_val))
+        or config.gradient_clip_val < 0
+    ):
+        raise ValueError(
+            "gradient_clip_val must be finite and non-negative or None, "
+            f"got {config.gradient_clip_val!r}"
+        )
+
+
+def resolve_optimizer_ownership(
+    *,
+    training_baseline: TFTrainingConfig | PTTrainingConfig | None,
+    normalized_execution: NormalizedExecutionInput | None,
+    canonical_training_patch: Dict[str, Any],
+) -> tuple[PTTrainingConfig, Dict[str, str]]:
+    """Build the single effective Torch TrainingConfig and source audit."""
+
+    defaults = PTTrainingConfig()
+    values = {
+        field_info.name: getattr(defaults, field_info.name)
+        for field_info in fields(PTTrainingConfig)
+    }
+    provenance = {
+        name: "torch_default"
+        for name in TRAINING_OWNER_FIELDS
+        if name in values
+    }
+
+    for name, value in _extract_training_baseline(training_baseline).items():
+        values[name] = value
+        provenance[name] = "training_baseline"
+
+    if normalized_execution is not None:
+        for name in OPTIMIZER_EXECUTION_COMPAT_FIELDS:
+            if name in normalized_execution.explicit_fields:
+                values[name] = normalized_execution.values[name]
+                provenance[name] = "execution_compatibility"
+
+    for name, value in _config_kwargs(
+        PTTrainingConfig,
+        canonical_training_patch,
+    ).items():
+        values[name] = value
+        if name in TRAINING_OWNER_FIELDS:
+            provenance[name] = "canonical_override"
+
+    config = PTTrainingConfig(**values)
+    _validate_training_owner_domains(config)
+    return config, dict(sorted(provenance.items()))
+
+
+def _emit_resolution_notices(
+    notices: tuple[ResolutionNotice, ...],
+) -> None:
+    for notice in notices:
         warnings.warn(
-            "PyTorchExecutionConfig topology fields are deprecated aliases; "
-            "pass them through the structural ModelConfig input instead: "
-            + ", ".join(used),
-            DeprecationWarning,
+            notice.message,
+            notice.category,
             stacklevel=3,
         )
-    return tuple(used)
 
 
 def resolve_ci_profile(overrides: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -349,8 +536,13 @@ def create_training_payload(
     train_data_file: Path,
     output_dir: Path,
     overrides: Optional[Dict[str, Any]] = None,
-    execution_config: Optional[PyTorchExecutionConfig] = None,
+    execution_config: Optional[
+        Union[ExecutionRequest, PyTorchExecutionConfig]
+    ] = None,
     profile: Optional[str] = None,
+    *,
+    training_baseline: TFTrainingConfig | PTTrainingConfig | None = None,
+    execution_capabilities: ExecutionCapabilities | None = None,
 ) -> TrainingPayload:
     """
     Create complete training configuration payload.
@@ -435,6 +627,16 @@ def create_training_payload(
 
     # Defensive copy of overrides
     overrides = dict(overrides or {})
+    normalized_execution = normalize_execution_input(
+        execution_config,
+        mode="training",
+    )
+    if normalized_execution is not None:
+        validate_execution_input_structure(normalized_execution)
+        validate_execution_input_phase(
+            normalized_execution,
+            mode="training",
+        )
     resolved_profile = resolve_profile_overrides(overrides)
     if resolved_profile is not None:
         overrides["scale_contract_version"], overrides["measurement_domain"] = resolved_profile
@@ -453,11 +655,19 @@ def create_training_payload(
         overrides['mode'] = overrides['model_type']
         overrides_applied['mode'] = overrides['model_type']
 
-    alias_fields = _merge_deprecated_execution_model_aliases(
-        overrides, execution_config
+    (
+        overrides,
+        topology_compatibility,
+        topology_notices,
+    ) = resolve_topology_compatibility(
+        overrides,
+        normalized_execution,
     )
-    for name in alias_fields:
-        overrides_applied[name] = overrides[name]
+    for source_name, target_name in topology_compatibility.items():
+        overrides_applied[target_name] = overrides[target_name]
+    overrides_applied["topology_compatibility"] = dict(
+        sorted(topology_compatibility.items())
+    )
     _reject_unknown_training_overrides(overrides)
 
     # Step 1: Validate required arguments
@@ -524,9 +734,20 @@ def create_training_payload(
     overrides['test_data_file'] = str(overrides['test_data_file']) if 'test_data_file' in overrides else None
     overrides['output_dir'] = str(output_dir)
 
-    pt_training_config = PTTrainingConfig(
-        **_config_kwargs(PTTrainingConfig, overrides)
+    (
+        pt_training_config,
+        training_config_provenance,
+    ) = resolve_optimizer_ownership(
+        training_baseline=training_baseline,
+        normalized_execution=normalized_execution,
+        canonical_training_patch=overrides,
     )
+    overrides_applied["training_config_provenance"] = (
+        training_config_provenance
+    )
+    for name in sorted(TRAINING_OWNER_FIELDS):
+        if hasattr(pt_training_config, name):
+            overrides_applied[name] = getattr(pt_training_config, name)
 
     # Resolve the selected objective into structural loss identity before the
     # ModelSpec is sealed. Lightning must not silently mutate this field after
@@ -596,10 +817,15 @@ def create_training_payload(
     populate_legacy_params(tf_training_config)
     params.seal()
 
-    # Step 6: Construct execution config (Phase C2.B1+C2.B2)
-    # If execution_config not provided, instantiate default PyTorchExecutionConfig
-    if execution_config is None:
-        execution_config = PyTorchExecutionConfig()
+    # Step 6: Resolve environment-dependent execution only after the complete
+    # scientific/configuration candidate is valid.
+    runtime = resolve_runtime_execution_request(
+        normalized_execution,
+        mode="training",
+        execution_capabilities=execution_capabilities,
+    )
+    execution_config = runtime.config
+    overrides_applied["execution_runtime"] = runtime.audit_dict()
 
     # Merge execution knobs into overrides_applied audit trail (Phase C2.B2)
     # Record applied execution knobs for transparency
@@ -607,10 +833,6 @@ def create_training_payload(
     overrides_applied['deterministic'] = execution_config.deterministic
     overrides_applied['num_workers'] = execution_config.num_workers
     overrides_applied['enable_progress_bar'] = execution_config.enable_progress_bar
-    overrides_applied['learning_rate'] = execution_config.learning_rate
-    # Optimization knobs (Phase EB2.B1 - ADR-003)
-    overrides_applied['scheduler'] = execution_config.scheduler
-    overrides_applied['accum_steps'] = execution_config.accum_steps
     # Logger backend (Phase EB3.B - ADR-003)
     overrides_applied['logger_backend'] = execution_config.logger_backend
 
@@ -621,7 +843,7 @@ def create_training_payload(
         pt_data_config,
     )
 
-    return TrainingPayload(
+    payload = TrainingPayload(
         tf_training_config=tf_training_config,
         pt_data_config=pt_data_config,
         pt_model_config=pt_model_config,
@@ -631,6 +853,8 @@ def create_training_payload(
         execution_config=execution_config,  # Now always PyTorchExecutionConfig instance
         overrides_applied=overrides_applied,
     )
+    _emit_resolution_notices(topology_notices + runtime.notices)
+    return payload
 
 
 @configured_legacy_params
@@ -639,7 +863,11 @@ def create_inference_payload(
     test_data_file: Path,
     output_dir: Path,
     overrides: Optional[Dict[str, Any]] = None,
-    execution_config: Optional[PyTorchExecutionConfig] = None,
+    execution_config: Optional[
+        Union[ExecutionRequest, PyTorchExecutionConfig]
+    ] = None,
+    *,
+    execution_capabilities: ExecutionCapabilities | None = None,
 ) -> InferencePayload:
     """
     Create complete inference configuration payload.
@@ -702,6 +930,16 @@ def create_inference_payload(
 
     # Defensive copy of overrides
     overrides = dict(overrides or {})
+    normalized_execution = normalize_execution_input(
+        execution_config,
+        mode="inference",
+    )
+    if normalized_execution is not None:
+        validate_execution_input_structure(normalized_execution)
+        validate_execution_input_phase(
+            normalized_execution,
+            mode="inference",
+        )
     resolved_profile = resolve_profile_overrides(overrides)
     overrides_applied = dict(overrides)  # Audit trail
 
@@ -819,10 +1057,15 @@ def create_inference_payload(
     populate_legacy_params(tf_inference_config)
     params.seal()
 
-    # Step 6: Construct execution config (Phase C2.B1+C2.B2)
-    # If execution_config not provided, instantiate default PyTorchExecutionConfig
-    if execution_config is None:
-        execution_config = PyTorchExecutionConfig()
+    # Step 6: Resolve runtime environment only after the inference candidate
+    # and its resources are valid.
+    runtime = resolve_runtime_execution_request(
+        normalized_execution,
+        mode="inference",
+        execution_capabilities=execution_capabilities,
+    )
+    execution_config = runtime.config
+    overrides_applied["execution_runtime"] = runtime.audit_dict()
 
     # Merge execution knobs into overrides_applied audit trail (Phase C2.B2)
     # Record applied execution knobs for transparency
@@ -831,13 +1074,15 @@ def create_inference_payload(
     overrides_applied['inference_batch_size'] = execution_config.inference_batch_size
 
     # Step 7: Return InferencePayload with all config objects + audit trail
-    return InferencePayload(
+    payload = InferencePayload(
         tf_inference_config=tf_inference_config,
         pt_data_config=pt_data_config,
         pt_inference_config=pt_inference_config,
         execution_config=execution_config,  # Now always PyTorchExecutionConfig instance
         overrides_applied=overrides_applied,
     )
+    _emit_resolution_notices(runtime.notices)
+    return payload
 
 
 def infer_probe_size(data_file: Path) -> int:

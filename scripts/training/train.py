@@ -41,6 +41,44 @@ from ptycho.config.legacy_state import scoped_legacy_params
 from ptycho import model_manager, params
 import argparse
 
+
+_PUBLIC_OPTIMIZER_OPTION_DESTINATIONS = {
+    "--gradient_clip_val": "gradient_clip_val",
+    "--gradient_clip_algorithm": "gradient_clip_algorithm",
+    "--optimizer": "optimizer",
+    "--momentum": "momentum",
+    "--weight_decay": "weight_decay",
+    "--adam_beta1": "adam_beta1",
+    "--adam_beta2": "adam_beta2",
+    "--scheduler": "scheduler",
+    "--lr_warmup_epochs": "lr_warmup_epochs",
+    "--lr_min_ratio": "lr_min_ratio",
+    "--plateau_factor": "plateau_factor",
+    "--plateau_patience": "plateau_patience",
+    "--plateau_min_lr": "plateau_min_lr",
+    "--plateau_threshold": "plateau_threshold",
+}
+
+
+def _raw_option_names(argv) -> set[str]:
+    """Return long-option spellings without operands or ``=value`` suffixes."""
+    return {
+        token.split("=", 1)[0]
+        for token in argv
+        if isinstance(token, str) and token.startswith("--")
+    }
+
+
+def _explicit_public_optimizer_overrides(args, argv) -> dict:
+    """Copy only explicitly supplied canonical optimizer destinations."""
+    supplied_options = _raw_option_names(argv)
+    return {
+        destination: getattr(args, destination)
+        for option, destination in _PUBLIC_OPTIMIZER_OPTION_DESTINATIONS.items()
+        if option in supplied_options and hasattr(args, destination)
+    }
+
+
 def interpret_n_images_parameter(n_images: int, gridsize: int) -> tuple[int, str]:
     """
     Interpret --n-images parameter based on gridsize.
@@ -162,7 +200,7 @@ def parse_arguments():
                        help="Learning rate for PyTorch training (default: None, uses model default). "
                             "Only applies when --backend pytorch.")
     parser.add_argument("--torch-scheduler", type=str, default='Default',
-                       choices=['Default', 'ReduceLROnPlateau', 'CosineAnnealing'],
+                       choices=['Default', 'Exponential', 'WarmupCosine', 'ReduceLROnPlateau'],
                        help="Learning rate scheduler for PyTorch training (default: 'Default'). "
                             "Only applies when --backend pytorch.")
     parser.add_argument("--torch-plateau-factor", type=float, default=None,
@@ -202,20 +240,23 @@ def parse_arguments():
 
 def apply_torch_plateau_overrides(args, argv=None) -> None:
     """Map torch-specific plateau flags onto TrainingConfig fields."""
-    argv = argv or sys.argv
-    if "--torch-plateau-factor" in argv and getattr(args, "torch_plateau_factor", None) is not None:
+    option_names = _raw_option_names(
+        tuple(sys.argv[1:]) if argv is None else argv
+    )
+    if "--torch-plateau-factor" in option_names and "--plateau_factor" not in option_names and getattr(args, "torch_plateau_factor", None) is not None:
         args.plateau_factor = args.torch_plateau_factor
-    if "--torch-plateau-patience" in argv and getattr(args, "torch_plateau_patience", None) is not None:
+    if "--torch-plateau-patience" in option_names and "--plateau_patience" not in option_names and getattr(args, "torch_plateau_patience", None) is not None:
         args.plateau_patience = args.torch_plateau_patience
-    if "--torch-plateau-min-lr" in argv and getattr(args, "torch_plateau_min_lr", None) is not None:
+    if "--torch-plateau-min-lr" in option_names and "--plateau_min_lr" not in option_names and getattr(args, "torch_plateau_min_lr", None) is not None:
         args.plateau_min_lr = args.torch_plateau_min_lr
-    if "--torch-plateau-threshold" in argv and getattr(args, "torch_plateau_threshold", None) is not None:
+    if "--torch-plateau-threshold" in option_names and "--plateau_threshold" not in option_names and getattr(args, "torch_plateau_threshold", None) is not None:
         args.plateau_threshold = args.torch_plateau_threshold
 
 
 @scoped_legacy_params
 def main() -> None:
     """Main function to orchestrate the CDI example script execution."""
+    raw_argv = tuple(sys.argv[1:])
     args = parse_arguments()
     
     # Handle legacy argument name
@@ -223,7 +264,7 @@ def main() -> None:
         args.train_data_file = args.train_data_file_path
         delattr(args, 'train_data_file_path')
 
-    apply_torch_plateau_overrides(args)
+    apply_torch_plateau_overrides(args, raw_argv)
 
     config = setup_configuration(args, args.config)
     
@@ -295,67 +336,31 @@ def main() -> None:
             test_data = load_data(str(config.test_data_file))
             logger.info(f"Loaded test data from {config.test_data_file}")
 
-        # Build PyTorch execution config if backend is pytorch
-        torch_execution_config = None
+        # Build a provenance-carrying request if the selected backend is PyTorch.
+        torch_execution_request = None
+        torch_factory_overrides = None
         if config.backend == 'pytorch':
-            # Determine if user explicitly provided any --torch-* flags
-            # We check against argparse defaults to detect user overrides
-            torch_flags_explicitly_set = any([
-                'torch_accelerator' in sys.argv or '--torch-accelerator' in sys.argv,
-                'torch_deterministic' in sys.argv or '--torch-deterministic' in sys.argv,
-                'torch_num_workers' in sys.argv or '--torch-num-workers' in sys.argv,
-                'torch_learning_rate' in sys.argv or '--torch-learning-rate' in sys.argv,
-                'torch_scheduler' in sys.argv or '--torch-scheduler' in sys.argv,
-                'torch_logger' in sys.argv or '--torch-logger' in sys.argv,
-                'torch_enable_checkpointing' in sys.argv or '--torch-enable-checkpointing' in sys.argv,
-                'torch_checkpoint_save_top_k' in sys.argv or '--torch-checkpoint-save-top-k' in sys.argv,
-                'torch_accumulate_grad_batches' in sys.argv or '--torch-accumulate-grad-batches' in sys.argv,
-            ])
+            from ptycho_torch.cli.shared import build_execution_request_from_args
 
-            if not torch_flags_explicitly_set:
-                # No --torch-* flags provided: defer to backend_selector's auto-instantiated GPU defaults
+            torch_execution_request = build_execution_request_from_args(
+                args,
+                mode='training',
+                explicit_options=raw_argv,
+                lane='unified-training',
+            )
+            torch_factory_overrides = _explicit_public_optimizer_overrides(
+                args,
+                raw_argv,
+            )
+            if not torch_execution_request.explicit_fields:
                 logger.info("POLICY-001: No --torch-* execution flags provided. "
                            "Backend will use GPU-first defaults (auto-detects CUDA if available, else CPU). "
                            "CPU-only users should pass --torch-accelerator cpu.")
-                # Leave torch_execution_config=None to signal backend_selector to auto-instantiate
-            else:
-                # User provided at least one --torch-* flag: build execution config explicitly
-                from ptycho_torch.cli.shared import build_execution_config_from_args
-
-                # Map CLI flags to execution config namespace (see docs/workflows/pytorch.md §12)
-                exec_args = argparse.Namespace(
-                    accelerator=getattr(args, 'torch_accelerator', 'auto'),
-                    deterministic=getattr(args, 'torch_deterministic', True),
-                    num_workers=getattr(args, 'torch_num_workers', 0),
-                    learning_rate=getattr(args, 'torch_learning_rate', None),
-                    scheduler=getattr(args, 'torch_scheduler', 'Default'),
-                    logger_backend=getattr(args, 'torch_logger', 'csv'),
-                    enable_checkpointing=getattr(args, 'torch_enable_checkpointing', True),
-                    checkpoint_save_top_k=getattr(args, 'torch_checkpoint_save_top_k', 1),
-                    accumulate_grad_batches=getattr(args, 'torch_accumulate_grad_batches', 1),
-                    checkpoint_monitor_metric='val_loss',  # Default per docs/workflows/pytorch.md
-                    checkpoint_mode='min',  # Default
-                    early_stop_patience=100,  # Default
-                    quiet=getattr(args, 'debug', False) == False,  # Invert debug flag for quiet
-                    disable_mlflow=False,  # Not applicable for training in this context
-                    # Recon logging knobs
-                    recon_log_every_n_epochs=getattr(args, 'torch_recon_log_every_n_epochs', None),
-                    recon_log_num_patches=getattr(args, 'torch_recon_log_num_patches', 4),
-                    recon_log_fixed_indices=getattr(args, 'torch_recon_log_fixed_indices', None),
-                    recon_log_stitch=getattr(args, 'torch_recon_log_stitch', False),
-                    recon_log_max_stitch_samples=getattr(args, 'torch_recon_log_max_stitch_samples', None),
-                )
-
-                # Build validated execution config from CLI args (POLICY-001, CONFIG-002, CONFIG-LOGGER-001)
-                torch_execution_config = build_execution_config_from_args(exec_args, mode='training')
-                logger.info(f"PyTorch execution config built: accelerator={torch_execution_config.accelerator}, "
-                           f"num_workers={torch_execution_config.num_workers}, "
-                           f"learning_rate={torch_execution_config.learning_rate}, "
-                           f"logger_backend={torch_execution_config.logger_backend}")
 
         recon_amp, recon_phase, results = run_cdi_example_with_backend(
             ptycho_data, test_data, config, do_stitching=args.do_stitching,
-            torch_execution_config=torch_execution_config
+            torch_execution_config=torch_execution_request,
+            torch_factory_overrides=torch_factory_overrides,
         )
 
         # TensorFlow-only persistence: only save via model_manager and save_outputs for TensorFlow backend

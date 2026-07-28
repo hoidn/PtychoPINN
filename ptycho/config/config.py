@@ -675,12 +675,158 @@ class InferenceConfig:
             object.__setattr__(self, 'n_groups', self.n_images)
 
 _STRUCTURAL_EXECUTION_ALIAS_NAMES = frozenset({
+    'ffno_encoder_blocks',
+    'ffno_encoder_modes',
+    'ffno_encoder_share_weights',
+    'ffno_encoder_gate_init',
+    'ffno_encoder_norm',
+    'ffno_encoder_mlp_ratio',
     'spectral_bottleneck_blocks',
     'spectral_bottleneck_modes',
     'spectral_bottleneck_share_weights',
     'spectral_bottleneck_gate_init',
     'spectral_bottleneck_gate_mode',
 })
+
+
+def _validate_execution_pre_environment_values(
+    values: Mapping[str, Any],
+) -> None:
+    """Validate execution fields whose errors precede accelerator resolution."""
+
+    devices = values["devices"]
+    if (
+        isinstance(devices, bool)
+        or not (
+            (isinstance(devices, int) and devices > 0)
+            or devices == "auto"
+        )
+    ):
+        raise ValueError(
+            f"devices must be a positive integer or 'auto', got {devices!r}"
+        )
+
+    precision = values["precision"]
+    valid_precisions = {"32-true", "16-mixed", "bf16-mixed"}
+    if not isinstance(precision, str) or precision not in valid_precisions:
+        raise ValueError(
+            f"Invalid precision: {precision!r}. "
+            f"Expected one of {sorted(valid_precisions)}."
+        )
+
+    accelerator = values["accelerator"]
+    if accelerator == "tpu":
+        raise ValueError(
+            "Torch-XLA TPU execution is unsupported by this PyTorch runtime. "
+            "Use accelerator='cpu', 'gpu'/'cuda', or 'mps'."
+        )
+    valid_accelerators = {"auto", "cpu", "gpu", "cuda", "mps"}
+    if accelerator not in valid_accelerators:
+        raise ValueError(
+            f"Invalid accelerator: '{accelerator}'. "
+            f"Expected one of {sorted(valid_accelerators)}."
+        )
+
+
+def _validate_execution_post_environment_values(
+    values: Mapping[str, Any],
+) -> None:
+    """Validate execution fields whose direct-constructor errors remain late."""
+
+    if values["num_workers"] < 0:
+        raise ValueError(
+            f"num_workers must be non-negative, got {values['num_workers']}"
+        )
+    if values["persistent_workers"] and values["num_workers"] <= 0:
+        raise ValueError(
+            "persistent_workers=True requires num_workers > 0"
+        )
+    if values["logger_backend"] not in {"csv", "tensorboard", "mlflow", None}:
+        raise ValueError(
+            "logger_backend must be 'csv', 'tensorboard', 'mlflow', or None"
+        )
+    if values["learning_rate"] <= 0:
+        raise ValueError(
+            f"learning_rate must be positive, got {values['learning_rate']}"
+        )
+    if (
+        values["inference_batch_size"] is not None
+        and values["inference_batch_size"] <= 0
+    ):
+        raise ValueError(
+            "inference_batch_size must be positive, "
+            f"got {values['inference_batch_size']}"
+        )
+    if values["accum_steps"] <= 0:
+        raise ValueError(
+            f"accum_steps must be positive, got {values['accum_steps']}"
+        )
+    if values["checkpoint_save_top_k"] < 0:
+        raise ValueError(
+            "checkpoint_save_top_k must be non-negative, "
+            f"got {values['checkpoint_save_top_k']}"
+        )
+    if values["early_stop_patience"] <= 0:
+        raise ValueError(
+            "early_stop_patience must be positive, "
+            f"got {values['early_stop_patience']}"
+        )
+    valid_checkpoint_modes = {"min", "max"}
+    if values["checkpoint_mode"] not in valid_checkpoint_modes:
+        raise ValueError(
+            f"Invalid checkpoint_mode: '{values['checkpoint_mode']}'. "
+            f"Expected one of {sorted(valid_checkpoint_modes)}."
+        )
+
+    if values["spectral_bottleneck_blocks"] <= 0:
+        raise ValueError(
+            "spectral_bottleneck_blocks must be positive, "
+            f"got {values['spectral_bottleneck_blocks']}."
+        )
+    if values["spectral_bottleneck_modes"] <= 0:
+        raise ValueError(
+            "spectral_bottleneck_modes must be positive, "
+            f"got {values['spectral_bottleneck_modes']}."
+        )
+    if not math.isfinite(float(values["spectral_bottleneck_gate_init"])):
+        raise ValueError(
+            "spectral_bottleneck_gate_init must be finite, "
+            f"got {values['spectral_bottleneck_gate_init']}."
+        )
+    valid_gate_modes = {"shared", "per_block"}
+    if values["spectral_bottleneck_gate_mode"] not in valid_gate_modes:
+        raise ValueError(
+            "Invalid spectral_bottleneck_gate_mode "
+            f"'{values['spectral_bottleneck_gate_mode']}'. "
+            f"Expected one of {sorted(valid_gate_modes)}."
+        )
+
+    if values["ffno_encoder_blocks"] <= 0:
+        raise ValueError(
+            "ffno_encoder_blocks must be positive, "
+            f"got {values['ffno_encoder_blocks']}."
+        )
+    if values["ffno_encoder_modes"] <= 0:
+        raise ValueError(
+            "ffno_encoder_modes must be positive, "
+            f"got {values['ffno_encoder_modes']}."
+        )
+    if (
+        not math.isfinite(float(values["ffno_encoder_gate_init"]))
+        or float(values["ffno_encoder_gate_init"]) <= 0.0
+    ):
+        raise ValueError(
+            "ffno_encoder_gate_init must be finite and > 0, "
+            f"got {values['ffno_encoder_gate_init']}."
+        )
+    if (
+        not math.isfinite(float(values["ffno_encoder_mlp_ratio"]))
+        or float(values["ffno_encoder_mlp_ratio"]) <= 0.0
+    ):
+        raise ValueError(
+            "ffno_encoder_mlp_ratio must be finite and > 0, "
+            f"got {values['ffno_encoder_mlp_ratio']}."
+        )
 
 
 @dataclass
@@ -817,37 +963,7 @@ class PyTorchExecutionConfig:
             - Field defaults are safe; validation catches programmatic misuse
             - Auto-resolution modifies the accelerator field in-place via object.__setattr__
         """
-        if (
-            isinstance(self.devices, bool)
-            or not (
-                (isinstance(self.devices, int) and self.devices > 0)
-                or self.devices == "auto"
-            )
-        ):
-            raise ValueError(
-                f"devices must be a positive integer or 'auto', got {self.devices!r}"
-            )
-
-        valid_precisions = {"32-true", "16-mixed", "bf16-mixed"}
-        if not isinstance(self.precision, str) or self.precision not in valid_precisions:
-            raise ValueError(
-                f"Invalid precision: {self.precision!r}. "
-                f"Expected one of {sorted(valid_precisions)}."
-            )
-
-        if self.accelerator == 'tpu':
-            raise ValueError(
-                "Torch-XLA TPU execution is unsupported by this PyTorch runtime. "
-                "Use accelerator='cpu', 'gpu'/'cuda', or 'mps'."
-            )
-
-        # Accelerator whitelist supported by this runtime.
-        valid_accelerators = {'auto', 'cpu', 'gpu', 'cuda', 'mps'}
-        if self.accelerator not in valid_accelerators:
-            raise ValueError(
-                f"Invalid accelerator: '{self.accelerator}'. "
-                f"Expected one of {sorted(valid_accelerators)}."
-            )
+        _validate_execution_pre_environment_values(self.__dict__)
 
         # Auto-resolution: 'auto' → 'cuda' if available, else 'cpu' with POLICY-001 warning
         if self.accelerator == 'auto':
@@ -874,94 +990,7 @@ class PyTorchExecutionConfig:
                     stacklevel=3
                 )
 
-        # Non-negative workers
-        if self.num_workers < 0:
-            raise ValueError(
-                f"num_workers must be non-negative, got {self.num_workers}"
-            )
-
-        # Positive learning rate
-        if self.learning_rate <= 0:
-            raise ValueError(
-                f"learning_rate must be positive, got {self.learning_rate}"
-            )
-
-        # Positive inference batch size (if provided)
-        if self.inference_batch_size is not None and self.inference_batch_size <= 0:
-            raise ValueError(
-                f"inference_batch_size must be positive, got {self.inference_batch_size}"
-            )
-
-        # Positive accumulation steps
-        if self.accum_steps <= 0:
-            raise ValueError(
-                f"accum_steps must be positive, got {self.accum_steps}"
-            )
-
-        # Non-negative checkpoint save count
-        if self.checkpoint_save_top_k < 0:
-            raise ValueError(
-                f"checkpoint_save_top_k must be non-negative, got {self.checkpoint_save_top_k}"
-            )
-
-        # Positive early stopping patience
-        if self.early_stop_patience <= 0:
-            raise ValueError(
-                f"early_stop_patience must be positive, got {self.early_stop_patience}"
-            )
-
-        # Checkpoint mode whitelist
-        valid_checkpoint_modes = {'min', 'max'}
-        if self.checkpoint_mode not in valid_checkpoint_modes:
-            raise ValueError(
-                f"Invalid checkpoint_mode: '{self.checkpoint_mode}'. "
-                f"Expected one of {sorted(valid_checkpoint_modes)}."
-            )
-
-        if self.spectral_bottleneck_blocks <= 0:
-            raise ValueError(
-                f"spectral_bottleneck_blocks must be positive, got {self.spectral_bottleneck_blocks}."
-            )
-        if self.spectral_bottleneck_modes <= 0:
-            raise ValueError(
-                f"spectral_bottleneck_modes must be positive, got {self.spectral_bottleneck_modes}."
-            )
-        if not math.isfinite(float(self.spectral_bottleneck_gate_init)):
-            raise ValueError(
-                "spectral_bottleneck_gate_init must be finite, "
-                f"got {self.spectral_bottleneck_gate_init}."
-            )
-        valid_gate_modes = {'shared', 'per_block'}
-        if self.spectral_bottleneck_gate_mode not in valid_gate_modes:
-            raise ValueError(
-                f"Invalid spectral_bottleneck_gate_mode '{self.spectral_bottleneck_gate_mode}'. "
-                f"Expected one of {sorted(valid_gate_modes)}."
-            )
-
-        if self.ffno_encoder_blocks <= 0:
-            raise ValueError(
-                f"ffno_encoder_blocks must be positive, got {self.ffno_encoder_blocks}."
-            )
-        if self.ffno_encoder_modes <= 0:
-            raise ValueError(
-                f"ffno_encoder_modes must be positive, got {self.ffno_encoder_modes}."
-            )
-        if (
-            not math.isfinite(float(self.ffno_encoder_gate_init))
-            or float(self.ffno_encoder_gate_init) <= 0.0
-        ):
-            raise ValueError(
-                "ffno_encoder_gate_init must be finite and > 0, "
-                f"got {self.ffno_encoder_gate_init}."
-            )
-        if (
-            not math.isfinite(float(self.ffno_encoder_mlp_ratio))
-            or float(self.ffno_encoder_mlp_ratio) <= 0.0
-        ):
-            raise ValueError(
-                "ffno_encoder_mlp_ratio must be finite and > 0, "
-                f"got {self.ffno_encoder_mlp_ratio}."
-            )
+        _validate_execution_post_environment_values(self.__dict__)
 
 
 _execution_init_signature = inspect.signature(PyTorchExecutionConfig.__init__)

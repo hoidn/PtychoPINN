@@ -23,7 +23,9 @@ Artifacts (Phase D2.A):
 """
 
 import pytest
+from contextlib import nullcontext
 from pathlib import Path
+from types import SimpleNamespace
 import numpy as np
 
 try:
@@ -274,7 +276,15 @@ class TestWorkflowsComponentsTraining:
 
         captured = {}
 
-        def fake_create_training_payload(*, train_data_file, output_dir, execution_config=None, overrides=None):
+        def fake_create_training_payload(
+            *,
+            train_data_file,
+            output_dir,
+            execution_config=None,
+            overrides=None,
+            training_baseline=None,
+        ):
+            del training_baseline
             captured["overrides"] = overrides or {}
             raise RuntimeError("stop after overrides capture")
 
@@ -315,6 +325,403 @@ class TestWorkflowsComponentsTraining:
             )
 
         assert captured["overrides"].get("fno_input_transform") == "log1p"
+
+    def test_execution_ownership_threads_training_baseline_without_promotion(
+        self,
+        monkeypatch,
+        params_cfg_snapshot,
+    ):
+        from ptycho.config.config import (
+            ModelConfig,
+            PyTorchExecutionConfig,
+            TrainingConfig,
+        )
+        from ptycho_torch.workflows import components as torch_components
+
+        captured = {}
+
+        def fake_create_training_payload(
+            *,
+            train_data_file,
+            output_dir,
+            execution_config=None,
+            overrides=None,
+            training_baseline=None,
+        ):
+            captured["overrides"] = overrides or {}
+            captured["training_baseline"] = training_baseline
+            raise RuntimeError("stop after ownership capture")
+
+        monkeypatch.setattr(
+            "ptycho_torch.config_factory.create_training_payload",
+            fake_create_training_payload,
+        )
+        config = TrainingConfig(
+            model=ModelConfig(N=64, gridsize=1),
+            train_data_file=Path("/tmp/dummy_train.npz"),
+            n_groups=4,
+            scheduler="WarmupCosine",
+            gradient_clip_val=6.0,
+        )
+        execution = PyTorchExecutionConfig(
+            accelerator="cpu",
+            learning_rate=7e-4,
+            gradient_clip_val=2.0,
+        )
+        train_container = {
+            "X": np.ones((1, 64, 64, 1), dtype=np.float32),
+            "coords_relative": np.zeros((1, 1, 2, 1), dtype=np.float32),
+        }
+
+        with pytest.raises(RuntimeError, match="ownership capture"):
+            torch_components._train_with_lightning(
+                train_container=train_container,
+                test_container=None,
+                config=config,
+                execution_config=execution,
+            )
+
+        assert captured["training_baseline"] is config
+        assert "learning_rate" not in captured["overrides"]
+        assert "gradient_clip_val" not in captured["overrides"]
+        assert "scheduler" not in captured["overrides"]
+
+    @pytest.mark.parametrize(
+        (
+            "automatic_optimization",
+            "clip_algorithm",
+            "expected_accumulation",
+            "expected_clip_value",
+            "expected_clip_algorithm",
+            "expected_error",
+        ),
+        [
+            (False, "agc", 1, None, None, None),
+            (True, "norm", 4, 0.75, "norm", None),
+            (
+                True,
+                "agc",
+                None,
+                None,
+                None,
+                "agc.*manual optimization",
+            ),
+        ],
+    )
+    def test_train_with_lightning_singular_owner_uses_resolved_payload(
+        self,
+        monkeypatch,
+        params_cfg_snapshot,
+        tmp_path,
+        automatic_optimization,
+        clip_algorithm,
+        expected_accumulation,
+        expected_clip_value,
+        expected_clip_algorithm,
+        expected_error,
+    ):
+        from ptycho.config.config import (
+            ModelConfig as PublicModelConfig,
+            PyTorchExecutionConfig,
+            TrainingConfig as PublicTrainingConfig,
+        )
+        from ptycho_torch.config_params import (
+            DataConfig,
+            InferenceConfig,
+            ModelConfig,
+            TrainingConfig,
+        )
+        from ptycho_torch.workflows import components as torch_components
+
+        resolved_training = TrainingConfig(
+            learning_rate=7e-4,
+            scheduler="WarmupCosine",
+            lr_warmup_epochs=3,
+            lr_min_ratio=0.2,
+            accum_steps=4,
+            gradient_clip_val=0.75,
+            gradient_clip_algorithm=clip_algorithm,
+        )
+        resolved_execution = PyTorchExecutionConfig(
+            accelerator="cpu",
+            devices=2,
+            strategy="auto",
+            precision="bf16-mixed",
+            accum_steps=1,
+            gradient_clip_val=9.0,
+            gradient_clip_algorithm="value",
+            enable_checkpointing=False,
+            logger_backend=None,
+        )
+        payload = SimpleNamespace(
+            pt_data_config=DataConfig(N=64, C=1, grid_size=(1, 1)),
+            pt_model_config=ModelConfig(
+                C_forward=1,
+                C_model=1,
+                rect_s1s2_init="ones",
+            ),
+            pt_training_config=resolved_training,
+            pt_inference_config=InferenceConfig(),
+            model_spec=object(),
+            execution_config=resolved_execution,
+        )
+        config = PublicTrainingConfig(
+            model=PublicModelConfig(N=64, gridsize=1),
+            train_data_file=tmp_path / "unused.npz",
+            output_dir=tmp_path / "out",
+            n_groups=1,
+            nepochs=1,
+        )
+        captured = {}
+
+        class FakeModel:
+            val_loss_name = "val_loss"
+
+            def __init__(self, training_config):
+                self.training_config = training_config
+                self.automatic_optimization = automatic_optimization
+
+            def save_hyperparameters(self):
+                pass
+
+        class FakeTrainer:
+            def __init__(self, **kwargs):
+                captured["trainer_kwargs"] = kwargs
+
+            def fit(self, *_args, **_kwargs):
+                pass
+
+        def fake_application_factory(
+            _model_spec,
+            _data_config,
+            training_config,
+            _inference_config,
+        ):
+            captured["model"] = FakeModel(training_config)
+            return captured["model"]
+
+        monkeypatch.setattr(
+            "ptycho_torch.config_factory.create_training_payload",
+            lambda **_kwargs: pytest.fail(
+                "resolved payload must prevent a second factory resolution"
+            ),
+        )
+        monkeypatch.setattr(
+            "ptycho_torch.application_factory.build_ptychopinn_application",
+            fake_application_factory,
+        )
+        monkeypatch.setattr(
+            torch_components,
+            "_build_lightning_dataloaders",
+            lambda *_args, **_kwargs: (object(), None),
+        )
+        monkeypatch.setattr(
+            "lightning.pytorch.Trainer",
+            FakeTrainer,
+        )
+        monkeypatch.setattr(
+            torch_components,
+            "validate_scale_contract",
+            lambda *_args: None,
+        )
+
+        expectation = (
+            pytest.raises(ValueError, match=expected_error)
+            if expected_error
+            else nullcontext()
+        )
+        with expectation:
+            torch_components._train_with_lightning(
+                train_container={},
+                test_container=None,
+                config=config,
+                execution_config=PyTorchExecutionConfig(
+                    accelerator="cpu",
+                    learning_rate=0.2,
+                    accum_steps=8,
+                    gradient_clip_val=5.0,
+                    gradient_clip_algorithm="norm",
+                ),
+                resolved_payload=payload,
+            )
+
+        assert captured["model"].training_config is resolved_training
+        assert captured["model"].training_config.accum_steps == 4
+        assert captured["model"].training_config.gradient_clip_val == 0.75
+        if expected_error:
+            assert "trainer_kwargs" not in captured
+            return
+        assert (
+            captured["trainer_kwargs"]["accumulate_grad_batches"]
+            == expected_accumulation
+        )
+        assert (
+            captured["trainer_kwargs"]["gradient_clip_val"]
+            == expected_clip_value
+        )
+        assert captured["trainer_kwargs"].get("gradient_clip_algorithm") == (
+            expected_clip_algorithm
+        )
+        assert captured["trainer_kwargs"]["devices"] == 2
+        assert captured["trainer_kwargs"]["strategy"] == "auto"
+        assert captured["trainer_kwargs"]["precision"] == "bf16-mixed"
+
+    def test_resolved_payload_threads_through_training_delegation(
+        self,
+        monkeypatch,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_raw_data,
+    ):
+        from ptycho_torch.workflows import components as torch_components
+
+        resolved_payload = object()
+        captured = {}
+
+        monkeypatch.setattr(
+            torch_components,
+            "_ensure_container",
+            lambda data, _config: data,
+        )
+
+        def fake_train_with_lightning(*_args, **kwargs):
+            captured["resolved_payload"] = kwargs.get("resolved_payload")
+            return {
+                "history": {},
+                "models": {},
+                "train_container": dummy_raw_data,
+                "test_container": None,
+            }
+
+        monkeypatch.setattr(
+            torch_components,
+            "_train_with_lightning",
+            fake_train_with_lightning,
+        )
+
+        torch_components.run_cdi_example_torch(
+            train_data=dummy_raw_data,
+            test_data=None,
+            config=minimal_training_config,
+            resolved_payload=resolved_payload,
+        )
+
+        assert captured["resolved_payload"] is resolved_payload
+
+    def test_in_memory_dataloaders_use_resolved_execution_workers(
+        self,
+        monkeypatch,
+        minimal_training_config,
+    ):
+        from ptycho.config.config import PyTorchExecutionConfig
+        from ptycho_torch.config_params import (
+            DataConfig,
+            ModelConfig,
+            TrainingConfig,
+        )
+        from ptycho_torch.workflows import components as torch_components
+
+        captured = []
+
+        class FakeDataLoader:
+            def __init__(self, dataset, **kwargs):
+                captured.append((dataset, kwargs))
+
+        monkeypatch.setattr("torch.utils.data.DataLoader", FakeDataLoader)
+        monkeypatch.setattr(
+            torch_components,
+            "validate_scale_contract",
+            lambda *_args: None,
+        )
+        execution_config = PyTorchExecutionConfig(
+            accelerator="cpu",
+            num_workers=3,
+            pin_memory=False,
+            persistent_workers=True,
+            prefetch_factor=7,
+        )
+        payload = SimpleNamespace(
+            pt_data_config=DataConfig(N=64, C=1, grid_size=(1, 1)),
+            pt_model_config=ModelConfig(C_forward=1, C_model=1),
+            pt_training_config=TrainingConfig(batch_size=5),
+            execution_config=execution_config,
+        )
+        container = {
+            "X": np.ones((2, 64, 64, 1), dtype=np.float32),
+            "coords_relative": np.zeros((2, 1, 2, 1), dtype=np.float32),
+        }
+
+        torch_components._build_lightning_dataloaders(
+            container,
+            None,
+            minimal_training_config,
+            payload=payload,
+        )
+
+        assert captured[0][1]["batch_size"] == 5
+        assert captured[0][1]["num_workers"] == 3
+        assert captured[0][1]["pin_memory"] is False
+        assert captured[0][1]["persistent_workers"] is True
+        assert captured[0][1]["prefetch_factor"] == 7
+
+    @pytest.mark.parametrize(
+        ("strategy", "expected_num_workers"),
+        [("ddp", 3), ("ddp_spawn", 0)],
+    )
+    def test_ptycho_dataset_ddp_routing_uses_resolved_execution_config(
+        self,
+        monkeypatch,
+        strategy,
+        expected_num_workers,
+    ):
+        from ptycho.config.config import PyTorchExecutionConfig
+        from ptycho_torch.config_params import (
+            DataConfig,
+            ModelConfig,
+            TrainingConfig,
+        )
+        from ptycho_torch.workflows import components as torch_components
+        from ptycho_torch import train_utils
+        execution_config = PyTorchExecutionConfig(
+            accelerator="cpu",
+            devices=2,
+            strategy=strategy,
+            num_workers=3,
+            pin_memory=False,
+            persistent_workers=True,
+            prefetch_factor=7,
+        )
+        payload = SimpleNamespace(
+            pt_data_config=DataConfig(N=64, C=1, grid_size=(1, 1)),
+            pt_model_config=ModelConfig(C_forward=1, C_model=1),
+            pt_training_config=TrainingConfig(
+                strategy="auto",
+                num_workers=99,
+            ),
+            execution_config=execution_config,
+        )
+
+        result = torch_components._build_dataloaders_from_ptycho_dataset(
+            train_ptycho_dataset=SimpleNamespace(data_dir_path=Path("/unused")),
+            payload=payload,
+        )
+
+        assert isinstance(result, train_utils.PrebuiltPtychoDataModule)
+        assert result.training_config.strategy == strategy
+        assert result.training_config.num_workers == 3
+        assert result.execution_config is execution_config
+        worker_kwargs = result._resolve_worker_kwargs()
+        assert worker_kwargs["num_workers"] == expected_num_workers
+        assert worker_kwargs["persistent_workers"] is (
+            expected_num_workers > 0
+        )
+        assert ("prefetch_factor" in worker_kwargs) is (
+            expected_num_workers > 0
+        )
+        if strategy == "ddp_spawn":
+            import pickle
+
+            pickle.dumps(result)
 
     def test_train_with_lightning_builds_supervised_model_config(
         self,
@@ -3457,35 +3864,19 @@ class TestLightningExecutionConfig:
         return config
 
     def test_trainer_receives_accumulation(self, minimal_training_config_with_val, monkeypatch):
-        """
-        RED Test: Verify Lightning Trainer receives accumulate_grad_batches from execution config.
-
-        Expected RED Failure:
-        - Trainer not receiving accum_steps from execution config
-        OR
-        - accumulate_grad_batches not passed to Trainer kwargs
-
-        Resolution (GREEN):
-        - _train_with_lightning should pass execution_config.accum_steps to Trainer(accumulate_grad_batches=...)
-        """
+        """Manual accumulation stays in the model and is disabled in Trainer."""
         from ptycho.config.config import PyTorchExecutionConfig
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import patch
 
-        try:
-            import lightning.pytorch as L
-        except ImportError:
-            pytest.skip("Lightning not available")
-
-        # Create execution config with custom accumulation
         exec_config = PyTorchExecutionConfig(
-            accum_steps=4,  # Override default (1)
+            accum_steps=4,
             accelerator='cpu',
             deterministic=True,
             num_workers=0,
-            enable_checkpointing=False,  # Disable callbacks for simpler mocking
+            enable_checkpointing=False,
+            logger_backend=None,
         )
 
-        # Mock data containers with minimal required fields (object_big default is True)
         c = minimal_training_config_with_val.model.gridsize ** 2
         mock_train_container = {
             "X": np.zeros((2, 64, 64, c), dtype=np.float32),
@@ -3498,14 +3889,29 @@ class TestLightningExecutionConfig:
 
         from ptycho_torch.workflows.components import _train_with_lightning
 
-        # EXEC-ACCUM-001: manual optimization is incompatible with accumulation > 1
-        with pytest.raises(RuntimeError, match="accumulate_grad_batches"):
-            _train_with_lightning(
+        captured = {}
+
+        class MockTrainer:
+            def __init__(self, **kwargs):
+                captured["kwargs"] = kwargs
+
+            def fit(self, *_args, **_kwargs):
+                pass
+
+        with patch("lightning.pytorch.Trainer", MockTrainer):
+            results = _train_with_lightning(
                 train_container=mock_train_container,
                 test_container=mock_test_container,
                 config=minimal_training_config_with_val,
                 execution_config=exec_config,
             )
+
+        model = results["models"]["diffraction_to_obj"]
+        assert model.automatic_optimization is False
+        assert model.training_config.accum_steps == 4
+        assert model.accum_steps == 4
+        assert captured["kwargs"]["accumulate_grad_batches"] == 1
+        assert captured["kwargs"]["gradient_clip_val"] is None
 
     def test_monitor_uses_val_loss_name(self, minimal_training_config_with_val, monkeypatch):
         """

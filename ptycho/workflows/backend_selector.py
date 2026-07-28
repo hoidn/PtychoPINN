@@ -96,7 +96,8 @@ def run_cdi_example_with_backend(
     transpose: bool = False,
     M: int = 20,
     do_stitching: bool = False,
-    torch_execution_config: Optional[Any] = None
+    torch_execution_config: Optional[Any] = None,
+    torch_factory_overrides: Optional[Dict[str, Any]] = None,
 ) -> Tuple[Optional[Any], Optional[Any], Dict[str, Any]]:
     """
     Run the complete CDI workflow with automatic backend selection.
@@ -117,6 +118,8 @@ def run_cdi_example_with_backend(
         do_stitching: Whether to perform image stitching after training
         torch_execution_config: Optional PyTorchExecutionConfig for PyTorch backend only
                                (ignored for TensorFlow). See CONFIG-002, CONFIG-LOGGER-001.
+        torch_factory_overrides: Explicit canonical Torch factory overrides.
+                                Ignored for TensorFlow.
 
     Returns:
         Tuple containing:
@@ -173,19 +176,11 @@ def run_cdi_example_with_backend(
                 f"Original error: {e}"
             ) from e
 
-        # Auto-instantiate execution_config if None (GPU-first defaults per POLICY-001)
-        if torch_execution_config is None:
-            from ptycho.config.config import PyTorchExecutionConfig
-            torch_execution_config = PyTorchExecutionConfig()  # Triggers auto-resolution to cuda/cpu
-            logger.info(
-                f"Backend dispatcher: auto-instantiated PyTorchExecutionConfig with "
-                f"accelerator='{torch_execution_config.accelerator}' (POLICY-001 GPU-first defaults)"
-            )
-
         # Delegate to PyTorch run_cdi_example_torch
         recon_amp, recon_phase, results = torch_components.run_cdi_example_torch(
             train_data, test_data, config, flip_x, flip_y, transpose, M, do_stitching,
-            execution_config=torch_execution_config
+            execution_config=torch_execution_config,
+            overrides=torch_factory_overrides,
         )
 
     # Inject backend metadata into results for traceability

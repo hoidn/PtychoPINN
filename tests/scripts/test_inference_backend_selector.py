@@ -488,6 +488,9 @@ class TestInferenceCliBackendDispatch:
     ):
         import numpy as np
         from ptycho import params
+        from ptycho_torch.cli.shared import (
+            build_execution_request_from_args as real_request_builder,
+        )
         from scripts.inference import inference
 
         config_path = tmp_path / 'inference.yaml'
@@ -512,7 +515,11 @@ class TestInferenceCliBackendDispatch:
             num_workers=0,
             inference_batch_size=None,
         )
-        build_execution_config = MagicMock(return_value=execution_config)
+        runtime = MagicMock(config=execution_config)
+        runtime.audit_dict.return_value = {
+            'requested': {'accelerator': 'auto'},
+            'resolved': {'accelerator': 'cpu'},
+        }
         monkeypatch.setattr(params, 'cfg', {'gridsize': 1})
         monkeypatch.setattr(
             sys,
@@ -529,8 +536,11 @@ class TestInferenceCliBackendDispatch:
             'load_data',
             return_value=raw_data,
         ), patch(
-            'ptycho_torch.cli.shared.build_execution_config_from_args',
-            build_execution_config,
+            'ptycho_torch.execution_request.resolve_runtime_execution_request',
+            return_value=runtime,
+        ) as resolver, patch(
+            'ptycho_torch.cli.shared.build_execution_request_from_args',
+            wraps=real_request_builder,
         ), patch(
             'ptycho_torch.inference._run_inference_and_reconstruct',
             return_value=(np.ones((2, 2)), np.zeros((2, 2))),
@@ -541,8 +551,269 @@ class TestInferenceCliBackendDispatch:
             inference.main()
 
         assert exit_info.value.code == 0
-        execution_args = build_execution_config.call_args.args[0]
-        assert execution_args.quiet is False
+        request = resolver.call_args.args[0]
+        assert request.values['enable_progress_bar'] is True
+        assert 'enable_progress_bar' not in request.explicit_fields
+
+    def test_unified_inference_execution_request_explicit_resolution_once(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        """Resolve one request after bundle validation and use its config only."""
+        import argparse
+        import numpy as np
+
+        from ptycho import params
+        from ptycho.config import InferenceConfig, ModelConfig
+        from ptycho_torch.cli.shared import (
+            build_execution_request_from_args as real_request_builder,
+        )
+        from ptycho_torch.execution_request import ExecutionRequest
+        from scripts.inference import inference
+
+        model_path = tmp_path / 'model'
+        model_path.mkdir()
+        test_path = tmp_path / 'test.npz'
+        test_path.touch()
+        output_path = tmp_path / 'output'
+        config = InferenceConfig(
+            model=ModelConfig(N=64, gridsize=1),
+            model_path=model_path,
+            test_data_file=test_path,
+            output_dir=output_path,
+            backend='pytorch',
+            n_groups=1,
+        )
+        args = argparse.Namespace(
+            config=None,
+            debug_dump=None,
+            torch_accelerator='cpu',
+            torch_num_workers=2,
+            torch_inference_batch_size=8,
+            comparison_plot=False,
+            phase_vmin=None,
+            phase_vmax=None,
+        )
+        raw_argv = (
+            '--torch-accelerator=cpu',
+            '--torch-num-workers', '2',
+            '--torch-inference-batch-size=8',
+        )
+        monkeypatch.setattr(sys, 'argv', ['inference.py', *raw_argv])
+        monkeypatch.setattr(inference, 'parse_arguments', lambda: args)
+        monkeypatch.setattr(
+            inference,
+            'setup_inference_configuration',
+            lambda *_args: config,
+        )
+        monkeypatch.setattr(params, 'cfg', {'gridsize': 1})
+
+        events = []
+        model = MagicMock()
+        model.to.side_effect = lambda *_args: events.append('model.to')
+        raw_data = MagicMock()
+        raw_data.xcoords = np.arange(4)
+        resolved_config = MagicMock(
+            accelerator='cpu',
+            num_workers=2,
+            inference_batch_size=8,
+        )
+        runtime = MagicMock(config=resolved_config)
+        runtime.audit_dict.return_value = {
+            'requested': {'accelerator': 'cpu'},
+            'resolved': {'accelerator': 'cpu'},
+        }
+
+        def load_bundle(*_args):
+            events.append('bundle')
+            return model, {}
+
+        def resolve(request, *, mode):
+            events.append('resolve')
+            assert isinstance(request, ExecutionRequest)
+            assert mode == 'inference'
+            return runtime
+
+        with patch.object(
+            inference,
+            'load_inference_bundle_with_backend',
+            side_effect=load_bundle,
+        ), patch.object(
+            inference,
+            'load_data',
+            return_value=raw_data,
+        ), patch(
+            'ptycho_torch.cli.shared.build_execution_request_from_args',
+            wraps=real_request_builder,
+        ) as request_builder, patch(
+            'ptycho_torch.execution_request.resolve_runtime_execution_request',
+            side_effect=resolve,
+        ) as resolver, patch(
+            'ptycho_torch.inference._run_inference_and_reconstruct',
+            return_value=(np.ones((2, 2)), np.zeros((2, 2))),
+        ) as infer, patch.object(
+            inference,
+            'save_reconstruction_images',
+        ), pytest.raises(SystemExit) as exit_info:
+            inference.main()
+
+        assert exit_info.value.code == 0
+        request_builder.assert_called_once()
+        assert request_builder.call_args.kwargs == {
+            'mode': 'inference',
+            'explicit_options': raw_argv,
+            'lane': 'unified-inference',
+        }
+        request = resolver.call_args.args[0]
+        assert request.explicit_fields == frozenset(
+            {'accelerator', 'num_workers', 'inference_batch_size'}
+        )
+        resolver.assert_called_once()
+        runtime.audit_dict.assert_called_once_with()
+        assert events == ['bundle', 'resolve', 'model.to']
+        model.to.assert_called_once_with('cpu')
+        assert infer.call_args.args[3] is resolved_config
+
+    def test_unified_inference_execution_notices_emit_once_after_resolution(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        """Emit resolved notices only after the bundle and runtime validate."""
+        import argparse
+        import numpy as np
+
+        from ptycho import params
+        from ptycho.config import InferenceConfig, ModelConfig
+        from ptycho_torch.execution_request import ResolutionNotice
+        from scripts.inference import inference
+
+        model_path = tmp_path / 'model'
+        model_path.mkdir()
+        test_path = tmp_path / 'test.npz'
+        test_path.touch()
+        config = InferenceConfig(
+            model=ModelConfig(N=64, gridsize=1),
+            model_path=model_path,
+            test_data_file=test_path,
+            output_dir=tmp_path / 'output',
+            backend='pytorch',
+            n_groups=1,
+        )
+        args = argparse.Namespace(
+            config=None,
+            debug_dump=None,
+            torch_accelerator='cpu',
+            torch_num_workers=0,
+            torch_inference_batch_size=1,
+            comparison_plot=False,
+            phase_vmin=None,
+            phase_vmax=None,
+        )
+        monkeypatch.setattr(
+            sys,
+            'argv',
+            ['inference.py', '--torch-accelerator', 'cpu'],
+        )
+        monkeypatch.setattr(inference, 'parse_arguments', lambda: args)
+        monkeypatch.setattr(
+            inference,
+            'setup_inference_configuration',
+            lambda *_args: config,
+        )
+        monkeypatch.setattr(params, 'cfg', {'gridsize': 1})
+
+        first_notice = ResolutionNotice(
+            DeprecationWarning,
+            'first resolved execution notice',
+        )
+        second_notice = ResolutionNotice(
+            UserWarning,
+            'second resolved execution notice',
+        )
+        resolved_config = MagicMock(
+            accelerator='cpu',
+            num_workers=0,
+            inference_batch_size=1,
+        )
+        runtime = MagicMock(
+            config=resolved_config,
+            notices=(first_notice, second_notice),
+        )
+        runtime.audit_dict.return_value = {
+            'requested': {'accelerator': 'cpu'},
+            'resolved': {'accelerator': 'cpu'},
+        }
+        model = MagicMock()
+        raw_data = MagicMock()
+        raw_data.xcoords = np.arange(1)
+        events = []
+
+        def load_bundle(*_args):
+            events.append('bundle validated')
+            return model, {}
+
+        def resolve(*_args, **_kwargs):
+            events.append('runtime resolved')
+            return runtime
+
+        def emit_warning(message, category=None, **_kwargs):
+            events.append(('notice', message, category))
+
+        model.to.side_effect = lambda *_args: events.append('model.to')
+
+        with patch.object(
+            inference,
+            'load_inference_bundle_with_backend',
+            side_effect=load_bundle,
+        ), patch.object(
+            inference,
+            'load_data',
+            return_value=raw_data,
+        ), patch(
+            'ptycho_torch.execution_request.resolve_runtime_execution_request',
+            side_effect=resolve,
+        ), patch(
+            'warnings.warn',
+            side_effect=emit_warning,
+        ) as warn, patch(
+            'ptycho_torch.inference._run_inference_and_reconstruct',
+            return_value=(np.ones((2, 2)), np.zeros((2, 2))),
+        ), patch.object(
+            inference,
+            'save_reconstruction_images',
+        ), pytest.raises(SystemExit) as exit_info:
+            inference.main()
+
+        assert exit_info.value.code == 0
+        assert events == [
+            'bundle validated',
+            'runtime resolved',
+            (
+                'notice',
+                first_notice.message,
+                first_notice.category,
+            ),
+            (
+                'notice',
+                second_notice.message,
+                second_notice.category,
+            ),
+            'model.to',
+        ]
+        assert warn.call_args_list == [
+            call(
+                first_notice.message,
+                first_notice.category,
+                stacklevel=2,
+            ),
+            call(
+                second_notice.message,
+                second_notice.category,
+                stacklevel=2,
+            ),
+        ]
 
     def test_inference_sampling_reads_canonical_n_groups(self):
         from ptycho.config import InferenceConfig, ModelConfig
