@@ -436,6 +436,37 @@ field lists.
 `detector` sections. Load TOML, YAML, or JSON with
 `load_simulation_config()`; unknown keys are errors.
 
+#### Validation boundary
+
+The five simulation records remain standard frozen stdlib dataclasses: the
+root recipe plus its four nested sections. Direct construction and
+`dataclasses.replace()` retain normal dataclass behavior and do not validate.
+Programmatic callers must call `validate_simulation_config()` before using,
+serializing, hashing, or projecting a recipe. Raw mappings parsed from TOML,
+YAML, or JSON go through `simulation_config_from_mapping()`;
+`load_simulation_config()` applies that mapping boundary for files.
+
+One cached Pydantic `TypeAdapter` performs structural and type validation at
+those two boundaries only. It checks nested field shapes, strict scalar types,
+unknown keys, and exact `Literal` membership. Pydantic is neither the domain
+model nor the serializer: the stored records remain stdlib dataclasses, and
+the existing explicit simulation serializers and canonical identity functions
+remain authoritative.
+
+Input is strict rather than relying on coercion. Booleans are not accepted as
+integers, numeric strings are not converted to numbers, closed strings require
+their exact `Literal` spellings, and boolean fields require exact `bool`
+values. At the raw-mapping boundary, the documented structural normalizations
+are a path string to `pathlib.Path` and a two-element list pair to a tuple.
+Accepted numeric values retain their exact built-in kind, so
+integer-versus-float diameter values remain distinct in canonical simulation
+identity.
+
+Semantic and cross-field rules remain explicit domain validation after the
+TypeAdapter check. These include probe source/path coherence, probe-pipeline
+grammar and terminal-operation constraints, agreement between the pipeline
+output size and `SimulationConfig.N`, and square object and scan dimensions.
+
 Supported probe pipeline operations are ordered and composable:
 
 | Operation | Meaning |

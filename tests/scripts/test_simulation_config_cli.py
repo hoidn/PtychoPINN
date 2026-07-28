@@ -8,7 +8,11 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from ptycho.config import load_simulation_config
+from ptycho.config import (
+    load_simulation_config,
+    simulation_config_from_mapping,
+    simulation_config_to_dict,
+)
 from ptycho.config import (
     DetectorSimulationConfig,
     ProbeSimulationConfig,
@@ -17,6 +21,113 @@ from ptycho.config import (
     SyntheticObjectConfig,
 )
 from ptycho.config.config import ModelConfig, TrainingConfig
+
+
+_FORMAT_RECIPE = {
+    "N": 128,
+    "seed": 7,
+    "probe": {
+        "source": "custom",
+        "source_path": "probe.npz",
+        "transform_pipeline": "smooth:0.5|pad_preserve:128",
+        "mask_diameter": 100.0,
+    },
+    "object": {
+        "kind": "dead_leaves",
+        "image_size": [392, 392],
+        "objects_per_probe": 5,
+        "diffractions_per_object": 64,
+        "set_phi": True,
+    },
+    "scan": {
+        "kind": "grid",
+        "grid_size": [2, 2],
+        "offset": 4,
+        "outer_offset_train": 8,
+        "outer_offset_test": 20,
+        "train_groups": 9,
+        "test_groups": 3,
+        "buffer": 1,
+    },
+    "detector": {
+        "photons_per_pattern": 1e8,
+        "beamstop_diameter": 4.0,
+    },
+}
+
+_FORMAT_DOCUMENTS = {
+    ".json": (
+        '{"simulation":{"N":128,"seed":7,"probe":{"source":"custom",'
+        '"source_path":"probe.npz","transform_pipeline":'
+        '"smooth:0.5|pad_preserve:128","mask_diameter":100.0},"object":'
+        '{"kind":"dead_leaves","image_size":[392,392],"objects_per_probe":5,'
+        '"diffractions_per_object":64,"set_phi":true},"scan":{"kind":"grid",'
+        '"grid_size":[2,2],"offset":4,"outer_offset_train":8,'
+        '"outer_offset_test":20,"train_groups":9,"test_groups":3,"buffer":1},'
+        '"detector":{"photons_per_pattern":100000000.0,'
+        '"beamstop_diameter":4.0}}}\n'
+    ),
+    ".yaml": """\
+simulation:
+  N: 128
+  seed: 7
+  probe:
+    source: custom
+    source_path: probe.npz
+    transform_pipeline: smooth:0.5|pad_preserve:128
+    mask_diameter: 100.0
+  object:
+    kind: dead_leaves
+    image_size: [392, 392]
+    objects_per_probe: 5
+    diffractions_per_object: 64
+    set_phi: true
+  scan:
+    kind: grid
+    grid_size: [2, 2]
+    offset: 4
+    outer_offset_train: 8
+    outer_offset_test: 20
+    train_groups: 9
+    test_groups: 3
+    buffer: 1
+  detector:
+    photons_per_pattern: 100000000.0
+    beamstop_diameter: 4.0
+""",
+    ".toml": """\
+[simulation]
+N = 128
+seed = 7
+
+[simulation.probe]
+source = "custom"
+source_path = "probe.npz"
+transform_pipeline = "smooth:0.5|pad_preserve:128"
+mask_diameter = 100.0
+
+[simulation.object]
+kind = "dead_leaves"
+image_size = [392, 392]
+objects_per_probe = 5
+diffractions_per_object = 64
+set_phi = true
+
+[simulation.scan]
+kind = "grid"
+grid_size = [2, 2]
+offset = 4
+outer_offset_train = 8
+outer_offset_test = 20
+train_groups = 9
+test_groups = 3
+buffer = 1
+
+[simulation.detector]
+photons_per_pattern = 1.0e8
+beamstop_diameter = 4.0
+""",
+}
 
 
 def _write_simulation_toml(
@@ -75,6 +186,29 @@ def test_load_simulation_config_accepts_wrapped_toml_and_rejects_unknown_keys(
     invalid.write_text("[simulation]\nN = 64\nepochs = 10\n", encoding="utf-8")
     with pytest.raises(ValueError, match="simulation.epochs"):
         load_simulation_config(invalid)
+
+
+@pytest.mark.parametrize(
+    ("suffix", "document"),
+    _FORMAT_DOCUMENTS.items(),
+    ids=("json", "yaml", "toml"),
+)
+def test_load_simulation_config_preserves_exact_recipe_across_formats(
+    tmp_path: Path,
+    suffix: str,
+    document: str,
+):
+    path = tmp_path / f"simulation{suffix}"
+    path.write_text(document, encoding="utf-8")
+
+    loaded = load_simulation_config(path)
+    expected = simulation_config_from_mapping(_FORMAT_RECIPE)
+
+    assert loaded == expected
+    assert simulation_config_to_dict(loaded) == _FORMAT_RECIPE
+    assert simulation_config_from_mapping(
+        simulation_config_to_dict(loaded)
+    ) == loaded
 
 
 def test_grid_lines_cli_file_values_and_explicit_cli_precedence(tmp_path: Path):
