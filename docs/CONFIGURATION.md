@@ -384,14 +384,58 @@ backend workflow and CONFIG-001 ordering, see
 
 ## Usage and Precedence
 
-Configuration precedence is entry-point specific:
+### Public Training and Inference Resolution
+
+The supported public source boundary is exported from `ptycho.config` as
+`resolve_training_config()` and `resolve_inference_config()`. Both use:
+
+```text
+dataclass defaults < file values < explicitly supplied CLI values
+```
+
+An argparse default is not an explicit CLI value. Supported entry points pass
+only options that the caller actually supplied, so an omitted CLI option does
+not overwrite a file value.
+
+Within each file or explicit-CLI source, model fields may be written either at
+the root or under `model`. An equal flat/nested duplicate is accepted once; an
+unequal duplicate fails with both locations identified. Across sources, the
+normal precedence above applies even when one source uses the flat form and
+the other uses the nested form. Unknown root or nested model fields fail rather
+than being discarded.
+
+`n_groups` is the canonical grouping field. At the resolver boundary,
+`n_images` remains a deprecated alias: an alias-only value becomes `n_groups`,
+equal same-source alias/canonical values are accepted once, and unequal
+same-source values fail. A higher-precedence source may override a lower one
+through either spelling. Successful resolution that used `n_images` emits one
+deprecation warning and returns `n_images=None`; direct dataclass construction
+retains its historical compatibility behavior.
+
+Validation is deliberately layered:
+
+- `validate_*_config_structure()` checks types, closed domains, local ranges,
+  and cross-field coherence without filesystem access. The public resolvers
+  run the corresponding structural validator before returning.
+- `validate_runnable_training_config()` adds the requirements for starting a
+  run, including positive execution values and an existing readable training
+  dataset.
+- `validate_inference_resources()` adds model-archive and test-data resource
+  checks at the inference consumer boundary.
+
+The older `validate_model_config()`, `validate_training_config()`, and
+`validate_inference_config()` exports remain compatibility facades with their
+historical predicates; they are not aliases for the new layers. Source
+resolution and structural validation are side-effect-free. Supported workflow
+consumers apply runnable or resource validation before the one-way
+`update_legacy_dict()` bridge.
+
+Other configuration families retain their entry-point-specific source rules:
 
 - Generation CLIs apply retained explicit CLI overrides over
   `--simulation-config` values. Simulation files may be TOML, YAML, or JSON;
   omitted file fields use dataclass defaults, while omitting the file invokes
   the entry point's historical compatibility defaults.
-- Training and inference CLIs retain their documented `--config`/CLI
-  precedence.
 - Unknown simulation keys and conflicting compatibility aliases are errors.
 - Not every dataclass field has a CLI flag.
 

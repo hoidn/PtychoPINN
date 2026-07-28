@@ -182,7 +182,11 @@ class TestPyTorchExecutionConfigDefaults:
                 f"Expected 'No CUDA device detected' in warning, got: {policy_warnings[0].message}"
             )
 
-    def test_backend_selector_inherits_gpu_first_defaults(self, monkeypatch):
+    def test_backend_selector_inherits_gpu_first_defaults(
+        self,
+        monkeypatch,
+        tmp_path,
+    ):
         """
         Verify backend_selector inherits GPU-first defaults when torch_execution_config=None.
 
@@ -209,7 +213,13 @@ class TestPyTorchExecutionConfigDefaults:
         from ptycho.workflows.backend_selector import run_cdi_example_with_backend
 
         # Create minimal training config with pytorch backend
-        config = TrainingConfig(model=ModelConfig(N=64), backend='pytorch')
+        train_path = tmp_path / "train.npz"
+        train_path.touch()
+        config = TrainingConfig(
+            model=ModelConfig(N=64),
+            train_data_file=train_path,
+            backend='pytorch',
+        )
 
         # Patch run_cdi_example_torch to capture execution_config argument
         with patch('ptycho_torch.workflows.components.run_cdi_example_torch') as mock_run:
@@ -251,7 +261,11 @@ class TestPyTorchExecutionConfigDefaults:
                 f"got '{execution_config.accelerator}'"
             )
 
-    def test_backend_selector_cpu_fallback_with_warning(self, monkeypatch):
+    def test_backend_selector_cpu_fallback_with_warning(
+        self,
+        monkeypatch,
+        tmp_path,
+    ):
         """
         Verify backend_selector falls back to CPU with POLICY-001 warning when CUDA unavailable.
 
@@ -279,7 +293,13 @@ class TestPyTorchExecutionConfigDefaults:
         from ptycho.workflows.backend_selector import run_cdi_example_with_backend
 
         # Create minimal training config with pytorch backend
-        config = TrainingConfig(model=ModelConfig(N=64), backend='pytorch')
+        train_path = tmp_path / "train.npz"
+        train_path.touch()
+        config = TrainingConfig(
+            model=ModelConfig(N=64),
+            train_data_file=train_path,
+            backend='pytorch',
+        )
 
         # Capture warnings and patch run_cdi_example_torch
         with warnings.catch_warnings(record=True) as w:
