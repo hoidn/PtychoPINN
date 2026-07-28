@@ -48,7 +48,7 @@ class TestTrainingCliBackendDispatch:
         Phase: R (backend selector integration)
         Reference: input.md Do Now step 2
         """
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import ModelConfig, TrainingConfig
         from ptycho.raw_data import RawData
 
         # Create config with PyTorch backend
@@ -129,7 +129,7 @@ class TestTrainingCliBackendDispatch:
         Phase: R (backend selector integration)
         Reference: input.md Do Now step 2 (guard TensorFlow-only helpers)
         """
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import ModelConfig, TrainingConfig
         from ptycho.raw_data import RawData
 
         # Create config with TensorFlow backend (default)
@@ -444,6 +444,251 @@ class TestTrainingCliBackendDispatch:
                 assert backend_call_args[1]['torch_execution_config'] is mock_exec_config, \
                     "Backend selector should receive the PyTorchExecutionConfig as torch_execution_config parameter"
 
+    def test_unified_training_execution_request_and_explicit_optimizer_sidecar(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        """Unified training preserves both execution and canonical suppliedness."""
+        import argparse
+
+        from ptycho.config import ModelConfig, TrainingConfig
+        from ptycho.metadata import MetadataManager
+        from ptycho_torch.cli.shared import (
+            build_execution_request_from_args as real_request_builder,
+        )
+        from ptycho_torch.execution_request import ExecutionRequest
+        from scripts.training import train as training_script
+
+        train_path = tmp_path / 'train.npz'
+        train_path.touch()
+        config = TrainingConfig(
+            model=ModelConfig(N=64, gridsize=1),
+            train_data_file=train_path,
+            backend='pytorch',
+            output_dir=tmp_path / 'output',
+            n_groups=1,
+        )
+        args = argparse.Namespace(
+            config=None,
+            do_stitching=False,
+            torch_accelerator='cpu',
+            torch_deterministic=True,
+            torch_num_workers=2,
+            torch_accumulate_grad_batches=5,
+            torch_learning_rate=0.004,
+            torch_scheduler='Exponential',
+            torch_logger='none',
+            torch_recon_log_every_n_epochs=2,
+            torch_recon_log_num_patches=7,
+            torch_recon_log_fixed_indices=[1, 3],
+            torch_recon_log_stitch=True,
+            torch_recon_log_max_stitch_samples=11,
+            torch_enable_checkpointing=True,
+            torch_checkpoint_save_top_k=0,
+            torch_plateau_factor=None,
+            torch_plateau_patience=None,
+            torch_plateau_min_lr=None,
+            torch_plateau_threshold=None,
+            gradient_clip_val=0.75,
+            gradient_clip_algorithm='value',
+            optimizer='adamw',
+            momentum=0.8,
+            weight_decay=0.01,
+            adam_beta1=0.85,
+            adam_beta2=0.95,
+            scheduler='WarmupCosine',
+            lr_warmup_epochs=4,
+            lr_min_ratio=0.2,
+            plateau_factor=0.4,
+            plateau_patience=3,
+            plateau_min_lr=1e-5,
+            plateau_threshold=0.001,
+        )
+        raw_argv = (
+            '--torch-accelerator=cpu',
+            '--torch-deterministic',
+            '--torch-num-workers=2',
+            '--torch-accumulate-grad-batches', '5',
+            '--torch-learning-rate=0.004',
+            '--torch-scheduler=Exponential',
+            '--torch-logger=none',
+            '--torch-recon-log-every-n-epochs=2',
+            '--torch-recon-log-num-patches', '7',
+            '--torch-recon-log-fixed-indices', '1', '3',
+            '--torch-recon-log-stitch',
+            '--torch-recon-log-max-stitch-samples=11',
+            '--torch-enable-checkpointing',
+            '--torch-checkpoint-save-top-k=0',
+            '--gradient_clip_val=0.75',
+            '--gradient_clip_algorithm=value',
+            '--optimizer=adamw',
+            '--momentum=0.8',
+            '--weight_decay=0.01',
+            '--adam_beta1=0.85',
+            '--adam_beta2=0.95',
+            '--scheduler=WarmupCosine',
+            '--lr_warmup_epochs=4',
+            '--lr_min_ratio=0.2',
+            '--plateau_factor=0.4',
+            '--plateau_patience=3',
+            '--plateau_min_lr=1e-5',
+            '--plateau_threshold=0.001',
+        )
+        monkeypatch.setattr(sys, 'argv', ['train.py', *raw_argv])
+        monkeypatch.setattr(training_script, 'parse_arguments', lambda: args)
+        monkeypatch.setattr(
+            training_script,
+            'setup_configuration',
+            lambda *_args: config,
+        )
+        monkeypatch.setattr(
+            MetadataManager,
+            'load_with_metadata',
+            staticmethod(lambda _path: (None, None)),
+        )
+        monkeypatch.setattr(
+            training_script,
+            'validate_training_config_structure',
+            lambda *_args: None,
+        )
+        monkeypatch.setattr(
+            training_script,
+            'validate_runnable_training_config',
+            lambda *_args: None,
+        )
+        monkeypatch.setattr(training_script, 'update_legacy_dict', lambda *_args: None)
+        monkeypatch.setattr(training_script, 'load_data', lambda *_args, **_kwargs: object())
+        backend = MagicMock(return_value=(None, None, {'backend': 'pytorch'}))
+        monkeypatch.setattr(training_script, 'run_cdi_example_with_backend', backend)
+
+        with patch(
+            'ptycho_torch.cli.shared.build_execution_request_from_args',
+            wraps=real_request_builder,
+        ) as request_builder:
+            training_script.main()
+
+        request_builder.assert_called_once()
+        assert request_builder.call_args.kwargs == {
+            'mode': 'training',
+            'explicit_options': raw_argv,
+            'lane': 'unified-training',
+        }
+        request = backend.call_args.kwargs['torch_execution_config']
+        assert isinstance(request, ExecutionRequest)
+        assert request.explicit_fields == frozenset(
+            {
+                'accelerator',
+                'deterministic',
+                'num_workers',
+                'accum_steps',
+                'learning_rate',
+                'scheduler',
+                'logger_backend',
+                'recon_log_every_n_epochs',
+                'recon_log_num_patches',
+                'recon_log_fixed_indices',
+                'recon_log_stitch',
+                'recon_log_max_stitch_samples',
+                'enable_checkpointing',
+                'checkpoint_save_top_k',
+            }
+        )
+        assert request.values['scheduler'] == 'Exponential'
+        assert request.values['recon_log_fixed_indices'] == [1, 3]
+        assert backend.call_args.kwargs['torch_factory_overrides'] == {
+            'gradient_clip_val': 0.75,
+            'gradient_clip_algorithm': 'value',
+            'optimizer': 'adamw',
+            'momentum': 0.8,
+            'weight_decay': 0.01,
+            'adam_beta1': 0.85,
+            'adam_beta2': 0.95,
+            'scheduler': 'WarmupCosine',
+            'lr_warmup_epochs': 4,
+            'lr_min_ratio': 0.2,
+            'plateau_factor': 0.4,
+            'plateau_patience': 3,
+            'plateau_min_lr': 1e-5,
+            'plateau_threshold': 0.001,
+        }
+
+    def test_backend_selector_execution_routes_explicit_torch_factory_overrides_only_to_torch(
+        self,
+        monkeypatch,
+    ):
+        """The sidecar reaches Torch's existing overrides channel, never TensorFlow."""
+        from ptycho.config import ModelConfig, TrainingConfig
+        from ptycho.workflows import backend_selector
+        from ptycho.workflows import components as tf_components
+        from ptycho_torch.workflows import components as torch_components
+
+        sidecar = {'scheduler': 'WarmupCosine'}
+        torch_delegate = MagicMock(
+            return_value=(None, None, {'backend': 'pytorch'})
+        )
+        tf_delegate = MagicMock(
+            return_value=(None, None, {'backend': 'tensorflow'})
+        )
+        monkeypatch.setattr(torch_components, 'run_cdi_example_torch', torch_delegate)
+        monkeypatch.setattr(tf_components, 'run_cdi_example', tf_delegate)
+        monkeypatch.setattr(
+            backend_selector,
+            'validate_training_config_structure',
+            lambda *_args: None,
+        )
+        monkeypatch.setattr(
+            backend_selector,
+            'validate_runnable_training_config',
+            lambda *_args: None,
+        )
+        monkeypatch.setattr(backend_selector, 'update_legacy_dict', lambda *_args: None)
+
+        pytorch_config = TrainingConfig(
+            model=ModelConfig(),
+            train_data_file=Path('train.npz'),
+            backend='pytorch',
+        )
+        backend_selector.run_cdi_example_with_backend(
+            object(),
+            None,
+            pytorch_config,
+            torch_factory_overrides=sidecar,
+        )
+        assert torch_delegate.call_args.kwargs['overrides'] is sidecar
+
+        tensorflow_config = TrainingConfig(
+            model=ModelConfig(),
+            train_data_file=Path('train.npz'),
+            backend='tensorflow',
+        )
+        backend_selector.run_cdi_example_with_backend(
+            object(),
+            None,
+            tensorflow_config,
+            torch_factory_overrides=sidecar,
+        )
+        assert tf_delegate.call_args.kwargs == {}
+
+    @pytest.mark.parametrize(
+        'scheduler',
+        ['Default', 'Exponential', 'WarmupCosine', 'ReduceLROnPlateau'],
+    )
+    def test_unified_training_execution_explicit_scheduler_domain(
+        self,
+        scheduler,
+        monkeypatch,
+    ):
+        """The wrapper exposes the canonical public Torch scheduler domain."""
+        from scripts.training import train as training_script
+
+        monkeypatch.setattr(
+            sys,
+            'argv',
+            ['train.py', '--torch-scheduler', scheduler],
+        )
+        assert training_script.parse_arguments().torch_scheduler == scheduler
+
     def test_supervised_mode_enforces_mae_loss(self):
         """
         Test that supervised model_type forces loss_function='MAE' in PyTorch backend.
@@ -466,9 +711,12 @@ class TestTrainingCliBackendDispatch:
         Phase: R (supervised loss mapping)
         Reference: plans/active/INTEGRATE-PYTORCH-001/reports/.../red/blocked_20251113T183500Z_loss_name.md
         """
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import (
+            ModelConfig,
+            PyTorchExecutionConfig,
+            TrainingConfig,
+        )
         from ptycho_torch.config_params import ModelConfig as PTModelConfig
-        from ptycho_torch.config_factory import create_training_payload
         from pathlib import Path
 
         # Create canonical TF config with supervised mode
@@ -485,17 +733,6 @@ class TestTrainingCliBackendDispatch:
             nepochs=1,
             backend='pytorch',
         )
-
-        # Simulate factory payload creation (as _train_with_lightning does)
-        mode_map = {'pinn': 'Unsupervised', 'supervised': 'Supervised'}
-        factory_overrides = {
-            'n_groups': config.n_groups,
-            'gridsize': config.model.gridsize,
-            'model_type': mode_map.get(config.model.model_type, 'Unsupervised'),
-            'amp_activation': config.model.amp_activation,
-            'n_filters_scale': config.model.n_filters_scale,
-            'max_epochs': config.nepochs,
-        }
 
         # The factory now resolves the objective before sealing ModelSpec.
         from types import SimpleNamespace
@@ -520,6 +757,11 @@ class TestTrainingCliBackendDispatch:
             pt_data_config=mock_pt_data_config,
             pt_training_config=mock_pt_training_config,
             pt_inference_config=PTInferenceConfig(),
+            execution_config=PyTorchExecutionConfig(
+                accelerator='cpu',
+                enable_checkpointing=False,
+                logger_backend=None,
+            ),
             model_spec=derive_model_spec(
                 to_model_config(mock_pt_data_config, mock_pt_model_config),
                 mock_pt_model_config,
@@ -539,65 +781,46 @@ class TestTrainingCliBackendDispatch:
             # Mock the Lightning module instantiation to capture the corrected config
             mock_lightning_module = MagicMock()
             mock_lightning_module.val_loss_name = 'mae_val_loss'  # Expected for MAE
-            captured_model_config = None
-
-            def capture_model_config(model_config, data_config, training_config, inference_config, **kwargs):
-                nonlocal captured_model_config
-                captured_model_config = model_config
-                return mock_lightning_module
-
             # Mock all dependencies of _train_with_lightning
             mock_train_container = MagicMock()
             mock_train_container.diffraction = MagicMock()
             mock_test_container = None
+            train_loader = [
+                (
+                    {
+                        'label_amp': object(),
+                        'label_phase': object(),
+                    },
+                    object(),
+                )
+            ]
 
-            with patch('ptycho_torch.model.PtychoPINN_Lightning', side_effect=capture_model_config):
-                with patch('ptycho_torch.workflows.components._build_lightning_dataloaders', return_value=(MagicMock(), None)):
+            with patch(
+                'ptycho_torch.application_factory.build_ptychopinn_application',
+                return_value=mock_lightning_module,
+            ) as build_application:
+                with patch('ptycho_torch.workflows.components._build_lightning_dataloaders', return_value=(train_loader, None)):
                     with patch('lightning.pytorch.Trainer') as mock_trainer_class:
                         mock_trainer = MagicMock()
                         mock_trainer.fit = MagicMock()
                         mock_trainer_class.return_value = mock_trainer
 
-                        try:
-                            # Execute _train_with_lightning with supervised config
-                            results = _train_with_lightning(
-                                mock_train_container,
-                                mock_test_container,
-                                config,
-                                execution_config=None
-                            )
-                        except Exception as e:
-                            # If the override didn't happen, we'll get AttributeError during training
-                            # But we're verifying the config before that point
-                            pass
+                        _train_with_lightning(
+                            mock_train_container,
+                            mock_test_container,
+                            config,
+                            execution_config=None
+                        )
 
-            # Verify the model_config passed to Lightning module has loss_function='MAE'
-            assert captured_model_config is not None, \
-                "PtychoPINN_Lightning should have been instantiated"
-            assert captured_model_config.mode == 'Supervised', \
+            sealed_model_config = build_application.call_args.args[0].to_model_config()
+            assert sealed_model_config.mode == 'Supervised', \
                 "Model should be in Supervised mode"
-            assert captured_model_config.loss_function == 'MAE', \
+            assert sealed_model_config.loss_function == 'MAE', \
                 "Supervised mode should enforce loss_function='MAE' (prevents missing loss_name AttributeError)"
             assert captured_factory_overrides["torch_loss_mode"] == "mae"
 
-    def test_manual_accumulation_guard(self):
-        """
-        Test that manual optimization + gradient accumulation raises RuntimeError.
-
-        Background (EXEC-ACCUM-001):
-        The PyTorch Lightning module (PtychoPINN_Lightning) uses manual optimization
-        (automatic_optimization=False) for custom physics loss integration. Lightning's
-        manual optimization mode is incompatible with Trainer(accumulate_grad_batches>1).
-
-        Without this guard, users get a cryptic MisconfigurationException from Lightning.
-        With the guard, they get a clear RuntimeError with actionable advice.
-
-        This test verifies that ptycho_torch/workflows/components.py:_train_with_lightning
-        detects the incompatibility and raises RuntimeError before Trainer instantiation.
-
-        Phase: Execution config guardrails
-        Reference: docs/findings.md#EXEC-ACCUM-001
-        """
+    def test_manual_accumulation_is_owned_by_model_not_trainer(self):
+        """Manual optimization keeps accumulation out of Lightning Trainer."""
         from ptycho.config.config import TrainingConfig, ModelConfig, PyTorchExecutionConfig
         from pathlib import Path
 
@@ -616,9 +839,10 @@ class TestTrainingCliBackendDispatch:
             backend='pytorch',
         )
 
-        # Create execution config with accumulate_grad_batches > 1
+        # Compatibility execution input requests accumulation; the payload resolves
+        # it into TrainingConfig before the workflow consumes either owner.
         execution_config = PyTorchExecutionConfig(
-            accum_steps=2,  # This should trigger the guard
+            accum_steps=2,
             accelerator='cpu',
             deterministic=True,
         )
@@ -636,13 +860,20 @@ class TestTrainingCliBackendDispatch:
         # Mock factory payload
         from ptycho_torch.config_params import (
             DataConfig as PTDataConfig,
+            InferenceConfig as PTInferenceConfig,
             ModelConfig as PTModelConfig,
             TrainingConfig as PTTrainingConfig,
         )
         mock_payload = MagicMock()
         mock_payload.pt_model_config = PTModelConfig(mode='Unsupervised', C_forward=4, C_model=4)
         mock_payload.pt_data_config = PTDataConfig()
-        mock_payload.pt_training_config = PTTrainingConfig()
+        mock_payload.pt_training_config = PTTrainingConfig(accum_steps=2)
+        mock_payload.pt_inference_config = PTInferenceConfig()
+        mock_payload.execution_config = PyTorchExecutionConfig(
+            accelerator='cpu',
+            enable_checkpointing=False,
+            logger_backend=None,
+        )
         from ptycho_torch.config_bridge import to_model_config
         from ptycho_torch.model_spec import derive_model_spec
         mock_payload.model_spec = derive_model_spec(
@@ -656,13 +887,15 @@ class TestTrainingCliBackendDispatch:
         mock_val_loader = None
 
         with patch('ptycho_torch.config_factory.create_training_payload', return_value=mock_payload):
-            with patch('ptycho_torch.model.PtychoPINN_Lightning', return_value=mock_lightning_module):
+            with patch(
+                'ptycho_torch.application_factory.build_ptychopinn_application',
+                return_value=mock_lightning_module,
+            ) as build_application:
                 with patch('ptycho_torch.workflows.components._build_lightning_dataloaders',
                           return_value=(mock_train_loader, mock_val_loader)):
-                    from ptycho_torch.workflows.components import _train_with_lightning
+                    with patch('lightning.pytorch.Trainer') as trainer_class:
+                        from ptycho_torch.workflows.components import _train_with_lightning
 
-                    # Execute and expect RuntimeError with EXEC-ACCUM-001 reference
-                    with pytest.raises(RuntimeError) as exc_info:
                         _train_with_lightning(
                             mock_train_container,
                             mock_test_container,
@@ -670,14 +903,8 @@ class TestTrainingCliBackendDispatch:
                             execution_config=execution_config
                         )
 
-                    # Verify error message mentions the incompatibility
-                    error_msg = str(exc_info.value)
-                    assert 'manual optimization' in error_msg.lower(), \
-                        "Error should mention manual optimization"
-                    assert 'accumulate_grad_batches' in error_msg.lower() or 'gradient accumulation' in error_msg.lower(), \
-                        "Error should mention gradient accumulation"
-                    assert 'EXEC-ACCUM-001' in error_msg, \
-                        "Error should reference EXEC-ACCUM-001 finding"
+        assert build_application.call_args.args[2].accum_steps == 2
+        assert trainer_class.call_args.kwargs['accumulate_grad_batches'] == 1
 
     def test_pytorch_backend_defaults_auto_execution_config(self, caplog):
         """
@@ -846,6 +1073,75 @@ def test_torch_scheduler_plateau_params_roundtrip(monkeypatch, tmp_path):
     assert config.plateau_patience == 5
     assert config.plateau_min_lr == 1e-5
     assert config.plateau_threshold == 1e-3
+
+
+@pytest.mark.parametrize(
+    (
+        'field',
+        'canonical_value',
+        'compatibility_value',
+        'canonical_argv',
+        'compatibility_argv',
+    ),
+    [
+        (
+            'plateau_factor',
+            0.8,
+            0.2,
+            ('--plateau_factor=0.8',),
+            ('--torch-plateau-factor=0.2',),
+        ),
+        (
+            'plateau_patience',
+            8,
+            2,
+            ('--plateau_patience', '8'),
+            ('--torch-plateau-patience', '2'),
+        ),
+        (
+            'plateau_min_lr',
+            8e-5,
+            2e-5,
+            ('--plateau_min_lr', '8e-5'),
+            ('--torch-plateau-min-lr', '2e-5'),
+        ),
+        (
+            'plateau_threshold',
+            8e-4,
+            2e-4,
+            ('--plateau_threshold', '8e-4'),
+            ('--torch-plateau-threshold', '2e-4'),
+        ),
+    ],
+)
+def test_unified_training_execution_explicit_canonical_plateau_wins_compat_alias(
+    field,
+    canonical_value,
+    compatibility_value,
+    canonical_argv,
+    compatibility_argv,
+):
+    """An explicit canonical plateau option outranks its compatibility alias."""
+    import argparse
+
+    from scripts.training import train as train_mod
+
+    args = argparse.Namespace(
+        **{
+            field: canonical_value,
+            f'torch_{field}': compatibility_value,
+        }
+    )
+    raw_argv = (*canonical_argv, *compatibility_argv)
+
+    train_mod.apply_torch_plateau_overrides(args, argv=raw_argv)
+    sidecar = train_mod._explicit_public_optimizer_overrides(
+        args,
+        raw_argv,
+    )
+
+    assert getattr(args, field) == canonical_value
+    assert sidecar == {field: canonical_value}
 
 
 def test_training_entrypoint_shared_parser_preserves_yaml_precedence(

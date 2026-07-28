@@ -48,7 +48,7 @@ import math
 from pathlib import Path
 
 #Typing
-from dataclasses import asdict
+from dataclasses import asdict, fields, replace
 from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig, InferenceConfig, DatagenConfig
 
 #ML libraries
@@ -87,7 +87,7 @@ from ptycho_torch.config_params import update_existing_config
 from ptycho_torch.model import PtychoPINN_Lightning
 from ptycho_torch.scaling_contract import validate_scale_contract
 from ptycho_torch.utils import config_to_json_serializable_dict, load_config_from_json, validate_and_process_config
-from ptycho_torch.train_utils import set_seed, get_training_strategy, find_learning_rate, log_parameters_mlflow, is_effectively_global_rank_zero, print_auto_logged_info
+from ptycho_torch.train_utils import set_seed, find_learning_rate, log_parameters_mlflow, is_effectively_global_rank_zero, print_auto_logged_info
 from ptycho_torch.train_utils import ModelFineTuner, PtychoDataModule, LightningConfigSaveCallback, ModelFineTuner_Lightning
 from ptycho_torch.lightning_utils import CIStatisticsCallback
 
@@ -159,6 +159,50 @@ def _infer_probe_size(npz_file):
 
 #----- Main -------
 
+def _effective_device_count(devices, accelerator) -> int:
+    if isinstance(devices, int):
+        return devices
+    if accelerator in {"cuda", "gpu"}:
+        count = torch.cuda.device_count() if torch.cuda.is_available() else 0
+        return max(count, 1)
+    return 1
+
+
+def _torch_device_accelerator(accelerator: str) -> str:
+    return "cuda" if accelerator == "gpu" else accelerator
+
+
+def _resolve_direct_training_config(
+    training_config: TrainingConfig,
+    execution_config,
+) -> TrainingConfig:
+    """Resolve legacy execution optimizer aliases into the training owner."""
+    from ptycho_torch.config_factory import (
+        TRAINING_OWNER_FIELDS,
+        resolve_optimizer_ownership,
+    )
+    from ptycho_torch.execution_request import normalize_execution_input
+
+    resolved_owner, _ = resolve_optimizer_ownership(
+        training_baseline=training_config,
+        normalized_execution=normalize_execution_input(
+            execution_config,
+            mode="training",
+        ),
+        canonical_training_patch={},
+    )
+    owner_fields = TRAINING_OWNER_FIELDS & {
+        item.name for item in fields(training_config)
+    }
+    return replace(
+        training_config,
+        **{
+            name: getattr(resolved_owner, name)
+            for name in owner_fields
+        },
+    )
+
+
 @scoped_legacy_params
 def main(ptycho_dir,
          config_path = None,
@@ -217,10 +261,32 @@ def main(ptycho_dir,
     else:
         data_config, model_config, training_config, inference_config, datagen_config = existing_config
 
+    training_config = _resolve_direct_training_config(
+        training_config,
+        execution_config,
+    )
+    if execution_config is None:
+        from ptycho.config.config import PyTorchExecutionConfig
+        execution_config = PyTorchExecutionConfig(
+            accelerator='cpu',
+            deterministic=True,
+            num_workers=0,
+        )
+    training_config = replace(
+        training_config,
+        n_devices=execution_config.devices,
+        strategy=execution_config.strategy,
+        device=_torch_device_accelerator(execution_config.accelerator),
+        num_workers=execution_config.num_workers,
+    )
     validate_scale_contract(data_config, model_config, training_config)
 
     #Setting seed
-    set_seed(42, n_devices = training_config.n_devices)
+    runtime_device_count = _effective_device_count(
+        execution_config.devices,
+        execution_config.accelerator,
+    )
+    set_seed(42, n_devices=runtime_device_count)
 
     # Data module in place of pytorch native dataloaders. Data module is a lightning class
     # Create DataModule
@@ -240,10 +306,12 @@ def main(ptycho_dir,
     model = PtychoPINN_Lightning(model_config, data_config, training_config, inference_config)
     model.training = True
 
-    #Update LR (Phase C4.C3: Use execution_config if available, else training_config)
-    base_lr = execution_config.learning_rate if execution_config else training_config.learning_rate
-    updated_lr = find_learning_rate(base_lr,
-                                    training_config.n_devices, training_config.batch_size)
+    # Learning rate is owned by the resolved TrainingConfig.
+    updated_lr = find_learning_rate(
+        training_config.learning_rate,
+        runtime_device_count,
+        training_config.batch_size,
+    )
     model.lr = updated_lr
 
     #Loss
@@ -282,40 +350,52 @@ def main(ptycho_dir,
     # All training now runs single-stage
     total_training_epochs = training_config.epochs
 
-    # Phase C4.C3: Apply execution config to Trainer (ADR-003)
-    # Use execution_config if provided, otherwise create default
-    if execution_config is None:
-        from ptycho.config.config import PyTorchExecutionConfig
-        execution_config = PyTorchExecutionConfig(
-            accelerator='cpu',
-            deterministic=True,
-            num_workers=0,
-        )
-
-    # Resolve accelerator (prefer execution_config, fallback to training_config logic)
+    # Resolve accelerator from the execution owner.
     if execution_config.accelerator == 'auto':
-        resolved_accelerator = 'gpu' if training_config.n_devices > 0 and torch.cuda.is_available() else 'cpu'
+        resolved_accelerator = (
+            'gpu'
+            if runtime_device_count > 0 and torch.cuda.is_available()
+            else 'cpu'
+        )
     else:
         resolved_accelerator = execution_config.accelerator
         # Map 'cuda' alias to 'gpu' for Lightning compatibility
         if resolved_accelerator == 'cuda':
             resolved_accelerator = 'gpu'
 
-    # Create trainer with execution config knobs
-    trainer = L.Trainer(
+    trainer_kwargs = dict(
         max_epochs = total_training_epochs,
         default_root_dir = str(checkpoint_root),
-        devices = training_config.n_devices,
+        devices = execution_config.devices,
         accelerator = resolved_accelerator,
         callbacks = callbacks,
-        # accumulate_grad_batches=training_config.accum_steps,  # Lightning handles this
-        # gradient_clip_val=training_config.gradient_clip_val,   # Lightning handles this
-        strategy=get_training_strategy(training_config.n_devices),
+        strategy=execution_config.strategy,
+        precision=execution_config.precision,
         check_val_every_n_epoch=1,  # Validate every epoch
         enable_checkpointing=True,  # Enable checkpointing for early stopping
         enable_progress_bar=execution_config.enable_progress_bar,  # Controlled by execution config
         deterministic=execution_config.deterministic,  # Reproducibility control
     )
+    automatic_optimization = getattr(model, "automatic_optimization", True)
+    clip_algorithm = training_config.gradient_clip_algorithm
+    if automatic_optimization and clip_algorithm == "agc":
+        raise ValueError(
+            "gradient_clip_algorithm='agc' requires manual optimization; "
+            "Lightning automatic optimization accepts only 'norm' or 'value'"
+        )
+    trainer_kwargs.update(
+        accumulate_grad_batches=(
+            training_config.accum_steps if automatic_optimization else 1
+        ),
+        gradient_clip_val=(
+            training_config.gradient_clip_val
+            if automatic_optimization
+            else None
+        ),
+    )
+    if automatic_optimization:
+        trainer_kwargs["gradient_clip_algorithm"] = clip_algorithm
+    trainer = L.Trainer(**trainer_kwargs)
 
     #Mlflow setup
     # mlflow.set_tracking_uri("")
@@ -551,6 +631,7 @@ def cli_main():
 
     The CLI interface mirrors the TensorFlow training script flags for consistency.
     """
+    raw_argv = tuple(sys.argv[1:])
     parser = argparse.ArgumentParser(
         description="PyTorch Lightning training for ptychographic reconstruction",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -746,7 +827,7 @@ Examples:
         dest='checkpoint_save_top_k',
         help=(
             'Number of best checkpoints to keep (default: 1). '
-            'Set to -1 to save all checkpoints, 0 to disable saving. '
+            'Set to 0 to disable saving. '
             'Best checkpoints are determined by --checkpoint-monitor metric.'
         )
     )
@@ -876,10 +957,15 @@ Examples:
         # The existing main() expects a directory containing NPZ files
         ptycho_dir = train_data_file.parent
 
-        # Phase D.B: Build execution config using shared helper (ADR-003)
-        from ptycho_torch.cli.shared import build_execution_config_from_args
+        # Preserve raw-option suppliedness until the factory resolves runtime.
+        from ptycho_torch.cli.shared import build_execution_request_from_args
         try:
-            execution_config = build_execution_config_from_args(args, mode='training')
+            execution_request = build_execution_request_from_args(
+                args,
+                mode='training',
+                explicit_options=raw_argv,
+                lane='native-training',
+            )
         except ValueError as e:
             print(f"ERROR: Invalid execution config: {e}")
             sys.exit(1)
@@ -915,16 +1001,16 @@ Examples:
                 train_data_file=train_data_file,
                 output_dir=output_dir,
                 overrides=overrides,
-                execution_config=execution_config,
+                execution_config=execution_request,
                 profile=args.profile,
             )
 
             print(f"✓ Factory created configs: N={payload.pt_data_config.N}, "
                   f"gridsize={payload.pt_data_config.grid_size}, "
                   f"epochs={payload.pt_training_config.epochs}")
-            print(f"✓ Execution config: accelerator={execution_config.accelerator}, "
-                  f"deterministic={execution_config.deterministic}, "
-                  f"learning_rate={execution_config.learning_rate}")
+            print(f"✓ Execution config: accelerator={payload.execution_config.accelerator}, "
+                  f"deterministic={payload.execution_config.deterministic}, "
+                  f"learning_rate={payload.pt_training_config.learning_rate}")
 
             # Extract configs for main()
             # Note: Factory only creates training-relevant configs; create InferenceConfig/DatagenConfig defaults
@@ -983,6 +1069,7 @@ Examples:
                 do_stitching=False,  # CLI only needs training, not reconstruction
                 execution_config=payload.execution_config,
                 overrides=profile_overrides,
+                resolved_payload=payload,
             )
 
             if payload.pt_inference_config.log_patch_stats:

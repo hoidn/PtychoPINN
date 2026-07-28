@@ -30,9 +30,7 @@ References:
 """
 
 import pytest
-import warnings
 import argparse
-from pathlib import Path
 
 
 class TestResolveAccelerator:
@@ -736,3 +734,429 @@ class TestBuildExecutionConfigInferenceMode:
 # - All inference-mode tests PASS when CLI refactor complete
 # - Validates inference CLI delegates correctly to shared helpers
 #
+
+
+def test_execution_request_records_only_explicit_fields():
+    from ptycho_torch.execution_request import ExecutionRequest, ResolutionNotice
+
+    request = ExecutionRequest(
+        values={"accelerator": "auto", "devices": "auto"},
+        explicit_fields=frozenset({"accelerator"}),
+        notices=(
+            ResolutionNotice(DeprecationWarning, "--device is deprecated"),
+        ),
+    )
+
+    assert request.as_dict() == {
+        "accelerator": "auto",
+        "devices": "auto",
+    }
+    assert request.explicit_fields == frozenset({"accelerator"})
+
+
+def test_execution_request_defensively_copies_values():
+    from ptycho_torch.execution_request import ExecutionRequest
+
+    source = {"accelerator": "cpu"}
+    request = ExecutionRequest(
+        values=source,
+        explicit_fields=frozenset({"accelerator"}),
+    )
+
+    source["accelerator"] = "gpu"
+    assert request.as_dict() == {"accelerator": "cpu"}
+
+    returned = request.as_dict()
+    returned["accelerator"] = "mps"
+    assert request.as_dict() == {"accelerator": "cpu"}
+
+    with pytest.raises(TypeError):
+        request.values["accelerator"] = "cuda"
+
+
+def test_execution_request_defensively_copies_provenance_containers():
+    from ptycho_torch.execution_request import ExecutionRequest, ResolutionNotice
+
+    explicit_fields = {"accelerator"}
+    notice = ResolutionNotice(DeprecationWarning, "--device is deprecated")
+    notices = [notice]
+    request = ExecutionRequest(
+        values={"accelerator": "auto", "devices": "auto"},
+        explicit_fields=explicit_fields,
+        notices=notices,
+    )
+
+    explicit_fields.add("devices")
+    notices.append(ResolutionNotice(UserWarning, "late mutation"))
+
+    assert type(request.explicit_fields) is frozenset
+    assert request.explicit_fields == frozenset({"accelerator"})
+    assert type(request.notices) is tuple
+    assert request.notices == (notice,)
+
+
+def test_execution_request_rejects_unknown_value_field():
+    from ptycho_torch.execution_request import ExecutionRequest
+
+    with pytest.raises(ValueError, match="unknown execution request field"):
+        ExecutionRequest(
+            values={"bogus": "value"},
+            explicit_fields=frozenset(),
+        )
+
+
+def test_execution_request_rejects_unknown_explicit_field():
+    from ptycho_torch.execution_request import ExecutionRequest
+
+    with pytest.raises(ValueError, match="unknown explicit execution field"):
+        ExecutionRequest(
+            values={"accelerator": "cpu"},
+            explicit_fields=frozenset({"bogus"}),
+        )
+
+
+def test_execution_request_rejects_explicit_field_absent_from_values():
+    from ptycho_torch.execution_request import ExecutionRequest
+
+    with pytest.raises(ValueError, match="explicit execution field.*absent"):
+        ExecutionRequest(
+            values={"accelerator": "cpu"},
+            explicit_fields=frozenset({"devices"}),
+        )
+
+
+def test_execution_request_preserves_equal_default_explicitness():
+    from ptycho.config.config import PyTorchExecutionConfig
+    from ptycho_torch.execution_request import ExecutionRequest
+
+    default_devices = PyTorchExecutionConfig.__dataclass_fields__["devices"].default
+    explicit = ExecutionRequest(
+        values={"devices": default_devices},
+        explicit_fields=frozenset({"devices"}),
+    )
+    omitted = ExecutionRequest(
+        values={"devices": default_devices},
+        explicit_fields=frozenset(),
+    )
+
+    assert explicit.as_dict() == omitted.as_dict()
+    assert explicit.explicit_fields == frozenset({"devices"})
+    assert omitted.explicit_fields == frozenset()
+
+
+def test_execution_request_does_not_construct_config_or_observe_cuda(monkeypatch):
+    import torch
+
+    from ptycho.config.config import PyTorchExecutionConfig
+    from ptycho_torch.execution_request import ExecutionRequest
+
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError("request construction must remain primitive and pure")
+
+    monkeypatch.setattr(PyTorchExecutionConfig, "__init__", fail_if_called)
+    monkeypatch.setattr(torch.cuda, "is_available", fail_if_called)
+
+    request = ExecutionRequest(
+        values={"accelerator": "auto"},
+        explicit_fields=frozenset({"accelerator"}),
+    )
+
+    assert request.as_dict() == {"accelerator": "auto"}
+
+
+def test_execution_request_support_records_are_frozen():
+    from dataclasses import FrozenInstanceError
+
+    from ptycho_torch.execution_request import (
+        EnvironmentResolution,
+        ExecutionCapabilities,
+        ResolutionNotice,
+    )
+
+    capabilities = ExecutionCapabilities(
+        cuda_available=True,
+        cuda_device_count=2,
+    )
+    resolution = EnvironmentResolution(
+        requested={"accelerator": "auto"},
+        resolved={"accelerator": "cuda"},
+        capabilities=capabilities,
+    )
+    notice = ResolutionNotice(UserWarning, "resolved accelerator")
+
+    assert resolution.capabilities == capabilities
+    assert notice.category is UserWarning
+    with pytest.raises(FrozenInstanceError):
+        capabilities.cuda_available = False
+
+
+def test_build_execution_request_from_args_records_canonical_explicit_fields():
+    from ptycho_torch.cli.shared import build_execution_request_from_args
+
+    args = argparse.Namespace(
+        accelerator="auto",
+        deterministic=True,
+        num_workers=0,
+        learning_rate=2e-4,
+    )
+
+    request = build_execution_request_from_args(
+        args,
+        mode="training",
+        explicit_options={"--learning-rate", "--accelerator"},
+    )
+
+    assert request.values["learning_rate"] == 2e-4
+    assert request.values["accelerator"] == "auto"
+    assert request.explicit_fields == frozenset(
+        {"learning_rate", "accelerator"}
+    )
+
+
+@pytest.mark.parametrize(
+    ("logger_backend", "explicit_options", "expected"),
+    [
+        ("none", {"--logger"}, None),
+        ("none", {"--logger=none"}, None),
+        (None, set(), "csv"),
+    ],
+)
+def test_build_execution_request_from_args_normalizes_logger_backend(
+    logger_backend,
+    explicit_options,
+    expected,
+):
+    from ptycho_torch.cli.shared import build_execution_request_from_args
+
+    request = build_execution_request_from_args(
+        argparse.Namespace(logger_backend=logger_backend),
+        explicit_options=explicit_options,
+    )
+
+    assert request.values["logger_backend"] is expected
+    assert ("logger_backend" in request.explicit_fields) is bool(explicit_options)
+
+
+def test_build_execution_request_from_args_is_pure_for_auto_accelerator(
+    monkeypatch,
+):
+    import torch
+
+    from ptycho.config.config import PyTorchExecutionConfig
+    from ptycho_torch.cli.shared import build_execution_request_from_args
+
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError("request construction must remain primitive and pure")
+
+    monkeypatch.setattr(PyTorchExecutionConfig, "__init__", fail_if_called)
+    monkeypatch.setattr(torch.cuda, "is_available", fail_if_called)
+    monkeypatch.setattr(torch.cuda, "device_count", fail_if_called)
+
+    request = build_execution_request_from_args(
+        argparse.Namespace(accelerator="auto"),
+        explicit_options={"--accelerator"},
+    )
+
+    assert request.values["accelerator"] == "auto"
+
+
+@pytest.mark.parametrize(
+    ("option", "field"),
+    [
+        ("--accelerator", "accelerator"),
+        ("--torch-accelerator", "accelerator"),
+        ("--device", "accelerator"),
+        ("--deterministic", "deterministic"),
+        ("--no-deterministic", "deterministic"),
+        ("--torch-deterministic", "deterministic"),
+        ("--num-workers", "num_workers"),
+        ("--torch-num-workers", "num_workers"),
+        ("--learning-rate", "learning_rate"),
+        ("--torch-learning-rate", "learning_rate"),
+        ("--scheduler", "scheduler"),
+        ("--torch-scheduler", "scheduler"),
+        ("--accumulate-grad-batches", "accum_steps"),
+        ("--torch-accumulate-grad-batches", "accum_steps"),
+        ("--logger", "logger_backend"),
+        ("--torch-logger", "logger_backend"),
+        ("--quiet", "enable_progress_bar"),
+        ("--enable-checkpointing", "enable_checkpointing"),
+        ("--disable-checkpointing", "enable_checkpointing"),
+        ("--torch-enable-checkpointing", "enable_checkpointing"),
+        ("--checkpoint-save-top-k", "checkpoint_save_top_k"),
+        ("--torch-checkpoint-save-top-k", "checkpoint_save_top_k"),
+        ("--checkpoint-monitor", "checkpoint_monitor_metric"),
+        ("--checkpoint-mode", "checkpoint_mode"),
+        ("--early-stop-patience", "early_stop_patience"),
+        ("--torch-recon-log-every-n-epochs", "recon_log_every_n_epochs"),
+        ("--torch-recon-log-num-patches", "recon_log_num_patches"),
+        ("--torch-recon-log-fixed-indices", "recon_log_fixed_indices"),
+        ("--torch-recon-log-stitch", "recon_log_stitch"),
+        (
+            "--torch-recon-log-max-stitch-samples",
+            "recon_log_max_stitch_samples",
+        ),
+        ("--inference-batch-size", "inference_batch_size"),
+        ("--torch-inference-batch-size", "inference_batch_size"),
+    ],
+)
+def test_execution_request_from_args_registry_maps_every_spelling(option, field):
+    from ptycho_torch.cli.shared import canonicalize_execution_options
+
+    fields, sources = canonicalize_execution_options({option})
+    equals_fields, equals_sources = canonicalize_execution_options(
+        {f"{option}=value"}
+    )
+
+    assert fields == {field}
+    assert sources == {option}
+    assert equals_fields == {field}
+    assert equals_sources == {option}
+
+
+def test_execution_request_from_args_disable_mlflow_fans_out():
+    from ptycho_torch.cli.shared import build_execution_request_from_args
+
+    request = build_execution_request_from_args(
+        argparse.Namespace(disable_mlflow=True),
+        explicit_options={"--disable_mlflow"},
+    )
+
+    assert request.values["logger_backend"] is None
+    assert request.values["enable_progress_bar"] is False
+    assert request.explicit_fields == frozenset(
+        {"logger_backend", "enable_progress_bar"}
+    )
+    assert [notice.category for notice in request.notices] == [
+        DeprecationWarning
+    ]
+
+
+def test_execution_request_from_args_boolean_pairs_use_canonical_destinations():
+    from ptycho_torch.cli.shared import build_execution_request_from_args
+
+    deterministic = build_execution_request_from_args(
+        argparse.Namespace(deterministic=False),
+        explicit_options={"--no-deterministic"},
+    )
+    checkpointing = build_execution_request_from_args(
+        argparse.Namespace(enable_checkpointing=False),
+        explicit_options={"--disable-checkpointing"},
+    )
+
+    assert deterministic.values["deterministic"] is False
+    assert deterministic.explicit_fields == frozenset({"deterministic"})
+    assert checkpointing.values["enable_checkpointing"] is False
+    assert checkpointing.explicit_fields == frozenset(
+        {"enable_checkpointing"}
+    )
+
+
+def test_execution_request_from_args_distinguishes_scheduler_lanes():
+    from ptycho_torch.cli.shared import canonicalize_execution_options
+
+    native_fields, _ = canonicalize_execution_options(
+        {"--scheduler"},
+        lane="native-training",
+    )
+    unified_public_fields, _ = canonicalize_execution_options(
+        {"--scheduler"},
+        lane="unified-training",
+    )
+    unified_compatibility_fields, _ = canonicalize_execution_options(
+        {"--torch-scheduler"},
+        lane="unified-training",
+    )
+
+    assert native_fields == {"scheduler"}
+    assert unified_public_fields == set()
+    assert unified_compatibility_fields == {"scheduler"}
+
+
+def test_execution_request_from_args_ignores_omitted_presentation_defaults():
+    from ptycho_torch.cli.shared import build_execution_request_from_args
+
+    request = build_execution_request_from_args(
+        argparse.Namespace(
+            accelerator="auto",
+            device="cpu",
+            learning_rate=None,
+        ),
+        explicit_options=set(),
+    )
+
+    assert request.values["accelerator"] == "auto"
+    assert request.values["learning_rate"] == 1e-3
+    assert request.explicit_fields == frozenset()
+    assert request.notices == ()
+
+
+def test_execution_request_from_args_defers_device_and_worker_notices():
+    from ptycho_torch.cli.shared import build_execution_request_from_args
+
+    request = build_execution_request_from_args(
+        argparse.Namespace(
+            accelerator="auto",
+            device="cuda",
+            deterministic=True,
+            num_workers=2,
+        ),
+        explicit_options={"--device", "--deterministic", "--num-workers"},
+    )
+
+    assert request.values["accelerator"] == "gpu"
+    assert [notice.category for notice in request.notices] == [
+        DeprecationWarning,
+        UserWarning,
+    ]
+
+
+def test_execution_request_from_args_compatibility_warnings_precede_validation():
+    from ptycho_torch.cli.shared import build_execution_config_from_args
+
+    args = argparse.Namespace(
+        accelerator="auto",
+        device="cuda",
+        deterministic=True,
+        num_workers=2,
+        learning_rate=-1.0,
+        disable_mlflow=True,
+        quiet=False,
+    )
+
+    with pytest.warns() as captured:
+        with pytest.raises(ValueError, match="learning_rate"):
+            build_execution_config_from_args(args)
+
+    assert [warning.category for warning in captured] == [
+        DeprecationWarning,
+        DeprecationWarning,
+        UserWarning,
+    ]
+
+
+def test_build_execution_config_preserves_recon_logging_namespace_values():
+    from ptycho_torch.cli.shared import build_execution_config_from_args
+
+    args = argparse.Namespace(
+        accelerator="cpu",
+        device=None,
+        deterministic=True,
+        num_workers=0,
+        learning_rate=1e-3,
+        disable_mlflow=False,
+        quiet=False,
+        recon_log_every_n_epochs=7,
+        recon_log_num_patches=9,
+        recon_log_fixed_indices=[1, 2],
+        recon_log_stitch=True,
+        recon_log_max_stitch_samples=11,
+    )
+
+    config = build_execution_config_from_args(args)
+
+    assert config.recon_log_every_n_epochs == 7
+    assert config.recon_log_num_patches == 9
+    assert config.recon_log_fixed_indices == [1, 2]
+    assert config.recon_log_stitch is True
+    assert config.recon_log_max_stitch_samples == 11

@@ -16,9 +16,177 @@ Related:
     - ptycho_torch/workflows/components.py (execution_config=None call sites)
 """
 
-import pytest
+import inspect
 import warnings
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
+
+import pytest
+
+
+def test_execution_config_rejects_persistent_workers_without_workers():
+    from ptycho.config.config import PyTorchExecutionConfig
+
+    with pytest.raises(ValueError, match="persistent_workers"):
+        PyTorchExecutionConfig(
+            accelerator="cpu",
+            num_workers=0,
+            persistent_workers=True,
+        )
+
+
+def test_execution_config_rejects_unknown_logger_backend():
+    from ptycho.config.config import PyTorchExecutionConfig
+
+    with pytest.raises(ValueError, match="logger_backend"):
+        PyTorchExecutionConfig(accelerator="cpu", logger_backend="bogus")
+
+
+def test_execution_config_explicit_none_disables_logger():
+    from ptycho.config.config import PyTorchExecutionConfig
+
+    config = PyTorchExecutionConfig(accelerator="cpu", logger_backend=None)
+
+    assert config.logger_backend is None
+
+
+def test_execution_config_signature_preserves_ordered_public_parameters():
+    from ptycho.config.config import PyTorchExecutionConfig
+
+    assert tuple(inspect.signature(PyTorchExecutionConfig).parameters) == (
+        "accelerator",
+        "devices",
+        "strategy",
+        "deterministic",
+        "precision",
+        "gradient_clip_val",
+        "gradient_clip_algorithm",
+        "accum_steps",
+        "num_workers",
+        "pin_memory",
+        "persistent_workers",
+        "prefetch_factor",
+        "learning_rate",
+        "scheduler",
+        "enable_progress_bar",
+        "enable_checkpointing",
+        "checkpoint_save_top_k",
+        "checkpoint_monitor_metric",
+        "checkpoint_mode",
+        "early_stop_patience",
+        "logger_backend",
+        "recon_log_every_n_epochs",
+        "recon_log_num_patches",
+        "recon_log_fixed_indices",
+        "recon_log_stitch",
+        "recon_log_max_stitch_samples",
+        "ffno_encoder_blocks",
+        "ffno_encoder_modes",
+        "ffno_encoder_share_weights",
+        "ffno_encoder_gate_init",
+        "ffno_encoder_norm",
+        "ffno_encoder_mlp_ratio",
+        "spectral_bottleneck_blocks",
+        "spectral_bottleneck_modes",
+        "spectral_bottleneck_share_weights",
+        "spectral_bottleneck_gate_init",
+        "spectral_bottleneck_gate_mode",
+        "inference_batch_size",
+        "middle_trim",
+        "pad_eval",
+    )
+
+
+def test_execution_config_preserves_positional_prefix_binding():
+    from ptycho.config.config import PyTorchExecutionConfig
+
+    config = PyTorchExecutionConfig("cpu", 2, "ddp", False)
+
+    assert (
+        config.accelerator,
+        config.devices,
+        config.strategy,
+        config.deterministic,
+    ) == ("cpu", 2, "ddp", False)
+
+
+def test_execution_config_preserves_keyword_construction():
+    from ptycho.config.config import PyTorchExecutionConfig
+
+    config = PyTorchExecutionConfig(
+        accelerator="cpu",
+        devices=3,
+        strategy="fsdp",
+        deterministic="warn",
+    )
+
+    assert (
+        config.accelerator,
+        config.devices,
+        config.strategy,
+        config.deterministic,
+    ) == ("cpu", 3, "fsdp", "warn")
+
+
+def test_execution_config_retains_explicit_deprecated_structural_provenance():
+    from ptycho.config.config import PyTorchExecutionConfig
+
+    config = PyTorchExecutionConfig(
+        accelerator="cpu",
+        spectral_bottleneck_modes=8,
+    )
+
+    assert config._explicit_structural_aliases == frozenset(
+        {"spectral_bottleneck_modes"}
+    )
+
+
+def test_execution_config_retains_all_explicit_ffno_alias_provenance():
+    from ptycho.config.config import PyTorchExecutionConfig
+
+    config = PyTorchExecutionConfig(
+        accelerator="cpu",
+        ffno_encoder_blocks=24,
+        ffno_encoder_modes=12,
+        ffno_encoder_share_weights=True,
+        ffno_encoder_gate_init=0.1,
+        ffno_encoder_norm="instance",
+        ffno_encoder_mlp_ratio=2.0,
+    )
+
+    assert config._explicit_structural_aliases == frozenset(
+        {
+            "ffno_encoder_blocks",
+            "ffno_encoder_modes",
+            "ffno_encoder_share_weights",
+            "ffno_encoder_gate_init",
+            "ffno_encoder_norm",
+            "ffno_encoder_mlp_ratio",
+        }
+    )
+
+
+def test_execution_config_warns_before_late_validation_failure(monkeypatch):
+    import torch
+
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+
+    from ptycho.config.config import PyTorchExecutionConfig
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        with pytest.raises(ValueError, match="learning_rate"):
+            PyTorchExecutionConfig(accelerator="auto", learning_rate=0)
+
+    assert len(caught) == 1
+    assert caught[0].category is UserWarning
+    assert "POLICY-001" in str(caught[0].message)
+
+
+def test_execution_config_rejects_negative_checkpoint_count():
+    from ptycho.config.config import PyTorchExecutionConfig
+
+    with pytest.raises(ValueError, match="checkpoint_save_top_k"):
+        PyTorchExecutionConfig(accelerator="cpu", checkpoint_save_top_k=-1)
 
 
 class TestPyTorchExecutionConfigDefaults:
@@ -30,10 +198,9 @@ class TestPyTorchExecutionConfigDefaults:
 
         POLICY-001: PyTorch backend must default to GPU execution when hardware available.
         """
-        # Mock torch.cuda.is_available to return True
-        mock_torch = MagicMock()
-        mock_torch.cuda.is_available.return_value = True
-        monkeypatch.setitem(__import__('sys').modules, 'torch', mock_torch)
+        import torch
+
+        monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
 
         # Import after monkeypatch to get mocked torch
         from ptycho.config.config import PyTorchExecutionConfig
@@ -52,10 +219,9 @@ class TestPyTorchExecutionConfigDefaults:
 
         POLICY-001: CPU fallback must emit actionable warning about GPU-first policy.
         """
-        # Mock torch.cuda.is_available to return False
-        mock_torch = MagicMock()
-        mock_torch.cuda.is_available.return_value = False
-        monkeypatch.setitem(__import__('sys').modules, 'torch', mock_torch)
+        import torch
+
+        monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
 
         # Import after monkeypatch
         from ptycho.config.config import PyTorchExecutionConfig
@@ -182,13 +348,13 @@ class TestPyTorchExecutionConfigDefaults:
                 f"Expected 'No CUDA device detected' in warning, got: {policy_warnings[0].message}"
             )
 
-    def test_backend_selector_inherits_gpu_first_defaults(
+    def test_backend_selector_defers_execution_resolution_on_cuda_hosts(
         self,
         monkeypatch,
         tmp_path,
     ):
         """
-        Verify backend_selector inherits GPU-first defaults when torch_execution_config=None.
+        The selector passes None through so the validated factory resolves hardware.
 
         This test captures the dispatcher-level behavior where train_cdi_model_torch is
         called without explicit execution config (torch_execution_config=None), ensuring
@@ -203,13 +369,12 @@ class TestPyTorchExecutionConfigDefaults:
         """
         from unittest.mock import patch
 
-        # Mock torch.cuda.is_available to return True
-        mock_torch = MagicMock()
-        mock_torch.cuda.is_available.return_value = True
-        monkeypatch.setitem(__import__('sys').modules, 'torch', mock_torch)
+        import torch
+
+        monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
 
         # Import after monkeypatch
-        from ptycho.config.config import TrainingConfig, ModelConfig, PyTorchExecutionConfig
+        from ptycho.config.config import ModelConfig, TrainingConfig
         from ptycho.workflows.backend_selector import run_cdi_example_with_backend
 
         # Create minimal training config with pytorch backend
@@ -246,22 +411,9 @@ class TestPyTorchExecutionConfigDefaults:
             call_kwargs = mock_run.call_args.kwargs if mock_run.call_args else {}
             execution_config = call_kwargs.get('execution_config')
 
-            # Verify execution_config was auto-instantiated (not None)
-            assert execution_config is not None, (
-                "Expected backend_selector to auto-instantiate PyTorchExecutionConfig when "
-                "torch_execution_config=None, got None"
-            )
+            assert execution_config is None
 
-            # Verify accelerator resolved to 'cuda' (GPU-first policy)
-            assert hasattr(execution_config, 'accelerator'), (
-                f"Expected execution_config to have 'accelerator' attribute, got: {type(execution_config)}"
-            )
-            assert execution_config.accelerator == 'cuda', (
-                f"Expected auto-instantiated execution_config to resolve to 'cuda' when CUDA available, "
-                f"got '{execution_config.accelerator}'"
-            )
-
-    def test_backend_selector_cpu_fallback_with_warning(
+    def test_backend_selector_defers_execution_resolution_without_cpu_warning(
         self,
         monkeypatch,
         tmp_path,
@@ -283,13 +435,12 @@ class TestPyTorchExecutionConfigDefaults:
         """
         from unittest.mock import patch
 
-        # Mock torch.cuda.is_available to return False
-        mock_torch = MagicMock()
-        mock_torch.cuda.is_available.return_value = False
-        monkeypatch.setitem(__import__('sys').modules, 'torch', mock_torch)
+        import torch
+
+        monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
 
         # Import after monkeypatch
-        from ptycho.config.config import TrainingConfig, ModelConfig, PyTorchExecutionConfig
+        from ptycho.config.config import ModelConfig, TrainingConfig
         from ptycho.workflows.backend_selector import run_cdi_example_with_backend
 
         # Create minimal training config with pytorch backend
@@ -324,26 +475,11 @@ class TestPyTorchExecutionConfigDefaults:
                 call_kwargs = mock_run.call_args.kwargs if mock_run.call_args else {}
                 execution_config = call_kwargs.get('execution_config')
 
-                # Verify execution_config was auto-instantiated
-                assert execution_config is not None, (
-                    "Expected backend_selector to auto-instantiate PyTorchExecutionConfig when "
-                    "torch_execution_config=None, got None"
-                )
-
-                # Verify CPU fallback
-                assert execution_config.accelerator == 'cpu', (
-                    f"Expected auto-instantiated execution_config to fall back to 'cpu' when CUDA unavailable, "
-                    f"got '{execution_config.accelerator}'"
-                )
+                assert execution_config is None
 
             # Verify POLICY-001 warning was emitted
             policy_warnings = [warning for warning in w if "POLICY-001" in str(warning.message)]
-            assert len(policy_warnings) >= 1, (
-                f"Expected POLICY-001 warning when falling back to CPU, got {len(policy_warnings)} warnings"
-            )
-            assert "No CUDA device detected" in str(policy_warnings[0].message), (
-                f"Expected 'No CUDA device detected' in warning, got: {policy_warnings[0].message}"
-            )
+            assert policy_warnings == []
 
 
 if __name__ == '__main__':

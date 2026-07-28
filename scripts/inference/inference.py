@@ -644,9 +644,20 @@ def main():
     """Main entry point for the ptychography inference script."""
     config = None
     try:
+        raw_argv = tuple(sys.argv[1:])
         print("Starting ptychography inference script...")
         args = parse_arguments()
         config = setup_inference_configuration(args, args.config)
+        execution_request = None
+        if config.backend == 'pytorch':
+            from ptycho_torch.cli.shared import build_execution_request_from_args
+
+            execution_request = build_execution_request_from_args(
+                args,
+                mode='inference',
+                explicit_options=raw_argv,
+                lane='unified-inference',
+            )
         debug_dump_dir = None
         if args.debug_dump is not None:
             debug_dump_dir = (
@@ -676,32 +687,33 @@ def main():
 
         # For PyTorch backend, move model to execution device and set to eval mode
         if config.backend == 'pytorch':
-            # Determine if user explicitly provided any --torch-* flags
-            # We check against sys.argv to detect user overrides
-            torch_flags_explicitly_set = any([
-                'torch_accelerator' in sys.argv or '--torch-accelerator' in sys.argv,
-                'torch_num_workers' in sys.argv or '--torch-num-workers' in sys.argv,
-                'torch_inference_batch_size' in sys.argv or '--torch-inference-batch-size' in sys.argv,
-            ])
-
-            if not torch_flags_explicitly_set:
-                # No --torch-* flags provided: emit POLICY-001 info log
+            if not execution_request.explicit_fields:
                 print("POLICY-001: No --torch-* execution flags provided. "
                       "Backend will use GPU-first defaults (auto-detects CUDA if available, else CPU). "
                       "CPU-only users should pass --torch-accelerator cpu.")
 
-            # Resolve device before loading data (will be used for tensors and model)
-            import argparse as arg_module
-            exec_args = arg_module.Namespace(
-                accelerator=getattr(args, 'torch_accelerator', 'auto'),
-                num_workers=getattr(args, 'torch_num_workers', 0),
-                inference_batch_size=getattr(args, 'torch_inference_batch_size', None),
-                quiet=not config.debug,
-                disable_mlflow=False
+            from ptycho_torch.execution_request import (
+                resolve_runtime_execution_request,
             )
 
-            from ptycho_torch.cli.shared import build_execution_config_from_args
-            execution_config = build_execution_config_from_args(exec_args, mode='inference')
+            runtime = resolve_runtime_execution_request(
+                execution_request,
+                mode='inference',
+            )
+            execution_config = runtime.config
+            execution_runtime_audit = runtime.audit_dict()
+            import warnings
+
+            for notice in runtime.notices:
+                warnings.warn(
+                    notice.message,
+                    notice.category,
+                    stacklevel=2,
+                )
+            logger.debug(
+                "PyTorch execution runtime audit: %s",
+                execution_runtime_audit,
+            )
 
             # Map Lightning accelerator convention to torch device string
             if execution_config.accelerator in ('cuda', 'gpu'):
