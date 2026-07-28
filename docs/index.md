@@ -77,6 +77,12 @@ the [Core Contract](specs/spec-ptycho-core.md), and the
 **Keywords:** configuration, pydantic, type-adapter, validation, simulation, dataclass
 **Use this when:** Implementing or reviewing simulation configuration parsing and validation. It does not authorize enums or migration of public, Torch, execution, CLI, or persistence configuration.
 
+#### [Configuration Boundary Architecture](superpowers/specs/2026-07-28-configuration-boundary-architecture.md)
+**Description:** Umbrella architecture that separates complete documents, partial patches, resolved runtime snapshots, environmental requests, versioned persistence, and the legacy projection. Routes each family to an independently justified Pydantic adopt/hold/reject decision.
+**Keywords:** configuration, boundaries, resolution, validation, pydantic, public-config, torch-config, execution, persistence, params.cfg
+**Use this when:** Changing any non-simulation configuration boundary or deciding whether Pydantic belongs there. Follow its child designs for [public configuration](superpowers/specs/2026-07-28-public-config-resolution-design.md), [Torch runtime configuration](superpowers/specs/2026-07-28-torch-config-resolution-design.md), [execution ownership](superpowers/specs/2026-07-28-execution-config-ownership-design.md), and [persistence and compatibility](superpowers/specs/2026-07-28-configuration-persistence-boundaries.md).
+**Implementation roadmaps:** [public resolution](plans/2026-07-28-public-config-resolution-implementation.md), [execution ownership](plans/2026-07-28-execution-config-ownership-implementation.md), then [Torch transactional resolution](plans/2026-07-28-torch-config-resolution-implementation.md).
+
 #### [Data Contracts](data_contracts.md) CRITICAL
 **Description:** Official format specifications for NPZ datasets including required keys, data types, shapes, and normalization requirements.  
 **Keywords:** NPZ-format, data-contracts, normalization, diffraction, amplitude  

@@ -23,15 +23,14 @@ These dataclasses, defined in `config/config.py`, are the primary way to specify
   - `N`: The size of the input diffraction patterns (e.g., 64, 128).
   - `gridsize`: The number of adjacent scan positions to process simultaneously (e.g., `gridsize=2` means a 2x2 group).
   - `model_type`: The type of model, either `'pinn'` or `'supervised'`.
-  - `architecture`: `Literal` selecting the generator/model architecture — 14 values (`'cnn'`, `'ffno'`, `'fno'`,
-    `'hybrid'`, `'stable_hybrid'`, `'fno_vanilla'`, `'neuralop_uno'`, `'hybrid_resnet'`,
-    `'hybrid_resnet_ffno_ptychoblock_encoder'`, `'hybrid_resnet_ptychoblock_ffno_encoder'`,
-    `'spectral_resnet_bottleneck_net'`, `'spectral_resnet_bottleneck_linear_decoder'`,
-    `'hybrid_resnet_ffno_bottleneck'`, `'hybrid_resnet_convnext_bottleneck'`), default `'cnn'`
+  - `architecture`: `Literal` selecting the generator/model architecture — five values
+    (`'cnn'`, `'ffno'`, `'fno'`, `'fno_vanilla'`, `'neuralop_uno'`), default `'cnn'`
     (`ptycho.config.config.ModelConfig`). Routes generator resolution on the PyTorch backend
     (`ptycho_torch.generators.registry.resolve_generator`); the TensorFlow backend does not branch on it.
-    Dependent fields (`fno_modes`, `fno_width`, `fno_blocks`, `resnet_width`, `generator_output_mode`, …)
-    are conditionally enforced by `validate_model_config` for non-`'cnn'` architectures.
+    The public validator enforces the selected architecture domain and shared
+    scalar/object-policy constraints. Architecture-specific construction
+    constraints are enforced by the selected PyTorch generator and ModelSpec
+    boundary.
   - `amp_activation`: The activation function for the amplitude decoder.
   - `object_layout`: `'single_patch'` or `'grouped_patches'`; owns the
     reconstructed component layout.
@@ -355,15 +354,19 @@ The PyTorch backend exposes a dedicated execution configuration dataclass (`ptyc
 - **MUST NOT** populate `params.cfg` via `update_legacy_dict` (CONFIG-001 applies only to canonical configs).
 - **SHALL** be validated on instantiation via `__post_init__` raising `ValueError` for invalid fields.
 - **IS** applied at priority level 2 in the factory override precedence (between explicit overrides and dataclass defaults).
+- **MAY** accept the documented optimizer-adjacent fields as deprecated
+  priority-level-2 compatibility inputs. The factory resolves them one-way
+  into the effective Torch `TrainingConfig`; downstream optimization code does
+  not treat execution config as a second owner.
 
 **Field Categories and Validation Rules:**
 
 1. **Lightning Trainer Knobs:**
-   - `accelerator` (str, default `'cpu'`): Hardware device. MUST be in `{'auto', 'cpu', 'gpu', 'cuda', 'tpu', 'mps'}`. CLI defaults to `'auto'` via helper resolution.
+   - `accelerator` (str, default `'auto'`): Hardware device. MUST be in `{'auto', 'cpu', 'gpu', 'cuda', 'mps'}`. `'auto'` resolves to CUDA when available and otherwise CPU with the POLICY-001 warning. TPU is unsupported because this runtime has no Torch-XLA contract.
    - `strategy` (str, default `'auto'`): Distributed strategy. Validated downstream; future CLI exposure planned (Phase E.B2).
    - `deterministic` (bool, default `True`): Enforce reproducibility. Controlled via `--deterministic` / `--no-deterministic` flags.
-   - `gradient_clip_val` (float|None, default `None`): Gradient clipping threshold. Planned CLI exposure (Phase E.B2 backlog).
-   - `accum_steps` (int, default `1`): Gradient accumulation steps. MUST be > 0. CLI backlog (Phase E.B2).
+   - `gradient_clip_val` (float|None, default `None`): Deprecated compatibility input for the effective Torch TrainingConfig clipping value. Resolved Trainer clipping arguments are derived from that effective owner.
+   - `accum_steps` (int, default `1`): Deprecated compatibility input for the effective Torch TrainingConfig accumulation value. MUST be > 0; resolved Trainer arguments are derived from that effective owner.
 
 2. **DataLoader Knobs:**
    - `num_workers` (int, default `0`): Worker process count. MUST be ≥ 0. Exposed via `--num-workers`.
@@ -371,29 +374,26 @@ The PyTorch backend exposes a dedicated execution configuration dataclass (`ptyc
    - `persistent_workers` (bool, default `False`): Keep workers alive between epochs. Only valid when `num_workers > 0`.
    - `prefetch_factor` (int|None, default `None`): Batches to prefetch per worker. Not yet exposed via CLI.
 
-3. **Optimization Knobs:**
-   - `learning_rate` (float, default `1e-3`): Optimizer learning rate. MUST be > 0. Exposed via `--learning-rate`.
-   - `scheduler` (str, default `'Default'`): LR scheduler type. This field is an **unvalidated `str`** — no
-     runtime enum enforcement in `PyTorchExecutionConfig`. Exposed via `--scheduler`, where the CLI still
-     restricts input to `['Default', 'Exponential', 'MultiStage', 'Adaptive']`. The validated canonical
-     scheduler enum used for Lightning `configure_optimizers()` selection lives on
-     `TrainingConfig.scheduler: Literal['Default', 'Exponential', 'WarmupCosine', 'ReduceLROnPlateau']`
-     (`ptycho.config.config.TrainingConfig`); `'MultiStage'` and `'Adaptive'` are not members of that enum.
-   - `accum_steps` (int, default `1`): Gradient accumulation steps. MUST be ≥ 1. Simulates larger effective batch sizes by accumulating gradients over multiple forward/backward passes before updating weights. Effective batch size = `batch_size × accum_steps`. Exposed via `--accumulate-grad-batches`.
+3. **Deprecated Optimization Compatibility Inputs:**
+   - `learning_rate` (float, default `1e-3`): Priority-level-2 compatibility input. MUST be > 0. The factory resolves the effective value into Torch `TrainingConfig.learning_rate`, which is the sole downstream optimizer owner.
+   - `scheduler` (str, default `'Default'`): Priority-level-2 compatibility input. The factory resolves and validates the effective value against the Torch TrainingConfig scheduler domain; downstream scheduler construction reads only that training field.
+   - `gradient_clip_val` / `gradient_clip_algorithm`: Priority-level-2 compatibility inputs resolved into the effective Torch TrainingConfig clipping policy.
+   - `accum_steps` (int, default `1`): Priority-level-2 compatibility input resolved into `TrainingConfig.accum_steps`. MUST be ≥ 1. Lightning arguments are derived from that same effective value.
+   - Precedence is: explicitly supplied canonical/factory TrainingConfig override, explicitly supplied execution compatibility input, resolved TrainingConfig value, then Torch TrainingConfig default. Equal values are recorded once under the TrainingConfig owner.
 
 4. **Checkpoint/Logging Knobs:**
    - `enable_progress_bar` (bool, default `False`): Show training progress. Derived from `--quiet` flag inversion.
    - `enable_checkpointing` (bool, default `True`): Enable Lightning automatic checkpointing during training. Exposed via `--enable-checkpointing` / `--disable-checkpointing`.
-   - `checkpoint_save_top_k` (int, default `1`): Number of best checkpoints to retain. MUST be ≥ 0. Set to -1 to save all checkpoints, 0 to disable saving. Exposed via `--checkpoint-save-top-k`.
+   - `checkpoint_save_top_k` (int, default `1`): Number of best checkpoints to retain. MUST be ≥ 0; 0 disables saving. The `-1` save-all spelling is not supported. Exposed via `--checkpoint-save-top-k`.
    - `checkpoint_monitor_metric` (str, default `'val_loss'`): Metric for best checkpoint selection. The literal `'val_loss'` is dynamically mapped to `model.val_loss_name` (typically `'poisson_val_loss'` for PINN models) during Lightning configuration, ensuring compatibility with the model's actual metric names. Falls back to `model.train_loss_name` when validation data is unavailable. Exposed via `--checkpoint-monitor`.
    - `checkpoint_mode` (str, default `'min'`): Mode for checkpoint metric optimization. MUST be `'min'` (lower metric is better) or `'max'` (higher metric is better). Exposed via `--checkpoint-mode`.
    - `early_stop_patience` (int, default `100`): Early stopping patience epochs. MUST be > 0. Training stops if monitored metric doesn't improve for this many epochs. Exposed via `--early-stop-patience`.
-   - `logger_backend` (str, default `'csv'`): Experiment tracking backend. MUST be one of `['csv', 'tensorboard', 'mlflow', 'none']`. Controls Lightning logger selection for capturing training/validation metrics:
+   - `logger_backend` (`str|None`, default `'csv'`): Resolved experiment tracking backend. MUST be one of `'csv'`, `'tensorboard'`, `'mlflow'`, or `None`. The raw CLI spelling `'none'` resolves to `None`; direct programmatic `None` has the same disabled meaning. Controls Lightning logger selection for capturing training/validation metrics:
      - `'csv'`: CSVLogger (default) — zero dependencies, stores metrics as CSV files in `{output_dir}/lightning_logs/`. Recommended for CI/automated workflows.
      - `'tensorboard'`: TensorBoardLogger — requires tensorboard (auto-installed via TensorFlow dependency), enables rich visualization via `tensorboard --logdir {output_dir}/lightning_logs/`.
      - `'mlflow'`: MLFlowLogger — requires mlflow package (optional dependency), integrates with MLflow tracking server. Server URI must be configured separately.
-     - `'none'`: Disable logging — metrics from `self.log()` calls are discarded. Use with `--quiet` to suppress all output.
-     When dataclass field is `None`, factory defaults to `'csv'`. Exposed via `--logger` CLI flag. **Note:** MLflow backend currently uses legacy `mlflow.pytorch.autolog()` in `ptycho_torch.train`; migration to Lightning `MLFlowLogger` tracked as Phase EB3.C4 backlog. **Deprecation:** `--disable_mlflow` flag emits DeprecationWarning directing users to `--logger none` + `--quiet`.
+     - `None`: Disable logging — metrics from `self.log()` calls are discarded. Use the raw CLI spelling `'none'` with `--quiet` to suppress all output.
+     Omission uses the dataclass default `'csv'`; explicit `None` disables logging. Exposed via `--logger` CLI flag. **Note:** MLflow backend currently uses legacy `mlflow.pytorch.autolog()` in `ptycho_torch.train`; migration to Lightning `MLFlowLogger` tracked as Phase EB3.C4 backlog. **Deprecation:** `--disable_mlflow` emits `DeprecationWarning` and resolves to the same disabled `None` value.
 
 5. **Inference Knobs:**
    - `inference_batch_size` (int|None, default `None`): Override batch size for inference. MUST be > 0 if set. Exposed via `--inference-batch-size`. When `None`, reuses training `batch_size`.
@@ -422,7 +422,7 @@ updated in lockstep.
 | `gridsize` | `gridsize` | `RawData.generate_grouped_data`, `PtychoDataContainer`, model constructors | Determines group cardinality (`gridsize²`), tensor channel layout, and model input signature. |
 | `n_filters_scale` | `n_filters_scale` | model constructors | Scales convolution filter widths throughout encoder/decoder stacks. |
 | `model_type` | `model_type` | training/export workflows | Selects physics-informed vs supervised workflows and annotates saved artifacts. |
-| `architecture` | `architecture` | `resolve_generator`, `to_model_config` | Selects the generator/model architecture (14-value `Literal`, default `'cnn'`); PyTorch-only routing field consumed by `resolve_generator` — TensorFlow backend ignores it. `validate_model_config` conditionally enforces dependent fields (`fno_blocks`, `resnet_width`, …) for non-`'cnn'` architectures. |
+| `architecture` | `architecture` | `resolve_generator`, `to_model_config` | Selects one of the five supported generator architectures (`'cnn'`, `'ffno'`, `'fno'`, `'fno_vanilla'`, `'neuralop_uno'`; default `'cnn'`). The PyTorch registry and ModelSpec boundary enforce architecture-specific construction requirements; TensorFlow ignores this routing field. |
 | `amp_activation` | `amp_activation` | model amplitude head | Chooses activation function for the reconstructed amplitude head. |
 | `object_layout` | `object_layout` | model construction and Torch structural identity | Canonical component layout: `'single_patch'` or `'grouped_patches'`. |
 | `training_canvas` | `training_canvas` | model construction and Torch structural identity | Canonical canvas policy paired with `object_layout`: `'independent'` or `'relative_overlap'`. |
@@ -498,7 +498,7 @@ These flags map to `PyTorchExecutionConfig` fields via factory override preceden
 
 | CLI Flag | Type | Default | Config Field | Description |
 |----------|------|---------|--------------|-------------|
-| `--accelerator` | str | `'auto'` | `PyTorchExecutionConfig.accelerator` | Hardware accelerator: `'auto'` (detect GPU, default), `'cpu'` (CPU-only), `'gpu'`/`'cuda'` (NVIDIA GPU), `'tpu'` (Google TPU), `'mps'` (Apple Silicon). Dataclass default is `'cpu'`; CLI helper overrides to `'auto'`. |
+| `--accelerator` | str | `'auto'` | `PyTorchExecutionConfig.accelerator` | Hardware accelerator: `'auto'` (detect CUDA, default), `'cpu'`, `'gpu'`/`'cuda'`, or `'mps'`. TPU is rejected because this runtime has no Torch-XLA support. |
 | `--deterministic` / `--no-deterministic` | bool | `True` | `PyTorchExecutionConfig.deterministic` | Enable reproducible training with fixed RNG seeds. Use `--no-deterministic` to disable for potential performance gains (results become non-reproducible). |
 | `--num-workers` | int | `0` | `PyTorchExecutionConfig.num_workers` | DataLoader worker process count (0 = main thread only, CPU-safe). Typical values: 2-8 for multi-core systems. |
 | `--learning-rate` | float | `1e-3` | `PyTorchExecutionConfig.learning_rate` | Optimizer learning rate. Must be > 0. |
@@ -506,7 +506,7 @@ These flags map to `PyTorchExecutionConfig` fields via factory override preceden
 | `--accumulate-grad-batches` | int | `1` | `PyTorchExecutionConfig.accum_steps` | Number of gradient accumulation steps (default: 1 = no accumulation). Accumulation simulates larger effective batch sizes by accumulating gradients over multiple forward/backward passes before updating weights. Effective batch size = batch_size × accumulate_grad_batches. WARNING: Values >1 increase memory efficiency but may affect training dynamics. |
 | `--quiet` | flag | `False` | `PyTorchExecutionConfig.enable_progress_bar` | Suppress progress bars and reduce console logging. Inverted to populate `enable_progress_bar` (`--quiet` → `False`). |
 | `--enable-checkpointing` / `--disable-checkpointing` | bool | `True` | `PyTorchExecutionConfig.enable_checkpointing` | Enable automatic model checkpointing during training (default: enabled). Checkpoints are saved based on monitored metric performance. Use `--disable-checkpointing` to turn off. |
-| `--checkpoint-save-top-k` | int | `1` | `PyTorchExecutionConfig.checkpoint_save_top_k` | Number of best checkpoints to keep (default: 1). Set to -1 to save all checkpoints, 0 to disable saving. Best checkpoints are determined by `--checkpoint-monitor` metric. |
+| `--checkpoint-save-top-k` | int | `1` | `PyTorchExecutionConfig.checkpoint_save_top_k` | Number of best checkpoints to keep (default: 1; must be non-negative). Set to 0 to disable saving. Best checkpoints are determined by `--checkpoint-monitor` metric. |
 | `--checkpoint-monitor` | str | `'val_loss'` | `PyTorchExecutionConfig.checkpoint_monitor_metric` | Metric to monitor for checkpoint selection (default: `'val_loss'`). The literal `'val_loss'` is dynamically aliased to `model.val_loss_name` (e.g., `'poisson_val_loss'`) during Lightning configuration. Falls back to `model.train_loss_name` when validation data is unavailable. Common choices: val_loss, train_loss, val_accuracy. |
 | `--checkpoint-mode` | str | `'min'` | `PyTorchExecutionConfig.checkpoint_mode` | Mode for checkpoint metric optimization (default: min). Use 'min' when lower metric values are better (e.g., loss), 'max' when higher values are better (e.g., accuracy). |
 | `--early-stop-patience` | int | `100` | `PyTorchExecutionConfig.early_stop_patience` | Early stopping patience in epochs (default: 100). Training stops if monitored metric doesn't improve for this many consecutive epochs. Set to large value (e.g., 1000) to effectively disable early stopping. |
@@ -528,7 +528,7 @@ The following `PyTorchExecutionConfig` fields are not yet exposed via CLI but ar
 
 | CLI Flag | Type | Default | Config Field | Description |
 |----------|------|---------|--------------|-------------|
-| `--accelerator` | str | `'auto'` | `PyTorchExecutionConfig.accelerator` | Hardware accelerator: `'auto'` (detect GPU, default), `'cpu'`, `'gpu'`/`'cuda'`, `'tpu'`, `'mps'`. Dataclass default is `'cpu'`; CLI helper overrides to `'auto'`. |
+| `--accelerator` | str | `'auto'` | `PyTorchExecutionConfig.accelerator` | Hardware accelerator: `'auto'` (detect CUDA, default), `'cpu'`, `'gpu'`/`'cuda'`, or `'mps'`. TPU is rejected because this runtime has no Torch-XLA support. |
 | `--num-workers` | int | `0` | `PyTorchExecutionConfig.num_workers` | DataLoader worker process count (0 = synchronous, CPU-safe). Typical values: 2-8 for multi-core systems. |
 | `--inference-batch-size` | int | `None` | `PyTorchExecutionConfig.inference_batch_size` | Batch size for inference DataLoader. When `None` (default), reuses training `batch_size` from checkpoint. Larger values increase throughput. Typical: 16-64 for GPU, 4-8 for CPU. |
 | `--quiet` | flag | `False` | `PyTorchExecutionConfig.enable_progress_bar` | Suppress progress bars and reduce console logging. Inverted to populate `enable_progress_bar`. |
