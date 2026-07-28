@@ -23,6 +23,15 @@ from .config import (
     validate_simulation_config,
     validate_training_config,
 )
+from .resolution import (
+    resolve_inference_config,
+    resolve_training_config,
+    validate_inference_config_structure,
+    validate_inference_resources,
+    validate_model_config_structure,
+    validate_runnable_training_config,
+    validate_training_config_structure,
+)
 
 __all__ = [
     "DetectorSimulationConfig",
@@ -40,10 +49,17 @@ __all__ = [
     "simulation_config_to_dict",
     "simulation_config_sha256",
     "load_simulation_config",
+    "resolve_inference_config",
+    "resolve_training_config",
     "update_legacy_dict",
     "validate_inference_config",
+    "validate_inference_config_structure",
+    "validate_inference_resources",
     "validate_model_config",
+    "validate_model_config_structure",
+    "validate_runnable_training_config",
     "validate_simulation_compatibility",
     "validate_simulation_config",
     "validate_training_config",
+    "validate_training_config_structure",
 ]

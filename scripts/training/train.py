@@ -2,6 +2,7 @@
 
 import logging
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -24,13 +25,17 @@ logging.getLogger().addHandler(file_handler)
 logging.getLogger().addHandler(console_handler)
 
 from ptycho.workflows.components import (
-    parse_arguments as base_parse_arguments,
+    add_public_training_config_arguments,
     setup_configuration,
     load_data,
     save_outputs,
     logger
 )
 from ptycho.workflows.backend_selector import run_cdi_example_with_backend
+from ptycho.config import (
+    validate_runnable_training_config,
+    validate_training_config_structure,
+)
 from ptycho.config.config import TrainingConfig, update_legacy_dict
 from ptycho.config.legacy_state import scoped_legacy_params
 from ptycho import model_manager, params
@@ -122,15 +127,8 @@ def parse_arguments():
     TrainingConfig fields, following the pattern from scripts/inference/inference.py.
     See docs/workflows/pytorch.md §12 for flag descriptions.
     """
-    # Start with a parser that has no arguments yet
-    import sys
     from ptycho.cli_args import add_logging_arguments
-    from ptycho.config.config import TrainingConfig, ModelConfig
-    from dataclasses import fields
-    from typing import get_origin, get_args, Union, Literal
-    from pathlib import Path
 
-    logger_local = logging.getLogger(__name__)
     parser = argparse.ArgumentParser(description="Non-grid CDI Example Script")
     parser.add_argument("--config", type=str, help="Path to YAML configuration file")
     parser.add_argument("--do_stitching", action='store_true', default=False,
@@ -138,128 +136,7 @@ def parse_arguments():
 
     # Add logging arguments
     add_logging_arguments(parser)
-
-    # Add arguments based on TrainingConfig fields (same as base_parse_arguments)
-    for field in fields(TrainingConfig):
-        if field.name == 'model':
-            # Handle ModelConfig fields
-            for model_field in fields(ModelConfig):
-                # Special handling for Literal types
-                if hasattr(model_field.type, "__origin__") and model_field.type.__origin__ is Literal:
-                    choices = list(model_field.type.__args__)
-                    parser.add_argument(
-                        f"--{model_field.name}",
-                        type=str,
-                        choices=choices,
-                        default=model_field.default,
-                        help=f"Model parameter: {model_field.name}, choices: {choices}"
-                    )
-                else:
-                    parser.add_argument(
-                        f"--{model_field.name}",
-                        type=model_field.type,
-                        default=model_field.default,
-                        help=f"Model parameter: {model_field.name}"
-                    )
-        else:
-            # Handle path fields specially
-            if field.type == Path or str(field.type).startswith("typing.Optional[pathlib.Path"):
-                parser.add_argument(
-                    f"--{field.name}",
-                    type=lambda x: Path(x) if x is not None else None,
-                    default=None if field.default == None else str(field.default),
-                    help=f"Path for {field.name}"
-                )
-            elif hasattr(field.type, "__origin__") and field.type.__origin__ is Literal:
-                choices = list(field.type.__args__)
-                parser.add_argument(
-                    f"--{field.name}",
-                    type=str,
-                    choices=choices,
-                    default=field.default,
-                    help=f"Training parameter: {field.name}, choices: {choices}"
-                )
-            else:
-                # Special handling for specific parameters to provide better help text
-                if field.name == 'n_groups':
-                    parser.add_argument(
-                        f"--{field.name}",
-                        type=field.type if get_origin(field.type) is not Union else get_args(field.type)[0],
-                        default=field.default,
-                        help="Number of groups to generate. Always means groups regardless of gridsize. "
-                             "Can exceed dataset size when using higher --neighbor_count values."
-                    )
-                elif field.name == 'n_images':
-                    # Keep n_images for backward compatibility but mark as deprecated
-                    parser.add_argument(
-                        f"--{field.name}",
-                        type=field.type if get_origin(field.type) is not Union else get_args(field.type)[0],
-                        default=field.default,
-                        help="DEPRECATED: Use --n_groups instead. Number of groups to use from the dataset."
-                    )
-                elif field.name == 'n_subsample':
-                    parser.add_argument(
-                        f"--{field.name}",
-                        type=field.type if get_origin(field.type) is not Union else get_args(field.type)[0],
-                        default=field.default,
-                        help="Number of images to subsample from dataset before grouping (independent control). "
-                             "When provided, controls data selection separately from grouping."
-                    )
-                elif field.name == 'subsample_seed':
-                    parser.add_argument(
-                        f"--{field.name}",
-                        type=field.type if get_origin(field.type) is not Union else get_args(field.type)[0],
-                        default=field.default,
-                        help="Random seed for reproducible subsampling. "
-                             "Use same seed across runs to ensure consistent data selection."
-                    )
-                elif field.name == 'neighbor_count':
-                    parser.add_argument(
-                        f"--{field.name}",
-                        type=field.type,
-                        default=field.default,
-                        help="Number of nearest neighbors (K) for grouping. Use higher values (e.g., 7) "
-                             "to enable more combinations when requesting more groups than available points."
-                    )
-                elif field.name == 'backend':
-                    # Special handling for backend Literal type
-                    if hasattr(field.type, "__origin__") and field.type.__origin__ is Literal:
-                        choices = list(field.type.__args__)
-                        parser.add_argument(
-                            f"--{field.name}",
-                            type=str,
-                            choices=choices,
-                            default=field.default,
-                            help=f"Backend selection: {', '.join(choices)} (default: {field.default}). "
-                                 f"PyTorch backend requires torch>=2.2 (POLICY-001)."
-                        )
-                    else:
-                        # Fallback if not a Literal type
-                        parser.add_argument(
-                            f"--{field.name}",
-                            type=str,
-                            default=field.default,
-                            help="Backend selection for workflow orchestration"
-                        )
-                else:
-                    # Handle Optional types
-                    if get_origin(field.type) is Union:
-                        # This is an Optional type (Union[T, None])
-                        args = get_args(field.type)
-                        actual_type = args[0] if args[0] is not type(None) else args[1]
-                        parser.add_argument(
-                            f"--{field.name}",
-                            type=actual_type,
-                            default=field.default,
-                            help=f"Training parameter: {field.name}"
-                        )
-                    else:
-                        parser.add_argument(
-                            f"--{field.name}",
-                            type=field.type,
-                            default=field.default,
-                            help=f"Training parameter: {field.name}"
-                        )
+    add_public_training_config_arguments(parser)
 
     # PyTorch-only execution flags (see docs/workflows/pytorch.md §12)
     parser.add_argument("--torch-accelerator", type=str,
@@ -361,7 +238,43 @@ def main() -> None:
             logger.warning(f"n_subsample ({n_subsample}) may be too small to create {n_groups} "
                          f"groups of size {config.model.gridsize}². Consider increasing n_subsample to at least {min_required}")
     
-    # Update global params with new-style config at entry point
+    # Resolve dataset-authored photon scale before validation, projection, or
+    # consumption of the training data.
+    from ptycho.metadata import MetadataManager
+
+    try:
+        _, metadata = MetadataManager.load_with_metadata(
+            str(config.train_data_file)
+        )
+    except Exception as error:
+        logger.debug(f"No metadata found or error reading metadata: {error}")
+        metadata = None
+
+    metadata_nphotons = None
+    if metadata:
+        if "nphotons" in metadata:
+            metadata_nphotons = float(metadata["nphotons"])
+        elif (
+            "physics_parameters" in metadata
+            and "nphotons" in metadata["physics_parameters"]
+        ):
+            metadata_nphotons = float(
+                metadata["physics_parameters"]["nphotons"]
+            )
+
+    if metadata_nphotons is not None:
+        original_nphotons = config.nphotons
+        config = replace(config, nphotons=metadata_nphotons)
+        logger.info(
+            "Overriding nphotons from config "
+            f"({original_nphotons:.1e}) with value from dataset metadata: "
+            f"{metadata_nphotons:.1e}"
+        )
+
+    validate_training_config_structure(config)
+    validate_runnable_training_config(config)
+
+    # Project only the final validated record before legacy data consumers.
     update_legacy_dict(params.cfg, config)
     
     try:
@@ -376,30 +289,6 @@ def main() -> None:
             n_subsample=n_subsample,
             subsample_seed=config.subsample_seed
         )
-        
-        # Check for metadata and override nphotons if present
-        from ptycho.metadata import MetadataManager
-        try:
-            _, metadata = MetadataManager.load_with_metadata(str(config.train_data_file))
-            # Check both top-level and physics_parameters for nphotons
-            metadata_nphotons = None
-            if metadata:
-                if 'nphotons' in metadata:
-                    metadata_nphotons = float(metadata['nphotons'])
-                elif 'physics_parameters' in metadata and 'nphotons' in metadata['physics_parameters']:
-                    metadata_nphotons = float(metadata['physics_parameters']['nphotons'])
-                
-                if metadata_nphotons is not None:
-                    original_nphotons = config.nphotons
-                    # Update config with metadata nphotons value (create new instance for dataclass)
-                    config = config.__class__(
-                        **{**config.__dict__, 'nphotons': metadata_nphotons}
-                    )
-                    logger.info(f"Overriding nphotons from config ({original_nphotons:.1e}) with value from dataset metadata: {metadata_nphotons:.1e}")
-                    # Update the legacy params dict as well
-                    params.cfg['nphotons'] = metadata_nphotons
-        except Exception as e:
-            logger.debug(f"No metadata found or error reading metadata: {e}")
         
         test_data = None
         if config.test_data_file:

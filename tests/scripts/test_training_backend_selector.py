@@ -182,6 +182,141 @@ class TestTrainingCliBackendDispatch:
                     assert results['backend'] == 'tensorflow', \
                         "Results should indicate TensorFlow backend was used"
 
+    def test_metadata_photons_are_reconstructed_and_revalidated_before_bridge(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        import argparse
+
+        from ptycho.config import ModelConfig, TrainingConfig
+        from ptycho.metadata import MetadataManager
+        from scripts.training import train as training_script
+
+        train_path = tmp_path / "train.npz"
+        train_path.touch()
+        config = TrainingConfig(
+            model=ModelConfig(),
+            train_data_file=train_path,
+            nphotons=10,
+            backend="tensorflow",
+        )
+        args = argparse.Namespace(
+            config=None,
+            do_stitching=False,
+        )
+        events = []
+
+        def record_validation(name, candidate):
+            events.append(name)
+            assert candidate.nphotons == 25
+
+        monkeypatch.setattr(training_script, "parse_arguments", lambda: args)
+        monkeypatch.setattr(
+            training_script,
+            "setup_configuration",
+            lambda *_args: config,
+        )
+        monkeypatch.setattr(
+            MetadataManager,
+            "load_with_metadata",
+            staticmethod(
+                lambda _path: (
+                    events.append("metadata")
+                    or (None, {"physics_parameters": {"nphotons": 25}})
+                )
+            ),
+        )
+        monkeypatch.setattr(
+            training_script,
+            "validate_training_config_structure",
+            lambda candidate: record_validation("structure", candidate),
+            raising=False,
+        )
+        monkeypatch.setattr(
+            training_script,
+            "validate_runnable_training_config",
+            lambda candidate: record_validation("runnable", candidate),
+            raising=False,
+        )
+        monkeypatch.setattr(
+            training_script,
+            "update_legacy_dict",
+            lambda _cfg, candidate: record_validation("bridge", candidate),
+        )
+        monkeypatch.setattr(
+            training_script,
+            "load_data",
+            lambda *_args, **_kwargs: events.append("load_data") or object(),
+        )
+        monkeypatch.setattr(
+            training_script,
+            "run_cdi_example_with_backend",
+            lambda *_args, **_kwargs: (
+                events.append("delegate")
+                or (None, None, {"backend": "tensorflow"})
+            ),
+        )
+        monkeypatch.setattr(training_script.model_manager, "save", lambda *_: None)
+        monkeypatch.setattr(training_script, "save_outputs", lambda *_: None)
+
+        training_script.main()
+
+        assert events == [
+            "metadata",
+            "structure",
+            "runnable",
+            "bridge",
+            "load_data",
+            "delegate",
+        ]
+
+    def test_invalid_metadata_photons_fail_before_bridge_or_data_consumption(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        import argparse
+
+        from ptycho.config import ModelConfig, TrainingConfig
+        from ptycho.metadata import MetadataManager
+        from scripts.training import train as training_script
+
+        train_path = tmp_path / "train.npz"
+        train_path.touch()
+        config = TrainingConfig(
+            model=ModelConfig(),
+            train_data_file=train_path,
+            backend="tensorflow",
+        )
+        args = argparse.Namespace(config=None, do_stitching=False)
+        monkeypatch.setattr(training_script, "parse_arguments", lambda: args)
+        monkeypatch.setattr(
+            training_script,
+            "setup_configuration",
+            lambda *_args: config,
+        )
+        monkeypatch.setattr(
+            MetadataManager,
+            "load_with_metadata",
+            staticmethod(lambda _path: (None, {"nphotons": 0})),
+        )
+        monkeypatch.setattr(
+            training_script,
+            "update_legacy_dict",
+            lambda *_args: pytest.fail("invalid metadata reached bridge"),
+        )
+        monkeypatch.setattr(
+            training_script,
+            "load_data",
+            lambda *_args, **_kwargs: pytest.fail(
+                "invalid metadata reached data loading"
+            ),
+        )
+
+        with pytest.raises(ValueError, match="nphotons"):
+            training_script.main()
+
     def test_pytorch_execution_config_flags(self):
         """
         Test that training CLI PyTorch execution config flags are plumbed correctly.
@@ -711,3 +846,34 @@ def test_torch_scheduler_plateau_params_roundtrip(monkeypatch, tmp_path):
     assert config.plateau_patience == 5
     assert config.plateau_min_lr == 1e-5
     assert config.plateau_threshold == 1e-3
+
+
+def test_training_entrypoint_shared_parser_preserves_yaml_precedence(
+    monkeypatch,
+    tmp_path,
+):
+    from ptycho import params
+    from ptycho.workflows.components import setup_configuration
+    from scripts.training import train as train_mod
+
+    config_path = tmp_path / "training.yaml"
+    config_path.write_text("nepochs: 9\n", encoding="utf-8")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["train.py", "--config", str(config_path)],
+    )
+    monkeypatch.setattr(params, "cfg", {"sentinel": "unchanged"})
+    monkeypatch.setattr(params, "_sealed", False)
+
+    args = train_mod.parse_arguments()
+
+    assert args.config == str(config_path)
+    assert args.do_stitching is False
+    assert args.torch_accelerator == "cuda"
+    assert args.torch_scheduler == "Default"
+    assert not hasattr(args, "nepochs")
+
+    config = setup_configuration(args, args.config)
+
+    assert config.nepochs == 9

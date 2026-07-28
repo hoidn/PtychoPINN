@@ -193,9 +193,9 @@ class TestInferenceCliBackendDispatch:
 
         Expected behavior:
         - scripts/inference/inference.py accepts --backend {tensorflow,pytorch}
-        - Default is 'tensorflow' for backward compatibility
-        - Argument is passed to setup_inference_configuration
-        - InferenceConfig.backend field is populated
+        - Omitted backend is absent so the resolved config can apply its default
+        - An explicit argument is passed to setup_inference_configuration
+        - InferenceConfig.backend is populated after source resolution
 
         Phase: R (backend selector integration)
         Reference: input.md Do Now step 2-3
@@ -208,9 +208,30 @@ class TestInferenceCliBackendDispatch:
         # We need to mock sys.argv to test argument parsing
         test_cases = [
             # (argv, expected_backend)
-            (['inference.py', '--model_path', 'model.zip', '--test_data', 'test.npz'], 'tensorflow'),  # default
-            (['inference.py', '--model_path', 'model.zip', '--test_data', 'test.npz', '--backend', 'tensorflow'], 'tensorflow'),
-            (['inference.py', '--model_path', 'model.zip', '--test_data', 'test.npz', '--backend', 'pytorch'], 'pytorch'),
+            (
+                [
+                    'inference.py',
+                    '--model_path',
+                    'model.zip',
+                    '--test_data',
+                    'test.npz',
+                    '--backend',
+                    'tensorflow',
+                ],
+                'tensorflow',
+            ),
+            (
+                [
+                    'inference.py',
+                    '--model_path',
+                    'model.zip',
+                    '--test_data',
+                    'test.npz',
+                    '--backend',
+                    'pytorch',
+                ],
+                'pytorch',
+            ),
         ]
 
         for argv, expected_backend in test_cases:
@@ -225,6 +246,15 @@ class TestInferenceCliBackendDispatch:
                     "Parsed args should have 'backend' attribute"
                 assert args.backend == expected_backend, \
                     f"Expected backend={expected_backend}, got {args.backend}"
+
+        with patch.object(sys, 'argv', ['inference.py']):
+            from scripts.inference import inference
+
+            args = inference.parse_arguments()
+
+        assert not hasattr(args, 'backend')
+        assert not hasattr(args, 'model_path')
+        assert not hasattr(args, 'test_data')
 
         # Test that invalid backend value is rejected
         with patch.object(sys, 'argv', ['inference.py', '--model_path', 'model.zip',
@@ -277,6 +307,259 @@ class TestInferenceCliBackendDispatch:
             # Verify backend field is set correctly
             assert config.backend == backend_value, \
                 f"InferenceConfig.backend should be '{backend_value}', got '{config.backend}'"
+
+    def test_inference_parser_omits_unsupplied_config_values(self):
+        from scripts.inference import inference
+
+        with patch.object(sys, 'argv', ['inference.py']):
+            args = inference.parse_arguments()
+
+        for name in (
+            'model_path',
+            'test_data',
+            'output_dir',
+            'debug',
+            'n_images',
+            'n_subsample',
+            'subsample_seed',
+            'backend',
+        ):
+            assert not hasattr(args, name)
+        assert args.comparison_plot is False
+        assert args.debug_dump is None
+        assert args.phase_vmin is None
+        assert args.phase_vmax is None
+
+    def test_inference_yaml_file_only_values_and_root_fields_are_resolved(
+        self,
+        tmp_path: Path,
+    ):
+        from scripts.inference import inference
+
+        config_path = tmp_path / 'inference.yaml'
+        config_path.write_text(
+            '\n'.join(
+                [
+                    f'model_path: {tmp_path / "model.zip"}',
+                    f'test_data_file: {tmp_path / "test.npz"}',
+                    'n_groups: 6',
+                    'neighbor_count: 7',
+                    'subsample_seed: 123',
+                    'debug: true',
+                    f'output_dir: {tmp_path / "yaml-output"}',
+                    'backend: pytorch',
+                    'model:',
+                    '  N: 128',
+                ]
+            )
+            + '\n',
+            encoding='utf-8',
+        )
+
+        with patch.object(
+            sys,
+            'argv',
+            ['inference.py', '--config', str(config_path)],
+        ):
+            args = inference.parse_arguments()
+
+        config = inference.setup_inference_configuration(args, args.config)
+
+        assert config.model_path == tmp_path / 'model.zip'
+        assert config.test_data_file == tmp_path / 'test.npz'
+        assert config.n_groups == 6
+        assert config.neighbor_count == 7
+        assert config.subsample_seed == 123
+        assert config.debug is True
+        assert config.output_dir == tmp_path / 'yaml-output'
+        assert config.backend == 'pytorch'
+        assert config.model.N == 128
+
+    def test_inference_cli_test_data_maps_to_canonical_field_and_default_wins(
+        self,
+        tmp_path: Path,
+    ):
+        from scripts.inference import inference
+
+        config_path = tmp_path / 'inference.yaml'
+        config_path.write_text(
+            '\n'.join(
+                [
+                    f'model_path: {tmp_path / "yaml-model.zip"}',
+                    f'test_data_file: {tmp_path / "yaml-test.npz"}',
+                    'backend: pytorch',
+                ]
+            )
+            + '\n',
+            encoding='utf-8',
+        )
+        cli_test_data = tmp_path / 'cli-test.npz'
+
+        with patch.object(
+            sys,
+            'argv',
+            [
+                'inference.py',
+                '--config',
+                str(config_path),
+                '--test_data',
+                str(cli_test_data),
+                '--backend',
+                'tensorflow',
+            ],
+        ):
+            args = inference.parse_arguments()
+
+        config = inference.setup_inference_configuration(args, args.config)
+
+        assert config.test_data_file == cli_test_data
+        assert config.backend == 'tensorflow'
+
+    def test_inference_file_only_main_uses_resolved_data_and_neighbor_count(
+        self,
+        tmp_path: Path,
+        monkeypatch,
+    ):
+        import numpy as np
+        from ptycho import params
+        from scripts.inference import inference
+
+        config_path = tmp_path / 'inference.yaml'
+        test_data_path = tmp_path / 'yaml-only-test.npz'
+        output_dir = tmp_path / 'output'
+        config_path.write_text(
+            '\n'.join(
+                [
+                    f'model_path: {tmp_path / "model.zip"}',
+                    f'test_data_file: {test_data_path}',
+                    'n_groups: 1',
+                    'neighbor_count: 7',
+                    f'output_dir: {output_dir}',
+                    'backend: tensorflow',
+                ]
+            )
+            + '\n',
+            encoding='utf-8',
+        )
+        raw_data = MagicMock()
+        raw_data.xcoords = np.arange(4)
+        load_data = MagicMock(return_value=raw_data)
+        perform_inference = MagicMock(
+            return_value=(
+                np.ones((2, 2)),
+                np.zeros((2, 2)),
+                None,
+                None,
+            )
+        )
+        monkeypatch.setattr(params, 'cfg', {'gridsize': 1})
+        monkeypatch.setattr(
+            sys,
+            'argv',
+            ['inference.py', '--config', str(config_path)],
+        )
+
+        with patch.object(
+            inference,
+            'load_inference_bundle_with_backend',
+            return_value=(MagicMock(), {}),
+        ), patch.object(
+            inference,
+            'load_data',
+            load_data,
+        ), patch.object(
+            inference,
+            'perform_inference',
+            perform_inference,
+        ), patch.object(
+            inference,
+            'save_reconstruction_images',
+        ), pytest.raises(SystemExit) as exit_info:
+            inference.main()
+
+        assert exit_info.value.code == 0
+        assert load_data.call_args.args[0] == test_data_path
+        assert perform_inference.call_args.kwargs['K'] == 7
+
+    def test_inference_yaml_debug_reaches_pytorch_execution_namespace(
+        self,
+        tmp_path: Path,
+        monkeypatch,
+    ):
+        import numpy as np
+        from ptycho import params
+        from scripts.inference import inference
+
+        config_path = tmp_path / 'inference.yaml'
+        config_path.write_text(
+            '\n'.join(
+                [
+                    f'model_path: {tmp_path / "model.zip"}',
+                    f'test_data_file: {tmp_path / "test.npz"}',
+                    'n_groups: 1',
+                    'debug: true',
+                    f'output_dir: {tmp_path / "output"}',
+                    'backend: pytorch',
+                ]
+            )
+            + '\n',
+            encoding='utf-8',
+        )
+        raw_data = MagicMock()
+        raw_data.xcoords = np.arange(4)
+        execution_config = MagicMock(
+            accelerator='cpu',
+            num_workers=0,
+            inference_batch_size=None,
+        )
+        build_execution_config = MagicMock(return_value=execution_config)
+        monkeypatch.setattr(params, 'cfg', {'gridsize': 1})
+        monkeypatch.setattr(
+            sys,
+            'argv',
+            ['inference.py', '--config', str(config_path)],
+        )
+
+        with patch.object(
+            inference,
+            'load_inference_bundle_with_backend',
+            return_value=(MagicMock(), {}),
+        ), patch.object(
+            inference,
+            'load_data',
+            return_value=raw_data,
+        ), patch(
+            'ptycho_torch.cli.shared.build_execution_config_from_args',
+            build_execution_config,
+        ), patch(
+            'ptycho_torch.inference._run_inference_and_reconstruct',
+            return_value=(np.ones((2, 2)), np.zeros((2, 2))),
+        ), patch.object(
+            inference,
+            'save_reconstruction_images',
+        ), pytest.raises(SystemExit) as exit_info:
+            inference.main()
+
+        assert exit_info.value.code == 0
+        execution_args = build_execution_config.call_args.args[0]
+        assert execution_args.quiet is False
+
+    def test_inference_sampling_reads_canonical_n_groups(self):
+        from ptycho.config import InferenceConfig, ModelConfig
+        from scripts.inference.inference import interpret_sampling_parameters
+
+        config = InferenceConfig(
+            model=ModelConfig(gridsize=2),
+            model_path=Path('model.zip'),
+            test_data_file=Path('test.npz'),
+            n_groups=3,
+        )
+
+        n_subsample, n_groups, message = interpret_sampling_parameters(config)
+
+        assert n_subsample is None
+        assert n_groups == 3
+        assert '3 groups' in message
 
     def test_pytorch_inference_execution_path(self):
         """
