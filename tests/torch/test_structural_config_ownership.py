@@ -8,6 +8,7 @@ import warnings
 
 from ptycho.config.config import PyTorchExecutionConfig
 from ptycho_torch.config_factory import create_training_payload
+from ptycho_torch.config_resolution import normalize_training_patch
 from ptycho_torch.execution_request import ExecutionRequest
 
 
@@ -82,7 +83,7 @@ def test_training_factory_rejects_unknown_override(
 ) -> None:
     with pytest.raises(
         ValueError,
-        match="unknown training override.*spectral_bottleneck_modse",
+        match=r"unknown training input field\(s\).*spectral_bottleneck_modse",
     ):
         create_training_payload(
             train_data_file=training_npz,
@@ -277,3 +278,17 @@ def test_execution_topology_resolved_carrier_retains_actual_alias(
             payload.execution_config,
         )
     assert reused.pt_model_config.spectral_bottleneck_modes == 10
+
+
+@pytest.mark.parametrize(
+    "field_name",
+    ["device", "strategy", "n_devices", "num_workers"],
+)
+def test_training_patch_rejects_execution_owned_legacy_duplicates(
+    field_name: str,
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match=rf"{field_name}.*execution.*ExecutionRequest",
+    ):
+        normalize_training_patch({field_name: "legacy"})
