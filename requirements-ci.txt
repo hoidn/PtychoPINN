@@ -16,6 +16,7 @@ opencv-python-headless
 matplotlib
 pandas
 Pillow
+pydantic>=2.12,<3
 dill
 imageio
 numba

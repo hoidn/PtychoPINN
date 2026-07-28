@@ -72,6 +72,11 @@ the [Core Contract](specs/spec-ptycho-core.md), and the
 **Keywords:** configuration, acquisition-record, data-routing, entrypoint, in-memory, NPZ, mmap, grid-lines, simulation, probe-lifecycle, reconstruction-policy, object-layout, modelspec, runtime, legacy-bridge, parameters, dataclass, YAML, TOML, command-line
 **Use this when:** Choosing where a value belongs, determining which loader and persistence route an entry point uses, tracing probe provenance, generating data, configuring training or inference, or maintaining the configuration factory and artifact contracts.
 
+#### [Pydantic Simulation Validation Design](superpowers/specs/2026-07-28-pydantic-simulation-validation-design.md)
+**Description:** Accepted narrow design for using one Pydantic TypeAdapter at the simulation mapping and explicit-validation boundaries while retaining standard dataclasses, Literal strings, and exact simulation identity.
+**Keywords:** configuration, pydantic, type-adapter, validation, simulation, dataclass
+**Use this when:** Implementing or reviewing simulation configuration parsing and validation. It does not authorize enums or migration of public, Torch, execution, CLI, or persistence configuration.
+
 #### [Data Contracts](data_contracts.md) CRITICAL
 **Description:** Official format specifications for NPZ datasets including required keys, data types, shapes, and normalization requirements.  
 **Keywords:** NPZ-format, data-contracts, normalization, diffraction, amplitude  

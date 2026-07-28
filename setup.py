@@ -27,6 +27,7 @@ setup(
         'pandas-datareader',
         'pathos',
         'Pillow',
+        'pydantic>=2.12,<3',
         'scikit-image',
         'scikit-learn',
         'scipy==1.13.0',
