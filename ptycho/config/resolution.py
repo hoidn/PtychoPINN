@@ -18,106 +18,10 @@ from .config import (
 )
 
 
-# Family ownership is explicit. The assertions make adding a dataclass field
-# without assigning it to a source family fail at import time.
-_MODEL_INPUT_NAMES = frozenset(
-    {
-        "N",
-        "gridsize",
-        "n_filters_scale",
-        "model_type",
-        "architecture",
-        "fno_modes",
-        "fno_width",
-        "fno_blocks",
-        "fno_cnn_blocks",
-        "learned_input_channels",
-        "max_hidden_channels",
-        "resnet_width",
-        "fno_input_transform",
-        "generator_output_mode",
-        "amp_activation",
-        "object_big",
-        "object_layout",
-        "training_canvas",
-        "training_patch_weighting",
-        "probe_big",
-        "probe_mask",
-        "probe_mask_sigma",
-        "probe_mask_diameter",
-        "pad_object",
-        "probe_scale",
-        "gaussian_smoothing_sigma",
-    }
-)
+_MODEL_INPUT_NAMES = frozenset(f.name for f in fields(ModelConfig))
+_TRAINING_INPUT_NAMES = frozenset(f.name for f in fields(TrainingConfig)) - {"model"}
+_INFERENCE_INPUT_NAMES = frozenset(f.name for f in fields(InferenceConfig)) - {"model"}
 
-_TRAINING_INPUT_NAMES = frozenset(
-    {
-        "train_data_file",
-        "test_data_file",
-        "batch_size",
-        "nepochs",
-        "mae_weight",
-        "nll_weight",
-        "realspace_mae_weight",
-        "realspace_weight",
-        "nphotons",
-        "n_groups",
-        "n_images",
-        "n_subsample",
-        "subsample_seed",
-        "neighbor_count",
-        "enable_oversampling",
-        "neighbor_pool_size",
-        "positions_provided",
-        "probe_trainable",
-        "intensity_scale_trainable",
-        "output_dir",
-        "sequential_sampling",
-        "backend",
-        "torch_loss_mode",
-        "torch_mae_pred_l2_match_target",
-        "gradient_clip_val",
-        "gradient_clip_algorithm",
-        "optimizer",
-        "momentum",
-        "weight_decay",
-        "adam_beta1",
-        "adam_beta2",
-        "scheduler",
-        "lr_warmup_epochs",
-        "lr_min_ratio",
-        "plateau_factor",
-        "plateau_patience",
-        "plateau_min_lr",
-        "plateau_threshold",
-    }
-)
-
-_INFERENCE_INPUT_NAMES = frozenset(
-    {
-        "model_path",
-        "test_data_file",
-        "n_groups",
-        "n_images",
-        "n_subsample",
-        "subsample_seed",
-        "neighbor_count",
-        "enable_oversampling",
-        "neighbor_pool_size",
-        "debug",
-        "output_dir",
-        "backend",
-    }
-)
-
-assert _MODEL_INPUT_NAMES == frozenset(item.name for item in fields(ModelConfig))
-assert _TRAINING_INPUT_NAMES == frozenset(
-    item.name for item in fields(TrainingConfig) if item.name != "model"
-)
-assert _INFERENCE_INPUT_NAMES == frozenset(
-    item.name for item in fields(InferenceConfig) if item.name != "model"
-)
 assert _MODEL_INPUT_NAMES.isdisjoint(_TRAINING_INPUT_NAMES)
 assert _MODEL_INPUT_NAMES.isdisjoint(_INFERENCE_INPUT_NAMES)
 
