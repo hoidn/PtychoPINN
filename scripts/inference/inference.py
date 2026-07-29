@@ -132,7 +132,11 @@ def parse_arguments() -> argparse.Namespace:
                             "Only applies when --backend pytorch.")
     return parser.parse_args()
 
-def interpret_sampling_parameters(config: InferenceConfig) -> tuple:
+def interpret_sampling_parameters(
+    config: InferenceConfig,
+    *,
+    gridsize: int,
+) -> tuple:
     """
     Interpret sampling parameters for inference based on gridsize and user input.
     
@@ -141,29 +145,40 @@ def interpret_sampling_parameters(config: InferenceConfig) -> tuple:
     2. Otherwise: use n_groups for both legacy-compatible sampling controls
     
     Args:
-        config: Inference configuration with sampling parameters
+        config: Inference configuration with sampling parameters.
+        gridsize: Authoritative grouping geometry restored from the archive.
         
     Returns:
         tuple: (n_subsample, n_groups, interpretation_message)
     """
-    gridsize = config.model.gridsize
+    if type(gridsize) is not int or gridsize <= 0:
+        raise ValueError(
+            f"archive gridsize must be a positive integer, got {gridsize!r}"
+        )
     
     # Case 1: Independent control with n_subsample
     if config.n_subsample is not None:
         n_subsample = config.n_subsample
-        n_groups = (
-            config.n_groups
-            if config.n_groups is not None
-            else config.n_subsample
-        )
+        n_groups = config.n_groups
         
         if gridsize == 1:
+            if n_groups is None:
+                n_groups = n_subsample
             message = (f"Independent sampling control: subsampling {n_subsample} images, "
                       f"using {n_groups} for inference")
         else:
-            total_from_groups = n_groups * gridsize * gridsize
-            message = (f"Independent sampling control: subsampling {n_subsample} images, "
-                      f"creating {n_groups} groups (approx {total_from_groups} patterns from groups)")
+            if n_groups is None:
+                message = (
+                    "Independent sampling control: subsampling "
+                    f"{n_subsample} images and using all available groups"
+                )
+            else:
+                total_from_groups = n_groups * gridsize * gridsize
+                message = (
+                    "Independent sampling control: subsampling "
+                    f"{n_subsample} images, creating {n_groups} groups "
+                    f"(approx {total_from_groups} patterns from groups)"
+                )
         
         return n_subsample, n_groups, message
     
@@ -665,25 +680,39 @@ def main():
                 if args.debug_dump == '__AUTO__'
                 else Path(args.debug_dump)
             )
-        
-        # Interpret sampling parameters with new independent control support
-        n_subsample, n_groups, interpretation_message = interpret_sampling_parameters(config)
-        print(interpretation_message)
-        
-        # Log warning if potentially problematic configuration
-        if config.n_subsample is not None and config.model.gridsize > 1 and n_groups is not None:
-            min_required = n_groups * config.model.gridsize * config.model.gridsize
-            if n_subsample < min_required:
-                print(f"WARNING: n_subsample ({n_subsample}) may be too small to create {n_groups} "
-                     f"groups of size {config.model.gridsize}². Consider increasing n_subsample to at least {min_required}")
-        
+
         # The selector bridges this validated bootstrap request before loading.
         # The backend loader may then restore authoritative archived params,
         # which take precedence per CONFIG-001.
 
         # Load model using backend selector
         print("Loading model...")
-        model, _ = load_inference_bundle_with_backend(config.model_path, config)
+        model, archive_params = load_inference_bundle_with_backend(
+            config.model_path,
+            config,
+        )
+        archive_gridsize = archive_params.get("gridsize")
+        n_subsample, n_groups, interpretation_message = (
+            interpret_sampling_parameters(
+                config,
+                gridsize=archive_gridsize,
+            )
+        )
+        print(interpretation_message)
+
+        if (
+            config.n_subsample is not None
+            and archive_gridsize > 1
+            and n_groups is not None
+        ):
+            min_required = n_groups * archive_gridsize * archive_gridsize
+            if n_subsample < min_required:
+                print(
+                    f"WARNING: n_subsample ({n_subsample}) may be too small "
+                    f"to create {n_groups} groups of size "
+                    f"{archive_gridsize}². Consider increasing n_subsample "
+                    f"to at least {min_required}"
+                )
 
         # For PyTorch backend, move model to execution device and set to eval mode
         if config.backend == 'pytorch':
@@ -738,7 +767,7 @@ def main():
         )
 
         # Determine number of samples for inference based on loaded data
-        gridsize = params.cfg.get('gridsize', 1)
+        gridsize = archive_gridsize
         total_patterns = len(test_data.xcoords)
         
         if n_groups is not None:

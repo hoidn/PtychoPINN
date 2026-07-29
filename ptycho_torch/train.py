@@ -871,12 +871,19 @@ Examples:
         '--scheduler',
         type=str,
         default='Default',
-        choices=['Default', 'Exponential', 'MultiStage', 'Adaptive'],
+        choices=[
+            'Default',
+            'Exponential',
+            'MultiStage',
+            'Adaptive',
+            'WarmupCosine',
+            'ReduceLROnPlateau',
+        ],
         dest='scheduler',
         help=(
             'Learning rate scheduler type (default: Default). '
             'Choices: Default (no scheduler), Exponential (exponential decay), '
-            'MultiStage (step-wise decay), Adaptive (plateau-based reduction). '
+            'MultiStage, Adaptive, WarmupCosine, or ReduceLROnPlateau. '
             'Scheduler configuration must match Lightning module expectations.'
         )
     )

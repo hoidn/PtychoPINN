@@ -23,6 +23,10 @@ class _ObjectKindString(str):
     pass
 
 
+class _PipelineString(str):
+    pass
+
+
 class _NumericEnum(IntEnum):
     FOUR = 4
 
@@ -181,6 +185,26 @@ def test_simulation_config_rejects_coercive_or_boolean_numeric_inputs(mapping, m
     api = _api()
     with pytest.raises(ValueError, match=re.escape(message)):
         api.simulation_config_from_mapping(mapping)
+
+
+@pytest.mark.parametrize(
+    "pipeline",
+    [
+        b"pad_preserve:64",
+        _PipelineString("pad_preserve:64"),
+    ],
+    ids=("bytes", "str-subclass"),
+)
+def test_simulation_config_from_mapping_rejects_coerced_probe_pipeline(pipeline):
+    api = _api()
+
+    with pytest.raises(
+        ValueError,
+        match=re.escape("simulation.probe.transform_pipeline"),
+    ):
+        api.simulation_config_from_mapping(
+            {"probe": {"transform_pipeline": pipeline}}
+        )
 
 
 def test_boundary_matched_probe_operation_must_be_terminal():

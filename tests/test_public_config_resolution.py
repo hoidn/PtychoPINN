@@ -612,6 +612,72 @@ def test_training_and_inference_tensorflow_object_policy_mismatch_fails(
 
 
 @pytest.mark.parametrize(
+    ("resolver", "source_factory"),
+    _PUBLIC_RESOLVER_CASES,
+)
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("object_big", 1),
+        ("probe_big", 1),
+        ("pad_object", 1),
+    ],
+)
+def test_resolver_object_policy_types_use_stable_value_errors(
+    resolver,
+    source_factory,
+    field,
+    value,
+):
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        with pytest.raises(ValueError, match=field):
+            resolver(source_factory(**{field: value}), {})
+
+    assert caught == []
+
+
+@pytest.mark.parametrize(
+    ("resolver", "source"),
+    [
+        (
+            resolve_training_config,
+            {"object_big": True, "positions_provided": 1},
+        ),
+        (
+            resolve_inference_config,
+            _inference_source(object_big=True, debug=1),
+        ),
+    ],
+)
+def test_later_structural_failure_does_not_emit_object_big_warning(
+    resolver,
+    source,
+):
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        with pytest.raises(ValueError):
+            resolver(source, {})
+
+    assert caught == []
+
+
+@pytest.mark.parametrize(
+    ("resolver", "source_factory"),
+    _PUBLIC_RESOLVER_CASES,
+)
+def test_successful_explicit_object_big_warns_exactly_once(
+    resolver,
+    source_factory,
+):
+    with pytest.warns(DeprecationWarning, match="object_big") as caught:
+        config = resolver(source_factory(object_big=True), {})
+
+    assert len(caught) == 1
+    assert config.model.object_big is True
+
+
+@pytest.mark.parametrize(
     ("field_name", "invalid_value", "message"),
     [
         ("architecture", "resnet", "architecture"),
@@ -817,6 +883,18 @@ def test_runnable_training_requires_existing_readable_training_data(
         public_config.validate_runnable_training_config(unreadable)
 
 
+def test_runnable_training_rejects_a_training_data_directory(tmp_path):
+    train_directory = tmp_path / "train.npz"
+    train_directory.mkdir()
+    config = public_config.TrainingConfig(
+        model=public_config.ModelConfig(),
+        train_data_file=train_directory,
+    )
+
+    with pytest.raises(ValueError, match="train_data_file.*regular file"):
+        public_config.validate_runnable_training_config(config)
+
+
 def test_inference_structural_validation_performs_no_resource_access(
     monkeypatch,
 ):
@@ -860,6 +938,11 @@ def test_inference_resource_validation_checks_model_and_test_paths(tmp_path):
     with pytest.raises(ValueError, match="test_data_file.*exist"):
         public_config.validate_inference_resources(config)
 
+    test_path.mkdir()
+    with pytest.raises(ValueError, match="test_data_file.*regular file"):
+        public_config.validate_inference_resources(config)
+
+    test_path.rmdir()
     test_path.touch()
     public_config.validate_inference_resources(config)
 

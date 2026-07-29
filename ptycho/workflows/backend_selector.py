@@ -6,15 +6,16 @@ to transparently switch between TensorFlow and PyTorch implementations based on
 runtime configuration (TrainingConfig.backend or InferenceConfig.backend).
 
 Architecture Pattern:
-    The dispatcher follows a "CONFIG-001 compliance → backend routing → delegation"
-    pattern, ensuring that params.cfg is synchronized before workflow execution
-    regardless of which backend is selected.
+    The dispatcher follows a "source resolution and validation → CONFIG-001
+    compliance → backend routing → delegation" pattern, ensuring that params.cfg
+    receives only validated configuration before workflow execution regardless
+    of which backend is selected.
 
     Flow:
     1. Client calls run_cdi_example_with_backend(train_data, test_data, config, ...)
-    2. Dispatcher calls update_legacy_dict(params.cfg, config) — CONFIG-001 gate
-    3. Dispatcher inspects config.backend field ('tensorflow' or 'pytorch')
-    4. Dispatcher imports and delegates to backend-specific workflow module
+    2. Dispatcher resolves sources and validates the configuration
+    3. Dispatcher calls update_legacy_dict(params.cfg, validated_config) — CONFIG-001 gate
+    4. Dispatcher imports and delegates to the selected backend
     5. Results are returned with backend metadata injected into results dict
 
 Critical Requirements (specs/ptychodus_api_spec.md §4.1):

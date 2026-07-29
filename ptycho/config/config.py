@@ -232,7 +232,10 @@ class ProbeSimulationConfig:
 
     source: _ProbeSource = "custom"
     source_path: Path | None = None
-    transform_pipeline: str = "pad_preserve:64"
+    transform_pipeline: Annotated[
+        str,
+        BeforeValidator(_require_exact_str),
+    ] = "pad_preserve:64"
     mask_diameter: _StrictFinitePositiveNumber | None = None
 
 

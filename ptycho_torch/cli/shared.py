@@ -160,7 +160,13 @@ _EXECUTION_OPTION_BINDINGS = (
         "--quiet",
         "enable_progress_bar",
         "quiet",
-        frozenset({_NATIVE_TRAINING, _NATIVE_INFERENCE}),
+        frozenset(
+            {
+                _NATIVE_TRAINING,
+                _NATIVE_INFERENCE,
+                _UNIFIED_TRAINING,
+            }
+        ),
     ),
     _binding(
         "--disable_mlflow",

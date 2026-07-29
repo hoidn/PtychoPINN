@@ -295,14 +295,17 @@ def _construct_model(
     cli_values: Mapping[str, Any],
     *,
     backend: Any,
-) -> ModelConfig:
+) -> tuple[ModelConfig, ModelConfig]:
     merged_values = dict(file_values)
     merged_values.update(cli_values)
     raw_model = ModelConfig(**merged_values)
-    return resolve_model_object_policy(
+    validate_model_config_structure(raw_model)
+    resolved_model = resolve_model_object_policy(
         raw_model,
         backend=_object_policy_backend(backend),
+        warn_deprecated=False,
     )
+    return raw_model, resolved_model
 
 
 def resolve_training_config(
@@ -337,13 +340,14 @@ def resolve_training_config(
         path_names=_TRAINING_PATH_NAMES,
     )
     backend = training_values.get("backend", "tensorflow")
-    model = _construct_model(
-        file_model,
-        cli_model,
-        backend=backend,
-    )
+    raw_model, model = _construct_model(file_model, cli_model, backend=backend)
     candidate = TrainingConfig(model=model, **training_values)
     validate_training_config_structure(candidate)
+    resolve_model_object_policy(
+        raw_model,
+        backend=_object_policy_backend(backend),
+        warn_deprecated=True,
+    )
     if file_used_alias or cli_used_alias:
         _warn_deprecated_group_alias()
     return candidate
@@ -390,13 +394,14 @@ def resolve_inference_config(
         path_names=_INFERENCE_PATH_NAMES,
     )
     backend = inference_values.get("backend", "tensorflow")
-    model = _construct_model(
-        file_model,
-        cli_model,
-        backend=backend,
-    )
+    raw_model, model = _construct_model(file_model, cli_model, backend=backend)
     candidate = InferenceConfig(model=model, **inference_values)
     validate_inference_config_structure(candidate)
+    resolve_model_object_policy(
+        raw_model,
+        backend=_object_policy_backend(backend),
+        warn_deprecated=True,
+    )
     if file_used_alias or cli_used_alias:
         _warn_deprecated_group_alias()
     return candidate
@@ -763,6 +768,10 @@ def validate_runnable_training_config(config: TrainingConfig) -> None:
         raise ValueError(
             f"train_data_file must exist: {config.train_data_file}"
         )
+    if not config.train_data_file.is_file():
+        raise ValueError(
+            f"train_data_file must be a regular file: {config.train_data_file}"
+        )
     if not os.access(config.train_data_file, os.R_OK):
         raise ValueError(
             f"train_data_file must be readable: {config.train_data_file}"
@@ -822,6 +831,10 @@ def validate_inference_resources(config: InferenceConfig) -> None:
     if not test_data_path.exists():
         raise ValueError(
             f"test_data_file must exist: {test_data_path}"
+        )
+    if not test_data_path.is_file():
+        raise ValueError(
+            f"test_data_file must be a regular file: {test_data_path}"
         )
     if not os.access(test_data_path, os.R_OK):
         raise ValueError(

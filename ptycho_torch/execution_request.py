@@ -46,6 +46,28 @@ ENVIRONMENT_EXECUTION_FIELDS = (
 )
 
 
+def _freeze_execution_values(
+    values: Mapping[str, Any],
+) -> Mapping[str, Any]:
+    """Copy execution values into an immutable internal snapshot."""
+
+    copied = dict(values)
+    fixed_indices = copied.get("recon_log_fixed_indices")
+    if isinstance(fixed_indices, (list, tuple)):
+        copied["recon_log_fixed_indices"] = tuple(fixed_indices)
+    return MappingProxyType(copied)
+
+
+def _thaw_execution_values(values: Mapping[str, Any]) -> dict[str, Any]:
+    """Copy internal values into compatibility-dataclass representations."""
+
+    copied = dict(values)
+    fixed_indices = copied.get("recon_log_fixed_indices")
+    if isinstance(fixed_indices, (list, tuple)):
+        copied["recon_log_fixed_indices"] = list(fixed_indices)
+    return copied
+
+
 @dataclass(frozen=True)
 class ExecutionCapabilities:
     """Hardware capabilities observed after pure request resolution."""
@@ -72,6 +94,19 @@ class EnvironmentResolution:
     resolved: Mapping[str, Any]
     capabilities: ExecutionCapabilities | None
     notices: tuple[ResolutionNotice, ...] = ()
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "requested",
+            _freeze_execution_values(self.requested),
+        )
+        object.__setattr__(
+            self,
+            "resolved",
+            _freeze_execution_values(self.resolved),
+        )
+        object.__setattr__(self, "notices", tuple(self.notices))
 
 
 @dataclass(frozen=True)
@@ -120,7 +155,7 @@ class ExecutionRequest:
         object.__setattr__(
             self,
             "values",
-            MappingProxyType(copied_values),
+            _freeze_execution_values(copied_values),
         )
         object.__setattr__(self, "explicit_fields", copied_explicit_fields)
         object.__setattr__(self, "notices", copied_notices)
@@ -128,7 +163,7 @@ class ExecutionRequest:
     def as_dict(self) -> dict[str, Any]:
         """Return a mutable copy of the canonical primitive values."""
 
-        return dict(self.values)
+        return _thaw_execution_values(self.values)
 
 
 @dataclass(frozen=True)
@@ -145,7 +180,7 @@ class NormalizedExecutionInput:
         object.__setattr__(
             self,
             "values",
-            MappingProxyType(dict(self.values)),
+            _freeze_execution_values(self.values),
         )
         object.__setattr__(
             self,
@@ -436,7 +471,7 @@ def resolve_runtime_execution_request(
         normalized,
         capabilities=capabilities,
     )
-    resolved_values = dict(normalized.values)
+    resolved_values = _thaw_execution_values(normalized.values)
     resolved_values.update(environment.resolved)
     config = PyTorchExecutionConfig(**resolved_values)
     object.__setattr__(

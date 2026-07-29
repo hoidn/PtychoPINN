@@ -69,6 +69,15 @@ TRAINING_OWNER_FIELDS = frozenset(
     }
 )
 
+SUPPORTED_TORCH_ARCHITECTURES = frozenset(
+    {
+        "cnn",
+        "ffno",
+        "fno",
+        "fno_vanilla",
+        "neuralop_uno",
+    }
+)
 
 @dataclass(frozen=True)
 class InputRule:
@@ -1011,6 +1020,19 @@ def _require_positive_number(value: object, field_name: str) -> object:
     return value
 
 
+def _validate_model_domains(config: ModelConfig) -> None:
+    if config.architecture not in SUPPORTED_TORCH_ARCHITECTURES:
+        raise ValueError(
+            "architecture must be one of "
+            f"{sorted(SUPPORTED_TORCH_ARCHITECTURES)}, "
+            f"got {config.architecture!r}"
+        )
+
+
+def _validate_inference_domains(config: InferenceConfig) -> None:
+    _require_positive_integer(config.batch_size, "batch_size")
+
+
 def _loss_identity(torch_loss_mode: object) -> tuple[str, bool]:
     if torch_loss_mode == "poisson":
         return "Poisson", True
@@ -1043,6 +1065,8 @@ def _validate_training_owner_domains(config: TrainingConfig) -> None:
             f"{sorted(clip_algorithms)}, "
             f"got {config.gradient_clip_algorithm!r}"
         )
+    _require_positive_integer(config.epochs, "epochs")
+    _require_positive_integer(config.batch_size, "batch_size")
     if (
         isinstance(config.learning_rate, bool)
         or not isinstance(config.learning_rate, (int, float))
@@ -1137,6 +1161,7 @@ def _validate_data_and_model(
 ) -> None:
     _require_positive_integer(data.N, "N")
     _require_positive_number(data.nphotons, "nphotons")
+    _validate_model_domains(model)
     resolve_scale_contract(
         data.scale_contract_version,
         data.measurement_domain,
@@ -1353,6 +1378,7 @@ def resolve_training_bundle(
         model.physics_forward_mode,
     )
     _validate_data_and_model(data, model)
+    _validate_inference_domains(inference)
     validate_contract_coherence(data, model, candidate_training)
 
     bridge: dict[str, object] = {
@@ -1486,6 +1512,7 @@ def resolve_inference_bundle(
     inference = _fresh_config(baseline.inference, inference_changes)
 
     _validate_data_and_model(data, model)
+    _validate_inference_domains(inference)
 
     baseline_group_count = None
     n_groups = _required_group_count(normalized, baseline_group_count)

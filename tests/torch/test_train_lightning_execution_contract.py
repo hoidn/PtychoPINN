@@ -163,7 +163,6 @@ def test_invalid_persistent_worker_settings_never_reach_data_loader(monkeypatch)
         "TensorDictDataLoader",
         lambda dataset, **kwargs: captured.append((dataset, kwargs)) or object(),
     )
-
     with pytest.raises(ValueError, match="persistent_workers"):
         PyTorchExecutionConfig(
             accelerator="cpu",
