@@ -5,9 +5,12 @@ This repository contains the codebase for the methods presented in the papers "[
 ## Overview
 PtychoPINN is an unsupervised, physics-informed neural network method for scanning CDI reconstruction. It combines the diffraction forward model with real-space overlap constraints.
 
-## For Developers
+## Documentation
 
-Start with the **[Unified Developer Guide](./docs/DEVELOPER_GUIDE.md)** for architecture, data flow, and development conventions.
+- [Commands reference](./docs/COMMANDS_REFERENCE.md)
+- [Configuration guide](./docs/CONFIGURATION.md)
+- [Data contracts](./docs/data_contracts.md)
+- [PyTorch workflow](./docs/workflows/pytorch.md)
 
 ## Features
 - **Unsupervised / self-supervised learning**: Does not require large labeled datasets.
@@ -20,16 +23,11 @@ PtychoPINN supports both TensorFlow and PyTorch backends:
 
 - **Default Backend**: TensorFlow remains the default for backward compatibility.
 - **PyTorch Backend**: PyTorch implementation is available via Lightning orchestration (`ptycho_torch/workflows/components.py`) with training, checkpointing, inference, and stitching.
-- **Backend Selection**: Configure backend choice through `TrainingConfig.backend` or `InferenceConfig.backend` fields (`'tensorflow'` or `'pytorch'`). See [PyTorch Workflow Guide](./docs/workflows/pytorch.md) §12 for configuration details.
-- **Runtime Evidence**: PyTorch integration has a ~36s CPU baseline in `tests/torch/test_integration_workflow_torch.py`. More timing details are in `docs/plans/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/runtime_profile.md`.
+- **Backend Selection**: Configure backend choice through `TrainingConfig.backend` or `InferenceConfig.backend` fields (`'tensorflow'` or `'pytorch'`). See the [PyTorch Workflow Guide](./docs/workflows/pytorch.md) for configuration details.
 
 Both backends share the same data pipeline and configuration system, ensuring consistent behavior across workflows.
 
 ![Architecture diagram](diagram/lett.png)
-<!---
-*Fig. 1: Caption for the figure.*
- -->
-
 
 ## Installation
 `conda create -n ptycho python=3.10`
@@ -90,27 +88,4 @@ Run generalization studies:
     --output-dir robust_study
 ```
 
-See `scripts/studies/QUICK_REFERENCE.md` for detailed usage and options.
-
-
-<!-- 
-* subpixel convolution (Depth-to-space)
-* make the model robust to arbitrary scaling/incorrect normalization of the diffracted intensity
-* other ideas: fft based loss, gradient loss, vq-vae https://www.tensorflow.org/tutorials/generative/style_transfer#define_content_and_style_representations
-* probe-based vs reconstruction-based support?
-
-* Fully Convolutional Networks for Semantic Segmentation, explore and discuss. Make a slide explaining the idea.
-* Try MC Dropout https://arxiv.org/pdf/1511.02680.pdf
-* read deep ensembles https://arxiv.org/pdf/1612.01474.pdf
-
-* hard constraint on diffraction norm using projection, consider tf.keras.constraints.MinMaxNorm
-* stochastic probe
-* probe symmetry consequences
-* add an object normalization layer that uses the L2 norm
-* how do super resolution models handle high resolutions?
-* shift invariance
-* grid permutation
-* fourier ring correlation
-
-* characterize robustness impact of Poisson likelihood vs. MAE
- -->
+See the [study README](scripts/studies/README.md) for detailed usage and options.

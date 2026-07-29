@@ -1000,10 +1000,7 @@ class ProbeIllumination(nn.Module):
         contract = (
             "documented probe batch layout is (B, C, P, H, W) with "
             f"B in (1, {batch}), C in (1, {channels}), H=W={self.N} "
-            "(docs/specs/spec-ptycho-torch-probe-layout.md; "
-            "docs/findings.md PROBE-RANK-001; design "
-            "docs/superpowers/specs/"
-            "2026-07-12-probe-rank-physics-contract-fix-design.md)"
+            "(PROBE-RANK-001)"
         )
         if probe.ndim != 5:
             raise ProbeLayoutError(

@@ -20,7 +20,6 @@ ci/main-ruleset.json
 ci/run_ci_tests.sh
 .github/workflows/tests.yml
 requirements-ci.txt
-docs/ci.md
 
 # Test fixture dataset: tracked on main (35MB), untracked/absent on
 # fno-stable. Needed by tests/torch/test_integration_workflow_torch.py's

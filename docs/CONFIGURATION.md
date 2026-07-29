@@ -1,6 +1,6 @@
 # PtychoPINN Configuration Guide
 
-> **Scope:** This guide documents the configuration system of the legacy TensorFlow implementation (`ptycho/config/config.py`). The active PyTorch implementation (`ptycho_torch/`) uses separate dataclasses in `ptycho_torch/config_params.py` — see the project CLAUDE.md for its fields and gotchas.
+> **Scope:** This guide documents the configuration system of the legacy TensorFlow implementation (`ptycho/config/config.py`). The active PyTorch implementation (`ptycho_torch/`) uses separate dataclasses in `ptycho_torch/config_params.py`; see the [PyTorch Workflow Guide](workflows/pytorch.md) for its configuration boundary.
 
 This document is the canonical reference for all configuration parameters used in the PtychoPINN project. It details the modern dataclass-based configuration system and provides a comprehensive reference for all available parameters.
 

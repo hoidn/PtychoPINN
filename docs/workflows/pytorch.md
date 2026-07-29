@@ -341,11 +341,9 @@ CUDA_VISIBLE_DEVICES="0" pytest tests/torch/test_integration_workflow_torch.py::
   `python scripts/tools/patch_parity_helper.py --tf-npz ... --torch-npz ...`
   (aligns shared `sample_indices`, writes comparison grids under `tmp/patch_parity/`).
 
-Commands, selectors, and evidence requirements: `docs/TESTING_GUIDE.md`.
-
 ---
 
 **Related Documentation:**
-- <doc-ref type="guide">docs/DEVELOPER_GUIDE.md</doc-ref> — architectural principles and anti-patterns
+- <doc-ref type="guide">docs/CONFIGURATION.md</doc-ref> — configuration ownership and precedence
+- <doc-ref type="guide">docs/DATA_NORMALIZATION_GUIDE.md</doc-ref> — scaling and measurement conventions
 - <doc-ref type="spec">specs/ptychodus_api_spec.md</doc-ref> — backend dispatch and execution-config contracts (§4.8–4.9)
-- <doc-ref type="guide">docs/TESTING_GUIDE.md</doc-ref> — test commands and evidence requirements

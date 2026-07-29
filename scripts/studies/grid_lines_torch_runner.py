@@ -929,7 +929,7 @@ def _reassemble_predictions_for_metrics(
             "reassembly_mode='position' for inference reconstruction: the "
             "grid_lines/stitch_predictions grid-tiling stitch flat-tiles "
             "channels-first gridsize>1 patches into a checkerboard artifact. "
-            "See docs/findings.md#TORCH-GS2-STITCH-001.",
+            "Select position-aware reassembly for gridsize>1.",
             cfg.gridsize,
         )
 

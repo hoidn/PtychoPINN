@@ -12,11 +12,6 @@ def test_ptychovit_doc_records_interop_contract_source():
     assert re.search(r"source_commit:\s*`?[0-9a-f]{7,40}`?", text)
 
 
-def test_docs_index_links_ptychovit_workflow():
-    text = Path("docs/index.md").read_text()
-    assert "workflows/ptychovit.md" in text
-
-
 def test_studies_readme_points_to_workflow_doc():
     text = Path("scripts/studies/README.md").read_text()
     assert "docs/workflows/ptychovit.md" in text
@@ -71,10 +66,3 @@ def test_ptychovit_workflow_documents_probe_mode_policy_default_and_caveat():
     assert "incoherent_aggregate" in text
     assert "first_mode" in text
     assert "approximation" in text
-
-
-def test_studies_index_includes_probe_mode_policy_for_nersc_orchestration():
-    text = Path("docs/studies/index.md").read_text()
-    assert "--probe-mode-policy" in text
-    assert "incoherent_aggregate" in text
-    assert "first_mode" in text

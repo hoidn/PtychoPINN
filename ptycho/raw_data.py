@@ -468,7 +468,7 @@ class RawData:
                     f"Requesting {nsamples} groups but only {n_points} points available (gridsize={gridsize}, C={C}). "
                     f"K choose C oversampling is required but not enabled. "
                     f"Set enable_oversampling=True and ensure neighbor_pool_size >= {C} to proceed. "
-                    f"See OVERSAMPLING-001 in docs/findings.md for details."
+                    f"OVERSAMPLING-001 requires explicit opt-in for this sampling mode."
                 )
             if effective_K < C:
                 logging.error(f"[OVERSAMPLING DEBUG] neighbor_pool_size ({effective_K}) < C ({C})")
@@ -476,7 +476,7 @@ class RawData:
                     f"K choose C oversampling requires neighbor_pool_size >= C (gridsize²). "
                     f"Got neighbor_pool_size={effective_K}, but C={C}. "
                     f"Increase neighbor_pool_size to at least {C}. "
-                    f"See OVERSAMPLING-001 in docs/findings.md for details."
+                    f"OVERSAMPLING-001 requires neighbor_pool_size >= C."
                 )
             logging.info(f"[OVERSAMPLING DEBUG] Oversampling guards passed: enable_oversampling=True, effective_K={effective_K} >= C={C}")
         
