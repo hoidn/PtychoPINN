@@ -13,7 +13,7 @@ import math
 from typing import Any, Dict, Optional
 
 #Helper
-from ptycho_torch.config_params import ModelConfig, TrainingConfig, DataConfig, InferenceConfig, update_existing_config
+from ptycho_torch.config_params import ModelConfig, TrainingConfig, DataConfig, InferenceConfig
 from ptycho_torch.object_compatibility import resolve_model_object_compatibility
 from ptycho_torch.scaling_contract import (
     CI_SCALE_CONTRACT,

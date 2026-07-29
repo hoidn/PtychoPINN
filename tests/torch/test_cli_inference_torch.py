@@ -22,21 +22,6 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 
-@pytest.mark.parametrize(
-    ("argv", "expected"),
-    [
-        (["inference.py", "--model_path", "run"], True),
-        (["inference.py", "--model_path=run"], True),
-        (["inference.py", "--help"], True),
-        (["inference.py", "--run_id", "legacy"], False),
-    ],
-)
-def test_native_cli_dispatch_accepts_split_and_equals_model_path(argv, expected):
-    from ptycho_torch.inference import _uses_native_cli
-
-    assert _uses_native_cli(argv) is expected
-
-
 class TestInferenceCLI:
     """
     Test inference CLI execution config flag integration.

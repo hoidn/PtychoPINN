@@ -1094,13 +1094,13 @@ def test_cli_epochs_and_output_root_are_last_and_seed_is_not_a_config_path(
         resolve_torch_configs({"training.seed": 7})
 
 
-def test_resolver_never_calls_legacy_factories_or_mutating_updaters(
+def test_resolver_never_exposes_legacy_mutator_or_calls_legacy_factories(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def forbidden(*_args: object, **_kwargs: object) -> None:
         pytest.fail("legacy config mutation/factory path was called")
 
-    monkeypatch.setattr(config_params, "update_existing_config", forbidden)
+    assert not hasattr(config_params, "update_existing_config")
     monkeypatch.setattr(legacy_config_factory, "resolve_profile_overrides", forbidden)
     monkeypatch.setattr(legacy_config_factory, "create_training_payload", forbidden)
 

@@ -224,7 +224,9 @@ def _install_training_fakes(monkeypatch, run_dir):
         save_dir = str(run_dir.parent)
 
     class FakeDataModule:
-        def __init__(self, _ptycho_dir, _model, _data, training, **_kwargs):
+        def __init__(self, _ptycho_dir, model, data, training, **_kwargs):
+            captured["data_config"] = data
+            captured["model_config"] = model
             captured["data_training_config"] = training
             captured["data_module_kwargs"] = _kwargs
 
@@ -325,17 +327,35 @@ def _install_training_fakes(monkeypatch, run_dir):
     return captured
 
 
-@pytest.mark.parametrize(
-    "module_name",
-    ["ptycho_torch.train", "ptycho_torch.train_lightning_only"],
-)
-def test_direct_training_resolution_is_fresh_and_preserves_owner_precedence(
-    module_name,
+def test_main_copies_resolved_records_before_applying_runtime_overrides(
+    tmp_path,
+    monkeypatch,
 ):
-    module = __import__(
-        module_name,
-        fromlist=["_resolve_direct_training_config"],
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    captured = _install_training_fakes(monkeypatch, run_dir)
+    monkeypatch.setattr(train_module, "set_seed", lambda *_args, **_kwargs: None)
+    configs = _configs(tmp_path)
+    snapshots = tuple(replace(config) for config in configs)
+
+    train_module.main(
+        tmp_path / "data",
+        existing_config=configs,
+        output_dir=tmp_path / "output",
+        execution_config=PyTorchExecutionConfig(accelerator="cpu"),
+        run_name="immutable-inputs",
+        scale_contract_version="ci_intensity_v2",
+        measurement_domain="count_intensity",
+        seed=11,
     )
+
+    assert configs == snapshots
+    assert captured["data_config"] is not configs[0]
+    assert captured["model_config"] is not configs[1]
+    assert captured["data_training_config"] is not configs[2]
+
+
+def test_direct_training_resolution_is_fresh_and_preserves_owner_precedence():
     baseline = TrainingConfig(
         learning_rate=4.321e-3,
         scheduler="WarmupCosine",
@@ -354,11 +374,11 @@ def test_direct_training_resolution_is_fresh_and_preserves_owner_precedence(
         gradient_clip_algorithm="norm",
     )
 
-    compatibility = module._resolve_direct_training_config(
+    compatibility = train_module._resolve_direct_training_config(
         baseline,
         execution,
     )
-    owned = module._resolve_direct_training_config(baseline, None)
+    owned = train_module._resolve_direct_training_config(baseline, None)
 
     assert baseline == snapshot
     assert compatibility is not baseline

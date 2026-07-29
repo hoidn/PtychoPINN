@@ -222,10 +222,10 @@ def torch_runner_config_from_json(config_json_path: Path) -> Any:
 
 def build_model_overrides(cfg: Any) -> Dict[str, Any]:
     """Superset overrides dict: every ``TorchRunnerConfig`` field (passed
-    through ``update_existing_config``'s ``hasattr``-gated setattr, so any
-    field name matching a ``ModelConfig``/``DataConfig``/``TrainingConfig``
-    attribute is honored) plus the fields ``create_training_payload`` requires
-    but ``TorchRunnerConfig`` does not carry.
+    through the Torch configuration resolver, so any field name owned by a
+    ``ModelConfig``/``DataConfig``/``TrainingConfig`` record is honored) plus
+    the fields ``create_training_payload`` requires but ``TorchRunnerConfig``
+    does not carry.
 
     Fixes the bug ``hybrid_checkpoint_inference.py._build_model_for_config``'s
     narrow, hand-picked overrides dict has: it omits every ``hybrid_*``
