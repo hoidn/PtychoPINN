@@ -749,6 +749,35 @@ the same commit cluster as the public dataclass behavior. This bounded 7D
 migration does not independently require another repository-wide suite. No
 global cleanup quota or residual sweep is a roadmap completion gate.
 
+### Slice 8 — Configuration convergence
+
+**Status:** Substrate reconciliation in progress (2026-07-28). The approved
+configuration authorities are colocated on `refactor-internal`; this satisfies
+the authority and discoverability precondition only. No Slice 8 implementation
+stage is complete.
+
+**Ordered stages and authority crosswalk:**
+
+| Roadmap stage | Owned transition/child scope |
+|---|---|
+| **A — Internal-safe resolver substrate** | Transition entry precondition and resolver substrate |
+| **B — Updater retirement** | Transition Stage 1 |
+| **C — Execution compatibility closure** | Transition Stage 2 |
+| **D — `params.cfg` modern isolation** | Transition Stage 3 plus the `params.cfg` strangler through `modern_isolation_complete`; final strangler Tranche H / `global_bridge_retired` only when its own eligibility conditions hold |
+| **E — Conditional Pydantic gates** | Transition Stage 4 plus Pydantic child-local Stages A–D |
+| **F — Routing and closure** | Transition Stage 5 |
+
+Stage letters and numbers inside child designs are local labels, not roadmap
+stages. In particular, Pydantic child-local Stage A is not roadmap Stage A,
+and `params.cfg` strangler tranche letters are not roadmap stage labels.
+
+Stage A must preserve the internal 14-architecture Hybrid/ResNet family
+contract and the `torch-model-spec-v1` / `torch-model-spec-v2` plus
+`torch-artifact-v1` / `torch-artifact-v2` schema identities. Current authority
+routing is not Stage F implementation closure. There is no machine-readable
+selector, tranche manifest, or active workflow state for this slice; consistent
+with §2.3, this roadmap remains its sole live status and sequencing surface.
+
 ## 6. Dependency and concurrency model
 
 ```text
@@ -884,6 +913,9 @@ initiative is complete when:
   silently fall back after a native-route failure;
 - the named package-to-`scripts` import edge is removed and each application
   split explicitly selected under Slice 6 preserves its contract;
+- Slice 8 reaches routing and closure only after its ordered implementation
+  stages are completed with claim-matched evidence; authority colocation alone
+  does not satisfy that completion condition;
 - every completed numbered slice, plus any explicit mid-slice merge or handoff
   boundary, has one fresh `python -m pytest tests/ -q` result on its integrated
   final production/test candidate and no unresolved regression attributable to

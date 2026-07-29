@@ -18,7 +18,115 @@ Related:
 
 import pytest
 import warnings
+from dataclasses import fields
 from unittest.mock import MagicMock, patch
+
+
+def test_execution_config_preserves_all_fields_and_topology_alias_provenance():
+    from ptycho.config.config import PyTorchExecutionConfig
+
+    topology_aliases = {
+        "hybrid_skip_connections",
+        "hybrid_downsample_steps",
+        "hybrid_downsample_op",
+        "hybrid_encoder_conv_hidden_scale",
+        "hybrid_encoder_spectral_hidden_scale",
+        "hybrid_encoder_conv_hidden_channels",
+        "hybrid_encoder_spectral_hidden_channels",
+        "hybrid_resnet_blocks",
+        "hybrid_skip_style",
+        "hybrid_resnet_bottleneck_layerscale_mode",
+        "hybrid_resnet_bottleneck_layerscale_value",
+        "hybrid_encoder_fusion_mode",
+        "hybrid_encoder_layerscale_init",
+        "hybrid_encoder_branch_gate_init",
+        "hybrid_encoder_branch_select",
+        "ffno_encoder_blocks",
+        "ffno_encoder_modes",
+        "ffno_encoder_share_weights",
+        "ffno_encoder_gate_init",
+        "ffno_encoder_norm",
+        "ffno_encoder_mlp_ratio",
+        "spectral_bottleneck_blocks",
+        "spectral_bottleneck_modes",
+        "spectral_bottleneck_share_weights",
+        "spectral_bottleneck_gate_init",
+        "spectral_bottleneck_gate_mode",
+    }
+    defaults = {
+        item.name: item.default for item in fields(PyTorchExecutionConfig)
+    }
+    values = {name: defaults[name] for name in topology_aliases}
+
+    config = PyTorchExecutionConfig(accelerator="cpu", **values)
+
+    assert len(fields(PyTorchExecutionConfig)) == 55
+    assert config._explicit_structural_aliases == frozenset(topology_aliases)
+
+
+def test_execution_config_preserves_positional_prefix_binding():
+    from ptycho.config.config import PyTorchExecutionConfig
+
+    config = PyTorchExecutionConfig("cpu", 2, "ddp", False)
+
+    assert (
+        config.accelerator,
+        config.devices,
+        config.strategy,
+        config.deterministic,
+    ) == ("cpu", 2, "ddp", False)
+
+
+def test_execution_config_warns_before_late_validation_failure(monkeypatch):
+    import torch
+
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+
+    from ptycho.config.config import PyTorchExecutionConfig
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        with pytest.raises(ValueError, match="hybrid_downsample_steps"):
+            PyTorchExecutionConfig(
+                accelerator="auto",
+                hybrid_downsample_steps=0,
+            )
+
+    assert len(caught) == 1
+    assert caught[0].category is UserWarning
+    assert "POLICY-001" in str(caught[0].message)
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        (
+            {"num_workers": 0, "persistent_workers": True},
+            "persistent_workers",
+        ),
+        ({"logger_backend": "none"}, "logger_backend"),
+    ],
+)
+def test_execution_config_enforces_selected_runtime_contract(kwargs, message):
+    from ptycho.config.config import PyTorchExecutionConfig
+
+    with pytest.raises(ValueError, match=message):
+        PyTorchExecutionConfig(accelerator="cpu", **kwargs)
+
+
+@pytest.mark.parametrize(
+    "logger_backend",
+    ["csv", "tensorboard", "mlflow", None],
+)
+def test_execution_config_accepts_canonical_logger_backends(logger_backend):
+    from ptycho.config.config import PyTorchExecutionConfig
+
+    config = PyTorchExecutionConfig(
+        accelerator="cpu",
+        logger_backend=logger_backend,
+    )
+
+    assert config.logger_backend == logger_backend
 
 
 class TestPyTorchExecutionConfigDefaults:
@@ -182,7 +290,11 @@ class TestPyTorchExecutionConfigDefaults:
                 f"Expected 'No CUDA device detected' in warning, got: {policy_warnings[0].message}"
             )
 
-    def test_backend_selector_inherits_gpu_first_defaults(self, monkeypatch):
+    def test_backend_selector_defers_execution_resolution_on_cuda_hosts(
+        self,
+        monkeypatch,
+        tmp_path,
+    ):
         """
         Verify backend_selector inherits GPU-first defaults when torch_execution_config=None.
 
@@ -199,17 +311,22 @@ class TestPyTorchExecutionConfigDefaults:
         """
         from unittest.mock import patch
 
-        # Mock torch.cuda.is_available to return True
-        mock_torch = MagicMock()
-        mock_torch.cuda.is_available.return_value = True
-        monkeypatch.setitem(__import__('sys').modules, 'torch', mock_torch)
+        import torch
+
+        monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
 
         # Import after monkeypatch
-        from ptycho.config.config import TrainingConfig, ModelConfig, PyTorchExecutionConfig
+        from ptycho.config.config import ModelConfig, TrainingConfig
         from ptycho.workflows.backend_selector import run_cdi_example_with_backend
 
         # Create minimal training config with pytorch backend
-        config = TrainingConfig(model=ModelConfig(N=64), backend='pytorch')
+        train_path = tmp_path / "train.npz"
+        train_path.touch()
+        config = TrainingConfig(
+            model=ModelConfig(N=64),
+            train_data_file=train_path,
+            backend='pytorch',
+        )
 
         # Patch run_cdi_example_torch to capture execution_config argument
         with patch('ptycho_torch.workflows.components.run_cdi_example_torch') as mock_run:
@@ -236,22 +353,13 @@ class TestPyTorchExecutionConfigDefaults:
             call_kwargs = mock_run.call_args.kwargs if mock_run.call_args else {}
             execution_config = call_kwargs.get('execution_config')
 
-            # Verify execution_config was auto-instantiated (not None)
-            assert execution_config is not None, (
-                "Expected backend_selector to auto-instantiate PyTorchExecutionConfig when "
-                "torch_execution_config=None, got None"
-            )
+            assert execution_config is None
 
-            # Verify accelerator resolved to 'cuda' (GPU-first policy)
-            assert hasattr(execution_config, 'accelerator'), (
-                f"Expected execution_config to have 'accelerator' attribute, got: {type(execution_config)}"
-            )
-            assert execution_config.accelerator == 'cuda', (
-                f"Expected auto-instantiated execution_config to resolve to 'cuda' when CUDA available, "
-                f"got '{execution_config.accelerator}'"
-            )
-
-    def test_backend_selector_cpu_fallback_with_warning(self, monkeypatch):
+    def test_backend_selector_defers_execution_resolution_without_cpu_warning(
+        self,
+        monkeypatch,
+        tmp_path,
+    ):
         """
         Verify backend_selector falls back to CPU with POLICY-001 warning when CUDA unavailable.
 
@@ -269,17 +377,22 @@ class TestPyTorchExecutionConfigDefaults:
         """
         from unittest.mock import patch
 
-        # Mock torch.cuda.is_available to return False
-        mock_torch = MagicMock()
-        mock_torch.cuda.is_available.return_value = False
-        monkeypatch.setitem(__import__('sys').modules, 'torch', mock_torch)
+        import torch
+
+        monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
 
         # Import after monkeypatch
-        from ptycho.config.config import TrainingConfig, ModelConfig, PyTorchExecutionConfig
+        from ptycho.config.config import ModelConfig, TrainingConfig
         from ptycho.workflows.backend_selector import run_cdi_example_with_backend
 
         # Create minimal training config with pytorch backend
-        config = TrainingConfig(model=ModelConfig(N=64), backend='pytorch')
+        train_path = tmp_path / "train.npz"
+        train_path.touch()
+        config = TrainingConfig(
+            model=ModelConfig(N=64),
+            train_data_file=train_path,
+            backend='pytorch',
+        )
 
         # Capture warnings and patch run_cdi_example_torch
         with warnings.catch_warnings(record=True) as w:
@@ -304,26 +417,11 @@ class TestPyTorchExecutionConfigDefaults:
                 call_kwargs = mock_run.call_args.kwargs if mock_run.call_args else {}
                 execution_config = call_kwargs.get('execution_config')
 
-                # Verify execution_config was auto-instantiated
-                assert execution_config is not None, (
-                    "Expected backend_selector to auto-instantiate PyTorchExecutionConfig when "
-                    "torch_execution_config=None, got None"
-                )
-
-                # Verify CPU fallback
-                assert execution_config.accelerator == 'cpu', (
-                    f"Expected auto-instantiated execution_config to fall back to 'cpu' when CUDA unavailable, "
-                    f"got '{execution_config.accelerator}'"
-                )
+                assert execution_config is None
 
             # Verify POLICY-001 warning was emitted
             policy_warnings = [warning for warning in w if "POLICY-001" in str(warning.message)]
-            assert len(policy_warnings) >= 1, (
-                f"Expected POLICY-001 warning when falling back to CPU, got {len(policy_warnings)} warnings"
-            )
-            assert "No CUDA device detected" in str(policy_warnings[0].message), (
-                f"Expected 'No CUDA device detected' in warning, got: {policy_warnings[0].message}"
-            )
+            assert policy_warnings == []
 
 
 if __name__ == '__main__':

@@ -702,6 +702,7 @@ def cli_main():
         - Test contract: tests/torch/test_cli_inference_torch.py
         - Shared helpers: ptycho_torch/cli/shared.py
     """
+    raw_argv = tuple(sys.argv[1:])
     parser = argparse.ArgumentParser(
         description="PyTorch Lightning checkpoint inference for ptychography reconstruction",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -910,10 +911,15 @@ Examples:
         print(f"ERROR: {e}")
         sys.exit(1)
 
-    # --- Phase D.C C3: Build execution config using shared helper ---
-    from ptycho_torch.cli.shared import build_execution_config_from_args
+    # Preserve raw-option suppliedness until the factory resolves runtime.
+    from ptycho_torch.cli.shared import build_execution_request_from_args
     try:
-        execution_config = build_execution_config_from_args(args, mode='inference')
+        execution_request = build_execution_request_from_args(
+            args,
+            mode='inference',
+            explicit_options=raw_argv,
+            lane='native-inference',
+        )
     except ValueError as e:
         print(f"ERROR: Invalid execution config: {e}")
         sys.exit(1)
@@ -970,7 +976,7 @@ Examples:
             test_data_file=test_data_path,
             output_dir=output_dir,
             overrides=overrides,
-            execution_config=execution_config,
+            execution_config=execution_request,
         )
 
         # Extract configs from payload (factory already populated params.cfg)
@@ -1106,9 +1112,17 @@ Examples:
         return 1
 
 
+def _uses_native_cli(argv) -> bool:
+    """Return whether argv selects the bundle-based native inference CLI."""
+    if len(argv) <= 1:
+        return False
+    first_option = argv[1].split("=", 1)[0]
+    return first_option in {"--model_path", "--help", "-h"}
+
+
 if __name__ == '__main__':
     # Determine which mode to run based on command-line arguments
-    if len(sys.argv) > 1 and sys.argv[1] in ['--model_path', '--help', '-h']:
+    if _uses_native_cli(sys.argv):
         # New CLI path (Phase E2.C2)
         sys.exit(cli_main())
     else:

@@ -736,3 +736,372 @@ class TestBuildExecutionConfigInferenceMode:
 # - All inference-mode tests PASS when CLI refactor complete
 # - Validates inference CLI delegates correctly to shared helpers
 #
+
+
+_EXPECTED_EXECUTION_OPTIONS_BY_LANE = {
+    "native-training": {
+        "--accelerator": {"accelerator"},
+        "--device": {"accelerator"},
+        "--deterministic": {"deterministic"},
+        "--no-deterministic": {"deterministic"},
+        "--num-workers": {"num_workers"},
+        "--learning-rate": {"learning_rate"},
+        "--scheduler": {"scheduler"},
+        "--accumulate-grad-batches": {"accum_steps"},
+        "--logger": {"logger_backend"},
+        "--quiet": {"enable_progress_bar"},
+        "--disable_mlflow": {
+            "logger_backend",
+            "enable_progress_bar",
+        },
+        "--enable-checkpointing": {"enable_checkpointing"},
+        "--disable-checkpointing": {"enable_checkpointing"},
+        "--checkpoint-save-top-k": {"checkpoint_save_top_k"},
+        "--checkpoint-monitor": {"checkpoint_monitor_metric"},
+        "--checkpoint-mode": {"checkpoint_mode"},
+        "--early-stop-patience": {"early_stop_patience"},
+    },
+    "native-inference": {
+        "--accelerator": {"accelerator"},
+        "--device": {"accelerator"},
+        "--num-workers": {"num_workers"},
+        "--quiet": {"enable_progress_bar"},
+        "--inference-batch-size": {"inference_batch_size"},
+    },
+    "unified-training": {
+        "--torch-accelerator": {"accelerator"},
+        "--torch-deterministic": {"deterministic"},
+        "--torch-num-workers": {"num_workers"},
+        "--torch-learning-rate": {"learning_rate"},
+        "--torch-scheduler": {"scheduler"},
+        "--torch-accumulate-grad-batches": {"accum_steps"},
+        "--torch-logger": {"logger_backend"},
+        "--quiet": {"enable_progress_bar"},
+        "--torch-enable-checkpointing": {"enable_checkpointing"},
+        "--torch-checkpoint-save-top-k": {"checkpoint_save_top_k"},
+        "--torch-recon-log-every-n-epochs": {
+            "recon_log_every_n_epochs"
+        },
+        "--torch-recon-log-num-patches": {"recon_log_num_patches"},
+        "--torch-recon-log-fixed-indices": {
+            "recon_log_fixed_indices"
+        },
+        "--torch-recon-log-stitch": {"recon_log_stitch"},
+        "--torch-recon-log-max-stitch-samples": {
+            "recon_log_max_stitch_samples"
+        },
+    },
+    "unified-inference": {
+        "--torch-accelerator": {"accelerator"},
+        "--torch-num-workers": {"num_workers"},
+        "--torch-inference-batch-size": {"inference_batch_size"},
+    },
+}
+
+
+@pytest.mark.parametrize(
+    "lane",
+    sorted(_EXPECTED_EXECUTION_OPTIONS_BY_LANE),
+)
+def test_execution_option_registry_is_exact_and_lane_aware(lane):
+    from ptycho_torch.cli.shared import canonicalize_execution_options
+
+    expected = _EXPECTED_EXECUTION_OPTIONS_BY_LANE[lane]
+    all_options = {
+        option
+        for lane_options in _EXPECTED_EXECUTION_OPTIONS_BY_LANE.values()
+        for option in lane_options
+    }
+
+    for option in sorted(all_options):
+        fields, sources = canonicalize_execution_options(
+            {option},
+            lane=lane,
+        )
+        equals_fields, equals_sources = canonicalize_execution_options(
+            {f"{option}=explicit-value"},
+            lane=lane,
+        )
+        expected_fields = expected.get(option, set())
+        expected_sources = {option} if option in expected else set()
+        assert fields == expected_fields
+        assert sources == expected_sources
+        assert equals_fields == expected_fields
+        assert equals_sources == expected_sources
+
+
+@pytest.mark.parametrize(
+    ("lane", "mode", "option", "destination"),
+    [
+        ("native-training", "training", "--num-workers", "num_workers"),
+        ("native-inference", "inference", "--num-workers", "num_workers"),
+        (
+            "unified-training",
+            "training",
+            "--torch-num-workers",
+            "torch_num_workers",
+        ),
+        (
+            "unified-inference",
+            "inference",
+            "--torch-num-workers",
+            "torch_num_workers",
+        ),
+    ],
+)
+def test_execution_request_distinguishes_omitted_and_equal_default_options(
+    lane,
+    mode,
+    option,
+    destination,
+):
+    from ptycho_torch.cli.shared import build_execution_request_from_args
+
+    args = argparse.Namespace(**{destination: 0})
+    omitted = build_execution_request_from_args(
+        args,
+        mode=mode,
+        explicit_options=set(),
+        lane=lane,
+    )
+    explicit = build_execution_request_from_args(
+        args,
+        mode=mode,
+        explicit_options={f"{option}=0"},
+        lane=lane,
+    )
+
+    assert omitted.values["num_workers"] == 0
+    assert explicit.values["num_workers"] == 0
+    assert "num_workers" not in omitted.explicit_fields
+    assert explicit.explicit_fields == frozenset({"num_workers"})
+
+
+@pytest.mark.parametrize(
+    ("lane", "mode"),
+    [
+        ("native-training", "training"),
+        ("native-inference", "inference"),
+        ("unified-training", "training"),
+    ],
+)
+def test_execution_request_omitted_quiet_preserves_cli_default(
+    lane,
+    mode,
+):
+    from ptycho_torch.execution_request import normalize_execution_input
+    from ptycho_torch.cli.shared import build_execution_request_from_args
+
+    omitted = build_execution_request_from_args(
+        argparse.Namespace(quiet=True),
+        mode=mode,
+        explicit_options=set(),
+        lane=lane,
+    )
+    explicit = build_execution_request_from_args(
+        argparse.Namespace(quiet=True),
+        mode=mode,
+        explicit_options={"--quiet"},
+        lane=lane,
+    )
+    normalized_omitted = normalize_execution_input(omitted, mode=mode)
+    normalized_explicit = normalize_execution_input(explicit, mode=mode)
+
+    assert normalized_omitted is not None
+    assert normalized_explicit is not None
+    assert normalized_omitted.values["enable_progress_bar"] is True
+    assert "enable_progress_bar" not in omitted.explicit_fields
+    assert normalized_explicit.values["enable_progress_bar"] is False
+    assert explicit.explicit_fields == frozenset({"enable_progress_bar"})
+
+
+def test_unified_inference_does_not_bind_unexposed_quiet_option():
+    from ptycho_torch.cli.shared import build_execution_request_from_args
+
+    request = build_execution_request_from_args(
+        argparse.Namespace(quiet=True),
+        mode="inference",
+        explicit_options={"--quiet"},
+        lane="unified-inference",
+    )
+
+    assert request.values["enable_progress_bar"] is True
+    assert "enable_progress_bar" not in request.explicit_fields
+
+
+@pytest.mark.parametrize(
+    ("lane", "logger_option", "logger_destination"),
+    [
+        ("native-training", "--logger", "logger_backend"),
+        ("unified-training", "--torch-logger", "torch_logger"),
+    ],
+)
+def test_execution_request_normalizes_logger_none_and_quiet(
+    lane,
+    logger_option,
+    logger_destination,
+):
+    from ptycho_torch.cli.shared import build_execution_request_from_args
+
+    request = build_execution_request_from_args(
+        argparse.Namespace(**{logger_destination: "none", "quiet": True}),
+        mode="training",
+        explicit_options={f"{logger_option}=none", "--quiet"},
+        lane=lane,
+    )
+
+    assert request.values["logger_backend"] is None
+    assert request.values["enable_progress_bar"] is False
+    assert request.explicit_fields == frozenset(
+        {"logger_backend", "enable_progress_bar"}
+    )
+
+
+def test_execution_request_freezes_reconstruction_indices():
+    from ptycho_torch.cli.shared import build_execution_request_from_args
+
+    indices = [1, 3, 5]
+    request = build_execution_request_from_args(
+        argparse.Namespace(torch_recon_log_fixed_indices=indices),
+        mode="training",
+        explicit_options={"--torch-recon-log-fixed-indices=1"},
+        lane="unified-training",
+    )
+    indices.append(7)
+
+    assert request.values["recon_log_fixed_indices"] == (1, 3, 5)
+    assert request.as_dict()["recon_log_fixed_indices"] == [1, 3, 5]
+    assert request.explicit_fields == frozenset(
+        {"recon_log_fixed_indices"}
+    )
+
+
+def test_execution_request_defers_warnings_and_capability_observation(
+    monkeypatch,
+):
+    import torch
+
+    import ptycho_torch.cli.shared as shared
+    from ptycho.config.config import PyTorchExecutionConfig
+
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError(
+            "pure request construction must defer effects and capabilities"
+        )
+
+    monkeypatch.setattr(warnings, "warn", fail_if_called)
+    monkeypatch.setattr(shared, "resolve_accelerator", fail_if_called)
+    monkeypatch.setattr(PyTorchExecutionConfig, "__init__", fail_if_called)
+    monkeypatch.setattr(torch.cuda, "is_available", fail_if_called)
+    monkeypatch.setattr(torch.cuda, "device_count", fail_if_called)
+
+    request = shared.build_execution_request_from_args(
+        argparse.Namespace(
+            accelerator="auto",
+            device="cuda",
+            deterministic=True,
+            num_workers=2,
+            disable_mlflow=True,
+        ),
+        mode="training",
+        explicit_options={
+            "--device=cuda",
+            "--deterministic",
+            "--num-workers=2",
+            "--disable_mlflow",
+        },
+        lane="native-training",
+    )
+
+    assert request.values["accelerator"] == "gpu"
+    assert request.values["logger_backend"] is None
+    assert request.values["enable_progress_bar"] is False
+    assert [notice.category for notice in request.notices] == [
+        DeprecationWarning,
+        DeprecationWarning,
+        UserWarning,
+    ]
+
+
+@pytest.mark.parametrize(
+    ("lane", "mode", "options", "args", "expected"),
+    [
+        (
+            "native-training",
+            "training",
+            {
+                "--accelerator=cpu",
+                "--learning-rate=0.002",
+                "--accumulate-grad-batches=3",
+            },
+            {
+                "accelerator": "cpu",
+                "learning_rate": 0.002,
+                "accumulate_grad_batches": 3,
+            },
+            {
+                "accelerator": "cpu",
+                "learning_rate": 0.002,
+                "accum_steps": 3,
+            },
+        ),
+        (
+            "native-inference",
+            "inference",
+            {"--accelerator=cpu", "--inference-batch-size=8"},
+            {"accelerator": "cpu", "inference_batch_size": 8},
+            {"accelerator": "cpu", "inference_batch_size": 8},
+        ),
+        (
+            "unified-training",
+            "training",
+            {
+                "--torch-accelerator=cpu",
+                "--torch-learning-rate=0.002",
+                "--torch-accumulate-grad-batches=3",
+            },
+            {
+                "torch_accelerator": "cpu",
+                "torch_learning_rate": 0.002,
+                "torch_accumulate_grad_batches": 3,
+            },
+            {
+                "accelerator": "cpu",
+                "learning_rate": 0.002,
+                "accum_steps": 3,
+            },
+        ),
+        (
+            "unified-inference",
+            "inference",
+            {
+                "--torch-accelerator=cpu",
+                "--torch-inference-batch-size=8",
+            },
+            {
+                "torch_accelerator": "cpu",
+                "torch_inference_batch_size": 8,
+            },
+            {"accelerator": "cpu", "inference_batch_size": 8},
+        ),
+    ],
+)
+def test_execution_request_reads_each_lane_destination(
+    lane,
+    mode,
+    options,
+    args,
+    expected,
+):
+    from ptycho_torch.cli.shared import build_execution_request_from_args
+
+    request = build_execution_request_from_args(
+        argparse.Namespace(**args),
+        mode=mode,
+        explicit_options=options,
+        lane=lane,
+    )
+
+    for field, value in expected.items():
+        assert request.values[field] == value
+    assert request.explicit_fields == frozenset(expected)

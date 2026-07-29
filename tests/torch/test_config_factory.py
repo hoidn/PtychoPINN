@@ -1065,7 +1065,7 @@ class TestVarProProbeWeightingKnobOverrides:
         assert payload.pt_model_config.use_shared_decoder is True
 
     def test_training_patch_weighting_override_survives_training_payload(self, mock_train_npz, temp_output_dir):
-        assert PTModelConfig().training_patch_weighting == 'central_mask'  # documents the default
+        assert PTModelConfig().training_patch_weighting is None  # unresolved input default
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
@@ -1157,9 +1157,7 @@ class TestTrainWithLightningVarProProbeWeightingForwarding:
     def test_omitted_overrides_kwarg_preserves_pt_model_config_defaults(
         self, monkeypatch, mock_train_npz, temp_output_dir
     ):
-        """DEFAULTS NEVER CHANGE: not passing `overrides` at all (the pre-fix call
-        site shape) must reproduce ptycho_torch.config_params.ModelConfig's
-        existing defaults for the 4 knobs."""
+        """Omission preserves defaults except declared object-policy derivation."""
         from ptycho_torch.workflows import components
         import ptycho_torch.config_factory as config_factory_module
 
@@ -1192,7 +1190,8 @@ class TestTrainWithLightningVarProProbeWeightingForwarding:
 
         pt_model_config = captured["pt_model_config"]
         defaults = PTModelConfig()
-        assert pt_model_config.training_patch_weighting == defaults.training_patch_weighting
+        assert defaults.training_patch_weighting is None
+        assert pt_model_config.training_patch_weighting == "central_mask"
         assert pt_model_config.physics_forward_mode == defaults.physics_forward_mode
         assert pt_model_config.cnn_output_mode == defaults.cnn_output_mode
         assert pt_model_config.rect_s1s2_trainable == defaults.rect_s1s2_trainable

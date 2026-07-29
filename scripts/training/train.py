@@ -2,6 +2,7 @@
 
 import logging
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -24,17 +25,83 @@ logging.getLogger().addHandler(file_handler)
 logging.getLogger().addHandler(console_handler)
 
 from ptycho.workflows.components import (
-    parse_arguments as base_parse_arguments,
+    add_public_training_config_arguments,
     setup_configuration,
     load_data,
     save_outputs,
     logger
 )
 from ptycho.workflows.backend_selector import run_cdi_example_with_backend
+from ptycho.config import (
+    validate_runnable_training_config,
+    validate_training_config_structure,
+)
 from ptycho.config.config import TrainingConfig, update_legacy_dict
 from ptycho.config.legacy_state import scoped_legacy_params
 from ptycho import model_manager, params
 import argparse
+
+
+_PUBLIC_OPTIMIZER_OPTION_DESTINATIONS = {
+    "--gradient_clip_val": "gradient_clip_val",
+    "--gradient_clip_algorithm": "gradient_clip_algorithm",
+    "--optimizer": "optimizer",
+    "--momentum": "momentum",
+    "--weight_decay": "weight_decay",
+    "--adam_beta1": "adam_beta1",
+    "--adam_beta2": "adam_beta2",
+    "--scheduler": "scheduler",
+    "--lr_warmup_epochs": "lr_warmup_epochs",
+    "--lr_min_ratio": "lr_min_ratio",
+    "--plateau_factor": "plateau_factor",
+    "--plateau_patience": "plateau_patience",
+    "--plateau_min_lr": "plateau_min_lr",
+    "--plateau_threshold": "plateau_threshold",
+}
+
+_TORCH_PLATEAU_ALIAS_DESTINATIONS = {
+    "--torch-plateau-factor": ("torch_plateau_factor", "plateau_factor"),
+    "--torch-plateau-patience": (
+        "torch_plateau_patience",
+        "plateau_patience",
+    ),
+    "--torch-plateau-min-lr": ("torch_plateau_min_lr", "plateau_min_lr"),
+    "--torch-plateau-threshold": (
+        "torch_plateau_threshold",
+        "plateau_threshold",
+    ),
+}
+
+
+def _raw_option_names(argv) -> set[str]:
+    """Return supplied long-option names without ``=value`` suffixes."""
+    return {
+        token.split("=", 1)[0]
+        for token in argv
+        if isinstance(token, str) and token.startswith("--")
+    }
+
+
+def _explicit_public_optimizer_overrides(args, argv) -> dict:
+    """Return only explicitly supplied values owned by Torch TrainingConfig."""
+    supplied_options = _raw_option_names(argv)
+    overrides = {
+        destination: getattr(args, destination)
+        for option, destination in _PUBLIC_OPTIMIZER_OPTION_DESTINATIONS.items()
+        if option in supplied_options and hasattr(args, destination)
+    }
+    for alias, (_alias_destination, destination) in (
+        _TORCH_PLATEAU_ALIAS_DESTINATIONS.items()
+    ):
+        canonical_option = f"--{destination}"
+        if (
+            alias in supplied_options
+            and canonical_option not in supplied_options
+            and hasattr(args, destination)
+        ):
+            overrides[destination] = getattr(args, destination)
+    return overrides
+
 
 def interpret_n_images_parameter(n_images: int, gridsize: int) -> tuple[int, str]:
     """
@@ -122,15 +189,8 @@ def parse_arguments():
     TrainingConfig fields, following the pattern from scripts/inference/inference.py.
     See docs/workflows/pytorch.md §12 for flag descriptions.
     """
-    # Start with a parser that has no arguments yet
-    import sys
     from ptycho.cli_args import add_logging_arguments
-    from ptycho.config.config import TrainingConfig, ModelConfig
-    from dataclasses import fields
-    from typing import get_origin, get_args, Union, Literal
-    from pathlib import Path
 
-    logger_local = logging.getLogger(__name__)
     parser = argparse.ArgumentParser(description="Non-grid CDI Example Script")
     parser.add_argument("--config", type=str, help="Path to YAML configuration file")
     parser.add_argument("--do_stitching", action='store_true', default=False,
@@ -138,128 +198,7 @@ def parse_arguments():
 
     # Add logging arguments
     add_logging_arguments(parser)
-
-    # Add arguments based on TrainingConfig fields (same as base_parse_arguments)
-    for field in fields(TrainingConfig):
-        if field.name == 'model':
-            # Handle ModelConfig fields
-            for model_field in fields(ModelConfig):
-                # Special handling for Literal types
-                if hasattr(model_field.type, "__origin__") and model_field.type.__origin__ is Literal:
-                    choices = list(model_field.type.__args__)
-                    parser.add_argument(
-                        f"--{model_field.name}",
-                        type=str,
-                        choices=choices,
-                        default=model_field.default,
-                        help=f"Model parameter: {model_field.name}, choices: {choices}"
-                    )
-                else:
-                    parser.add_argument(
-                        f"--{model_field.name}",
-                        type=model_field.type,
-                        default=model_field.default,
-                        help=f"Model parameter: {model_field.name}"
-                    )
-        else:
-            # Handle path fields specially
-            if field.type == Path or str(field.type).startswith("typing.Optional[pathlib.Path"):
-                parser.add_argument(
-                    f"--{field.name}",
-                    type=lambda x: Path(x) if x is not None else None,
-                    default=None if field.default == None else str(field.default),
-                    help=f"Path for {field.name}"
-                )
-            elif hasattr(field.type, "__origin__") and field.type.__origin__ is Literal:
-                choices = list(field.type.__args__)
-                parser.add_argument(
-                    f"--{field.name}",
-                    type=str,
-                    choices=choices,
-                    default=field.default,
-                    help=f"Training parameter: {field.name}, choices: {choices}"
-                )
-            else:
-                # Special handling for specific parameters to provide better help text
-                if field.name == 'n_groups':
-                    parser.add_argument(
-                        f"--{field.name}",
-                        type=field.type if get_origin(field.type) is not Union else get_args(field.type)[0],
-                        default=field.default,
-                        help="Number of groups to generate. Always means groups regardless of gridsize. "
-                             "Can exceed dataset size when using higher --neighbor_count values."
-                    )
-                elif field.name == 'n_images':
-                    # Keep n_images for backward compatibility but mark as deprecated
-                    parser.add_argument(
-                        f"--{field.name}",
-                        type=field.type if get_origin(field.type) is not Union else get_args(field.type)[0],
-                        default=field.default,
-                        help="DEPRECATED: Use --n_groups instead. Number of groups to use from the dataset."
-                    )
-                elif field.name == 'n_subsample':
-                    parser.add_argument(
-                        f"--{field.name}",
-                        type=field.type if get_origin(field.type) is not Union else get_args(field.type)[0],
-                        default=field.default,
-                        help="Number of images to subsample from dataset before grouping (independent control). "
-                             "When provided, controls data selection separately from grouping."
-                    )
-                elif field.name == 'subsample_seed':
-                    parser.add_argument(
-                        f"--{field.name}",
-                        type=field.type if get_origin(field.type) is not Union else get_args(field.type)[0],
-                        default=field.default,
-                        help="Random seed for reproducible subsampling. "
-                             "Use same seed across runs to ensure consistent data selection."
-                    )
-                elif field.name == 'neighbor_count':
-                    parser.add_argument(
-                        f"--{field.name}",
-                        type=field.type,
-                        default=field.default,
-                        help="Number of nearest neighbors (K) for grouping. Use higher values (e.g., 7) "
-                             "to enable more combinations when requesting more groups than available points."
-                    )
-                elif field.name == 'backend':
-                    # Special handling for backend Literal type
-                    if hasattr(field.type, "__origin__") and field.type.__origin__ is Literal:
-                        choices = list(field.type.__args__)
-                        parser.add_argument(
-                            f"--{field.name}",
-                            type=str,
-                            choices=choices,
-                            default=field.default,
-                            help=f"Backend selection: {', '.join(choices)} (default: {field.default}). "
-                                 f"PyTorch backend requires torch>=2.2 (POLICY-001)."
-                        )
-                    else:
-                        # Fallback if not a Literal type
-                        parser.add_argument(
-                            f"--{field.name}",
-                            type=str,
-                            default=field.default,
-                            help="Backend selection for workflow orchestration"
-                        )
-                else:
-                    # Handle Optional types
-                    if get_origin(field.type) is Union:
-                        # This is an Optional type (Union[T, None])
-                        args = get_args(field.type)
-                        actual_type = args[0] if args[0] is not type(None) else args[1]
-                        parser.add_argument(
-                            f"--{field.name}",
-                            type=actual_type,
-                            default=field.default,
-                            help=f"Training parameter: {field.name}"
-                        )
-                    else:
-                        parser.add_argument(
-                            f"--{field.name}",
-                            type=field.type,
-                            default=field.default,
-                            help=f"Training parameter: {field.name}"
-                        )
+    add_public_training_config_arguments(parser)
 
     # PyTorch-only execution flags (see docs/workflows/pytorch.md §12)
     parser.add_argument("--torch-accelerator", type=str,
@@ -285,7 +224,7 @@ def parse_arguments():
                        help="Learning rate for PyTorch training (default: None, uses model default). "
                             "Only applies when --backend pytorch.")
     parser.add_argument("--torch-scheduler", type=str, default='Default',
-                       choices=['Default', 'ReduceLROnPlateau', 'CosineAnnealing'],
+                       choices=['Default', 'Exponential', 'WarmupCosine', 'ReduceLROnPlateau'],
                        help="Learning rate scheduler for PyTorch training (default: 'Default'). "
                             "Only applies when --backend pytorch.")
     parser.add_argument("--torch-plateau-factor", type=float, default=None,
@@ -325,20 +264,27 @@ def parse_arguments():
 
 def apply_torch_plateau_overrides(args, argv=None) -> None:
     """Map torch-specific plateau flags onto TrainingConfig fields."""
-    argv = argv or sys.argv
-    if "--torch-plateau-factor" in argv and getattr(args, "torch_plateau_factor", None) is not None:
-        args.plateau_factor = args.torch_plateau_factor
-    if "--torch-plateau-patience" in argv and getattr(args, "torch_plateau_patience", None) is not None:
-        args.plateau_patience = args.torch_plateau_patience
-    if "--torch-plateau-min-lr" in argv and getattr(args, "torch_plateau_min_lr", None) is not None:
-        args.plateau_min_lr = args.torch_plateau_min_lr
-    if "--torch-plateau-threshold" in argv and getattr(args, "torch_plateau_threshold", None) is not None:
-        args.plateau_threshold = args.torch_plateau_threshold
+    option_names = _raw_option_names(
+        tuple(sys.argv[1:]) if argv is None else argv
+    )
+    for alias, (
+        alias_destination,
+        canonical_destination,
+    ) in _TORCH_PLATEAU_ALIAS_DESTINATIONS.items():
+        canonical_option = f"--{canonical_destination}"
+        value = getattr(args, alias_destination, None)
+        if (
+            alias in option_names
+            and canonical_option not in option_names
+            and value is not None
+        ):
+            setattr(args, canonical_destination, value)
 
 
 @scoped_legacy_params
 def main() -> None:
     """Main function to orchestrate the CDI example script execution."""
+    raw_argv = tuple(sys.argv[1:])
     args = parse_arguments()
     
     # Handle legacy argument name
@@ -346,22 +292,63 @@ def main() -> None:
         args.train_data_file = args.train_data_file_path
         delattr(args, 'train_data_file_path')
 
-    apply_torch_plateau_overrides(args)
+    apply_torch_plateau_overrides(args, raw_argv)
 
     config = setup_configuration(args, args.config)
-    
-    # Interpret sampling parameters with new independent control support
-    n_subsample, n_groups, enable_oversampling, neighbor_pool_size, interpretation_message = interpret_sampling_parameters(config)
+
+    # Dataset-authored photon scale is part of the final public record. Resolve
+    # it before validation, sampling interpretation, projection, or data use.
+    from ptycho.metadata import MetadataManager
+
+    try:
+        _, metadata = MetadataManager.load_with_metadata(
+            str(config.train_data_file)
+        )
+    except Exception as error:
+        logger.debug(f"No metadata found or error reading metadata: {error}")
+        metadata = None
+
+    metadata_nphotons = None
+    if metadata:
+        if "nphotons" in metadata:
+            metadata_nphotons = float(metadata["nphotons"])
+        elif (
+            "physics_parameters" in metadata
+            and "nphotons" in metadata["physics_parameters"]
+        ):
+            metadata_nphotons = float(
+                metadata["physics_parameters"]["nphotons"]
+            )
+
+    if metadata_nphotons is not None:
+        original_nphotons = config.nphotons
+        config = replace(config, nphotons=metadata_nphotons)
+        logger.info(
+            "Overriding nphotons from config "
+            f"({original_nphotons:.1e}) with value from dataset metadata: "
+            f"{metadata_nphotons:.1e}"
+        )
+
+    validate_training_config_structure(config)
+    validate_runnable_training_config(config)
+
+    # Interpret sampling only after the final metadata-derived record validates.
+    (
+        n_subsample,
+        n_groups,
+        enable_oversampling,
+        neighbor_pool_size,
+        interpretation_message,
+    ) = interpret_sampling_parameters(config)
     logger.info(interpretation_message)
-    
-    # Log warning if potentially problematic configuration
+
     if config.n_subsample is not None and config.model.gridsize > 1:
         min_required = n_groups * config.model.gridsize * config.model.gridsize
         if n_subsample < min_required:
             logger.warning(f"n_subsample ({n_subsample}) may be too small to create {n_groups} "
                          f"groups of size {config.model.gridsize}². Consider increasing n_subsample to at least {min_required}")
-    
-    # Update global params with new-style config at entry point
+
+    # Project only the final validated record before legacy data consumers.
     update_legacy_dict(params.cfg, config)
     
     try:
@@ -377,96 +364,36 @@ def main() -> None:
             subsample_seed=config.subsample_seed
         )
         
-        # Check for metadata and override nphotons if present
-        from ptycho.metadata import MetadataManager
-        try:
-            _, metadata = MetadataManager.load_with_metadata(str(config.train_data_file))
-            # Check both top-level and physics_parameters for nphotons
-            metadata_nphotons = None
-            if metadata:
-                if 'nphotons' in metadata:
-                    metadata_nphotons = float(metadata['nphotons'])
-                elif 'physics_parameters' in metadata and 'nphotons' in metadata['physics_parameters']:
-                    metadata_nphotons = float(metadata['physics_parameters']['nphotons'])
-                
-                if metadata_nphotons is not None:
-                    original_nphotons = config.nphotons
-                    # Update config with metadata nphotons value (create new instance for dataclass)
-                    config = config.__class__(
-                        **{**config.__dict__, 'nphotons': metadata_nphotons}
-                    )
-                    logger.info(f"Overriding nphotons from config ({original_nphotons:.1e}) with value from dataset metadata: {metadata_nphotons:.1e}")
-                    # Update the legacy params dict as well
-                    params.cfg['nphotons'] = metadata_nphotons
-        except Exception as e:
-            logger.debug(f"No metadata found or error reading metadata: {e}")
-        
         test_data = None
         if config.test_data_file:
             test_data = load_data(str(config.test_data_file))
             logger.info(f"Loaded test data from {config.test_data_file}")
 
-        # Build PyTorch execution config if backend is pytorch
-        torch_execution_config = None
+        # Preserve runtime suppliedness separately from canonical optimizer values.
+        torch_execution_request = None
+        torch_factory_overrides = None
         if config.backend == 'pytorch':
-            # Determine if user explicitly provided any --torch-* flags
-            # We check against argparse defaults to detect user overrides
-            torch_flags_explicitly_set = any([
-                'torch_accelerator' in sys.argv or '--torch-accelerator' in sys.argv,
-                'torch_deterministic' in sys.argv or '--torch-deterministic' in sys.argv,
-                'torch_num_workers' in sys.argv or '--torch-num-workers' in sys.argv,
-                'torch_learning_rate' in sys.argv or '--torch-learning-rate' in sys.argv,
-                'torch_scheduler' in sys.argv or '--torch-scheduler' in sys.argv,
-                'torch_logger' in sys.argv or '--torch-logger' in sys.argv,
-                'torch_enable_checkpointing' in sys.argv or '--torch-enable-checkpointing' in sys.argv,
-                'torch_checkpoint_save_top_k' in sys.argv or '--torch-checkpoint-save-top-k' in sys.argv,
-                'torch_accumulate_grad_batches' in sys.argv or '--torch-accumulate-grad-batches' in sys.argv,
-            ])
+            from ptycho_torch.cli.shared import build_execution_request_from_args
 
-            if not torch_flags_explicitly_set:
-                # No --torch-* flags provided: defer to backend_selector's auto-instantiated GPU defaults
+            torch_execution_request = build_execution_request_from_args(
+                args,
+                mode='training',
+                explicit_options=raw_argv,
+                lane='unified-training',
+            )
+            torch_factory_overrides = _explicit_public_optimizer_overrides(
+                args,
+                raw_argv,
+            )
+            if not torch_execution_request.explicit_fields:
                 logger.info("POLICY-001: No --torch-* execution flags provided. "
                            "Backend will use GPU-first defaults (auto-detects CUDA if available, else CPU). "
                            "CPU-only users should pass --torch-accelerator cpu.")
-                # Leave torch_execution_config=None to signal backend_selector to auto-instantiate
-            else:
-                # User provided at least one --torch-* flag: build execution config explicitly
-                from ptycho_torch.cli.shared import build_execution_config_from_args
-
-                # Map CLI flags to execution config namespace (see docs/workflows/pytorch.md §12)
-                exec_args = argparse.Namespace(
-                    accelerator=getattr(args, 'torch_accelerator', 'auto'),
-                    deterministic=getattr(args, 'torch_deterministic', True),
-                    num_workers=getattr(args, 'torch_num_workers', 0),
-                    learning_rate=getattr(args, 'torch_learning_rate', None),
-                    scheduler=getattr(args, 'torch_scheduler', 'Default'),
-                    logger_backend=getattr(args, 'torch_logger', 'csv'),
-                    enable_checkpointing=getattr(args, 'torch_enable_checkpointing', True),
-                    checkpoint_save_top_k=getattr(args, 'torch_checkpoint_save_top_k', 1),
-                    accumulate_grad_batches=getattr(args, 'torch_accumulate_grad_batches', 1),
-                    checkpoint_monitor_metric='val_loss',  # Default per docs/workflows/pytorch.md
-                    checkpoint_mode='min',  # Default
-                    early_stop_patience=100,  # Default
-                    quiet=getattr(args, 'debug', False) == False,  # Invert debug flag for quiet
-                    disable_mlflow=False,  # Not applicable for training in this context
-                    # Recon logging knobs
-                    recon_log_every_n_epochs=getattr(args, 'torch_recon_log_every_n_epochs', None),
-                    recon_log_num_patches=getattr(args, 'torch_recon_log_num_patches', 4),
-                    recon_log_fixed_indices=getattr(args, 'torch_recon_log_fixed_indices', None),
-                    recon_log_stitch=getattr(args, 'torch_recon_log_stitch', False),
-                    recon_log_max_stitch_samples=getattr(args, 'torch_recon_log_max_stitch_samples', None),
-                )
-
-                # Build validated execution config from CLI args (POLICY-001, CONFIG-002, CONFIG-LOGGER-001)
-                torch_execution_config = build_execution_config_from_args(exec_args, mode='training')
-                logger.info(f"PyTorch execution config built: accelerator={torch_execution_config.accelerator}, "
-                           f"num_workers={torch_execution_config.num_workers}, "
-                           f"learning_rate={torch_execution_config.learning_rate}, "
-                           f"logger_backend={torch_execution_config.logger_backend}")
 
         recon_amp, recon_phase, results = run_cdi_example_with_backend(
             ptycho_data, test_data, config, do_stitching=args.do_stitching,
-            torch_execution_config=torch_execution_config
+            torch_execution_config=torch_execution_request,
+            torch_factory_overrides=torch_factory_overrides,
         )
 
         # TensorFlow-only persistence: only save via model_manager and save_outputs for TensorFlow backend

@@ -8,7 +8,7 @@ import math
 from pathlib import Path
 
 #Typing
-from dataclasses import dataclass
+from dataclasses import dataclass, fields, replace
 from typing import Any, Dict, Optional
 from ptycho.config.config import PyTorchExecutionConfig
 from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig, InferenceConfig, DatagenConfig
@@ -124,6 +124,37 @@ def _effective_device_count(devices, accelerator) -> int:
         count = torch.cuda.device_count() if torch.cuda.is_available() else 0
         return max(count, 1)
     return 1
+
+
+def _resolve_direct_training_config(
+    training_config: TrainingConfig,
+    execution_config: PyTorchExecutionConfig | None,
+) -> TrainingConfig:
+    """Resolve legacy execution optimizer aliases into the training owner."""
+    from ptycho_torch.config_factory import (
+        TRAINING_OWNER_FIELDS,
+        resolve_optimizer_ownership,
+    )
+    from ptycho_torch.execution_request import normalize_execution_input
+
+    resolved_owner, _ = resolve_optimizer_ownership(
+        training_baseline=training_config,
+        normalized_execution=normalize_execution_input(
+            execution_config,
+            mode="training",
+        ),
+        canonical_training_patch={},
+    )
+    owner_fields = TRAINING_OWNER_FIELDS & {
+        item.name for item in fields(training_config)
+    }
+    return replace(
+        training_config,
+        **{
+            name: getattr(resolved_owner, name)
+            for name in owner_fields
+        },
+    )
 
 
 def _trainer_strategy(strategy, devices, accelerator):
@@ -487,27 +518,29 @@ def main(ptycho_dir,
             data_config.scale_contract_version = explicit_profile[0]
             data_config.measurement_domain = explicit_profile[1]
 
-        validate_scale_contract(data_config, model_config, training_config)
-
+        training_config = _resolve_direct_training_config(
+            training_config,
+            execution_config,
+        )
         if execution_config is None:
             execution_config = PyTorchExecutionConfig()
+        validate_scale_contract(data_config, model_config, training_config)
 
-        # Execution config is authoritative; these mutable fields are compatibility
-        # aliases consumed by the model and data module.
-        training_config.n_devices = execution_config.devices
-        training_config.strategy = execution_config.strategy
-        training_config.device = _torch_device_accelerator(execution_config.accelerator)
-        training_config.num_workers = execution_config.num_workers
+        # Execution config is authoritative; project its compatibility aliases
+        # into the fresh snapshot consumed by the model and data module.
+        training_config = replace(
+            training_config,
+            n_devices=execution_config.devices,
+            strategy=execution_config.strategy,
+            device=_torch_device_accelerator(execution_config.accelerator),
+            num_workers=execution_config.num_workers,
+            orchestrator="Lightning",
+        )
         assert training_config.n_devices == execution_config.devices
         assert training_config.strategy == execution_config.strategy
         assert training_config.device == _torch_device_accelerator(
             execution_config.accelerator
         )
-
-        # Force Lightning orchestrator — this script uses PtychoDataModuleLightning,
-        # which relies on Lightning's prepare_data/setup lifecycle instead of
-        # manual dist.barrier() synchronization used by the Mlflow path.
-        training_config.orchestrator = 'Lightning'
 
         # Generate run_name before trainer creation. Under ddp_spawn, Lightning
         # spawns children inside .fit(), so anything computed here happens in the
@@ -582,9 +615,8 @@ def main(ptycho_dir,
         )
         model.training = True
 
-        #Update LR (Phase C4.C3: Use execution_config if available, else training_config)
-        base_lr = execution_config.learning_rate if execution_config else training_config.learning_rate
-        updated_lr = find_learning_rate(base_lr,
+        # Learning rate is owned by the resolved TrainingConfig.
+        updated_lr = find_learning_rate(training_config.learning_rate,
                                         runtime_device_count, training_config.batch_size)
         model.lr = updated_lr
 
@@ -691,6 +723,25 @@ def main(ptycho_dir,
             precision=execution_config.precision,
             logger=[tb_logger, csv_logger],  # NEW: Use Lightning loggers
         )
+        automatic_optimization = getattr(model, "automatic_optimization", True)
+        clip_algorithm = training_config.gradient_clip_algorithm
+        if automatic_optimization and clip_algorithm == "agc":
+            raise ValueError(
+                "gradient_clip_algorithm='agc' requires manual optimization; "
+                "Lightning automatic optimization accepts only 'norm' or 'value'"
+            )
+        trainer_kwargs.update(
+            accumulate_grad_batches=(
+                training_config.accum_steps if automatic_optimization else 1
+            ),
+            gradient_clip_val=(
+                training_config.gradient_clip_val
+                if automatic_optimization
+                else None
+            ),
+        )
+        if automatic_optimization:
+            trainer_kwargs["gradient_clip_algorithm"] = clip_algorithm
         trainer = L.Trainer(**trainer_kwargs)
         effective_runtime = _build_effective_runtime(
             resolved_seed,

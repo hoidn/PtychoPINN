@@ -42,13 +42,13 @@ Override Precedence (highest to lowest):
     5. TensorFlow config defaults (TrainingConfig, ModelConfig, InferenceConfig)
 """
 
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Dict, Any, Optional, Union
+import warnings
 
 # Import canonical TensorFlow configs (single source of truth)
 from ptycho.config.config import (
-    ModelConfig as TFModelConfig,
     TrainingConfig as TFTrainingConfig,
     InferenceConfig as TFInferenceConfig,
 )
@@ -72,10 +72,32 @@ from ptycho_torch.scaling_contract import (
     CI_SCALE_CONTRACT,
     COUNT_INTENSITY,
     resolve_scale_contract,
-    validate_amplitude_physics_gain,
-    validate_contract_coherence,
 )
 from ptycho_torch.model_spec import ModelSpec, derive_model_spec
+from ptycho_torch.execution_request import (
+    ExecutionCapabilities,
+    ExecutionRequest,
+    OPTIMIZER_EXECUTION_COMPAT_FIELDS,
+    ResolutionNotice,
+    normalize_execution_input,
+    resolve_runtime_execution_request,
+    validate_execution_input_phase,
+    validate_execution_input_structure,
+)
+from ptycho_torch.config_resolution import (
+    DEPRECATED_EXECUTION_MODEL_ALIASES,
+    InferenceObservations,
+    TRAINING_OWNER_FIELDS as TRAINING_OWNER_FIELDS,
+    TrainingObservations,
+    inference_factory_baseline,
+    normalize_inference_patch,
+    normalize_training_patch,
+    observe_probe_size,
+    resolve_inference_bundle,
+    resolve_optimizer_ownership as resolve_optimizer_ownership,
+    resolve_training_bundle,
+    training_factory_baseline,
+)
 
 # Conformance D3 (Theme 3, docs/superpowers/plans/
 # 2026-07-14-ci-paper-conformance-audit.md): the paper's "PtychoPINN-CI" as a
@@ -105,105 +127,15 @@ CI_PROFILE_BUNDLE: Dict[str, Any] = {
 }
 
 
-# These graph-topology fields historically leaked into the normatively
-# runtime-only PyTorchExecutionConfig.  They remain accepted there only as
-# deprecated input aliases at this factory boundary.  All downstream model
-# construction reads the resolved PTModelConfig.
-DEPRECATED_EXECUTION_MODEL_ALIASES = (
-    "hybrid_skip_connections",
-    "hybrid_downsample_steps",
-    "hybrid_downsample_op",
-    "hybrid_encoder_conv_hidden_scale",
-    "hybrid_encoder_spectral_hidden_scale",
-    "hybrid_encoder_conv_hidden_channels",
-    "hybrid_encoder_spectral_hidden_channels",
-    "hybrid_resnet_blocks",
-    "hybrid_skip_style",
-    "hybrid_resnet_bottleneck_layerscale_mode",
-    "hybrid_resnet_bottleneck_layerscale_value",
-    "hybrid_encoder_fusion_mode",
-    "hybrid_encoder_layerscale_init",
-    "hybrid_encoder_branch_gate_init",
-    "hybrid_encoder_branch_select",
-    "ffno_encoder_blocks",
-    "ffno_encoder_modes",
-    "ffno_encoder_share_weights",
-    "ffno_encoder_gate_init",
-    "ffno_encoder_norm",
-    "ffno_encoder_mlp_ratio",
-    "spectral_bottleneck_blocks",
-    "spectral_bottleneck_modes",
-    "spectral_bottleneck_share_weights",
-    "spectral_bottleneck_gate_init",
-    "spectral_bottleneck_gate_mode",
-)
-
-_TRAINING_OVERRIDE_ALIASES = frozenset(
-    {"gridsize", "max_epochs", "neighbor_count", "model_type"}
-)
-_TRAINING_CONFIG_TYPES = (
-    PTDataConfig,
-    PTModelConfig,
-    PTTrainingConfig,
-    PTInferenceConfig,
-)
-_TRAINING_OVERRIDE_FIELDS = frozenset(
-    field_info.name
-    for config_type in _TRAINING_CONFIG_TYPES
-    for field_info in fields(config_type)
-) | _TRAINING_OVERRIDE_ALIASES
-
-
-def _config_kwargs(config_type, values: Dict[str, Any]) -> Dict[str, Any]:
-    """Select the declared constructor fields for one configuration owner."""
-    owned = {field_info.name for field_info in fields(config_type)}
-    return {name: value for name, value in values.items() if name in owned}
-
-
-def _reject_unknown_training_overrides(overrides: Dict[str, Any]) -> None:
-    unknown = sorted(set(overrides) - _TRAINING_OVERRIDE_FIELDS)
-    if unknown:
-        raise ValueError(
-            "unknown training override field(s): " + ", ".join(unknown)
-        )
-
-
-def _merge_deprecated_execution_model_aliases(
-    overrides: Dict[str, Any],
-    execution_config: Optional[PyTorchExecutionConfig],
-) -> tuple[str, ...]:
-    """Resolve non-default legacy execution aliases into structural inputs."""
-    if execution_config is None:
-        return ()
-
-    explicit_aliases = getattr(
-        execution_config, "_explicit_structural_aliases", frozenset()
-    )
-    used = []
-    for name in DEPRECATED_EXECUTION_MODEL_ALIASES:
-        if name not in explicit_aliases:
-            continue
-        alias_value = getattr(execution_config, name)
-        if name in overrides and overrides[name] != alias_value:
-            raise ValueError(
-                f"structural field {name!r} conflicts between ModelConfig input "
-                f"({overrides[name]!r}) and deprecated PyTorchExecutionConfig "
-                f"alias ({alias_value!r})"
-            )
-        overrides[name] = alias_value
-        used.append(name)
-
-    if used:
-        import warnings
-
+def _emit_resolution_notices(
+    notices: tuple[ResolutionNotice, ...],
+) -> None:
+    for notice in notices:
         warnings.warn(
-            "PyTorchExecutionConfig topology fields are deprecated aliases; "
-            "pass them through the structural ModelConfig input instead: "
-            + ", ".join(used),
-            DeprecationWarning,
+            notice.message,
+            notice.category,
             stacklevel=3,
         )
-    return tuple(used)
 
 
 def resolve_ci_profile(overrides: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -228,39 +160,6 @@ def resolve_ci_profile(overrides: Optional[Dict[str, Any]] = None) -> Dict[str, 
     resolved = dict(CI_PROFILE_BUNDLE)
     resolved.update(overrides)
     return resolved
-
-
-def _reject_half_configured_ci(
-    overrides: Dict[str, Any],
-    physics_forward_mode: str,
-) -> None:
-    """Fail-closed guard against half-configured CI intent (Theme 3.3/3.4).
-
-    Fires only on explicit, CI-flavored, NON-DEFAULT evidence of intent in the
-    overrides dict: ``rect_s1s2_init='data'`` (a CI-only calibration knob,
-    silently ignored by the amplitude forward) without
-    ``physics_forward_mode='rectangular_scaled'``.
-
-    The contract pair (``scale_contract_version``/``measurement_domain``) and
-    ``rect_s1s2_trainable`` deliberately do NOT trigger this guard: their
-    CI-flavored values equal the dataclass defaults and workflow glue (e.g.
-    the grid-lines runner's ``lightning_overrides``) forwards them
-    unconditionally for legacy amplitude arms, so their presence in overrides
-    proves nothing about user intent. Bare-default construction remains valid
-    legacy behavior per the 2026-07-09 CI ablation design.
-    """
-    if physics_forward_mode == "rectangular_scaled":
-        return
-    if overrides.get("rect_s1s2_init") == "data":
-        raise ValueError(
-            "rect_s1s2_init='data' is a CI-contract knob (one-batch s1/s2 "
-            "calibration for the rectangular_scaled forward) but "
-            f"physics_forward_mode resolved to {physics_forward_mode!r}, "
-            "where it is silently ignored. Half-configured CI is fail-closed: "
-            "use create_training_payload(..., profile='ci') (or --profile ci "
-            "on the training CLI) for the coherent PtychoPINN-CI bundle, or "
-            "drop rect_s1s2_init."
-        )
 
 
 def simulation_from_datagen_config(
@@ -340,6 +239,32 @@ class InferencePayload:
     overrides_applied: Dict[str, Any] = field(default_factory=dict)  # Audit trail
 
 
+def _mirror_effective_optimizer_owner(
+    runtime_config: PyTorchExecutionConfig,
+    training_config: PTTrainingConfig,
+) -> PyTorchExecutionConfig:
+    """Return the runtime carrier with its optimizer compatibility view synced."""
+
+    explicit_structural_aliases = getattr(
+        runtime_config,
+        "_explicit_structural_aliases",
+        frozenset(),
+    )
+    mirrored = replace(
+        runtime_config,
+        **{
+            field_name: getattr(training_config, field_name)
+            for field_name in OPTIMIZER_EXECUTION_COMPAT_FIELDS
+        },
+    )
+    object.__setattr__(
+        mirrored,
+        "_explicit_structural_aliases",
+        explicit_structural_aliases,
+    )
+    return mirrored
+
+
 def _load_nphotons_from_metadata(data_file: Path) -> Optional[float]:
     """Return nphotons from embedded NPZ metadata if present."""
     import json
@@ -370,8 +295,13 @@ def create_training_payload(
     train_data_file: Path,
     output_dir: Path,
     overrides: Optional[Dict[str, Any]] = None,
-    execution_config: Optional[PyTorchExecutionConfig] = None,
+    execution_config: Optional[
+        Union[ExecutionRequest, PyTorchExecutionConfig]
+    ] = None,
     profile: Optional[str] = None,
+    *,
+    training_baseline: TFTrainingConfig | PTTrainingConfig | None = None,
+    execution_capabilities: ExecutionCapabilities | None = None,
 ) -> TrainingPayload:
     """
     Create complete training configuration payload.
@@ -441,217 +371,137 @@ def create_training_payload(
         - Override precedence: .../override_matrix.md §6
         - Integration: .../factory_design.md §3 (CLI/workflow call sites)
     """
-    # Step 0: Resolve named profile (Conformance D3). Must precede everything
-    # else so profile contradictions fail before any state is touched.
+    raw_patch = dict(overrides or {})
     if profile is not None:
         if profile != "ci":
             raise ValueError(
                 f"Unknown configuration profile {profile!r}; supported "
                 "profiles: 'ci'."
             )
-        overrides = resolve_ci_profile(overrides)
+        raw_patch = resolve_ci_profile(raw_patch)
 
-    params.unseal()
-    from ptycho_torch.config_bridge import to_model_config, to_training_config
-
-    # Defensive copy of overrides
-    overrides = dict(overrides or {})
-    resolved_profile = resolve_profile_overrides(overrides)
+    resolved_profile = resolve_profile_overrides(raw_patch)
     if resolved_profile is not None:
-        overrides["scale_contract_version"], overrides["measurement_domain"] = resolved_profile
-    overrides_applied = dict(overrides)  # Audit trail
-    if profile is not None:
-        overrides_applied['profile'] = profile
+        (
+            raw_patch["scale_contract_version"],
+            raw_patch["measurement_domain"],
+        ) = resolved_profile
 
-    # Bridge naming compatibility: accept legacy/CLI-friendly keys
-    if 'max_epochs' in overrides and 'epochs' not in overrides:
-        overrides['epochs'] = overrides['max_epochs']
-        overrides_applied['epochs'] = overrides['max_epochs']
-    if 'neighbor_count' in overrides and 'K' not in overrides:
-        overrides['K'] = overrides['neighbor_count']
-        overrides_applied['K'] = overrides['neighbor_count']
-    if 'model_type' in overrides and 'mode' not in overrides:
-        overrides['mode'] = overrides['model_type']
-        overrides_applied['mode'] = overrides['model_type']
-
-    alias_fields = _merge_deprecated_execution_model_aliases(
-        overrides, execution_config
+    normalized_execution = normalize_execution_input(
+        execution_config,
+        mode="training",
     )
-    for name in alias_fields:
-        overrides_applied[name] = overrides[name]
-    _reject_unknown_training_overrides(overrides)
-
-    # Step 1: Validate required arguments
+    if normalized_execution is not None:
+        validate_execution_input_structure(normalized_execution)
+        validate_execution_input_phase(
+            normalized_execution,
+            mode="training",
+        )
+    normalized = normalize_training_patch(
+        raw_patch,
+        normalized_execution=normalized_execution,
+    )
     if not train_data_file.exists():
         raise FileNotFoundError(f"Training data file not found: {train_data_file}")
+    probe_observation = observe_probe_size(train_data_file)
+    resolved = resolve_training_bundle(
+        baseline=training_factory_baseline(
+            training_baseline=training_baseline,
+        ),
+        normalized=normalized,
+        observations=TrainingObservations(
+            train_data_file=train_data_file,
+            output_dir=output_dir,
+            inferred_probe_size=probe_observation.value,
+            photon_metadata=_load_nphotons_from_metadata(train_data_file),
+            notices=probe_observation.notices,
+        ),
+        normalized_execution=normalized_execution,
+    )
 
-    if 'n_groups' not in overrides:
-        raise ValueError(
-            "n_groups is required in overrides (no default). "
-            "Provide as: overrides={'n_groups': 512, ...}"
+    from ptycho_torch.config_bridge import to_model_config, to_training_config
+
+    deferred_notices: list[ResolutionNotice] = list(resolved.notices)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        tf_model_config = to_model_config(resolved.data, resolved.model)
+        tf_training_config = to_training_config(
+            tf_model_config,
+            resolved.data,
+            resolved.model,
+            resolved.training,
+            overrides=dict(resolved.bridge),
         )
-
-    # Step 2: Infer probe size from NPZ (or use override)
-    if 'N' in overrides:
-        N = overrides['N']
-    else:
-        N = infer_probe_size(train_data_file)
-        overrides['N'] = N
-        overrides_applied['N'] = N  # Record inferred value
-
-    # Step 2b: Resolve nphotons (override > metadata > TF default)
-    if 'nphotons' not in overrides:
-        nphotons_from_metadata = _load_nphotons_from_metadata(train_data_file)
-        if nphotons_from_metadata is not None:
-            overrides['nphotons'] = nphotons_from_metadata
-            overrides_applied['nphotons'] = nphotons_from_metadata
-            overrides_applied['nphotons_source'] = 'metadata'
-        else:
-            tf_default_nphotons = TFTrainingConfig(model=TFModelConfig()).nphotons
-            overrides['nphotons'] = tf_default_nphotons
-            overrides_applied['nphotons'] = tf_default_nphotons
-            overrides_applied['nphotons_source'] = 'tf_default'
-
-    # Step 3: Build PyTorch singleton configs with defaults + overrides
-    # DataConfig: Extract data-related fields from overrides
-    grid_size = overrides.get('grid_size', (overrides.get('gridsize', 1), overrides.get('gridsize', 1)))
-    # Compute C from grid_size (number of channels = gridsize_x * gridsize_y)
-    C = grid_size[0] * grid_size[1]
-    # Ensure downstream config updates see derived grid_size and channels
-    overrides['grid_size'] = grid_size
-    overrides['C'] = C
-
-    pt_data_config = PTDataConfig(**_config_kwargs(PTDataConfig, overrides))
-
-    # ModelConfig: Extract model architecture fields from overrides
-    # CRITICAL: Synchronize C_forward and C_model with pt_data_config.C to ensure
-    # PyTorch helpers (reassemble_patches_position_real) receive tensor shapes
-    # consistent with the grouping strategy. Fixes ADR-003 C4.D3 coords_relative mismatch.
-    overrides['C_forward'] = C
-    overrides['C_model'] = C
-
-    pt_model_config = PTModelConfig(**_config_kwargs(PTModelConfig, overrides))
-
-    # PROBE-RANK-001 §3.3: the explicit amplitude physics gain is a
-    # provenance-carrying training constant — validate fail-fast at payload
-    # creation and always record the effective value in the audit trail
-    # (it also reaches Lightning hparams via ModelConfig serialization).
-    validate_amplitude_physics_gain(pt_model_config)
-    overrides_applied['amplitude_physics_gain'] = pt_model_config.amplitude_physics_gain
-
-    # TrainingConfig: Extract training-specific fields from overrides
-    overrides['nll'] = overrides.get('nll_weight', 1.0) > 0
-    overrides['train_data_file'] = str(train_data_file)
-    overrides['test_data_file'] = str(overrides['test_data_file']) if 'test_data_file' in overrides else None
-    overrides['output_dir'] = str(output_dir)
-
-    pt_training_config = PTTrainingConfig(
-        **_config_kwargs(PTTrainingConfig, overrides)
+    deferred_notices.extend(
+        ResolutionNotice(item.category, str(item.message))
+        for item in caught
     )
 
-    # Resolve the selected objective into structural loss identity before the
-    # ModelSpec is sealed. Lightning must not silently mutate this field after
-    # construction has begun.
-    from dataclasses import replace
-
-    resolved_loss = (
-        "Poisson" if pt_training_config.torch_loss_mode == "poisson" else "MAE"
+    runtime = resolve_runtime_execution_request(
+        normalized_execution,
+        mode="training",
+        execution_capabilities=execution_capabilities,
     )
-    if pt_model_config.loss_function != resolved_loss:
-        pt_model_config = replace(pt_model_config, loss_function=resolved_loss)
-    from ptycho_torch.object_compatibility import (
-        resolve_torch_model_object_policy,
+    runtime_config = _mirror_effective_optimizer_owner(
+        runtime.config,
+        resolved.training,
     )
-    pt_model_config = resolve_torch_model_object_policy(pt_model_config)
+    overrides_applied = dict(resolved.audit)
+    if resolved.aliases:
+        overrides_applied["input_aliases"] = {
+            name: tuple(sources)
+            for name, sources in resolved.aliases.items()
+        }
+        topology_compatibility = {
+            source_name: canonical
+            for canonical, source_names in resolved.aliases.items()
+            for source_name in source_names
+            if source_name in DEPRECATED_EXECUTION_MODEL_ALIASES
+        }
+        if topology_compatibility:
+            overrides_applied["topology_compatibility"] = (
+                topology_compatibility
+            )
+    if profile is not None:
+        overrides_applied["profile"] = profile
+    overrides_applied["execution_runtime"] = runtime.audit_dict()
+    for name in (
+        "accelerator",
+        "deterministic",
+        "num_workers",
+        "enable_progress_bar",
+        "logger_backend",
+    ):
+        overrides_applied[name] = getattr(runtime_config, name)
 
-    # Conformance D3: fail-closed contract coherence (Theme 3, 2026-07-14).
-    # The half-configured-CI guard runs here (not on bare dataclasses) because
-    # only the factory sees the explicit overrides dict; the unconditional
-    # coherence validation is a no-op pass for coherent legacy AND coherent CI.
-    _reject_half_configured_ci(overrides, pt_model_config.physics_forward_mode)
-    validate_contract_coherence(pt_data_config, pt_model_config, pt_training_config)
-
-    # InferenceConfig: track patch-stats flags for instrumentation
-    pt_inference_config = PTInferenceConfig(
-        patch_weighting=overrides.get('patch_weighting', 'probe'),
-        varpro_scaling=overrides.get('varpro_scaling', True),
-        log_patch_stats=overrides.get('log_patch_stats', False),
-        patch_stats_limit=overrides.get('patch_stats_limit'),
-    )
-
-
-    # Step 4: Translate to TensorFlow canonical configs via config_bridge
-    tf_model_config = to_model_config(pt_data_config, pt_model_config)
-
-    # Build overrides dict for config_bridge (includes required fields)
-    bridge_overrides = {
-        'train_data_file': train_data_file,
-        'output_dir': output_dir,
-        'n_groups': overrides['n_groups'],  # Required field (validated above)
-    }
-
-    # Handle nphotons: config_bridge requires explicit override if using PyTorch default
-    # to avoid silent divergence. Always include nphotons in bridge_overrides.
-    if 'nphotons' in overrides:
-        bridge_overrides['nphotons'] = overrides['nphotons']
-    else:
-        # Use PyTorch default and mark as explicit override to pass config_bridge validation
-        bridge_overrides['nphotons'] = pt_data_config.nphotons
-    # Add optional fields from overrides
-    if 'test_data_file' in overrides:
-        bridge_overrides['test_data_file'] = overrides['test_data_file']
-    if 'n_subsample' in overrides:
-        bridge_overrides['n_subsample'] = overrides['n_subsample']
-    if 'subsample_seed' in overrides:
-        bridge_overrides['subsample_seed'] = overrides['subsample_seed']
-
-    tf_training_config = to_training_config(
-        tf_model_config,
-        pt_data_config,
-        pt_model_config,
-        pt_training_config,
-        overrides=bridge_overrides
-    )
-
-    # Step 5: Populate params.cfg (CONFIG-001 compliance checkpoint)
-    populate_legacy_params(tf_training_config)
-    params.seal()
-
-    # Step 6: Construct execution config (Phase C2.B1+C2.B2)
-    # If execution_config not provided, instantiate default PyTorchExecutionConfig
-    if execution_config is None:
-        execution_config = PyTorchExecutionConfig()
-
-    # Merge execution knobs into overrides_applied audit trail (Phase C2.B2)
-    # Record applied execution knobs for transparency
-    overrides_applied['accelerator'] = execution_config.accelerator
-    overrides_applied['deterministic'] = execution_config.deterministic
-    overrides_applied['num_workers'] = execution_config.num_workers
-    overrides_applied['enable_progress_bar'] = execution_config.enable_progress_bar
-    overrides_applied['learning_rate'] = execution_config.learning_rate
-    # Optimization knobs (Phase EB2.B1 - ADR-003)
-    overrides_applied['scheduler'] = execution_config.scheduler
-    overrides_applied['accum_steps'] = execution_config.accum_steps
-    # Logger backend (Phase EB3.B - ADR-003)
-    overrides_applied['logger_backend'] = execution_config.logger_backend
-
-    # Step 7: Return TrainingPayload with all config objects + audit trail
     model_spec = derive_model_spec(
         tf_model_config,
-        pt_model_config,
-        pt_data_config,
+        resolved.model,
+        resolved.data,
     )
-
-    return TrainingPayload(
+    payload = TrainingPayload(
         tf_training_config=tf_training_config,
-        pt_data_config=pt_data_config,
-        pt_model_config=pt_model_config,
-        pt_training_config=pt_training_config,
-        pt_inference_config=pt_inference_config,
+        pt_data_config=resolved.data,
+        pt_model_config=resolved.model,
+        pt_training_config=resolved.training,
+        pt_inference_config=resolved.inference,
         model_spec=model_spec,
-        execution_config=execution_config,  # Now always PyTorchExecutionConfig instance
+        execution_config=runtime_config,
         overrides_applied=overrides_applied,
     )
+    params.unseal()
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        populate_legacy_params(tf_training_config)
+    params.seal()
+    deferred_notices.extend(
+        ResolutionNotice(item.category, str(item.message))
+        for item in caught
+    )
+    _emit_resolution_notices(
+        tuple(deferred_notices) + runtime.notices
+    )
+    return payload
 
 
 @configured_legacy_params
@@ -660,7 +510,11 @@ def create_inference_payload(
     test_data_file: Path,
     output_dir: Path,
     overrides: Optional[Dict[str, Any]] = None,
-    execution_config: Optional[PyTorchExecutionConfig] = None,
+    execution_config: Optional[
+        Union[ExecutionRequest, PyTorchExecutionConfig]
+    ] = None,
+    *,
+    execution_capabilities: ExecutionCapabilities | None = None,
 ) -> InferencePayload:
     """
     Create complete inference configuration payload.
@@ -718,19 +572,28 @@ def create_inference_payload(
         - Design: .../factory_design.md §3.3
         - Checkpoint loading: specs/ptychodus_api_spec.md §4.6
     """
-    params.unseal()
-    from ptycho_torch.config_bridge import to_model_config, to_inference_config
+    raw_patch = dict(overrides or {})
+    resolved_profile = resolve_profile_overrides(raw_patch)
+    if resolved_profile is not None:
+        (
+            raw_patch["scale_contract_version"],
+            raw_patch["measurement_domain"],
+        ) = resolved_profile
 
-    # Defensive copy of overrides
-    overrides = dict(overrides or {})
-    resolved_profile = resolve_profile_overrides(overrides)
-    overrides_applied = dict(overrides)  # Audit trail
-
-    # Step 1: Validate required arguments
+    normalized_execution = normalize_execution_input(
+        execution_config,
+        mode="inference",
+    )
+    if normalized_execution is not None:
+        validate_execution_input_structure(normalized_execution)
+        validate_execution_input_phase(
+            normalized_execution,
+            mode="inference",
+        )
+    normalized = normalize_inference_patch(raw_patch)
     if not model_path.exists():
         raise FileNotFoundError(f"Model directory not found: {model_path}")
 
-    # Check for checkpoint file
     checkpoint_file = model_path / "wts.h5.zip"
     if not checkpoint_file.exists():
         raise ValueError(
@@ -741,124 +604,65 @@ def create_inference_payload(
     if not test_data_file.exists():
         raise FileNotFoundError(f"Test data file not found: {test_data_file}")
 
-    if 'n_groups' not in overrides:
-        raise ValueError(
-            "n_groups is required in overrides (no default). "
-            "Provide as: overrides={'n_groups': 128, ...}"
-        )
-
-    # Step 2: Infer probe size from NPZ (or use override)
-    if 'N' in overrides:
-        N = overrides['N']
-    else:
-        N = infer_probe_size(test_data_file)
-        overrides_applied['N'] = N  # Record inferred value
-
-    # Step 3: Build PyTorch singleton configs with defaults + overrides
-    # DataConfig: Extract data-related fields from overrides
-    grid_size = overrides.get('grid_size', (overrides.get('gridsize', 1), overrides.get('gridsize', 1)))
-    # Compute C from grid_size (number of channels = gridsize_x * gridsize_y)
-    C = grid_size[0] * grid_size[1]
-
-    pt_data_config = PTDataConfig(
-        N=N,
-        grid_size=grid_size,
-        C=C,  # Set C based on grid_size
-        K=overrides.get('neighbor_count', 4),  # Canonical default=4 per specs/ptychodus_api_spec.md §4.6
-        probe_scale=overrides.get('probe_scale', 4.0),  # Align with TF defaults
-        subsample_seed=overrides.get('subsample_seed'),  # Optional field
-        scale_contract_version=(
-            resolved_profile[0] if resolved_profile is not None else CI_SCALE_CONTRACT
-        ),
-        measurement_domain=(
-            resolved_profile[1] if resolved_profile is not None else COUNT_INTENSITY
+    probe_observation = observe_probe_size(test_data_file)
+    resolved = resolve_inference_bundle(
+        baseline=inference_factory_baseline(),
+        normalized=normalized,
+        observations=InferenceObservations(
+            model_path=model_path,
+            test_data_file=test_data_file,
+            output_dir=output_dir,
+            inferred_probe_size=probe_observation.value,
+            notices=probe_observation.notices,
         ),
     )
 
-    # ModelConfig: Extract model architecture fields from overrides (for config_bridge)
-    # Note: In inference, model config typically loaded from checkpoint, but we need
-    # a ModelConfig instance for config_bridge translation
-    # CRITICAL: Synchronize C_forward and C_model with pt_data_config.C (ADR-003 C4.D3)
-    pt_model_config = PTModelConfig(
-        mode=overrides.get('model_type', 'Unsupervised'),  # Map TF → PT naming
-        amp_activation=overrides.get('amp_activation', 'silu'),
-        n_filters_scale=overrides.get('n_filters_scale', 2),  # PyTorch default
-        object_big=overrides.get('object_big'),
-        object_layout=overrides.get('object_layout'),
-        training_canvas=overrides.get('training_canvas'),
-        training_patch_weighting=overrides.get('training_patch_weighting'),
-        # Full decoder support is the normal object-big contract. Callers may
-        # still request False explicitly for historical zero-border artifacts.
-        probe_big=overrides.get('probe_big', True),
-        probe_mask=overrides.get('probe_mask', False),
-        probe_mask_tensor=overrides.get('probe_mask_tensor'),
-        probe_mask_sigma=overrides.get('probe_mask_sigma', 1.0),
-        probe_mask_diameter=overrides.get('probe_mask_diameter'),
-        C_forward=C,  # Match data config channel count
-        C_model=C,    # Match data config channel count
-        pad_object=overrides.get('pad_object', True),  # Spec default
-        gaussian_smoothing_sigma=overrides.get('gaussian_smoothing_sigma', 0.0),  # Spec default
-    )
-    from ptycho_torch.object_compatibility import (
-        resolve_torch_model_object_policy,
-    )
-    pt_model_config = resolve_torch_model_object_policy(pt_model_config)
+    from ptycho_torch.config_bridge import to_inference_config, to_model_config
 
-    # InferenceConfig: Extract inference-specific fields from overrides
-    pt_inference_config = PTInferenceConfig(
-        batch_size=overrides.get('batch_size', 16),  # PyTorch default
-        patch_weighting=overrides.get('patch_weighting', 'probe'),
-        varpro_scaling=overrides.get('varpro_scaling', True),
-        log_patch_stats=overrides.get('log_patch_stats', False),
-        patch_stats_limit=overrides.get('patch_stats_limit'),
-    )
-
-    # Step 4: Translate to TensorFlow canonical configs via config_bridge
-    tf_model_config = to_model_config(pt_data_config, pt_model_config)
-
-    # Build overrides dict for config_bridge (includes required fields)
-    bridge_overrides = {
-        'model_path': model_path,
-        'test_data_file': test_data_file,
-        'output_dir': output_dir,
-        'n_groups': overrides['n_groups'],  # Required field (validated above)
-    }
-    # Add optional fields from overrides
-    if 'n_subsample' in overrides:
-        bridge_overrides['n_subsample'] = overrides['n_subsample']
-    if 'subsample_seed' in overrides:
-        bridge_overrides['subsample_seed'] = overrides['subsample_seed']
-
+    tf_model_config = to_model_config(resolved.data, resolved.model)
     tf_inference_config = to_inference_config(
         tf_model_config,
-        pt_data_config,
-        pt_inference_config,
-        overrides=bridge_overrides
+        resolved.data,
+        resolved.inference,
+        overrides=dict(resolved.bridge),
     )
 
-    # Step 5: Populate params.cfg (CONFIG-001 compliance checkpoint)
-    populate_legacy_params(tf_inference_config)
-    params.seal()
+    deferred_notices: list[ResolutionNotice] = list(resolved.notices)
+    runtime = resolve_runtime_execution_request(
+        normalized_execution,
+        mode="inference",
+        execution_capabilities=execution_capabilities,
+    )
+    overrides_applied = dict(resolved.audit)
+    if resolved.aliases:
+        overrides_applied["input_aliases"] = {
+            name: tuple(sources)
+            for name, sources in resolved.aliases.items()
+        }
+    overrides_applied["execution_runtime"] = runtime.audit_dict()
+    for name in ("accelerator", "num_workers", "inference_batch_size"):
+        overrides_applied[name] = getattr(runtime.config, name)
 
-    # Step 6: Construct execution config (Phase C2.B1+C2.B2)
-    # If execution_config not provided, instantiate default PyTorchExecutionConfig
-    if execution_config is None:
-        execution_config = PyTorchExecutionConfig()
-
-    # Merge execution knobs into overrides_applied audit trail (Phase C2.B2)
-    # Record applied execution knobs for transparency
-    overrides_applied['accelerator'] = execution_config.accelerator
-    overrides_applied['num_workers'] = execution_config.num_workers
-    overrides_applied['inference_batch_size'] = execution_config.inference_batch_size
-
-    # Step 7: Return InferencePayload with all config objects + audit trail
-    return InferencePayload(
+    payload = InferencePayload(
         tf_inference_config=tf_inference_config,
-        pt_data_config=pt_data_config,
-        pt_inference_config=pt_inference_config,
-        execution_config=execution_config,  # Now always PyTorchExecutionConfig instance
+        pt_data_config=resolved.data,
+        pt_inference_config=resolved.inference,
+        execution_config=runtime.config,
         overrides_applied=overrides_applied,
     )
+    params.unseal()
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        populate_legacy_params(tf_inference_config)
+    params.seal()
+    deferred_notices.extend(
+        ResolutionNotice(item.category, str(item.message))
+        for item in caught
+    )
+    _emit_resolution_notices(
+        tuple(deferred_notices) + runtime.notices
+    )
+    return payload
 
 
 def infer_probe_size(data_file: Path) -> int:

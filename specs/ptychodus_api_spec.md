@@ -184,9 +184,11 @@ following behavioural contract in addition to the configuration bridge.
 - `reconstruct()` and `train()` assemble `ModelConfig`, `InferenceConfig`, and `TrainingConfig` instances from
   live settings (`ptychodus.model.ptychopinn.reconstructor`). Every field in
   these dataclasses must be respected because they directly feed downstream modules.
-- `update_legacy_dict(ptycho.params.cfg, config)` is called immediately after instantiation. The backend must
-  continue to populate `ptycho.params.cfg` so that legacy consumers (`ptycho.raw_data`, `ptycho.loader`,
-  `ptycho.model`) observe consistent values.
+- After source resolution and structural, runnable, and resource validation,
+  `update_legacy_dict(ptycho.params.cfg, validated_config)` is called immediately
+  before backend dispatch or another legacy consumer. The backend must continue
+  to populate `ptycho.params.cfg` so that legacy consumers (`ptycho.raw_data`,
+  `ptycho.loader`, `ptycho.model`) observe consistent validated values.
 - Loaded models overwrite `params.cfg` via `load_inference_bundle`, so a backend must either replicate that side
   effect or provide an alternative hook (`ptycho.workflows.components.load_inference_bundle`).
 - **PyTorch Import Requirement (Phase F)**: The PyTorch backend (`ptycho_torch/`) **must** raise an actionable `RuntimeError` with installation guidance if `torch` cannot be imported. Silent fallbacks or optional import guards are prohibited per <doc-ref type="findings">docs/findings.md#policy-001</doc-ref>. All modules in `ptycho_torch/` assume PyTorch availability and will fail fast with clear error messages directing users to install `torch>=2.2`. Test suites automatically skip `tests/torch/` in TensorFlow-only CI environments via directory-based pytest collection rules (`tests/conftest.py`), but local development expects PyTorch to be present.
@@ -324,13 +326,15 @@ Archive identification and backend tagging
 - CLI entrypoints (`ptycho_torch/train.py`, `ptycho_torch/inference.py`) MUST delegate to shared helper functions (`ptycho_torch/cli/shared.py`) for path validation, accelerator resolution, and execution config construction. Helpers SHALL emit deprecation warnings for legacy flags (`--device`, `--disable_mlflow`) and map them to modern equivalents (`--accelerator`, `--quiet`).
 - Execution config objects (`PyTorchExecutionConfig`, see §4.9) MUST NOT populate `params.cfg` via `update_legacy_dict`; they control runtime behavior only. Canonical configs (`TrainingConfig`, `InferenceConfig`) continue to bridge via CONFIG-001.
 - Runtime failures SHALL raise actionable errors: `RuntimeError` if PyTorch >=2.2 unavailable (POLICY-001), `ValueError` for invalid execution config fields, `FileNotFoundError` for missing data/checkpoint paths (Phase C2 evidence: `ptycho_torch/cli/shared.py:validate_paths`).
- - Experiment logging via MLflow is OPTIONAL. The default logger backend is `'csv'` (`logger_backend='csv'`), and `'none'` disables logging.
+ - Experiment logging via MLflow is OPTIONAL. The default logger backend is
+   `'csv'` (`logger_backend='csv'`). The resolved configuration uses `None` to
+   disable logging; the CLI accepts `'none'` and canonicalizes it to `None`.
    Implementations MUST NOT require MLflow in environments where it is not installed.
 
 #### 4.8. Backend Selection & Dispatch
 
 - **Configuration Field**: `TrainingConfig.backend` and `InferenceConfig.backend` MUST accept the literals `'tensorflow'` or `'pytorch'` and SHALL default to `'tensorflow'` to maintain backward compatibility. Callers MAY override this field when invoking PtychoPINN through Ptychodus.
-- **CONFIG-001 Compliance**: Implementations MUST call `update_legacy_dict(ptycho.params.cfg, config)` before inspecting `config.backend` or importing backend-specific modules. This guarantees legacy subsystems observe synchronized parameters regardless of backend.
+- **CONFIG-001 Compliance**: Source resolution and structural, runnable, or resource validation MAY inspect `config.backend` and MUST complete before mutating legacy state. Implementations MUST then call `update_legacy_dict(ptycho.params.cfg, validated_config)` immediately before importing or dispatching either backend, or before invoking any other legacy consumer. During inference loading, the validated bootstrap projection occurs first and the archive-restored configuration remains authoritative afterward.
 - **Execution Config Merge**: For PyTorch paths, dispatchers MUST accept optional `PyTorchExecutionConfig` objects (programmatic) or build them via `build_execution_config_from_args(args, mode)` (CLI). Factories SHALL apply execution config overrides at priority level 2 (between explicit overrides and dataclass defaults) and log applied values. See §4.9 for execution config contract.
 - **Routing Guarantees**:
   - When `config.backend == 'tensorflow'`, the dispatcher SHALL delegate to `ptycho.workflows.components` entry points without attempting PyTorch imports.
@@ -394,12 +398,12 @@ MUST NOT change model topology.
    - `checkpoint_monitor_metric` (str, default `'val_loss'`): Metric for best checkpoint selection. The literal `'val_loss'` is dynamically mapped to `model.val_loss_name` (typically `'poisson_val_loss'` for PINN models) during Lightning configuration, ensuring compatibility with the model's actual metric names. Falls back to `model.train_loss_name` when validation data is unavailable. Exposed via `--checkpoint-monitor`.
    - `checkpoint_mode` (str, default `'min'`): Mode for checkpoint metric optimization. MUST be `'min'` (lower metric is better) or `'max'` (higher metric is better). Exposed via `--checkpoint-mode`.
    - `early_stop_patience` (int, default `100`): Early stopping patience epochs. MUST be > 0. Training stops if monitored metric doesn't improve for this many epochs. Exposed via `--early-stop-patience`.
-   - `logger_backend` (str, default `'csv'`): Experiment tracking backend. MUST be one of `['csv', 'tensorboard', 'mlflow', 'none']`. Controls Lightning logger selection for capturing training/validation metrics:
+   - `logger_backend` (`str | None`, default `'csv'`): Experiment tracking backend. MUST be one of `'csv'`, `'tensorboard'`, `'mlflow'`, or `None`. Controls Lightning logger selection for capturing training/validation metrics:
      - `'csv'`: CSVLogger (default) — zero dependencies, stores metrics as CSV files in `{output_dir}/lightning_logs/`. Recommended for CI/automated workflows.
      - `'tensorboard'`: TensorBoardLogger — requires tensorboard (auto-installed via TensorFlow dependency), enables rich visualization via `tensorboard --logdir {output_dir}/lightning_logs/`.
      - `'mlflow'`: MLFlowLogger — requires mlflow package (optional dependency), integrates with MLflow tracking server. Server URI must be configured separately.
-     - `'none'`: Disable logging — metrics from `self.log()` calls are discarded. Use with `--quiet` to suppress all output.
-     When dataclass field is `None`, factory defaults to `'csv'`. Exposed via `--logger` CLI flag. **Note:** MLflow backend currently uses legacy `mlflow.pytorch.autolog()` in `ptycho_torch.train`; migration to Lightning `MLFlowLogger` tracked as Phase EB3.C4 backlog. **Deprecation:** `--disable_mlflow` flag emits DeprecationWarning directing users to `--logger none` + `--quiet`.
+     - `None`: Disable logging — metrics from `self.log()` calls are discarded. Use with `--quiet` to suppress all output.
+     The `--logger` CLI accepts the boundary spelling `'none'` and canonicalizes it to `None` before constructing the resolved configuration. **Note:** MLflow backend currently uses legacy `mlflow.pytorch.autolog()` in `ptycho_torch.train`; migration to Lightning `MLFlowLogger` tracked as Phase EB3.C4 backlog. **Deprecation:** `--disable_mlflow` flag emits DeprecationWarning directing users to `--logger none` + `--quiet`.
 
 5. **Inference Knobs:**
    - `inference_batch_size` (int|None, default `None`): Override batch size for inference. MUST be > 0 if set. Exposed via `--inference-batch-size`. When `None`, reuses training `batch_size`.

@@ -66,12 +66,23 @@ State Dependencies:
 from collections.abc import Mapping
 from dataclasses import dataclass, asdict, field, fields, replace
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Literal, Union
+from typing import Annotated, Dict, Any, List, Optional, Literal, Union
 import json
 import hashlib
 import inspect
 import math
 import tomllib
+from pydantic import (
+    AfterValidator,
+    BeforeValidator,
+    ConfigDict,
+    StrictBool,
+    StrictFloat,
+    StrictInt,
+    TypeAdapter,
+    ValidationError,
+    with_config,
+)
 import yaml
 import warnings
 
@@ -108,6 +119,108 @@ __all__ = [
 ]
 
 
+def _require_exact_int(value: Any) -> Any:
+    if type(value) is not int:
+        raise ValueError("must be an exact built-in integer")
+    return value
+
+
+def _require_exact_optional_int(value: Any) -> Any:
+    if value is not None and type(value) is not int:
+        raise ValueError("must be an exact built-in integer or None")
+    return value
+
+
+def _require_exact_bool(value: Any) -> Any:
+    if type(value) is not bool:
+        raise ValueError("must be an exact built-in boolean")
+    return value
+
+
+def _require_exact_finite_number(value: Any) -> Any:
+    if type(value) not in {int, float}:
+        raise ValueError("must be an exact built-in integer or float")
+    return value
+
+
+def _require_exact_str(value: Any) -> Any:
+    if type(value) is not str:
+        raise ValueError("must be an exact built-in string")
+    return value
+
+
+def _require_pair_container(value: Any) -> Any:
+    if type(value) not in {list, tuple}:
+        raise ValueError("must be a list or tuple")
+    return value
+
+
+def _require_positive_int(value: int) -> int:
+    if value <= 0:
+        raise ValueError("must be positive")
+    return value
+
+
+def _require_non_negative_int(value: int) -> int:
+    if value < 0:
+        raise ValueError("must be non-negative")
+    return value
+
+
+def _require_finite_positive_number(value: int | float) -> int | float:
+    if value <= 0 or (type(value) is float and not math.isfinite(value)):
+        raise ValueError("must be finite and positive")
+    return value
+
+
+_StrictPositiveInt = Annotated[
+    StrictInt,
+    BeforeValidator(_require_exact_int),
+    AfterValidator(_require_positive_int),
+]
+_StrictNonNegativeInt = Annotated[
+    StrictInt,
+    BeforeValidator(_require_exact_int),
+    AfterValidator(_require_non_negative_int),
+]
+_StrictOptionalInt = Annotated[
+    StrictInt | None,
+    BeforeValidator(_require_exact_optional_int),
+]
+_StrictBool = Annotated[
+    StrictBool,
+    BeforeValidator(_require_exact_bool),
+]
+_StrictFinitePositiveNumber = Annotated[
+    StrictInt | StrictFloat,
+    BeforeValidator(_require_exact_finite_number),
+    AfterValidator(_require_finite_positive_number),
+]
+_StrictPositivePair = Annotated[
+    tuple[_StrictPositiveInt, _StrictPositiveInt],
+    BeforeValidator(_require_pair_container),
+]
+_ProbeSource = Annotated[
+    Literal["custom", "ideal"],
+    BeforeValidator(_require_exact_str),
+]
+_SyntheticObjectKind = Annotated[
+    Literal["lines", "dead_leaves", "natural_patch"],
+    BeforeValidator(_require_exact_str),
+]
+_ScanKind = Annotated[
+    Literal["grid", "nongrid"],
+    BeforeValidator(_require_exact_str),
+]
+
+_SIMULATION_ADAPTER_CONFIG = ConfigDict(
+    extra="forbid",
+    revalidate_instances="always",
+    validate_default=True,
+)
+
+
+@with_config(_SIMULATION_ADAPTER_CONFIG)
 @dataclass(frozen=True)
 class ProbeSimulationConfig:
     """Probe source and transforms that are baked into generated data.
@@ -117,100 +230,91 @@ class ProbeSimulationConfig:
     invoking the simulator.
     """
 
-    source: Literal["custom", "ideal"] = "custom"
+    source: _ProbeSource = "custom"
     source_path: Path | None = None
-    transform_pipeline: str = "pad_preserve:64"
-    mask_diameter: float | None = None
+    transform_pipeline: Annotated[
+        str,
+        BeforeValidator(_require_exact_str),
+    ] = "pad_preserve:64"
+    mask_diameter: _StrictFinitePositiveNumber | None = None
 
 
+@with_config(_SIMULATION_ADAPTER_CONFIG)
 @dataclass(frozen=True)
 class SyntheticObjectConfig:
     """Synthetic object family and generation counts."""
 
-    kind: Literal["lines", "dead_leaves", "natural_patch"] = "lines"
-    image_size: tuple[int, int] = (392, 392)
-    objects_per_probe: int = 4
-    diffractions_per_object: int = 7000
-    set_phi: bool = False
+    kind: _SyntheticObjectKind = "lines"
+    image_size: _StrictPositivePair = (392, 392)
+    objects_per_probe: _StrictPositiveInt = 4
+    diffractions_per_object: _StrictPositiveInt = 7000
+    set_phi: _StrictBool = False
 
 
+@with_config(_SIMULATION_ADAPTER_CONFIG)
 @dataclass(frozen=True)
 class ScanSimulationConfig:
     """Scan layout and train/test geometry for generated data."""
 
-    kind: Literal["grid", "nongrid"] = "grid"
-    grid_size: tuple[int, int] = (1, 1)
-    offset: int = 4
-    outer_offset_train: int = 8
-    outer_offset_test: int = 20
-    train_groups: int = 2
-    test_groups: int = 2
-    buffer: int = 0
+    kind: _ScanKind = "grid"
+    grid_size: _StrictPositivePair = (1, 1)
+    offset: _StrictNonNegativeInt = 4
+    outer_offset_train: _StrictNonNegativeInt = 8
+    outer_offset_test: _StrictNonNegativeInt = 20
+    train_groups: _StrictPositiveInt = 2
+    test_groups: _StrictPositiveInt = 2
+    buffer: _StrictNonNegativeInt = 0
 
 
+@with_config(_SIMULATION_ADAPTER_CONFIG)
 @dataclass(frozen=True)
 class DetectorSimulationConfig:
     """Detector/noise properties baked into generated diffraction data."""
 
-    photons_per_pattern: float = 1e9
-    beamstop_diameter: float | None = None
+    photons_per_pattern: _StrictFinitePositiveNumber = 1e9
+    beamstop_diameter: _StrictFinitePositiveNumber | None = None
 
 
+@with_config(_SIMULATION_ADAPTER_CONFIG)
 @dataclass(frozen=True)
 class SimulationConfig:
     """Canonical top-level recipe for generated ptychography data."""
 
-    N: int = 64
+    N: _StrictPositiveInt = 64
     probe: ProbeSimulationConfig = field(default_factory=ProbeSimulationConfig)
     object: SyntheticObjectConfig = field(default_factory=SyntheticObjectConfig)
     scan: ScanSimulationConfig = field(default_factory=ScanSimulationConfig)
     detector: DetectorSimulationConfig = field(default_factory=DetectorSimulationConfig)
-    seed: int | None = None
+    seed: _StrictOptionalInt = None
 
 
-def _reject_unknown_mapping_keys(
-    values: Mapping[str, Any],
-    config_type: type,
-    path: str,
-) -> None:
-    allowed = {item.name for item in fields(config_type)}
-    unknown = sorted(set(values) - allowed)
-    if unknown:
-        raise ValueError(
-            ", ".join(f"{path}.{name}" for name in unknown)
-            + " is not a recognized simulation configuration field"
-        )
+_SIMULATION_CONFIG_ADAPTER = TypeAdapter(SimulationConfig)
 
 
-def _pair_from_mapping(value: Any, path: str) -> tuple[int, int]:
-    if not isinstance(value, (list, tuple)) or len(value) != 2:
-        raise ValueError(f"{path} must be a two-element dimension pair")
-    if any(isinstance(item, bool) or not isinstance(item, int) for item in value):
-        raise ValueError(f"{path} dimensions must be integers")
-    return (value[0], value[1])
+def _raise_simulation_validation_error(error: ValidationError) -> None:
+    messages = []
+    for detail in error.errors(
+        include_url=False,
+        include_context=False,
+        include_input=False,
+    ):
+        location = ".".join(str(part) for part in detail["loc"])
+        path = f"simulation.{location}" if location else "simulation"
+        messages.append(f"{path}: {detail['msg']}")
+    raise ValueError("; ".join(messages)) from error
 
 
-def _section_from_mapping(values: Any, config_type: type, path: str):
-    if isinstance(values, config_type):
-        return values
-    if not isinstance(values, Mapping):
-        raise ValueError(f"{path} must be a mapping")
-    _reject_unknown_mapping_keys(values, config_type, path)
-    kwargs = dict(values)
-    if config_type is ProbeSimulationConfig and kwargs.get("source_path") is not None:
-        try:
-            kwargs["source_path"] = Path(kwargs["source_path"])
-        except TypeError as exc:
-            raise ValueError(f"{path}.source_path must be a filesystem path") from exc
-    if config_type is SyntheticObjectConfig and "image_size" in kwargs:
-        kwargs["image_size"] = _pair_from_mapping(
-            kwargs["image_size"], f"{path}.image_size"
-        )
-    if config_type is ScanSimulationConfig and "grid_size" in kwargs:
-        kwargs["grid_size"] = _pair_from_mapping(
-            kwargs["grid_size"], f"{path}.grid_size"
-        )
-    return config_type(**kwargs)
+def _materialize_simulation_mappings(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {
+            key: _materialize_simulation_mappings(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_materialize_simulation_mappings(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_materialize_simulation_mappings(item) for item in value)
+    return value
 
 
 def simulation_config_from_mapping(values: Mapping[str, Any]) -> SimulationConfig:
@@ -222,21 +326,13 @@ def simulation_config_from_mapping(values: Mapping[str, Any]) -> SimulationConfi
 
     if not isinstance(values, Mapping):
         raise ValueError("simulation must be a mapping")
-    _reject_unknown_mapping_keys(values, SimulationConfig, "simulation")
-    kwargs = dict(values)
-    for name, config_type in (
-        ("probe", ProbeSimulationConfig),
-        ("object", SyntheticObjectConfig),
-        ("scan", ScanSimulationConfig),
-        ("detector", DetectorSimulationConfig),
-    ):
-        if name in kwargs:
-            kwargs[name] = _section_from_mapping(
-                kwargs[name], config_type, f"simulation.{name}"
-            )
-    config = SimulationConfig(**kwargs)
-    validate_simulation_config(config)
-    return config
+    materialized = _materialize_simulation_mappings(values)
+    try:
+        validated = _SIMULATION_CONFIG_ADAPTER.validate_python(materialized)
+    except ValidationError as error:
+        _raise_simulation_validation_error(error)
+    validate_simulation_config(validated)
+    return validated
 
 
 def simulation_config_to_dict(config: SimulationConfig) -> Dict[str, Any]:
@@ -324,7 +420,7 @@ def load_simulation_config(path: str | Path) -> SimulationConfig:
 
 
 def _pipeline_final_size(pipeline: str) -> int:
-    if not isinstance(pipeline, str) or not pipeline.strip():
+    if not pipeline.strip():
         raise ValueError("simulation.probe.transform_pipeline must be non-empty")
     current_size: int | None = None
     boundary_index: int | None = None
@@ -379,11 +475,7 @@ def _pipeline_final_size(pipeline: str) -> int:
     return current_size
 
 
-def _validate_square_positive_pair(value: Any, path: str) -> None:
-    if not isinstance(value, tuple) or len(value) != 2:
-        raise ValueError(f"{path} must be a two-element tuple")
-    if any(not isinstance(item, int) or item <= 0 for item in value):
-        raise ValueError(f"{path} dimensions must be positive integers")
+def _validate_square_pair(value: tuple[int, int], path: str) -> None:
     if value[0] != value[1]:
         raise ValueError(f"{path} must be square, got {value}")
 
@@ -393,33 +485,15 @@ def validate_simulation_config(config: SimulationConfig) -> None:
 
     if not isinstance(config, SimulationConfig):
         raise TypeError("config must be a SimulationConfig")
-    if isinstance(config.N, bool) or not isinstance(config.N, int) or config.N <= 0:
-        raise ValueError(f"simulation.N must be a positive integer, got {config.N}")
-    if config.probe.source not in {"custom", "ideal"}:
-        raise ValueError(
-            f"simulation.probe.source must be 'custom' or 'ideal', got {config.probe.source!r}"
-        )
+    try:
+        _SIMULATION_CONFIG_ADAPTER.validate_python(config, strict=True)
+    except ValidationError as error:
+        _raise_simulation_validation_error(error)
     if config.probe.source == "ideal" and config.probe.source_path is not None:
         raise ValueError(
             "simulation.probe.source_path must be omitted when "
             "simulation.probe.source='ideal'"
         )
-    if config.probe.source_path is not None and not isinstance(
-        config.probe.source_path, Path
-    ):
-        raise ValueError("simulation.probe.source_path must be a Path when set")
-    if config.probe.mask_diameter is not None:
-        if isinstance(config.probe.mask_diameter, bool) or not isinstance(
-            config.probe.mask_diameter, (int, float)
-        ):
-            raise ValueError(
-                "simulation.probe.mask_diameter must be a finite positive number"
-            )
-        if (
-            not math.isfinite(config.probe.mask_diameter)
-            or config.probe.mask_diameter <= 0
-        ):
-            raise ValueError("simulation.probe.mask_diameter must be finite and positive")
     final_size = _pipeline_final_size(config.probe.transform_pipeline)
     if final_size != config.N:
         raise ValueError(
@@ -427,65 +501,8 @@ def validate_simulation_config(config: SimulationConfig) -> None:
             f"{final_size} does not match simulation.N {config.N}"
         )
 
-    if config.object.kind not in {"lines", "dead_leaves", "natural_patch"}:
-        raise ValueError(f"Unsupported simulation.object.kind {config.object.kind!r}")
-    _validate_square_positive_pair(
-        config.object.image_size, "simulation.object.image_size"
-    )
-    if (
-        isinstance(config.object.objects_per_probe, bool)
-        or not isinstance(config.object.objects_per_probe, int)
-        or config.object.objects_per_probe <= 0
-    ):
-        raise ValueError("simulation.object.objects_per_probe must be positive")
-    if (
-        isinstance(config.object.diffractions_per_object, bool)
-        or not isinstance(config.object.diffractions_per_object, int)
-        or config.object.diffractions_per_object <= 0
-    ):
-        raise ValueError("simulation.object.diffractions_per_object must be positive")
-
-    if config.scan.kind not in {"grid", "nongrid"}:
-        raise ValueError(f"Unsupported simulation.scan.kind {config.scan.kind!r}")
-    _validate_square_positive_pair(config.scan.grid_size, "simulation.scan.grid_size")
-    for name in ("offset", "outer_offset_train", "outer_offset_test", "buffer"):
-        value = getattr(config.scan, name)
-        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-            raise ValueError(f"simulation.scan.{name} must be a non-negative integer")
-    for name in ("train_groups", "test_groups"):
-        value = getattr(config.scan, name)
-        if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
-            raise ValueError(f"simulation.scan.{name} must be a positive integer")
-
-    if isinstance(config.detector.photons_per_pattern, bool) or not isinstance(
-        config.detector.photons_per_pattern, (int, float)
-    ):
-        raise ValueError(
-            "simulation.detector.photons_per_pattern must be a finite positive number"
-        )
-    photons = float(config.detector.photons_per_pattern)
-    if not math.isfinite(photons) or photons <= 0:
-        raise ValueError(
-            "simulation.detector.photons_per_pattern must be finite and positive"
-        )
-    if config.detector.beamstop_diameter is not None:
-        if isinstance(config.detector.beamstop_diameter, bool) or not isinstance(
-            config.detector.beamstop_diameter, (int, float)
-        ):
-            raise ValueError(
-                "simulation.detector.beamstop_diameter must be a finite positive number"
-            )
-        if (
-            not math.isfinite(config.detector.beamstop_diameter)
-            or config.detector.beamstop_diameter <= 0
-        ):
-            raise ValueError(
-                "simulation.detector.beamstop_diameter must be finite and positive"
-            )
-    if config.seed is not None and (
-        isinstance(config.seed, bool) or not isinstance(config.seed, int)
-    ):
-        raise ValueError("simulation.seed must be an integer or None")
+    _validate_square_pair(config.object.image_size, "simulation.object.image_size")
+    _validate_square_pair(config.scan.grid_size, "simulation.scan.grid_size")
 
 
 def validate_simulation_compatibility(
@@ -690,6 +707,291 @@ _STRUCTURAL_EXECUTION_ALIAS_NAMES = frozenset({
 })
 
 
+def _validate_execution_pre_environment_values(
+    values: Mapping[str, Any],
+) -> None:
+    """Validate execution fields whose errors precede accelerator resolution."""
+
+    devices = values["devices"]
+    if (
+        isinstance(devices, bool)
+        or not (
+            (isinstance(devices, int) and devices > 0)
+            or devices == "auto"
+        )
+    ):
+        raise ValueError(
+            f"devices must be a positive integer or 'auto', got {devices!r}"
+        )
+
+    precision = values["precision"]
+    valid_precisions = {"32-true", "16-mixed", "bf16-mixed"}
+    if not isinstance(precision, str) or precision not in valid_precisions:
+        raise ValueError(
+            f"Invalid precision: {precision!r}. "
+            f"Expected one of {sorted(valid_precisions)}."
+        )
+
+    accelerator = values["accelerator"]
+    if accelerator == "tpu":
+        raise ValueError(
+            "Torch-XLA TPU execution is unsupported by this PyTorch runtime. "
+            "Use accelerator='cpu', 'gpu'/'cuda', or 'mps'."
+        )
+
+    valid_accelerators = {"auto", "cpu", "gpu", "cuda", "mps"}
+    if accelerator not in valid_accelerators:
+        raise ValueError(
+            f"Invalid accelerator: '{accelerator}'. "
+            f"Expected one of {sorted(valid_accelerators)}."
+        )
+
+
+def _validate_execution_post_environment_values(
+    values: Mapping[str, Any],
+) -> None:
+    """Validate execution fields whose errors follow accelerator resolution."""
+
+    if values["num_workers"] < 0:
+        raise ValueError(
+            f"num_workers must be non-negative, got {values['num_workers']}"
+        )
+
+    if values["persistent_workers"] and values["num_workers"] <= 0:
+        raise ValueError(
+            "persistent_workers=True requires num_workers > 0"
+        )
+
+    if values["logger_backend"] not in {
+        "csv",
+        "tensorboard",
+        "mlflow",
+        None,
+    }:
+        raise ValueError(
+            "logger_backend must be 'csv', 'tensorboard', 'mlflow', or None"
+        )
+
+    if values["learning_rate"] <= 0:
+        raise ValueError(
+            f"learning_rate must be positive, got {values['learning_rate']}"
+        )
+
+    if (
+        values["inference_batch_size"] is not None
+        and values["inference_batch_size"] <= 0
+    ):
+        raise ValueError(
+            "inference_batch_size must be positive, "
+            f"got {values['inference_batch_size']}"
+        )
+
+    if values["accum_steps"] <= 0:
+        raise ValueError(
+            f"accum_steps must be positive, got {values['accum_steps']}"
+        )
+
+    if values["checkpoint_save_top_k"] < 0:
+        raise ValueError(
+            "checkpoint_save_top_k must be non-negative, "
+            f"got {values['checkpoint_save_top_k']}"
+        )
+
+    if values["early_stop_patience"] <= 0:
+        raise ValueError(
+            "early_stop_patience must be positive, "
+            f"got {values['early_stop_patience']}"
+        )
+
+    valid_checkpoint_modes = {"min", "max"}
+    if values["checkpoint_mode"] not in valid_checkpoint_modes:
+        raise ValueError(
+            f"Invalid checkpoint_mode: '{values['checkpoint_mode']}'. "
+            f"Expected one of {sorted(valid_checkpoint_modes)}."
+        )
+
+    if values["hybrid_downsample_steps"] not in {1, 2}:
+        raise ValueError(
+            "hybrid_downsample_steps must be in [1, 2] "
+            f"(got {values['hybrid_downsample_steps']})."
+        )
+
+    valid_downsample_ops = {"stride_conv", "avgpool_conv", "blurpool_conv"}
+    if values["hybrid_downsample_op"] not in valid_downsample_ops:
+        raise ValueError(
+            f"Invalid hybrid_downsample_op '{values['hybrid_downsample_op']}'. "
+            f"Expected one of {sorted(valid_downsample_ops)}."
+        )
+
+    if (
+        not math.isfinite(float(values["hybrid_encoder_conv_hidden_scale"]))
+        or float(values["hybrid_encoder_conv_hidden_scale"]) <= 0.0
+    ):
+        raise ValueError(
+            "hybrid_encoder_conv_hidden_scale must be finite and > 0, "
+            f"got {values['hybrid_encoder_conv_hidden_scale']}."
+        )
+
+    if (
+        not math.isfinite(
+            float(values["hybrid_encoder_spectral_hidden_scale"])
+        )
+        or float(values["hybrid_encoder_spectral_hidden_scale"]) <= 0.0
+    ):
+        raise ValueError(
+            "hybrid_encoder_spectral_hidden_scale must be finite and > 0, "
+            f"got {values['hybrid_encoder_spectral_hidden_scale']}."
+        )
+
+    if (
+        values["hybrid_encoder_conv_hidden_channels"] is not None
+        and values["hybrid_encoder_conv_hidden_channels"] <= 0
+    ):
+        raise ValueError(
+            "hybrid_encoder_conv_hidden_channels must be positive when set, "
+            f"got {values['hybrid_encoder_conv_hidden_channels']}."
+        )
+
+    if (
+        values["hybrid_encoder_spectral_hidden_channels"] is not None
+        and values["hybrid_encoder_spectral_hidden_channels"] <= 0
+    ):
+        raise ValueError(
+            "hybrid_encoder_spectral_hidden_channels must be positive when set, "
+            f"got {values['hybrid_encoder_spectral_hidden_channels']}."
+        )
+
+    if values["hybrid_resnet_blocks"] <= 0:
+        raise ValueError(
+            "hybrid_resnet_blocks must be positive, "
+            f"got {values['hybrid_resnet_blocks']}."
+        )
+
+    if values["spectral_bottleneck_blocks"] <= 0:
+        raise ValueError(
+            "spectral_bottleneck_blocks must be positive, "
+            f"got {values['spectral_bottleneck_blocks']}."
+        )
+
+    if values["spectral_bottleneck_modes"] <= 0:
+        raise ValueError(
+            "spectral_bottleneck_modes must be positive, "
+            f"got {values['spectral_bottleneck_modes']}."
+        )
+
+    if not math.isfinite(float(values["spectral_bottleneck_gate_init"])):
+        raise ValueError(
+            "spectral_bottleneck_gate_init must be finite, "
+            f"got {values['spectral_bottleneck_gate_init']}."
+        )
+
+    valid_gate_modes = {"shared", "per_block"}
+    if values["spectral_bottleneck_gate_mode"] not in valid_gate_modes:
+        raise ValueError(
+            "Invalid spectral_bottleneck_gate_mode "
+            f"'{values['spectral_bottleneck_gate_mode']}'. "
+            f"Expected one of {sorted(valid_gate_modes)}."
+        )
+
+    valid_skip_styles = {"add", "concat", "gated_add"}
+    if values["hybrid_skip_style"] not in valid_skip_styles:
+        raise ValueError(
+            f"Invalid hybrid_skip_style '{values['hybrid_skip_style']}'. "
+            f"Expected one of {sorted(valid_skip_styles)}."
+        )
+
+    valid_layerscale_modes = {"learned", "fixed"}
+    layerscale_mode = values["hybrid_resnet_bottleneck_layerscale_mode"]
+    layerscale_value = values["hybrid_resnet_bottleneck_layerscale_value"]
+    if layerscale_mode not in valid_layerscale_modes:
+        raise ValueError(
+            "Invalid hybrid_resnet_bottleneck_layerscale_mode "
+            f"'{layerscale_mode}'. "
+            f"Expected one of {sorted(valid_layerscale_modes)}."
+        )
+    if layerscale_mode == "learned":
+        if layerscale_value is not None:
+            raise ValueError(
+                "hybrid_resnet_bottleneck_layerscale_value must be omitted when "
+                "hybrid_resnet_bottleneck_layerscale_mode='learned'."
+            )
+    else:
+        if layerscale_value is None:
+            raise ValueError(
+                "hybrid_resnet_bottleneck_layerscale_value must be provided when "
+                "hybrid_resnet_bottleneck_layerscale_mode='fixed'."
+            )
+        if (
+            not math.isfinite(float(layerscale_value))
+            or float(layerscale_value) <= 0.0
+        ):
+            raise ValueError(
+                "hybrid_resnet_bottleneck_layerscale_value must be finite and > 0 "
+                f"(got {layerscale_value})."
+            )
+
+    valid_encoder_fusion_modes = {
+        "baseline",
+        "layerscale",
+        "branch_gated",
+        "branch_gated_layerscale",
+    }
+    if values["hybrid_encoder_fusion_mode"] not in valid_encoder_fusion_modes:
+        raise ValueError(
+            "Invalid hybrid_encoder_fusion_mode "
+            f"'{values['hybrid_encoder_fusion_mode']}'. "
+            f"Expected one of {sorted(valid_encoder_fusion_modes)}."
+        )
+
+    if (
+        not math.isfinite(float(values["hybrid_encoder_layerscale_init"]))
+        or float(values["hybrid_encoder_layerscale_init"]) <= 0.0
+    ):
+        raise ValueError(
+            "hybrid_encoder_layerscale_init must be finite and > 0, "
+            f"got {values['hybrid_encoder_layerscale_init']}."
+        )
+
+    if (
+        not math.isfinite(float(values["hybrid_encoder_branch_gate_init"]))
+        or float(values["hybrid_encoder_branch_gate_init"]) <= 0.0
+    ):
+        raise ValueError(
+            "hybrid_encoder_branch_gate_init must be finite and > 0, "
+            f"got {values['hybrid_encoder_branch_gate_init']}."
+        )
+
+    if values["ffno_encoder_blocks"] <= 0:
+        raise ValueError(
+            "ffno_encoder_blocks must be positive, "
+            f"got {values['ffno_encoder_blocks']}."
+        )
+
+    if values["ffno_encoder_modes"] <= 0:
+        raise ValueError(
+            "ffno_encoder_modes must be positive, "
+            f"got {values['ffno_encoder_modes']}."
+        )
+
+    if (
+        not math.isfinite(float(values["ffno_encoder_gate_init"]))
+        or float(values["ffno_encoder_gate_init"]) <= 0.0
+    ):
+        raise ValueError(
+            "ffno_encoder_gate_init must be finite and > 0, "
+            f"got {values['ffno_encoder_gate_init']}."
+        )
+
+    if (
+        not math.isfinite(float(values["ffno_encoder_mlp_ratio"]))
+        or float(values["ffno_encoder_mlp_ratio"]) <= 0.0
+    ):
+        raise ValueError(
+            "ffno_encoder_mlp_ratio must be finite and > 0, "
+            f"got {values['ffno_encoder_mlp_ratio']}."
+        )
+
+
 @dataclass
 class PyTorchExecutionConfig:
     """
@@ -852,37 +1154,7 @@ class PyTorchExecutionConfig:
             - Field defaults are safe; validation catches programmatic misuse
             - Auto-resolution modifies the accelerator field in-place via object.__setattr__
         """
-        if (
-            isinstance(self.devices, bool)
-            or not (
-                (isinstance(self.devices, int) and self.devices > 0)
-                or self.devices == "auto"
-            )
-        ):
-            raise ValueError(
-                f"devices must be a positive integer or 'auto', got {self.devices!r}"
-            )
-
-        valid_precisions = {"32-true", "16-mixed", "bf16-mixed"}
-        if not isinstance(self.precision, str) or self.precision not in valid_precisions:
-            raise ValueError(
-                f"Invalid precision: {self.precision!r}. "
-                f"Expected one of {sorted(valid_precisions)}."
-            )
-
-        if self.accelerator == 'tpu':
-            raise ValueError(
-                "Torch-XLA TPU execution is unsupported by this PyTorch runtime. "
-                "Use accelerator='cpu', 'gpu'/'cuda', or 'mps'."
-            )
-
-        # Accelerator whitelist supported by this runtime.
-        valid_accelerators = {'auto', 'cpu', 'gpu', 'cuda', 'mps'}
-        if self.accelerator not in valid_accelerators:
-            raise ValueError(
-                f"Invalid accelerator: '{self.accelerator}'. "
-                f"Expected one of {sorted(valid_accelerators)}."
-            )
+        _validate_execution_pre_environment_values(self.__dict__)
 
         # Auto-resolution: 'auto' → 'cuda' if available, else 'cpu' with POLICY-001 warning
         if self.accelerator == 'auto':
@@ -909,209 +1181,7 @@ class PyTorchExecutionConfig:
                     stacklevel=3
                 )
 
-        # Non-negative workers
-        if self.num_workers < 0:
-            raise ValueError(
-                f"num_workers must be non-negative, got {self.num_workers}"
-            )
-
-        # Positive learning rate
-        if self.learning_rate <= 0:
-            raise ValueError(
-                f"learning_rate must be positive, got {self.learning_rate}"
-            )
-
-        # Positive inference batch size (if provided)
-        if self.inference_batch_size is not None and self.inference_batch_size <= 0:
-            raise ValueError(
-                f"inference_batch_size must be positive, got {self.inference_batch_size}"
-            )
-
-        # Positive accumulation steps
-        if self.accum_steps <= 0:
-            raise ValueError(
-                f"accum_steps must be positive, got {self.accum_steps}"
-            )
-
-        # Non-negative checkpoint save count
-        if self.checkpoint_save_top_k < 0:
-            raise ValueError(
-                f"checkpoint_save_top_k must be non-negative, got {self.checkpoint_save_top_k}"
-            )
-
-        # Positive early stopping patience
-        if self.early_stop_patience <= 0:
-            raise ValueError(
-                f"early_stop_patience must be positive, got {self.early_stop_patience}"
-            )
-
-        # Checkpoint mode whitelist
-        valid_checkpoint_modes = {'min', 'max'}
-        if self.checkpoint_mode not in valid_checkpoint_modes:
-            raise ValueError(
-                f"Invalid checkpoint_mode: '{self.checkpoint_mode}'. "
-                f"Expected one of {sorted(valid_checkpoint_modes)}."
-            )
-
-        if self.hybrid_downsample_steps not in {1, 2}:
-            raise ValueError(
-                "hybrid_downsample_steps must be in [1, 2] "
-                f"(got {self.hybrid_downsample_steps})."
-            )
-
-        valid_downsample_ops = {'stride_conv', 'avgpool_conv', 'blurpool_conv'}
-        if self.hybrid_downsample_op not in valid_downsample_ops:
-            raise ValueError(
-                f"Invalid hybrid_downsample_op '{self.hybrid_downsample_op}'. "
-                f"Expected one of {sorted(valid_downsample_ops)}."
-            )
-
-        if (
-            not math.isfinite(float(self.hybrid_encoder_conv_hidden_scale))
-            or float(self.hybrid_encoder_conv_hidden_scale) <= 0.0
-        ):
-            raise ValueError(
-                "hybrid_encoder_conv_hidden_scale must be finite and > 0, "
-                f"got {self.hybrid_encoder_conv_hidden_scale}."
-            )
-
-        if (
-            not math.isfinite(float(self.hybrid_encoder_spectral_hidden_scale))
-            or float(self.hybrid_encoder_spectral_hidden_scale) <= 0.0
-        ):
-            raise ValueError(
-                "hybrid_encoder_spectral_hidden_scale must be finite and > 0, "
-                f"got {self.hybrid_encoder_spectral_hidden_scale}."
-            )
-
-        if (
-            self.hybrid_encoder_conv_hidden_channels is not None
-            and self.hybrid_encoder_conv_hidden_channels <= 0
-        ):
-            raise ValueError(
-                "hybrid_encoder_conv_hidden_channels must be positive when set, "
-                f"got {self.hybrid_encoder_conv_hidden_channels}."
-            )
-
-        if (
-            self.hybrid_encoder_spectral_hidden_channels is not None
-            and self.hybrid_encoder_spectral_hidden_channels <= 0
-        ):
-            raise ValueError(
-                "hybrid_encoder_spectral_hidden_channels must be positive when set, "
-                f"got {self.hybrid_encoder_spectral_hidden_channels}."
-            )
-
-        if self.hybrid_resnet_blocks <= 0:
-            raise ValueError(
-                f"hybrid_resnet_blocks must be positive, got {self.hybrid_resnet_blocks}."
-            )
-        if self.spectral_bottleneck_blocks <= 0:
-            raise ValueError(
-                f"spectral_bottleneck_blocks must be positive, got {self.spectral_bottleneck_blocks}."
-            )
-        if self.spectral_bottleneck_modes <= 0:
-            raise ValueError(
-                f"spectral_bottleneck_modes must be positive, got {self.spectral_bottleneck_modes}."
-            )
-        if not math.isfinite(float(self.spectral_bottleneck_gate_init)):
-            raise ValueError(
-                "spectral_bottleneck_gate_init must be finite, "
-                f"got {self.spectral_bottleneck_gate_init}."
-            )
-        valid_gate_modes = {'shared', 'per_block'}
-        if self.spectral_bottleneck_gate_mode not in valid_gate_modes:
-            raise ValueError(
-                f"Invalid spectral_bottleneck_gate_mode '{self.spectral_bottleneck_gate_mode}'. "
-                f"Expected one of {sorted(valid_gate_modes)}."
-            )
-
-        valid_skip_styles = {'add', 'concat', 'gated_add'}
-        if self.hybrid_skip_style not in valid_skip_styles:
-            raise ValueError(
-                f"Invalid hybrid_skip_style '{self.hybrid_skip_style}'. "
-                f"Expected one of {sorted(valid_skip_styles)}."
-            )
-        valid_layerscale_modes = {'learned', 'fixed'}
-        if self.hybrid_resnet_bottleneck_layerscale_mode not in valid_layerscale_modes:
-            raise ValueError(
-                "Invalid hybrid_resnet_bottleneck_layerscale_mode "
-                f"'{self.hybrid_resnet_bottleneck_layerscale_mode}'. "
-                f"Expected one of {sorted(valid_layerscale_modes)}."
-            )
-        if self.hybrid_resnet_bottleneck_layerscale_mode == 'learned':
-            if self.hybrid_resnet_bottleneck_layerscale_value is not None:
-                raise ValueError(
-                    "hybrid_resnet_bottleneck_layerscale_value must be omitted when "
-                    "hybrid_resnet_bottleneck_layerscale_mode='learned'."
-                )
-        else:
-            if self.hybrid_resnet_bottleneck_layerscale_value is None:
-                raise ValueError(
-                    "hybrid_resnet_bottleneck_layerscale_value must be provided when "
-                    "hybrid_resnet_bottleneck_layerscale_mode='fixed'."
-                )
-            if (
-                not math.isfinite(float(self.hybrid_resnet_bottleneck_layerscale_value))
-                or float(self.hybrid_resnet_bottleneck_layerscale_value) <= 0.0
-            ):
-                raise ValueError(
-                    "hybrid_resnet_bottleneck_layerscale_value must be finite and > 0 "
-                    f"(got {self.hybrid_resnet_bottleneck_layerscale_value})."
-                )
-
-        valid_encoder_fusion_modes = {
-            'baseline',
-            'layerscale',
-            'branch_gated',
-            'branch_gated_layerscale',
-        }
-        if self.hybrid_encoder_fusion_mode not in valid_encoder_fusion_modes:
-            raise ValueError(
-                "Invalid hybrid_encoder_fusion_mode "
-                f"'{self.hybrid_encoder_fusion_mode}'. "
-                f"Expected one of {sorted(valid_encoder_fusion_modes)}."
-            )
-        if (
-            not math.isfinite(float(self.hybrid_encoder_layerscale_init))
-            or float(self.hybrid_encoder_layerscale_init) <= 0.0
-        ):
-            raise ValueError(
-                "hybrid_encoder_layerscale_init must be finite and > 0, "
-                f"got {self.hybrid_encoder_layerscale_init}."
-            )
-        if (
-            not math.isfinite(float(self.hybrid_encoder_branch_gate_init))
-            or float(self.hybrid_encoder_branch_gate_init) <= 0.0
-        ):
-            raise ValueError(
-                "hybrid_encoder_branch_gate_init must be finite and > 0, "
-                f"got {self.hybrid_encoder_branch_gate_init}."
-            )
-        if self.ffno_encoder_blocks <= 0:
-            raise ValueError(
-                f"ffno_encoder_blocks must be positive, got {self.ffno_encoder_blocks}."
-            )
-        if self.ffno_encoder_modes <= 0:
-            raise ValueError(
-                f"ffno_encoder_modes must be positive, got {self.ffno_encoder_modes}."
-            )
-        if (
-            not math.isfinite(float(self.ffno_encoder_gate_init))
-            or float(self.ffno_encoder_gate_init) <= 0.0
-        ):
-            raise ValueError(
-                "ffno_encoder_gate_init must be finite and > 0, "
-                f"got {self.ffno_encoder_gate_init}."
-            )
-        if (
-            not math.isfinite(float(self.ffno_encoder_mlp_ratio))
-            or float(self.ffno_encoder_mlp_ratio) <= 0.0
-        ):
-            raise ValueError(
-                "ffno_encoder_mlp_ratio must be finite and > 0, "
-                f"got {self.ffno_encoder_mlp_ratio}."
-            )
+        _validate_execution_post_environment_values(self.__dict__)
 
 
 _execution_init_signature = inspect.signature(PyTorchExecutionConfig.__init__)

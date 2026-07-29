@@ -22,6 +22,21 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 
+@pytest.mark.parametrize(
+    ("argv", "expected"),
+    [
+        (["inference.py", "--model_path", "run"], True),
+        (["inference.py", "--model_path=run"], True),
+        (["inference.py", "--help"], True),
+        (["inference.py", "--run_id", "legacy"], False),
+    ],
+)
+def test_native_cli_dispatch_accepts_split_and_equals_model_path(argv, expected):
+    from ptycho_torch.inference import _uses_native_cli
+
+    assert _uses_native_cli(argv) is expected
+
+
 class TestInferenceCLI:
     """
     Test inference CLI execution config flag integration.
@@ -84,8 +99,7 @@ class TestInferenceCLI:
         assert mock_factory.called, "Factory was not called"
         call_kwargs = mock_factory.call_args.kwargs
         assert 'execution_config' in call_kwargs, "execution_config not passed to factory"
-        assert call_kwargs['execution_config'].accelerator == 'cpu', \
-            f"Expected accelerator='cpu', got {call_kwargs['execution_config'].accelerator}"
+        assert call_kwargs['execution_config'].values['accelerator'] == 'cpu'
 
     def test_num_workers_flag_roundtrip(self, minimal_inference_args, monkeypatch):
         """
@@ -118,8 +132,7 @@ class TestInferenceCLI:
         assert mock_factory.called
         call_kwargs = mock_factory.call_args.kwargs
         assert 'execution_config' in call_kwargs
-        assert call_kwargs['execution_config'].num_workers == 4, \
-            f"Expected num_workers=4, got {call_kwargs['execution_config'].num_workers}"
+        assert call_kwargs['execution_config'].values['num_workers'] == 4
 
     def test_inference_batch_size_flag_roundtrip(self, minimal_inference_args, monkeypatch):
         """
@@ -152,8 +165,7 @@ class TestInferenceCLI:
         assert mock_factory.called
         call_kwargs = mock_factory.call_args.kwargs
         assert 'execution_config' in call_kwargs
-        assert call_kwargs['execution_config'].inference_batch_size == 32, \
-            f"Expected inference_batch_size=32, got {call_kwargs['execution_config'].inference_batch_size}"
+        assert call_kwargs['execution_config'].values['inference_batch_size'] == 32
 
     def test_multiple_execution_config_flags(self, minimal_inference_args, monkeypatch):
         """
@@ -194,10 +206,61 @@ class TestInferenceCLI:
         assert mock_factory.called
         call_kwargs = mock_factory.call_args.kwargs
         assert 'execution_config' in call_kwargs
-        exec_config = call_kwargs['execution_config']
-        assert exec_config.accelerator == 'gpu'
-        assert exec_config.num_workers == 8
-        assert exec_config.inference_batch_size == 64
+        request = call_kwargs['execution_config']
+        assert request.values['accelerator'] == 'gpu'
+        assert request.values['num_workers'] == 8
+        assert request.values['inference_batch_size'] == 64
+
+    def test_native_inference_execution_request_preserves_explicit_options(
+        self,
+        minimal_inference_args,
+        monkeypatch,
+    ):
+        """The native inference request reaches the payload factory unchanged."""
+        from ptycho_torch.cli.shared import (
+            build_execution_request_from_args as real_request_builder,
+        )
+        from ptycho_torch.execution_request import ExecutionRequest
+        from ptycho_torch.inference import cli_main
+
+        argv = minimal_inference_args + [
+            '--accelerator=cpu',
+            '--device', 'cuda',
+            '--num-workers=2',
+            '--inference-batch-size', '8',
+            '--quiet',
+        ]
+        monkeypatch.setattr('sys.argv', ['inference.py', *argv])
+
+        with patch(
+            'ptycho_torch.cli.shared.build_execution_request_from_args',
+            wraps=real_request_builder,
+        ) as request_builder, patch(
+            'ptycho_torch.config_factory.create_inference_payload',
+            side_effect=RuntimeError('stop after request capture'),
+        ) as factory, pytest.raises(RuntimeError, match='Failed to create'):
+            cli_main()
+
+        request_builder.assert_called_once()
+        assert request_builder.call_args.kwargs == {
+            'mode': 'inference',
+            'explicit_options': tuple(argv),
+            'lane': 'native-inference',
+        }
+        request = factory.call_args.kwargs['execution_config']
+        assert isinstance(request, ExecutionRequest)
+        assert request.explicit_fields == frozenset(
+            {
+                'accelerator',
+                'num_workers',
+                'inference_batch_size',
+                'enable_progress_bar',
+            }
+        )
+        assert request.values['accelerator'] == 'cpu'
+        assert request.values['num_workers'] == 2
+        assert request.values['inference_batch_size'] == 8
+        assert request.values['enable_progress_bar'] is False
 
     def test_accelerator_flag_roundtrip(self, minimal_inference_args, monkeypatch):
         """
@@ -557,7 +620,6 @@ class TestInferenceCLIThinWrapper:
         # Check that execution config has enable_progress_bar=False
         call_kwargs = mock_factory.call_args.kwargs
         assert 'execution_config' in call_kwargs, "execution_config not passed to factory"
-        exec_config = call_kwargs['execution_config']
-        assert hasattr(exec_config, 'enable_progress_bar'), "execution_config missing enable_progress_bar"
-        assert exec_config.enable_progress_bar is False, \
+        request = call_kwargs['execution_config']
+        assert request.values['enable_progress_bar'] is False, \
             "Expected enable_progress_bar=False when --quiet specified"

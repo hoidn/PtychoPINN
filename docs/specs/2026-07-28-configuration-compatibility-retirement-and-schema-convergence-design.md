@@ -1,8 +1,6 @@
 # Configuration Compatibility Retirement and Schema Convergence Design
 
-**Status:** Proposed for repository promotion. The target design was approved
-on 2026-07-28, but it is not authoritative on a branch until its named parent
-and child authorities coexist there and `docs/index.md` routes to it.
+**Status:** Approved and authoritative on `refactor-internal` as of 2026-07-28.
 
 **Parent authority:**
 `docs/superpowers/specs/2026-07-28-configuration-boundary-architecture.md`.

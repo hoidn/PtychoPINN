@@ -6,15 +6,16 @@ to transparently switch between TensorFlow and PyTorch implementations based on
 runtime configuration (TrainingConfig.backend or InferenceConfig.backend).
 
 Architecture Pattern:
-    The dispatcher follows a "CONFIG-001 compliance → backend routing → delegation"
-    pattern, ensuring that params.cfg is synchronized before workflow execution
-    regardless of which backend is selected.
+    The dispatcher follows a "source resolution and validation → CONFIG-001
+    compliance → backend routing → delegation" pattern, ensuring that params.cfg
+    receives only validated configuration before workflow execution regardless
+    of which backend is selected.
 
     Flow:
     1. Client calls run_cdi_example_with_backend(train_data, test_data, config, ...)
-    2. Dispatcher calls update_legacy_dict(params.cfg, config) — CONFIG-001 gate
-    3. Dispatcher inspects config.backend field ('tensorflow' or 'pytorch')
-    4. Dispatcher imports and delegates to backend-specific workflow module
+    2. Dispatcher resolves sources and validates the configuration
+    3. Dispatcher calls update_legacy_dict(params.cfg, validated_config) — CONFIG-001 gate
+    4. Dispatcher imports and delegates to the selected backend
     5. Results are returned with backend metadata injected into results dict
 
 Critical Requirements (specs/ptychodus_api_spec.md §4.1):
@@ -62,12 +63,19 @@ References:
 """
 
 import logging
+from dataclasses import replace
 from pathlib import Path
 from typing import Union, Optional, Tuple, Dict, Any
 
 # Core imports (always available)
 from ptycho import params
 from ptycho.config.config import TrainingConfig, InferenceConfig, update_legacy_dict
+from ptycho.config.resolution import (
+    validate_inference_config_structure,
+    validate_inference_resources,
+    validate_runnable_training_config,
+    validate_training_config_structure,
+)
 from ptycho.config.legacy_state import (
     scoped_legacy_params,
     transactional_legacy_params,
@@ -89,7 +97,8 @@ def run_cdi_example_with_backend(
     transpose: bool = False,
     M: int = 20,
     do_stitching: bool = False,
-    torch_execution_config: Optional[Any] = None
+    torch_execution_config: Optional[Any] = None,
+    torch_factory_overrides: Optional[Dict[str, Any]] = None,
 ) -> Tuple[Optional[Any], Optional[Any], Dict[str, Any]]:
     """
     Run the complete CDI workflow with automatic backend selection.
@@ -110,6 +119,8 @@ def run_cdi_example_with_backend(
         do_stitching: Whether to perform image stitching after training
         torch_execution_config: Optional PyTorchExecutionConfig for PyTorch backend only
                                (ignored for TensorFlow). See CONFIG-002, CONFIG-LOGGER-001.
+        torch_factory_overrides: Explicit canonical Torch factory overrides.
+                                Ignored for TensorFlow.
 
     Returns:
         Tuple containing:
@@ -126,6 +137,9 @@ def run_cdi_example_with_backend(
         >>> amp, phase, results = run_cdi_example_with_backend(train_data, None, config)
         >>> assert results['backend'] == 'pytorch'
     """
+    validate_training_config_structure(config)
+    validate_runnable_training_config(config)
+
     # CRITICAL: Update params.cfg BEFORE backend dispatch (CONFIG-001 compliance)
     update_legacy_dict(params.cfg, config)
     logger.info(f"Backend dispatcher: params.cfg synchronized with TrainingConfig (backend={config.backend})")
@@ -163,19 +177,11 @@ def run_cdi_example_with_backend(
                 f"Original error: {e}"
             ) from e
 
-        # Auto-instantiate execution_config if None (GPU-first defaults per POLICY-001)
-        if torch_execution_config is None:
-            from ptycho.config.config import PyTorchExecutionConfig
-            torch_execution_config = PyTorchExecutionConfig()  # Triggers auto-resolution to cuda/cpu
-            logger.info(
-                f"Backend dispatcher: auto-instantiated PyTorchExecutionConfig with "
-                f"accelerator='{torch_execution_config.accelerator}' (POLICY-001 GPU-first defaults)"
-            )
-
         # Delegate to PyTorch run_cdi_example_torch
         recon_amp, recon_phase, results = torch_components.run_cdi_example_torch(
             train_data, test_data, config, flip_x, flip_y, transpose, M, do_stitching,
-            execution_config=torch_execution_config
+            execution_config=torch_execution_config,
+            overrides=torch_factory_overrides,
         )
 
     # Inject backend metadata into results for traceability
@@ -214,6 +220,9 @@ def train_cdi_model_with_backend(
         RuntimeError: When backend='pytorch' but PyTorch unavailable
         ValueError: When config.backend is invalid
     """
+    validate_training_config_structure(config)
+    validate_runnable_training_config(config)
+
     # CRITICAL: Update params.cfg BEFORE backend dispatch (CONFIG-001 compliance)
     update_legacy_dict(params.cfg, config)
     logger.info(f"Backend dispatcher: params.cfg synchronized for training (backend={config.backend})")
@@ -290,15 +299,27 @@ def load_inference_bundle_with_backend(
         - PyTorch: delegates to ptycho_torch.workflows.components.load_inference_bundle_torch
         - Both backends restore params.cfg before model reconstruction (CONFIG-001)
     """
-    # Validate backend field
-    if config.backend not in ('tensorflow', 'pytorch'):
+    validate_inference_config_structure(config)
+    normalized_bundle_path = Path(bundle_dir).expanduser().resolve(
+        strict=False
+    )
+    normalized_config_path = config.model_path.expanduser().resolve(
+        strict=False
+    )
+    if normalized_bundle_path != normalized_config_path:
         raise ValueError(
-            f"Invalid backend: {config.backend!r}. "
-            f"InferenceConfig.backend must be 'tensorflow' or 'pytorch'."
+            "bundle_dir and config.model_path must identify the same "
+            f"resource, got {normalized_bundle_path} and "
+            f"{normalized_config_path}"
         )
+    config = replace(config, model_path=normalized_bundle_path)
+    validate_inference_config_structure(config)
+    validate_inference_resources(config)
 
-    # Normalize bundle_dir to Path
-    bundle_path = Path(bundle_dir)
+    # Bridge the validated bootstrap request before the loader restores the
+    # authoritative archived state.
+    update_legacy_dict(params.cfg, config)
+    bundle_path = config.model_path
 
     # Route to backend-specific loader implementation
     if config.backend == 'tensorflow':

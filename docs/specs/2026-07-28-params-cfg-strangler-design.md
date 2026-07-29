@@ -1,8 +1,6 @@
 # `params.cfg` Strangler Design
 
-**Status:** Proposed for repository promotion. The target design was approved
-on 2026-07-28, but it is not authoritative on a branch until its parent
-transition design and governing configuration authorities coexist there.
+**Status:** Approved and authoritative on `refactor-internal` as of 2026-07-28.
 
 **Parent authority:**
 `docs/specs/2026-07-28-configuration-compatibility-retirement-and-schema-convergence-design.md`.

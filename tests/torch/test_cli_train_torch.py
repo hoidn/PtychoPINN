@@ -84,8 +84,7 @@ class TestExecutionConfigCLI:
         assert mock_factory.called, "Factory was not called"
         call_kwargs = mock_factory.call_args.kwargs
         assert 'execution_config' in call_kwargs, "execution_config not passed to factory"
-        assert call_kwargs['execution_config'].accelerator == 'cpu', \
-            f"Expected accelerator='cpu', got {call_kwargs['execution_config'].accelerator}"
+        assert call_kwargs['execution_config'].values['accelerator'] == 'cpu'
 
     def test_deterministic_flag_roundtrip(self, minimal_train_args, monkeypatch):
         """
@@ -116,7 +115,7 @@ class TestExecutionConfigCLI:
         assert mock_factory.called
         call_kwargs = mock_factory.call_args.kwargs
         assert 'execution_config' in call_kwargs
-        assert call_kwargs['execution_config'].deterministic is True, \
+        assert call_kwargs['execution_config'].values['deterministic'] is True, \
             "Expected deterministic=True"
 
     def test_no_deterministic_flag_roundtrip(self, minimal_train_args, monkeypatch):
@@ -148,7 +147,7 @@ class TestExecutionConfigCLI:
         assert mock_factory.called
         call_kwargs = mock_factory.call_args.kwargs
         assert 'execution_config' in call_kwargs
-        assert call_kwargs['execution_config'].deterministic is False, \
+        assert call_kwargs['execution_config'].values['deterministic'] is False, \
             "Expected deterministic=False with --no-deterministic"
 
     def test_num_workers_flag_roundtrip(self, minimal_train_args, monkeypatch):
@@ -180,8 +179,7 @@ class TestExecutionConfigCLI:
         assert mock_factory.called
         call_kwargs = mock_factory.call_args.kwargs
         assert 'execution_config' in call_kwargs
-        assert call_kwargs['execution_config'].num_workers == 4, \
-            f"Expected num_workers=4, got {call_kwargs['execution_config'].num_workers}"
+        assert call_kwargs['execution_config'].values['num_workers'] == 4
 
     def test_learning_rate_flag_roundtrip(self, minimal_train_args, monkeypatch):
         """
@@ -212,8 +210,7 @@ class TestExecutionConfigCLI:
         assert mock_factory.called
         call_kwargs = mock_factory.call_args.kwargs
         assert 'execution_config' in call_kwargs
-        assert abs(call_kwargs['execution_config'].learning_rate - 5e-4) < 1e-10, \
-            f"Expected learning_rate=5e-4, got {call_kwargs['execution_config'].learning_rate}"
+        assert call_kwargs['execution_config'].values['learning_rate'] == pytest.approx(5e-4)
 
     def test_multiple_execution_config_flags(self, minimal_train_args, monkeypatch):
         """
@@ -254,11 +251,107 @@ class TestExecutionConfigCLI:
         assert mock_factory.called
         call_kwargs = mock_factory.call_args.kwargs
         assert 'execution_config' in call_kwargs
-        exec_config = call_kwargs['execution_config']
-        assert exec_config.accelerator == 'gpu'
-        assert exec_config.deterministic is False
-        assert exec_config.num_workers == 8
-        assert abs(exec_config.learning_rate - 1e-3) < 1e-10
+        request = call_kwargs['execution_config']
+        assert request.values['accelerator'] == 'gpu'
+        assert request.values['deterministic'] is False
+        assert request.values['num_workers'] == 8
+        assert request.values['learning_rate'] == pytest.approx(1e-3)
+
+    def test_native_training_execution_request_preserves_explicit_options(
+        self,
+        minimal_train_args,
+        monkeypatch,
+    ):
+        """The native CLI passes raw suppliedness and a request to its factory."""
+        from ptycho_torch.cli.shared import (
+            build_execution_request_from_args as real_request_builder,
+        )
+        from ptycho_torch.execution_request import ExecutionRequest
+        from ptycho_torch.train import cli_main
+
+        argv = minimal_train_args + [
+            '--accelerator=cpu',
+            '--device', 'cuda',
+            '--deterministic',
+            '--no-deterministic',
+            '--num-workers=2',
+            '--learning-rate', '0.002',
+            '--scheduler=ReduceLROnPlateau',
+            '--accumulate-grad-batches', '3',
+            '--logger=none',
+            '--quiet',
+            '--disable_mlflow',
+            '--enable-checkpointing',
+            '--disable-checkpointing',
+            '--checkpoint-save-top-k=0',
+            '--checkpoint-monitor', 'train_loss',
+            '--checkpoint-mode=max',
+            '--early-stop-patience', '9',
+        ]
+        monkeypatch.setattr('sys.argv', ['train.py', *argv])
+
+        with patch(
+            'ptycho_torch.cli.shared.build_execution_request_from_args',
+            wraps=real_request_builder,
+        ) as request_builder, patch(
+            'ptycho_torch.config_factory.create_training_payload',
+            side_effect=RuntimeError('stop after request capture'),
+        ) as factory, pytest.raises(SystemExit):
+            cli_main()
+
+        request_builder.assert_called_once()
+        assert request_builder.call_args.kwargs == {
+            'mode': 'training',
+            'explicit_options': tuple(argv),
+            'lane': 'native-training',
+        }
+        request = factory.call_args.kwargs['execution_config']
+        assert isinstance(request, ExecutionRequest)
+        assert request.explicit_fields == frozenset(
+            {
+                'accelerator',
+                'deterministic',
+                'num_workers',
+                'learning_rate',
+                'scheduler',
+                'accum_steps',
+                'logger_backend',
+                'enable_progress_bar',
+                'enable_checkpointing',
+                'checkpoint_save_top_k',
+                'checkpoint_monitor_metric',
+                'checkpoint_mode',
+                'early_stop_patience',
+            }
+        )
+        assert request.values['accelerator'] == 'cpu'
+        assert request.values['deterministic'] is False
+        assert request.values['num_workers'] == 2
+        assert request.values['learning_rate'] == pytest.approx(0.002)
+        assert request.values['scheduler'] == 'ReduceLROnPlateau'
+        assert request.values['accum_steps'] == 3
+        assert request.values['logger_backend'] is None
+        assert request.values['enable_progress_bar'] is False
+        assert request.values['enable_checkpointing'] is False
+        assert request.values['checkpoint_save_top_k'] == 0
+        assert request.values['checkpoint_monitor_metric'] == 'train_loss'
+        assert request.values['checkpoint_mode'] == 'max'
+        assert request.values['early_stop_patience'] == 9
+
+    def test_native_training_execution_explicit_checkpoint_help_is_current(
+        self,
+        monkeypatch,
+        capsys,
+    ):
+        """The native help must not advertise the rejected save-all spelling."""
+        from ptycho_torch.train import cli_main
+
+        monkeypatch.setattr('sys.argv', ['train.py', '--help'])
+        with pytest.raises(SystemExit) as exit_info:
+            cli_main()
+
+        assert exit_info.value.code == 0
+        assert '-1 to save all' not in capsys.readouterr().out
 
     def test_bundle_persistence(self, minimal_train_args, monkeypatch):
         """
@@ -303,6 +396,7 @@ class TestExecutionConfigCLI:
             do_stitching=False,
             execution_config=None,
             overrides=None,
+            resolved_payload=None,
         ):
             """Mock workflow that still calls save_torch_bundle with correct structure."""
             from ptycho_torch.model_manager import save_torch_bundle
@@ -408,7 +502,7 @@ class TestExecutionConfigCLI:
         assert mock_factory.called
         call_kwargs = mock_factory.call_args.kwargs
         assert 'execution_config' in call_kwargs
-        assert call_kwargs['execution_config'].enable_checkpointing is False, \
+        assert call_kwargs['execution_config'].values['enable_checkpointing'] is False, \
             "Expected enable_checkpointing=False with --disable-checkpointing"
 
     def test_checkpoint_save_top_k_flag(self, minimal_train_args, monkeypatch):
@@ -444,8 +538,7 @@ class TestExecutionConfigCLI:
         assert mock_factory.called
         call_kwargs = mock_factory.call_args.kwargs
         assert 'execution_config' in call_kwargs
-        assert call_kwargs['execution_config'].checkpoint_save_top_k == 3, \
-            f"Expected checkpoint_save_top_k=3, got {call_kwargs['execution_config'].checkpoint_save_top_k}"
+        assert call_kwargs['execution_config'].values['checkpoint_save_top_k'] == 3
 
     def test_checkpoint_monitor_flag(self, minimal_train_args, monkeypatch):
         """
@@ -480,8 +573,7 @@ class TestExecutionConfigCLI:
         assert mock_factory.called
         call_kwargs = mock_factory.call_args.kwargs
         assert 'execution_config' in call_kwargs
-        assert call_kwargs['execution_config'].checkpoint_monitor_metric == 'train_loss', \
-            f"Expected checkpoint_monitor_metric='train_loss', got {call_kwargs['execution_config'].checkpoint_monitor_metric}"
+        assert call_kwargs['execution_config'].values['checkpoint_monitor_metric'] == 'train_loss'
 
     def test_checkpoint_mode_flag(self, minimal_train_args, monkeypatch):
         """
@@ -518,8 +610,7 @@ class TestExecutionConfigCLI:
         assert mock_factory.called
         call_kwargs = mock_factory.call_args.kwargs
         assert 'execution_config' in call_kwargs
-        assert call_kwargs['execution_config'].checkpoint_mode == 'max', \
-            f"Expected checkpoint_mode='max', got {call_kwargs['execution_config'].checkpoint_mode}"
+        assert call_kwargs['execution_config'].values['checkpoint_mode'] == 'max'
 
     def test_early_stop_patience_flag(self, minimal_train_args, monkeypatch):
         """
@@ -554,10 +645,25 @@ class TestExecutionConfigCLI:
         assert mock_factory.called
         call_kwargs = mock_factory.call_args.kwargs
         assert 'execution_config' in call_kwargs
-        assert call_kwargs['execution_config'].early_stop_patience == 10, \
-            f"Expected early_stop_patience=10, got {call_kwargs['execution_config'].early_stop_patience}"
+        assert call_kwargs['execution_config'].values['early_stop_patience'] == 10
 
-    def test_scheduler_flag_roundtrip(self, minimal_train_args, monkeypatch):
+    @pytest.mark.parametrize(
+        "scheduler",
+        [
+            "Default",
+            "Exponential",
+            "MultiStage",
+            "Adaptive",
+            "WarmupCosine",
+            "ReduceLROnPlateau",
+        ],
+    )
+    def test_scheduler_flag_roundtrip(
+        self,
+        minimal_train_args,
+        monkeypatch,
+        scheduler,
+    ):
         """
         RED Test: --scheduler flag maps to execution_config.scheduler.
 
@@ -573,11 +679,11 @@ class TestExecutionConfigCLI:
         mock_factory = MagicMock()
         mock_factory.return_value = MagicMock(
             tf_training_config=MagicMock(),
-            execution_config=MagicMock(scheduler='Exponential'),
+            execution_config=MagicMock(scheduler=scheduler),
         )
 
         with patch('ptycho_torch.config_factory.create_training_payload', mock_factory):
-            test_args = minimal_train_args + ['--scheduler', 'Exponential']
+            test_args = minimal_train_args + ['--scheduler', scheduler]
 
             from ptycho_torch.train import cli_main
             monkeypatch.setattr('sys.argv', ['train.py'] + test_args)
@@ -590,8 +696,7 @@ class TestExecutionConfigCLI:
         assert mock_factory.called
         call_kwargs = mock_factory.call_args.kwargs
         assert 'execution_config' in call_kwargs
-        assert call_kwargs['execution_config'].scheduler == 'Exponential', \
-            f"Expected scheduler='Exponential', got {call_kwargs['execution_config'].scheduler}"
+        assert call_kwargs['execution_config'].values['scheduler'] == scheduler
 
     def test_accumulate_grad_batches_roundtrip(self, minimal_train_args, monkeypatch):
         """
@@ -626,8 +731,7 @@ class TestExecutionConfigCLI:
         assert mock_factory.called
         call_kwargs = mock_factory.call_args.kwargs
         assert 'execution_config' in call_kwargs
-        assert call_kwargs['execution_config'].accum_steps == 4, \
-            f"Expected accum_steps=4, got {call_kwargs['execution_config'].accum_steps}"
+        assert call_kwargs['execution_config'].values['accum_steps'] == 4
 
     def test_logger_backend_csv_default(self, minimal_train_args, monkeypatch):
         """
@@ -662,8 +766,7 @@ class TestExecutionConfigCLI:
         assert mock_factory.called
         call_kwargs = mock_factory.call_args.kwargs
         assert 'execution_config' in call_kwargs
-        assert call_kwargs['execution_config'].logger_backend == 'csv', \
-            f"Expected logger_backend='csv', got {call_kwargs['execution_config'].logger_backend}"
+        assert call_kwargs['execution_config'].values['logger_backend'] == 'csv'
 
     def test_logger_backend_tensorboard(self, minimal_train_args, monkeypatch):
         """
@@ -698,8 +801,7 @@ class TestExecutionConfigCLI:
         assert mock_factory.called
         call_kwargs = mock_factory.call_args.kwargs
         assert 'execution_config' in call_kwargs
-        assert call_kwargs['execution_config'].logger_backend == 'tensorboard', \
-            f"Expected logger_backend='tensorboard', got {call_kwargs['execution_config'].logger_backend}"
+        assert call_kwargs['execution_config'].values['logger_backend'] == 'tensorboard'
 
     def test_logger_backend_none(self, minimal_train_args, monkeypatch):
         """
@@ -734,8 +836,7 @@ class TestExecutionConfigCLI:
         assert mock_factory.called
         call_kwargs = mock_factory.call_args.kwargs
         assert 'execution_config' in call_kwargs
-        assert call_kwargs['execution_config'].logger_backend is None, \
-            f"Expected logger_backend=None, got {call_kwargs['execution_config'].logger_backend}"
+        assert call_kwargs['execution_config'].values['logger_backend'] is None
 
     def test_disable_mlflow_deprecation_warning(self, minimal_train_args, monkeypatch):
         """
@@ -764,31 +865,22 @@ class TestExecutionConfigCLI:
             from ptycho_torch.train import cli_main
             monkeypatch.setattr('sys.argv', ['train.py'] + test_args)
 
-            # Capture warnings
-            import warnings
-            with warnings.catch_warnings(record=True) as w:
-                warnings.simplefilter("always")
-
-                try:
-                    cli_main()
-                except SystemExit:
-                    pass
-
-                # Assert DeprecationWarning was emitted
-                assert len(w) > 0, "Expected DeprecationWarning for --disable_mlflow"
-                assert any(issubclass(warning.category, DeprecationWarning) for warning in w), \
-                    "Expected DeprecationWarning category"
-                # Check message content
-                deprecation_warnings = [warning for warning in w if issubclass(warning.category, DeprecationWarning)]
-                assert any('--disable_mlflow' in str(warning.message) for warning in deprecation_warnings), \
-                    "DeprecationWarning should mention --disable_mlflow"
+            try:
+                cli_main()
+            except SystemExit:
+                pass
 
         # Verify logger_backend was set to None
         assert mock_factory.called
         call_kwargs = mock_factory.call_args.kwargs
         assert 'execution_config' in call_kwargs
-        assert call_kwargs['execution_config'].logger_backend is None, \
-            f"Expected logger_backend=None with --disable_mlflow, got {call_kwargs['execution_config'].logger_backend}"
+        request = call_kwargs['execution_config']
+        assert request.values['logger_backend'] is None
+        assert any(
+            notice.category is DeprecationWarning
+            and '--disable_mlflow' in notice.message
+            for notice in request.notices
+        )
 
 
 # RED Phase Note:

@@ -2808,7 +2808,7 @@ def test_mmap_payload_carries_ladder_config(mini_ladder: dict[str, Any]) -> None
     assert payload.pt_data_config.scale_contract_version == "legacy_v1"
     assert payload.pt_data_config.measurement_domain == "normalized_amplitude"
     assert payload.pt_model_config.mode == "Unsupervised"
-    assert payload.pt_training_config.strategy is None
+    assert payload.execution_config.strategy == "auto"
     assert spec is not None
 
 
@@ -2983,6 +2983,7 @@ def test_train_via_generic_loader_drives_real_dataset_into_lightning(
         recorded["test_is_ptycho_dataset"] = isinstance(test_container, PtychoDataset)
         recorded["test_len"] = None if test_container is None else len(test_container)
         recorded["overrides"] = dict(overrides or {})
+        recorded["execution_strategy"] = execution_config.strategy
         recorded["train_data_file"] = str(tf_config.train_data_file)
         return {"history": {}, "models": {"diffraction_to_obj": model}}
 
@@ -3039,7 +3040,8 @@ def test_train_via_generic_loader_drives_real_dataset_into_lightning(
         assert key in recorded["overrides"], key
     assert recorded["overrides"]["probe_normalize"] is False
     assert recorded["overrides"]["n_subsample"] == 1
-    assert recorded["overrides"]["strategy"] is None
+    assert "strategy" not in recorded["overrides"]
+    assert recorded["execution_strategy"] == "auto"
     assert payload["effective_probe_sha256"] == (
         mini_ladder["identity"]["transformed_probe_sha256"]
     )

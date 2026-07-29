@@ -1,6 +1,6 @@
 import json
 import math
-from dataclasses import fields
+from dataclasses import fields, replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -169,11 +169,21 @@ def test_lightning_data_module_normalizes_zero_worker_settings(
         "TensorDictDataLoader",
         lambda dataset, **kwargs: captured.append((dataset, kwargs)) or object(),
     )
+    with pytest.raises(
+        ValueError,
+        match="persistent_workers=True requires num_workers > 0",
+    ):
+        PyTorchExecutionConfig(
+            accelerator="cpu",
+            num_workers=0,
+            persistent_workers=True,
+        )
+
     execution_config = PyTorchExecutionConfig(
         accelerator="cpu",
         num_workers=0,
         pin_memory=True,
-        persistent_workers=True,
+        persistent_workers=False,
         prefetch_factor=7,
     )
     data_module = train_utils.PtychoDataModuleLightning(
@@ -237,6 +247,7 @@ def _install_training_fakes(monkeypatch, run_dir):
     class FakeModel:
         loss_name = "train_loss"
         val_loss_name = "poisson_val"
+        automatic_optimization = False
 
         def __init__(self, _model, _data, training, _inference, **_kwargs):
             self.training_config = training
@@ -312,6 +323,57 @@ def _install_training_fakes(monkeypatch, run_dir):
     monkeypatch.setattr(train_module, "find_best_checkpoint", lambda *_args: None)
     monkeypatch.setattr(train_module, "is_effectively_global_rank_zero", lambda: True)
     return captured
+
+
+@pytest.mark.parametrize(
+    "module_name",
+    ["ptycho_torch.train", "ptycho_torch.train_lightning_only"],
+)
+def test_direct_training_resolution_is_fresh_and_preserves_owner_precedence(
+    module_name,
+):
+    module = __import__(
+        module_name,
+        fromlist=["_resolve_direct_training_config"],
+    )
+    baseline = TrainingConfig(
+        learning_rate=4.321e-3,
+        scheduler="WarmupCosine",
+        accum_steps=7,
+        gradient_clip_val=0.45,
+        gradient_clip_algorithm="value",
+        batch_size=23,
+    )
+    snapshot = replace(baseline)
+    execution = PyTorchExecutionConfig(
+        accelerator="cpu",
+        learning_rate=0.9,
+        scheduler="Exponential",
+        accum_steps=8,
+        gradient_clip_val=9.0,
+        gradient_clip_algorithm="norm",
+    )
+
+    compatibility = module._resolve_direct_training_config(
+        baseline,
+        execution,
+    )
+    owned = module._resolve_direct_training_config(baseline, None)
+
+    assert baseline == snapshot
+    assert compatibility is not baseline
+    assert owned is not baseline
+    assert compatibility.learning_rate == 0.9
+    assert compatibility.scheduler == "Exponential"
+    assert compatibility.accum_steps == 8
+    assert compatibility.gradient_clip_val == 9.0
+    assert compatibility.gradient_clip_algorithm == "norm"
+    assert owned.learning_rate == snapshot.learning_rate
+    assert owned.scheduler == snapshot.scheduler
+    assert owned.accum_steps == snapshot.accum_steps
+    assert owned.gradient_clip_val == snapshot.gradient_clip_val
+    assert owned.gradient_clip_algorithm == snapshot.gradient_clip_algorithm
+    assert compatibility.batch_size == owned.batch_size == 23
 
 
 def test_main_resolves_default_checkpoint_monitor_to_model_metric(
@@ -851,6 +913,8 @@ def test_main_honors_effective_execution_contract(
         lambda: pytest.fail("explicit seed must bypass PTYCHO_TORCH_SEED"),
     )
     configs = _configs(tmp_path)
+    original_training = configs[2]
+    original_training_snapshot = replace(original_training)
     execution_config = PyTorchExecutionConfig(
         accelerator="cuda",
         devices=2,
@@ -891,12 +955,14 @@ def test_main_honors_effective_execution_contract(
     assert {key: trainer_kwargs[key] for key in expected_trainer_kwargs} == expected_trainer_kwargs
     assert seed_calls == [(11, 2)]
 
-    training_config = configs[2]
-    assert training_config.n_devices == execution_config.devices
-    assert training_config.strategy == execution_config.strategy
-    assert training_config.device == execution_config.accelerator
-    assert training_config.num_workers == execution_config.num_workers
-    assert captured["data_training_config"] is training_config
+    effective_training = captured["data_training_config"]
+    assert original_training == original_training_snapshot
+    assert effective_training is not original_training
+    assert captured["fit"][0].training_config is effective_training
+    assert effective_training.n_devices == execution_config.devices
+    assert effective_training.strategy == execution_config.strategy
+    assert effective_training.device == execution_config.accelerator
+    assert effective_training.num_workers == execution_config.num_workers
 
     assert len(captured["checkpoint_kwargs"]) == int(enable_checkpointing)
     assert len(captured["early_stop_kwargs"]) == int(enable_checkpointing)
@@ -953,6 +1019,8 @@ def test_main_returns_opt_in_training_result_without_trainer(tmp_path, monkeypat
     )
     monkeypatch.setenv("PTYCHO_TORCH_SEED", "23")
     configs = _configs(tmp_path)
+    original_training = configs[2]
+    original_training_snapshot = replace(original_training)
     execution_config = PyTorchExecutionConfig(
         accelerator="cpu",
         devices=1,
@@ -961,7 +1029,7 @@ def test_main_returns_opt_in_training_result_without_trainer(tmp_path, monkeypat
         enable_checkpointing=False,
         num_workers=0,
         pin_memory=True,
-        persistent_workers=True,
+        persistent_workers=False,
         prefetch_factor=7,
         precision="32-true",
     )
@@ -982,10 +1050,18 @@ def test_main_returns_opt_in_training_result_without_trainer(tmp_path, monkeypat
     assert (
         result.data_config,
         result.model_config,
-        result.training_config,
         result.inference_config,
         result.datagen_config,
-    ) == configs
+    ) == (configs[0], configs[1], configs[3], configs[4])
+    assert original_training == original_training_snapshot
+    assert result.training_config is not original_training
+    assert result.training_config is captured["data_training_config"]
+    assert result.model.training_config is result.training_config
+    assert result.training_config.device == "cpu"
+    assert result.training_config.strategy == "auto"
+    assert result.training_config.n_devices == 1
+    assert result.training_config.num_workers == 0
+    assert result.training_config.orchestrator == "Lightning"
     assert result.effective_runtime == json.loads(
         (run_dir / "effective_runtime.json").read_text()
     )

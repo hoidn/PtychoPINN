@@ -1,10 +1,18 @@
 # Pydantic Family Adoption Design
 
-**Status:** Proposed for repository promotion. The conditional target design
-was approved on 2026-07-28, but it is not authoritative on a branch until the
-transition parent and existing family authorities coexist there. Nothing in
-this document flips a family portfolio row without that family's measured
-go/no-go decision.
+**Status:** Approved and authoritative on `refactor-internal` as of 2026-07-28.
+The target remains conditional: nothing in this document flips a family
+portfolio row without that family's measured go/no-go decision.
+
+**Implementation state on `refactor-internal`:** The simulation cached
+`TypeAdapter`, `ptycho/config/resolution.py`,
+`ptycho_torch/config_resolution.py`,
+`tests/torch/test_config_pydantic_artifacts.py`, and
+`tests/fixtures/config/*` are not present on this branch. Those public
+`refactor` implementation and fixture surfaces are approved feasibility and
+port references, not internal completion evidence. Roadmap Slice 8 Stage A
+owns the internal-safe substrate port; this design's child-local stages run
+only after their stated transition prerequisites.
 
 **Supersedes:** the 2026-07-28 v1 draft (formerly at
 `.worktrees/ci-compatibility-ablation/tmp/`, now retired).
@@ -31,7 +39,8 @@ decision):**
   (held; records executable Pydantic 2.12.3 probe results and 10 adoption
   gates).
 - `docs/superpowers/specs/2026-07-28-pydantic-simulation-validation-design.md`
-  — unchanged; cited as the proven mechanism.
+  — approved target whose public-branch implementation is feasibility
+  evidence; internal-safe port pending roadmap Stage A.
 - `docs/superpowers/specs/2026-07-28-configuration-persistence-boundaries.md`
   — unchanged; its exclusions bind this design.
 
@@ -44,9 +53,10 @@ decision):**
    and sibling designs own those transitions.
 3. Reclassified exact legacy projection evidence as conditional on a remaining
    bridge rather than a permanent post-strangler adoption gate.
-4. Corrected the updater inventory: supported factories already avoid
-   `update_existing_config()`; transition Stage 1 classifies and migrates its
-   remaining callers, while enclosing APIs follow their own support contracts.
+4. Corrected the updater inventory: the public-reference factories avoid
+   `update_existing_config()`; transition Stage 1 classifies and migrates the
+   internal branch's remaining callers, while enclosing APIs follow their own
+   support contracts.
 5. `TrainingConfig` and `InferenceConfig` remain mutable and retain their
    `__post_init__` compatibility behavior; only public `ModelConfig` is frozen.
 6. Dead-code and compatibility deletion never count as adapter-attributable
@@ -55,7 +65,8 @@ decision):**
 **Goal:** After compatibility and global-state reduction, decide independently
 whether the public `ModelConfig`/`TrainingConfig`/`InferenceConfig` family and
 the Torch `DataConfig`/`ModelConfig`/`TrainingConfig`/`InferenceConfig` family
-should extend the simulation family's cached-`TypeAdapter` pattern. Each family
+should extend the approved simulation cached-`TypeAdapter` pattern demonstrated
+by the public reference implementation. Each family
 adopts only if the measured replacement deletes more structural-validation
 complexity than it adds; otherwise it terminally records retain-manual. Every
 other portfolio row keeps its current treatment.
@@ -74,7 +85,7 @@ not Pydantic everywhere. The end-state portfolio:
 
 | Boundary | End state | Change? |
 |---|---|---|
-| Simulation recipe | Cached `TypeAdapter`, adopted | no (done) |
+| Simulation recipe | Approved cached `TypeAdapter` target; public-reference implementation exists | internal-safe port pending roadmap Stage A |
 | Public Model/Training/Inference | Conditional: adapter only if its post-strangler gate nets positive; otherwise retain manual | **decided by Stage B** |
 | Torch Data/Model/Training/Inference | Conditional: adapter only if its post-strangler gate nets positive; otherwise retain manual | **decided by Stage C** |
 | `DatagenConfig` | Compatibility view of `SimulationConfig`; no independent schema (negatively asserted, §8) | no |
@@ -94,10 +105,16 @@ out of scope here.
 
 ## 2. Contract-relevant current state
 
-Facts this design builds on (symbol references, not line numbers; verify at
-implementation time).
+The approved target contracts below distinguish public-reference evidence from
+current internal implementation. On `refactor-internal`, the simulation
+adapter and the public/Torch resolver modules and fixtures are absent; the
+manual simulation boundary and legacy factory paths remain until roadmap Stage
+A ports and reproves the substrate.
 
-### Proven mechanism (simulation family, `ptycho/config/config.py`)
+### Public-reference mechanism (simulation family on `refactor`)
+
+The following bullets describe the public-reference implementation, not files
+currently present on `refactor-internal`:
 
 - `@with_config(ConfigDict(extra="forbid", revalidate_instances="always",
   validate_default=True))` stacked above `@dataclass(frozen=True)` attaches
@@ -117,8 +134,8 @@ implementation time).
 - A domain error facade (`_raise_simulation_validation_error`) translating
   `ValidationError` into stable dotted-path domain messages; raw Pydantic
   formatting is not a public contract.
-- **None of the five simulation records defines `__post_init__`.** The
-  mechanism has therefore never been proven against post-construction
+- **None of the five public-reference simulation records defines
+  `__post_init__`.** That mechanism has therefore never been proven against post-construction
   mutation hooks. Both migrating families have them; F1/F7 close that gap
   before any production change.
 
@@ -131,13 +148,15 @@ implementation time).
   `n_groups=512` when neither field was supplied — i.e., a field value is
   written **after** any per-field validation would run. The public child
   design keeps this constructor behavior during the compatibility phase.
-- The staged resolver in `ptycho/config/resolution.py` constructs complete
+- The public-reference resolver in `ptycho/config/resolution.py` constructs complete
   candidates (`ModelConfig(**merged)`, `TrainingConfig(model=..., **values)`,
   `InferenceConfig(...)`) after canonicalizing the group alias itself
   (`n_images` nulled, `n_groups` set), so the deprecated `__post_init__`
   warning path does not fire on resolver-constructed records. Adapter
-  conversion must preserve exactly this behavior.
-- The pre-strangler hand-written structural surface potentially eligible for
+  conversion must preserve exactly this behavior. The module is absent
+  internally and roadmap Stage A must preserve this behavior when porting it.
+- The public-reference pre-strangler hand-written structural surface
+  potentially eligible for
   deletion includes the
   `_require_exact_int` / `_require_optional_int` / `_require_exact_bool` /
   `_require_optional_bool` / `_require_literal` / `_require_number` /
@@ -175,19 +194,21 @@ implementation time).
   roughly 80–120 lines in total. It must be remeasured after the transition
   prerequisites. This asymmetry (133 fields to annotate versus the smaller
   deletable surface) is why adoption is conditional, not
-  presumed: with loose annotations the adapter validates almost nothing;
+  presumed. This resolver is absent internally and must be ported and
+  remeasured in roadmap Stage A. With loose annotations the adapter validates almost nothing;
   with tightened annotations every tightening is a new rejection and
   therefore a per-field compatibility decision, which is contract expansion
   rather than deletion.
-- Mutation and bypass inventory (the recorded reason for Hold): supported
-  factories use return-new resolution, while the remaining
+- Mutation and bypass inventory (the recorded reason for Hold): the
+  public-reference factories use return-new resolution, while the internal
+  branch's remaining
   `update_existing_config` callers require the classification and migration
   owned by transition Stage 1. Enclosing APIs are retained or deleted under
   their own support contracts rather than by this schema design. Checkpoint
   rehydration constructors are sanctioned persistence boundaries and are out
   of scope.
 
-### Recorded probe facts (torch design §14, Pydantic 2.12.3)
+### Public-reference probe facts (torch design §14, Pydantic 2.12.3)
 
 Naive `TypeAdapter` is unusable as-is — lax mode coerces and ignores extras;
 bare `strict=True` rejects mappings wholesale; instances are not revalidated
@@ -298,7 +319,8 @@ outcome.
 
 1. **Attach config to the real classes; no shadow models.** The probe
    blocker ("ConfigDict cannot be passed to TypeAdapter") is resolved by
-   `@with_config`, the mechanism simulation already ships. The probe's
+   `@with_config`, the approved mechanism demonstrated by the public-reference
+   simulation implementation. The probe's
    "ephemeral configured dataclass" workaround is rejected — it is exactly
    the parallel input model the parent gate 8 forbids.
 2. **Check-only strict revalidation discards the reconstruction.** Matches
@@ -365,7 +387,7 @@ returns that family to Hold with the result recorded in its child design.
 | F3 | `@with_config` is reflection-neutral on frozen **and** mutable records: `dataclasses.fields`, `inspect.signature`, positional construction, `==`, `hash` (frozen), `replace`, `asdict`, pickle round-trip unchanged | both | arch 5; public 8 |
 | F4 | Nested root adapters (`TrainingConfig` embedding `ModelConfig`): conversion + strict instance modes, dotted error paths at both levels | public | arch 1; public 2, 3 |
 | F5 | `Path` fields: accepted inputs and exact stored representation match the current manual conversion | public | public 4 |
-| F6 | Existing Torch wire fixtures (`tests/torch/test_config_pydantic_artifacts.py` + `tests/fixtures/config/*`) pass unchanged after adoption — byte-exact persisted payloads | Torch | arch 6; torch 10 |
+| F6 | Existing internal versioned-wire fixtures plus the public-reference `tests/torch/test_config_pydantic_artifacts.py` and `tests/fixtures/config/*` coverage pass unchanged after adoption; equivalent focused coverage must be ported or reproduced internally before this gate can pass — byte-exact persisted payloads | Torch | arch 6; torch 10 |
 | F7 | `__post_init__` interplay: adapter conversion constructs through the real dataclass so post-init runs exactly once with today's semantics — `n_groups=512` injection when unsupplied, deprecated-alias warning parity (including **no** duplicate warning on resolver-canonicalized input), strict-instance revalidation of a post-init-mutated record is stable/idempotent, and `validate_default=True` does not alter post-init outcomes | public | arch 4, 5; public 5, 8 |
 | F8 | Conditional legacy-projection safety: while a declared legacy bridge remains, `dataclass_to_legacy_dict()` and `update_legacy_dict()` output for representative Training/Inference records is byte-identical to the pre-cut contract. If the bridge has retired, the applicable versioned historical codec owns this evidence instead. | public | arch 6; public 9 |
 

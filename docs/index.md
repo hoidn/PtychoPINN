@@ -57,6 +57,51 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** refactoring, debt-paydown, roadmap, status, sequencing, vertical-boundaries, configuration, reassembly
 **Use this when:** Checking current refactoring status or sequencing, selecting the next authorized slice scope, or locating the historical phase plans.
 
+### [Configuration Boundary Architecture](superpowers/specs/2026-07-28-configuration-boundary-architecture.md)
+**Description:** Approved parent architecture for complete documents, partial patches, resolved runtime snapshots, execution requests, versioned persistence, and the one-way legacy projection across configuration families.
+**Keywords:** configuration, architecture, resolution, validation, persistence, legacy-bridge, pydantic
+**Use this when:** Determining which configuration boundary owns resolution, validation, environment checks, persistence, or compatibility projection.
+
+### [Representation-Preserving Pydantic Simulation Validation](superpowers/specs/2026-07-28-pydantic-simulation-validation-design.md)
+**Description:** Approved simulation-validation target using a cached `TypeAdapter` without changing stdlib dataclass or wire representation; the public-branch implementation is reference evidence and its internal-safe port remains roadmap Stage A work.
+**Keywords:** simulation, pydantic, typeadapter, validation, representation, port
+**Use this when:** Implementing or reviewing the complete simulation-document validation boundary.
+
+### [Public Configuration Resolution](superpowers/specs/2026-07-28-public-config-resolution-design.md)
+**Description:** Approved resolution contract for public model, training, and inference configuration; the public-branch resolver is reference evidence pending an internal-safe Stage A port.
+**Keywords:** public-config, resolution, yaml, cli, precedence, legacy-projection
+**Use this when:** Resolving public configuration sources or reviewing structural versus runnable validity.
+
+### [Torch Configuration Resolution and Transactional Patch](superpowers/specs/2026-07-28-torch-config-resolution-design.md)
+**Description:** Approved return-new, phase-aware Torch resolver and transactional patch contract, with public-branch implementation evidence pending an internal-safe Stage A port.
+**Keywords:** torch, configuration, resolution, transactional-patch, aliases, validation
+**Use this when:** Implementing or reviewing Torch runtime bundle resolution and compatibility patches.
+
+### [PyTorch Execution Configuration Ownership](superpowers/specs/2026-07-28-execution-config-ownership-design.md)
+**Description:** Approved ownership and precedence contract separating execution requests, structural ownership, environment resolution, and Lightning inputs.
+**Keywords:** pytorch, execution, ownership, precedence, environment, lightning
+**Use this when:** Deciding whether a value belongs to Torch training configuration, execution compatibility input, or resolved Trainer arguments.
+
+### [Configuration Persistence and Compatibility Boundaries](superpowers/specs/2026-07-28-configuration-persistence-boundaries.md)
+**Description:** Approved authority for versioned ModelSpec/artifact codecs, checkpoints, MLflow compatibility data, and the one-way legacy projection.
+**Keywords:** configuration, persistence, modelspec, artifact, checkpoint, mlflow, params-cfg
+**Use this when:** Auditing configuration identity, decoding historical schemas, or keeping runtime validation separate from persistence.
+
+### [Configuration Compatibility Retirement and Schema Convergence](specs/2026-07-28-configuration-compatibility-retirement-and-schema-convergence-design.md)
+**Description:** Approved transition design coordinating resolver convergence, compatibility removal, execution ownership, global-state isolation, and conditional per-family Pydantic decisions.
+**Keywords:** configuration, convergence, compatibility, resolver, updater, execution, params-cfg, pydantic
+**Use this when:** Planning or reviewing the ordered configuration-convergence migration and its consumer-gated removal rules.
+
+### [`params.cfg` Strangler Design](specs/2026-07-28-params-cfg-strangler-design.md)
+**Description:** Approved transition design for removing supported modern runtime reads of `ptycho.params.cfg` while preserving the bounded one-way projection required by declared legacy consumers.
+**Keywords:** params-cfg, global-state, strangler, legacy-bridge, configuration, isolation
+**Use this when:** Migrating a maintained consumer from global configuration reads to explicit resolved-owner inputs.
+
+### [Pydantic Family Adoption Design](specs/2026-07-28-pydantic-family-adoption-design.md)
+**Description:** Approved conditional design for independently deciding whether the public and Torch configuration families can adopt the simulation boundary's cached-TypeAdapter pattern with net structural-validation deletion.
+**Keywords:** pydantic, typeadapter, configuration, validation, adoption-gate, public, torch
+**Use this when:** Evaluating post-isolation Pydantic adoption or retain-manual outcomes for a complete configuration family.
+
 ### [Model Baselines](model_baselines.md)
 **Description:** Canonical recommended training baselines, including Torch CDI object/support geometry, physical gain selection, semantic CNN channel counts, and model-family schedules such as `hybrid_resnet`; distinguishes project recommendations from raw defaults and study-specific overrides.
 **Keywords:** baselines, cnn, hybrid_resnet, object-big, probe-big, support, amplitude-physics-gain, recommended-params, studies
@@ -883,7 +928,14 @@ See also: Specifications (normative contracts: `docs/specs/spec-ptycho-*`).
 
 ### Specifications
 
-Two spec trees are both live with disjoint scopes: `specs/` owns external interop contracts (data_contracts, ptychodus_api, compare_models, ptychovit_interop), while `docs/specs/` owns the internal `spec-ptycho-*` shard system (with its PTY-AT conformance tests).
+Three authority locations are live with distinct scopes:
+
+- `specs/` owns external interoperability contracts such as data contracts,
+  Ptychodus API behavior, model comparison, and PtychoViT interop.
+- `docs/specs/` owns internal normative and transition contracts, including
+  the `spec-ptycho-*` shards and configuration transition designs.
+- `docs/superpowers/specs/` owns approved internal architecture and design
+  authorities, including the configuration-boundary parent and companions.
 
 #### [PtychoPINN Spec — Index](specs/spec-ptychopinn.md)
 **Description:** Index of normative spec shards for the TensorFlow‑based physics‑informed ptychography pipeline (core physics, runtime, workflow, interfaces, conformance, tracing).  

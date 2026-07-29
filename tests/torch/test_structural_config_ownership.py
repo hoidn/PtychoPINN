@@ -172,7 +172,10 @@ def test_default_execution_alias_does_not_override_explicit_structural_value(
 def test_training_factory_rejects_unknown_override(
     training_npz: Path, tmp_path: Path
 ) -> None:
-    with pytest.raises(ValueError, match="unknown training override.*hybrid_skip_stlye"):
+    with pytest.raises(
+        ValueError,
+        match=r"unknown training input field\(s\).*hybrid_skip_stlye",
+    ):
         create_training_payload(
             train_data_file=training_npz,
             output_dir=tmp_path,

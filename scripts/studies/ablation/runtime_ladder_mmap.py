@@ -13,10 +13,8 @@ sealed rung evidence.
 
 Wiring pins: ``DataConfig.n_subsample`` defaults to 7 but the endpoint arm
 declares 1 — the wiring pins the endpoint value (machine-checked against the
-endpoint spec in tests). ``strategy=None`` selects the direct
-TensorDictDataLoader path (single-device ladder runs; the default
-``'ddp'``+Lightning combination builds a datamodule the runner flow does not
-consume).
+endpoint spec in tests). Runtime ``strategy='auto'`` selects the direct
+TensorDictDataLoader path for these single-device ladder runs.
 """
 
 from __future__ import annotations
@@ -108,6 +106,7 @@ def build_mmap_dataset_payload(
     constructed under configs identical to the ones training will re-derive.
     """
     from ptycho_torch.config_factory import create_training_payload
+    from ptycho_torch.execution_request import ExecutionRequest
 
     x_bounds, y_bounds = BOUNDS_FILTER_MODES[str(config["mmap_bounds_filter"])]
     overrides = {
@@ -132,13 +131,16 @@ def build_mmap_dataset_payload(
         "torch_loss_mode": str(config["torch_loss_mode"]),
         "training_patch_weighting": str(config["training_patch_weighting"]),
         "normalize": resolve_mmap_normalize_mode(config),
-        "strategy": None,
     }
     payload_dir = Path(payload_dir)
     payload_dir.mkdir(parents=True, exist_ok=True)
     return create_training_payload(
         train_data_file=Path(train_npz),
         output_dir=payload_dir,
+        execution_config=ExecutionRequest(
+            values={"strategy": "auto"},
+            explicit_fields={"strategy"},
+        ),
         overrides=overrides,
     )
 
@@ -250,7 +252,6 @@ def runner_torch_overrides(runner_cfg: Any, config: Mapping[str, Any]) -> dict[s
         "normalize": resolve_mmap_normalize_mode(config),
         "probe_normalize": bool(config["probe_normalize"]),
         "n_subsample": ENDPOINT_PINNED_N_SUBSAMPLE,
-        "strategy": None,
     }
 
 
@@ -267,8 +268,8 @@ def train_via_generic_loader(
     Mirrors ``run_torch_training``: seeds torch/numpy from the rung seed,
     TF-side configs from ``setup_torch_configs`` and the same torch-only
     override keys, plus the loader-owned pins (resolved ``normalize``,
-    ``probe_normalize``, ``n_subsample``, ``strategy``). The held-out pair is
-    loaded as a REAL ``PtychoDataset`` validation container: the strategy=None loader path
+    ``probe_normalize``, ``n_subsample``). The held-out pair is
+    loaded as a REAL ``PtychoDataset`` validation container: the direct loader path
     wraps the test container unconditionally, so a None container would put
     a None data_source under Lightning's sanity check (the rung-1 bring-up
     blocker) — and val_loss checkpoint selection needs it anyway, exactly
