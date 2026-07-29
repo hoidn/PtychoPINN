@@ -1125,6 +1125,25 @@ def test_public_training_parser_boolean_actions_preserve_explicitness(
     assert explicit.probe_big is False
 
 
+def test_public_training_parser_keeps_numeric_overrides_primitive(monkeypatch):
+    args = _parse_public_training_args(
+        monkeypatch,
+        "--mae_weight",
+        "0.25",
+        "--nphotons",
+        "1000",
+        "--gradient_clip_val",
+        "2.5",
+    )
+
+    assert args.mae_weight == 0.25
+    assert type(args.mae_weight) is float
+    assert args.nphotons == 1000.0
+    assert type(args.nphotons) is float
+    assert args.gradient_clip_val == 2.5
+    assert type(args.gradient_clip_val) is float
+
+
 def test_public_training_parser_preserves_required_and_optional_path_values(
     monkeypatch,
     tmp_path,
