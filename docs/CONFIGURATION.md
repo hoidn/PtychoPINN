@@ -400,10 +400,11 @@ config, construction, `ModelSpec`, training, and inference boundaries.
 **Illustrative subset — full field list: `PyTorchExecutionConfig` in `ptycho/config/config.py`.**
 
 Callers provide unresolved runtime values through `ExecutionRequest`, normally
-via the request builder or explicit CLI flags. Capability resolution produces
-`PyTorchExecutionConfig`, which owns only effective device, distributed
-strategy, DataLoader, logging, checkpoint, and Trainer runtime mechanics. A
-bare resolved carrier is not accepted as a new request.
+via the request builder; CLI-exposed fields are collected into the same request.
+Capability resolution produces `PyTorchExecutionConfig`, which owns only
+effective device, distributed strategy, DataLoader, logging, checkpoint, and
+Trainer runtime mechanics. A bare resolved carrier is not accepted as a new
+request.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -413,6 +414,29 @@ bare resolved carrier is not accepted as a new request.
 | `precision` | `Literal['32-true','16-mixed','bf16-mixed']` | `'32-true'` | Torch numerical precision policy. |
 | `num_workers` | `int` | `0` | DataLoader worker-process count. |
 | `logger_backend` | `Optional[str]` | `'csv'` | Logging backend: CSV, TensorBoard, MLflow, or disabled. |
+
+#### Distributed Data Parallel (DDP)
+
+DDP is execution configuration, not model topology or optimization. The
+current native and unified CLIs do not expose `devices` or `strategy`;
+programmatic callers request them at the high-level Torch workflow boundary:
+
+```python
+from ptycho_torch.execution_request import ExecutionRequest
+
+ddp_request = ExecutionRequest(
+    values={"accelerator": "cuda", "devices": 2, "strategy": "ddp"},
+    explicit_fields=frozenset({"accelerator", "devices", "strategy"}),
+)
+```
+
+Pass this request as `execution_config`; do not construct
+`PyTorchExecutionConfig` as input. Before capability resolution, `devices`
+accepts a positive integer or `"auto"`; the resolved carrier always contains a
+positive integer. Lightning validates and applies `strategy`. Batch size and
+optimizer settings remain in `TrainingConfig`, and architecture remains in
+`ModelConfig`. See the [PyTorch Workflow](workflows/pytorch.md#43-programmatic)
+for the complete programmatic call.
 
 Historical execution-level topology and optimizer aliases are retired. Put
 architecture values in Torch `ModelConfig`, and learning rate, scheduler,
