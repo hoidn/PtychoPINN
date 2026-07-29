@@ -460,7 +460,7 @@ pytest \
 The architecture does not select a loader. The chosen entry point and input
 type do that. The ordinary file-oriented route uses a standalone NPZ readable
 by `RawData.from_file()`, including diffraction, scan coordinates, and a probe
-with the shapes defined by the [core contract](../specs/spec-ptycho-core.md).
+with the shapes defined by the [data contract](../data_contracts.md).
 Train and test data must agree with the configured `N`, grouping, measurement
 domain, and probe semantics.
 
@@ -707,9 +707,8 @@ If the architecture is claimed to support DDP, add a separate two-process
 smoke test through the established mmap/Lightning data rail. A single-device
 run does not establish DDP compatibility.
 
-If the applicable change gate calls for the repository-wide suite, run it only
-after the focused selectors and lifecycle test pass, following the
-[Testing Guide](../TESTING_GUIDE.md).
+Run broader regression tests only after the focused selectors and lifecycle
+test pass.
 
 ## 12. Evaluate the Architecture Fairly
 
@@ -766,10 +765,7 @@ physically coherent reconstruction is not a successful architecture result.
   `ModelSpec`, data routing, and probe lifecycle.
 - [PyTorch Workflow](pytorch.md) — supported training and inference entry
   points, execution settings, and persistence.
-- [Torch Loader and Batch Contract](../specs/spec-ptycho-interfaces.md) —
-  normative batch fields and shapes.
-- [PtychoPINN Core Contract](../specs/spec-ptycho-core.md) — normative physics,
-  scaling, loss, and output contracts.
+- [Data Normalization Guide](../DATA_NORMALIZATION_GUIDE.md) — physics,
+  scaling, loss, and output conventions.
 - [Ptychodus API Specification](../../specs/ptychodus_api_spec.md) — backend and
   portable bundle behavior.
-- [Testing Guide](../TESTING_GUIDE.md) — selector and suite guidance.

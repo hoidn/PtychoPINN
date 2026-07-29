@@ -11,7 +11,7 @@ The API is built around a **one-way data flow**: parameters are defined in the m
 
 The central function that bridges these two systems is `ptycho.config.config.update_legacy_dict()`. Any external system, like `ptychodus`, **must** use this bridge to configure `ptychopinn` correctly.
 
-**⚠️ PyTorch Requirement:** As of Phase F (INTEGRATE-PYTORCH-001), PyTorch `>= 2.2` is a **mandatory runtime dependency** for the PyTorch backend (`ptycho_torch/`). The package specifies `torch>=2.2` in `setup.py` install_requires. The TensorFlow backend (`ptycho/`) continues to function independently, but callers integrating the PyTorch stack **must** ensure PyTorch is available; the system will raise an actionable `RuntimeError` if torch cannot be imported. This policy is documented in <doc-ref type="findings">docs/findings.md#policy-001</doc-ref> and reflects the governance decision archived at `docs/plans/INTEGRATE-PYTORCH-001/reports/2025-10-17T184624Z/governance_decision.md`. For installation guidance, see the PyTorch workflow guide at <doc-ref type="workflow">docs/workflows/pytorch.md</doc-ref>.
+**⚠️ PyTorch Requirement:** PyTorch `>= 2.2` is a **mandatory runtime dependency** for the PyTorch backend (`ptycho_torch/`). The package specifies `torch>=2.2` in `setup.py` install requirements. The TensorFlow backend (`ptycho/`) continues to function independently, but callers integrating the PyTorch stack **must** ensure PyTorch is available; the system raises an actionable `RuntimeError` if torch cannot be imported. For installation guidance, see the PyTorch workflow guide at <doc-ref type="workflow">docs/workflows/pytorch.md</doc-ref>.
 
 ### 2. Core Components
 
@@ -190,7 +190,7 @@ following behavioural contract in addition to the configuration bridge.
   `ptycho.loader`, `ptycho.model`) observe consistent validated values.
 - Loaded models overwrite `params.cfg` via `load_inference_bundle`, so a backend must either replicate that side
   effect or provide an alternative hook (`ptycho.workflows.components.load_inference_bundle`).
-- **PyTorch Import Requirement (Phase F)**: The PyTorch backend (`ptycho_torch/`) **must** raise an actionable `RuntimeError` with installation guidance if `torch` cannot be imported. Silent fallbacks or optional import guards are prohibited per <doc-ref type="findings">docs/findings.md#policy-001</doc-ref>. All modules in `ptycho_torch/` assume PyTorch availability and will fail fast with clear error messages directing users to install `torch>=2.2`. Test suites automatically skip `tests/torch/` in TensorFlow-only CI environments via directory-based pytest collection rules (`tests/conftest.py`), but local development expects PyTorch to be present.
+- **PyTorch Import Requirement**: The PyTorch backend (`ptycho_torch/`) raises an actionable `RuntimeError` with installation guidance if `torch` cannot be imported. All modules in `ptycho_torch/` assume PyTorch availability and fail fast with clear error messages directing users to install `torch>=2.2`.
 
 #### 4.3. Data Ingestion and Grouping
 
@@ -266,7 +266,7 @@ Scaling
   alternate implementation must emit the same schema so that `RawData.from_file` and downstream code can
   reload the data (`ptycho/raw_data.py`).
 - NPZ diffraction content MUST be amplitude (sqrt of intensity), not raw intensity, to avoid downstream
-  shape/scale mismatches (see docs/debugging/TROUBLESHOOTING.md and CLAUDE.md §4.2). Callers are responsible
+  shape/scale mismatches (see `docs/TROUBLESHOOTING.md`). Callers are responsible
   for converting intensity to amplitude prior to packaging NPZ inputs.
 - `train()` expects a directory containing `train_data.npz` and `test_data.npz` with the same schema and runs the
   full TensorFlow pipeline via `run_cdi_example` (`ptychodus.model.ptychopinn.reconstructor.train`,
@@ -587,8 +587,6 @@ available through `ExecutionRequest`: `strategy`, `prefetch_factor`,
 `ptycho_torch/cli/shared.py` (`build_execution_request_from_args`,
 canonical optimizer-option handling, and `validate_paths`), and
 `ptycho_torch/config_factory.py`.
-
-**Validation Evidence:** Phase C4.D manual CLI smoke test with gridsize=2 confirmed all execution flags operate correctly. See `docs/plans/ADR-003-BACKEND-API/reports/2025-10-20T111500Z/phase_c4d_at_parallel/manual_cli_smoke_gs2.log`.
 
 **Note:** For programmatic runtime requests not exposed by a CLI, construct
 `ExecutionRequest` with explicit provenance. `PyTorchExecutionConfig` is a

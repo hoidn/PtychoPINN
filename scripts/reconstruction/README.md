@@ -128,7 +128,6 @@ This enables comprehensive evaluation of neural network approaches against tradi
 
 ## See Also
 
-- **Compare Models Spec:** `specs/compare_models_spec.md` - Comparison workflow contract
 - **Commands Reference:** `docs/COMMANDS_REFERENCE.md` - Quick command reference
 - **Data Contracts:** `specs/data_contracts.md` - NPZ file format specifications
 

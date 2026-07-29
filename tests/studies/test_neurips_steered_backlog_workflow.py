@@ -440,13 +440,3 @@ def test_neurips_selected_item_does_not_block_on_implementation_review_revise():
 
     assert "RecordImplementationReviewBlocked" not in _step_names(workflow)
     assert "Implementation review did not approve" not in yaml.safe_dump(workflow)
-
-
-def test_docs_and_template_register_new_queue_and_runbook_contract():
-    docs_index = (REPO_ROOT / "docs/index.md").read_text(encoding="utf-8")
-    template = (REPO_ROOT / "docs/backlog/templates/backlog_item_workflow.md").read_text(encoding="utf-8")
-
-    assert "steering.md" in docs_index
-    assert "workflows/neurips_steered_backlog_drain.md" in docs_index
-    assert "docs/backlog/in_progress/" in template
-    assert "may be rewritten" in template

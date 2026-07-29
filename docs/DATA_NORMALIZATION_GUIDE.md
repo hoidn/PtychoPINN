@@ -219,27 +219,8 @@ return RawData(..., X, ...)  # Return normalized data
    nphotons = config.nphotons  # Not hardcoded
    ```
 
-## Validation Checklist
-
-When implementing or modifying normalization:
-
-- [ ] Is the normalization type clearly documented?
-- [ ] Is the profile pair explicit, or intentionally defaulted to CI for a new rectangular workflow?
-- [ ] For legacy/amplitude data, is intensity_scale calculated but not applied to internal data?
-- [ ] For CI, are measured values count intensity and is the stored physical probe calibrated in the same gauge?
-- [ ] Are CI statistics derived only from finalized training indices and persisted for inference?
-- [ ] Is CI used only with Poisson NLL, never MAE?
-- [ ] Does CI inference use the raw physical probe without `physics_scaling_constant` or an output scale?
-- [ ] Is nphotons parameter passed correctly through the pipeline?
-- [ ] Does prepare.sh workflow still function correctly?
-- [ ] Are visualization scalings separate from training data?
-- [ ] Do unit tests verify normalization behavior?
-
 ## Related Documentation
 
-- <doc-ref type="guide">CLAUDE.md</doc-ref> - Section 6.5 for quick reference
-- <doc-ref type="contract">docs/specs/spec-ptycho-core.md</doc-ref> - standalone-NPZ data format specifications
-- <doc-ref type="guide">docs/DEVELOPER_GUIDE.md</doc-ref> - Architectural overview
-- <code-ref type="module">ptycho/diffsim.py</code-ref> - Physics simulation implementation
-- <code-ref type="module">ptycho/raw_data.py</code-ref> - Data loading implementation
-- <doc-ref type="finding">docs/findings.md</doc-ref> - POISSON-NORM-001 (count-scale diffraction collapses amplitude-path Poisson training), POISSON-SCALE-001 (grid-lines dict-container path physics-scale opt-in fix)
+- [Configuration Guide](CONFIGURATION.md)
+- [PtychoPINN Data Contracts](data_contracts.md)
+- [PyTorch Workflow Guide](workflows/pytorch.md)
