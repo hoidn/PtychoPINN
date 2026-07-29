@@ -150,6 +150,37 @@ class TestWorkflowsComponentsTraining:
     torch-optional behavior.
     """
 
+    def test_training_entrypoint_has_no_outer_legacy_scope(
+        self,
+        monkeypatch,
+        minimal_training_config,
+    ):
+        from ptycho.config import legacy_state
+        from ptycho_torch.workflows import components
+
+        def forbidden_scope():
+            raise AssertionError("modern Torch training entered a legacy outer scope")
+
+        monkeypatch.setattr(legacy_state, "legacy_params_scope", forbidden_scope)
+        monkeypatch.setattr(components, "_ensure_container", lambda data, config: data)
+        monkeypatch.setattr(
+            components,
+            "_train_with_lightning",
+            lambda train, test, config: {
+                "history": {},
+                "train_container": train,
+                "test_container": test,
+            },
+        )
+
+        result = components.train_cdi_model_torch(
+            object(),
+            None,
+            minimal_training_config,
+        )
+
+        assert result["test_container"] is None
+
     @pytest.fixture
     def params_cfg_snapshot(self):
         """Snapshot and restore params.cfg state across tests."""

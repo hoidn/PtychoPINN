@@ -337,6 +337,174 @@ def test_legacy_amplitude_rescaler_preserves_historical_arithmetic():
     np.testing.assert_array_equal(actual, expected)
 
 
+def test_lines_object_generation_scopes_resolved_simulation_state(
+    monkeypatch, tmp_path
+):
+    from ptycho import params
+
+    observed = {}
+
+    def fake_lines(*, size):
+        observed.update(
+            N=params.cfg["N"],
+            data_source=params.cfg["data_source"],
+            configured_size=params.cfg["size"],
+            requested_size=size,
+        )
+        yy, xx = np.mgrid[:size, :size]
+        return (xx + yy)[..., None].astype(np.float64)
+
+    monkeypatch.setattr(lines, "sim_object_image", fake_lines)
+    monkeypatch.setattr(synthetic, "DS_DIR", tmp_path)
+
+    before = {"sentinel": object(), "N": 777, "data_source": "poison", "size": 2}
+    previous = dict(params.cfg)
+    previous_sealed = params._sealed
+    try:
+        params.cfg.clear()
+        params.cfg.update(before)
+        params.seal()
+
+        generated = lines.frozen_lines_object(64, 24)
+
+        assert generated.shape == (24, 24)
+        assert observed == {
+            "N": 64,
+            "data_source": "lines",
+            "configured_size": 24,
+            "requested_size": 24,
+        }
+        assert params.cfg == before
+        assert params._sealed is True
+    finally:
+        params.cfg.clear()
+        params.cfg.update(previous)
+        params.seal() if previous_sealed else params.unseal()
+
+
+def test_lines_object_generation_restores_state_when_legacy_leaf_fails(
+    monkeypatch, tmp_path
+):
+    from ptycho import params
+
+    monkeypatch.setattr(synthetic, "DS_DIR", tmp_path)
+    monkeypatch.setattr(
+        lines,
+        "sim_object_image",
+        lambda *, size: (_ for _ in ()).throw(RuntimeError("lines failure")),
+    )
+
+    before = {"sentinel": "failure", "N": 777}
+    previous = dict(params.cfg)
+    previous_sealed = params._sealed
+    try:
+        params.cfg.clear()
+        params.cfg.update(before)
+        params.seal()
+
+        with pytest.raises(RuntimeError, match="lines failure"):
+            lines.frozen_lines_object(64, 24)
+
+        assert params.cfg == before
+        assert params._sealed is True
+    finally:
+        params.cfg.clear()
+        params.cfg.update(previous)
+        params.seal() if previous_sealed else params.unseal()
+
+
+def test_legacy_simulation_projects_resolved_training_state_and_restores_it(
+    monkeypatch
+):
+    from ptycho import params
+
+    observed = {}
+    marker = object()
+
+    def fake_from_simulation(xcoords, ycoords, probe, obj, scan_index):
+        observed.update(
+            N=params.cfg["N"],
+            gridsize=params.cfg["gridsize"],
+            nphotons=params.cfg["nphotons"],
+            batch_size=params.cfg["batch_size"],
+        )
+        return marker
+
+    monkeypatch.setattr(
+        synthetic.RawData,
+        "from_simulation",
+        staticmethod(fake_from_simulation),
+    )
+
+    before = {"sentinel": object(), "N": 999, "gridsize": 9, "nphotons": 1.0}
+    previous = dict(params.cfg)
+    previous_sealed = params._sealed
+    try:
+        params.cfg.clear()
+        params.cfg.update(before)
+        params.seal()
+
+        result = synthetic.legacy_simulate_normalized_amplitude(
+            np.ones((8, 8), dtype=np.complex64),
+            np.ones((64, 64), dtype=np.complex64),
+            np.array([1.0, 2.0]),
+            np.array([3.0, 4.0]),
+            64,
+        )
+
+        assert result is marker
+        assert observed == {
+            "N": 64,
+            "gridsize": 1,
+            "nphotons": synthetic.NPHOTONS,
+            "batch_size": 16,
+        }
+        assert params.cfg == before
+        assert params._sealed is True
+    finally:
+        params.cfg.clear()
+        params.cfg.update(previous)
+        params.seal() if previous_sealed else params.unseal()
+
+
+def test_legacy_simulation_restores_state_when_tensorflow_leaf_fails(monkeypatch):
+    from ptycho import params
+
+    monkeypatch.setattr(
+        synthetic.RawData,
+        "from_simulation",
+        staticmethod(
+            lambda *_args, **_kwargs: (_ for _ in ()).throw(
+                RuntimeError("diffraction failure")
+            )
+        ),
+    )
+
+    before = {"sentinel": "failure", "N": 999}
+    previous = dict(params.cfg)
+    previous_sealed = params._sealed
+    try:
+        params.cfg.clear()
+        params.cfg.update(before)
+        params.seal()
+
+        with pytest.raises(RuntimeError, match="diffraction failure"):
+            synthetic.legacy_simulate_normalized_amplitude(
+                np.ones((8, 8), dtype=np.complex64),
+                np.ones((64, 64), dtype=np.complex64),
+                np.array([1.0]),
+                np.array([2.0]),
+                64,
+            )
+
+        assert params.cfg == before
+        assert params._sealed is True
+    finally:
+        params.cfg.clear()
+        params.cfg.update(previous)
+        params.seal() if previous_sealed else params.unseal()
+
+
 def _called_function_names(path: Path) -> set[str]:
     tree = ast.parse(path.read_text())
     names = set()

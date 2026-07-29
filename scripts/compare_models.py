@@ -8,10 +8,7 @@ import argparse
 import os
 import sys
 import time
-import tempfile
-import zipfile
 from pathlib import Path
-import dill
 import numpy as np
 import pandas as pd
 import tensorflow as tf
@@ -25,11 +22,15 @@ if project_root not in sys.path:
 # This CLI follows `specs/compare_models_spec.md` for interface and behavior.
 
 # Import ptycho components
-from ptycho.workflows.components import load_data, create_ptycho_data_container, logger, load_inference_bundle
-from ptycho.config.config import TrainingConfig, ModelConfig, update_legacy_dict
-from ptycho import params as p
+from ptycho.workflows.components import (
+    create_ptycho_data_container,
+    load_data,
+    load_inference_bundle_explicit,
+    logger,
+)
+from ptycho.config.config import TrainingConfig, ModelConfig
 from ptycho.tf_helper import reassemble_position, _channel_to_flat
-from ptycho.evaluation import eval_reconstruction
+from ptycho.evaluation import eval_reconstruction_explicit
 from ptycho.image.cropping import align_for_evaluation
 from ptycho.image.registration import find_translation_offset, apply_shift_and_crop, register_and_align
 from ptycho.cli_args import add_logging_arguments, get_logging_config
@@ -162,44 +163,9 @@ def parse_args():
     return parser.parse_args()
 
 
-def load_bundle_submodel(model_dir: Path, model_name: str) -> tf.keras.Model:
-    """Load a specific submodel (autoencoder/diffraction_to_obj) from a wts.h5.zip archive."""
-    model_dir = Path(model_dir)
-    archive = model_dir / "wts.h5.zip"
-    if not archive.exists():
-        raise FileNotFoundError(f"Model archive not found at: {archive}")
-
-    logger.info(f"Extracting {model_name} from bundle {archive}")
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        with zipfile.ZipFile(archive, "r") as zf:
-            zf.extractall(tmp_dir)
-
-        subdir = Path(tmp_dir) / model_name
-        model_path = subdir / "model.keras"
-        params_path = subdir / "params.dill"
-        custom_objects_path = subdir / "custom_objects.dill"
-
-        if not model_path.exists():
-            raise FileNotFoundError(f"{model_name}/model.keras not found inside {archive}")
-
-        with open(params_path, "rb") as fh:
-            loaded_params = dill.load(fh)
-        loaded_params.pop("_version", None)
-        p.cfg.update(loaded_params)
-
-        with open(custom_objects_path, "rb") as fh:
-            custom_objects = dill.load(fh)
-
-        model = tf.keras.models.load_model(model_path, custom_objects=custom_objects, compile=False)
-
-    logger.info(f"Loaded {model_name} model from {model_dir}")
-    return model
-
-
-def load_pinn_model(model_dir: Path) -> tf.keras.Model:
-    """Load the diffraction_to_obj inference model for PINN comparisons."""
-    model, _ = load_inference_bundle(model_dir)
-    return model
+def load_pinn_model(model_dir: Path) -> tuple[tf.keras.Model, dict]:
+    """Load the PINN model and its explicit archived runtime projection."""
+    return load_inference_bundle_explicit(model_dir)
 
 
 def load_baseline_model(baseline_dir: Path) -> tf.keras.Model:
@@ -227,7 +193,7 @@ def load_baseline_model(baseline_dir: Path) -> tf.keras.Model:
 
     # Fallback: treat baseline_dir as a TF bundle directory (wts.h5.zip)
     logger.info("baseline_model.h5 not found; attempting to load TF bundle (wts.h5.zip)")
-    baseline_model, _ = load_inference_bundle(baseline_dir)
+    baseline_model, _ = load_inference_bundle_explicit(baseline_dir)
     return baseline_model
 
 
@@ -312,11 +278,6 @@ def prepare_baseline_inference_data(container):
             resolved_gridsize,
             total_channels,
         )
-
-        # Force params.cfg gridsize sync for downstream Translation/reassembly
-        from ptycho import params as p
-        p.set('gridsize', resolved_gridsize)
-        logger.info(f"Forced params.cfg['gridsize']={resolved_gridsize} for baseline grouped inference")
 
         flattened_input = _channel_to_flat(container.X)
         offsets_channel = _compute_channel_offsets(container)
@@ -987,15 +948,15 @@ def main():
     logger.info(f"Registration: {'disabled' if args.skip_registration else 'enabled'}")
     logger.info(f"NPZ output: raw={'enabled' if args.save_npz else 'disabled'}, aligned={'enabled' if args.save_npz_aligned else 'disabled'}")
 
-    # CRITICAL FIX: Initialize configuration BEFORE loading data
-    # This ensures params.cfg is properly set up when load_data() checks gridsize
-    # Load models FIRST to restore their saved configuration (including gridsize)
-    logger.info("Loading PtychoPINN inference model (diffraction_to_obj) to restore configuration...")
-    pinn_model = load_pinn_model(args.pinn_dir)
-    
-    # The model loading should have restored the correct gridsize to params.cfg
-    restored_gridsize = p.cfg.get('gridsize', 1)
-    restored_N = p.cfg.get('N', 64)
+    # Load the model archive first and retain its decoded runtime values as
+    # caller-owned data. Historical model construction is isolated inside the
+    # loader and does not make params.cfg configuration authority here.
+    logger.info("Loading PtychoPINN inference model (diffraction_to_obj)...")
+    pinn_model, pinn_archive_config = load_pinn_model(args.pinn_dir)
+    restored_gridsize = int(pinn_archive_config["gridsize"])
+    restored_N = int(pinn_archive_config["N"])
+    pinn_intensity_scale = float(pinn_archive_config["intensity_scale"])
+    evaluation_trim_offset = int(pinn_archive_config.get("offset", 4))
     logger.info(f"Restored configuration from model: gridsize={restored_gridsize}, N={restored_N}")
     
     # Load test data using the restored gridsize configuration
@@ -1043,9 +1004,6 @@ def main():
         n_groups=n_groups_to_use,  # Use requested test groups for oversampling
         neighbor_count=7  # Enable K-choose-C oversampling
     )
-    # CRITICAL FIX: Update legacy params BEFORE creating data container
-    # This ensures generate_grouped_data() sees the correct gridsize in params.cfg
-    update_legacy_dict(p.cfg, final_config)
     logger.info(f"Final configuration: gridsize={restored_gridsize}, N={test_data_raw.probeGuess.shape[0]}, n_images={test_data_raw.diff3d.shape[0]}")
     
     # Validate stitch_crop_size parameter
@@ -1095,16 +1053,24 @@ def main():
             # Create container for this chunk
             chunk_container = create_ptycho_data_container(chunk_raw_data, final_config)
 
-            # Validate gridsize for chunk
+            # Validate the explicit grouped geometry for this chunk. The
+            # archive-backed model adapter owns its bounded legacy projection.
             import math
             diffraction_channels = int(chunk_container.X.shape[-1])
             required_gridsize = int(math.isqrt(diffraction_channels))
-            current_gridsize = p.cfg.get('gridsize', 1)
-
-            if current_gridsize != required_gridsize:
-                logger.warning(f"GRIDSIZE MISMATCH in chunk {chunk_idx+1}: params.cfg['gridsize']={current_gridsize} but diffraction has {diffraction_channels} channels (requires gridsize={required_gridsize})")
-                logger.warning(f"Forcing params.cfg['gridsize']={required_gridsize} before inference")
-                p.cfg['gridsize'] = required_gridsize
+            if required_gridsize * required_gridsize != diffraction_channels:
+                raise ValueError(
+                    f"Chunk {chunk_idx + 1} diffraction channel count "
+                    f"{diffraction_channels} is not a square grid"
+                )
+            if final_config.model.gridsize != required_gridsize:
+                logger.warning(
+                    "Chunk %d grouped geometry resolves gridsize=%d; "
+                    "the archive-backed inference adapter will project that "
+                    "value only for the model call",
+                    chunk_idx + 1,
+                    required_gridsize,
+                )
 
             # Clear TF session before each chunk (except first) to release memory
             if chunk_idx > 0:
@@ -1112,7 +1078,10 @@ def main():
 
             try:
                 chunk_patches = pinn_model.predict(
-                    [chunk_container.X * p.get('intensity_scale'), chunk_container.coords_nominal],
+                    [
+                        chunk_container.X * pinn_intensity_scale,
+                        chunk_container.coords_nominal,
+                    ],
                     batch_size=args.pinn_predict_batch_size,
                     verbose=1
                 )
@@ -1147,24 +1116,31 @@ def main():
         # Single-shot PINN inference (original path)
         logger.info(f"Using single-shot PINN inference: {n_groups} groups (batch_size={args.pinn_predict_batch_size})")
 
-        # Create data container AFTER legacy params are updated
         test_container = create_ptycho_data_container(test_data_raw, final_config)
 
-        # CRITICAL FIX: Force gridsize from channel count before inference
+        # Validate grouped geometry without mutating process-global state.
         import math
         diffraction_channels = int(test_container.X.shape[-1])
         required_gridsize = int(math.isqrt(diffraction_channels))
-        current_gridsize = p.cfg.get('gridsize', 1)
-
-        if current_gridsize != required_gridsize:
-            logger.warning(f"GRIDSIZE MISMATCH: params.cfg['gridsize']={current_gridsize} but diffraction has {diffraction_channels} channels (requires gridsize={required_gridsize})")
-            logger.warning(f"Forcing params.cfg['gridsize']={required_gridsize} before inference to prevent Translation layer crash")
-            p.cfg['gridsize'] = required_gridsize
+        if required_gridsize * required_gridsize != diffraction_channels:
+            raise ValueError(
+                f"Diffraction channel count {diffraction_channels} is not a square grid"
+            )
+        if final_config.model.gridsize != required_gridsize:
+            logger.warning(
+                "Grouped geometry resolves gridsize=%d; the archive-backed "
+                "inference adapter will project it only for the model call",
+                required_gridsize,
+            )
         else:
-            logger.info(f"Gridsize validated: params.cfg['gridsize']={current_gridsize} matches {diffraction_channels} channels")
+            logger.info(
+                "Gridsize validated: explicit config gridsize=%d matches %d channels",
+                final_config.model.gridsize,
+                diffraction_channels,
+            )
 
         pinn_patches = pinn_model.predict(
-            [test_container.X * p.get('intensity_scale'), test_container.coords_nominal],
+            [test_container.X * pinn_intensity_scale, test_container.coords_nominal],
             batch_size=args.pinn_predict_batch_size,
             verbose=1
         )
@@ -1646,14 +1622,15 @@ def main():
         # Evaluate with aligned arrays (add back dimensions for eval function)
         # eval_reconstruction expects: stitched_obj=(batch, H, W, channels), ground_truth_obj=(H, W, channels)
         try:
-            pinn_metrics = eval_reconstruction(
+            pinn_metrics = eval_reconstruction_explicit(
                 pinn_recon_aligned[None, ..., None],  # (1, H, W, 1)
                 cropped_gt[..., None],                 # (H, W, 1) - no batch dimension!
                 label="PtychoPINN",
                 phase_align_method=args.phase_align_method,
                 frc_sigma=args.frc_sigma,
                 debug_save_images=args.save_debug_images,
-                ms_ssim_sigma=args.ms_ssim_sigma
+                ms_ssim_sigma=args.ms_ssim_sigma,
+                trim_offset=evaluation_trim_offset,
             )
             logger.info(f"PtychoPINN evaluation complete. SSIM: amp={pinn_metrics['ssim'][0]:.3f}, phase={pinn_metrics['ssim'][1]:.3f}, MS-SSIM: amp={pinn_metrics['ms_ssim'][0]:.3f}, phase={pinn_metrics['ms_ssim'][1]:.3f}")
         except Exception as e:
@@ -1667,14 +1644,15 @@ def main():
             }
         
         try:
-            baseline_metrics = eval_reconstruction(
+            baseline_metrics = eval_reconstruction_explicit(
                 baseline_recon_aligned[None, ..., None],  # (1, H, W, 1)
                 cropped_gt[..., None],                     # (H, W, 1) - no batch dimension!
                 label="Baseline",
                 phase_align_method=args.phase_align_method,
                 frc_sigma=args.frc_sigma,
                 debug_save_images=args.save_debug_images,
-                ms_ssim_sigma=args.ms_ssim_sigma
+                ms_ssim_sigma=args.ms_ssim_sigma,
+                trim_offset=evaluation_trim_offset,
             )
             logger.info(f"Baseline evaluation complete. SSIM: amp={baseline_metrics['ssim'][0]:.3f}, phase={baseline_metrics['ssim'][1]:.3f}, MS-SSIM: amp={baseline_metrics['ms_ssim'][0]:.3f}, phase={baseline_metrics['ms_ssim'][1]:.3f}")
         except Exception as e:
@@ -1696,14 +1674,15 @@ def main():
                 else:
                     eval_gt = cropped_gt
                     
-                tike_metrics = eval_reconstruction(
+                tike_metrics = eval_reconstruction_explicit(
                     tike_recon_aligned[None, ..., None],  # (1, H, W, 1)
                     eval_gt[..., None],                    # (H, W, 1) - no batch dimension!
                     label=algorithm_name,
                     phase_align_method=args.phase_align_method,
                     frc_sigma=args.frc_sigma,
                     debug_save_images=args.save_debug_images,
-                    ms_ssim_sigma=args.ms_ssim_sigma
+                    ms_ssim_sigma=args.ms_ssim_sigma,
+                    trim_offset=evaluation_trim_offset,
                 )
                 logger.info(f"{algorithm_name} evaluation complete. SSIM: amp={tike_metrics['ssim'][0]:.3f}, phase={tike_metrics['ssim'][1]:.3f}, MS-SSIM: amp={tike_metrics['ms_ssim'][0]:.3f}, phase={tike_metrics['ms_ssim'][1]:.3f}")
             except Exception as e:

@@ -36,9 +36,8 @@ from ptycho.config import (
     validate_runnable_training_config,
     validate_training_config_structure,
 )
-from ptycho.config.config import TrainingConfig, update_legacy_dict
-from ptycho.config.legacy_state import scoped_legacy_params
-from ptycho import model_manager, params
+from ptycho.config.config import TrainingConfig
+from ptycho import model_manager
 import argparse
 
 
@@ -201,7 +200,25 @@ def parse_arguments():
     return parser.parse_args()
 
 
-@scoped_legacy_params
+def _save_tensorflow_model_legacy(config: TrainingConfig) -> None:
+    """Persist the TensorFlow bundle under its validated legacy projection.
+
+    Remove this adapter when ``ptycho.model_manager.save`` accepts the archive
+    configuration and model path explicitly.
+    """
+    from ptycho import params
+    from ptycho.config.config import update_legacy_dict
+    from ptycho.config.legacy_state import (
+        configured_params_scope,
+        legacy_params_scope,
+    )
+
+    with legacy_params_scope():
+        with configured_params_scope():
+            update_legacy_dict(params.cfg, config)
+            model_manager.save(str(config.output_dir))
+
+
 def main() -> None:
     """Main function to orchestrate the CDI example script execution."""
     raw_argv = tuple(sys.argv[1:])
@@ -266,9 +283,6 @@ def main() -> None:
             logger.warning(f"n_subsample ({n_subsample}) may be too small to create {n_groups} "
                          f"groups of size {config.model.gridsize}². Consider increasing n_subsample to at least {min_required}")
 
-    # Project only the final validated record before legacy data consumers.
-    update_legacy_dict(params.cfg, config)
-    
     try:
         logger.info(f"Starting training with n_subsample={n_subsample}, n_groups={n_groups}, "
                    f"stitching={'enabled' if args.do_stitching else 'disabled'}")
@@ -312,6 +326,8 @@ def main() -> None:
                            "Backend will use GPU-first defaults (auto-detects CUDA if available, else CPU). "
                            "CPU-only users should pass --torch-accelerator cpu.")
 
+        # The shared selector owns the required CONFIG-001 projection
+        # immediately before backend dispatch.
         recon_amp, recon_phase, results = run_cdi_example_with_backend(
             ptycho_data, test_data, config, do_stitching=args.do_stitching,
             torch_execution_config=torch_execution_request,
@@ -321,7 +337,7 @@ def main() -> None:
         # TensorFlow-only persistence: only save via model_manager and save_outputs for TensorFlow backend
         # PyTorch workflows use save_torch_bundle inside the backend workflow
         if config.backend == 'tensorflow':
-            model_manager.save(str(config.output_dir))
+            _save_tensorflow_model_legacy(config)
             save_outputs(recon_amp, recon_phase, results, str(config.output_dir))
             logger.info("TensorFlow artifacts saved via model_manager and save_outputs")
         else:

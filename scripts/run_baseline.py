@@ -1,270 +1,409 @@
-import argparse
+"""Train and evaluate the maintained TensorFlow supervised baseline."""
+
+from __future__ import annotations
+
 import os
 import sys
+from contextlib import contextmanager
+from dataclasses import dataclass, replace
+from datetime import datetime
+from pathlib import Path
+from typing import Any
 
-# Add the project root to the Python path to allow for package-style imports
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+# Allow direct ``python scripts/run_baseline.py`` execution.
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-import logging
 import numpy as np
-import tensorflow as tf
 
-from ptycho import params as p
-from ptycho import misc
-from ptycho import baselines as bl
-from ptycho.evaluation import save_metrics
-from ptycho.export import save_recons
-from ptycho.loader import PtychoDataset, PtychoDataContainer, RawData
-from ptycho.image import reassemble_patches
+from ptycho import evaluation, misc
+from ptycho.config.config import (
+    TrainingConfig,
+    dataclass_to_legacy_dict,
+)
 from ptycho.image.cropping import align_for_evaluation
-from ptycho import probe as probe_module
-from ptycho.tf_helper import reassemble_position
-
-# Import the modern configuration and data loading components
+from ptycho.loader import PtychoDataset
 from ptycho.workflows.components import (
+    create_ptycho_data_container,
+    load_data,
+    logger,
     parse_arguments,
     setup_configuration,
-    load_data,
-    create_ptycho_data_container,
-    logger
 )
-from ptycho.config.config import TrainingConfig, update_legacy_dict
 
 
+BASELINE_STITCH_SIZE = 20
+# The historical baseline evaluator trimmed the repository-default four-pixel
+# offset after coordinate-based alignment. TrainingConfig does not own scan
+# stride, so preserve that CLI metric contract explicitly.
+BASELINE_EVALUATION_TRIM_OFFSET = 4
 
 
-def main():
+@dataclass(frozen=True)
+class BaselineRunIdentity:
+    label: str
+    output_prefix: str
+    timestamp: str
+
+
+def _resolve_run_identity(
+    config: TrainingConfig,
+    *,
+    timestamp: str,
+) -> BaselineRunIdentity:
+    """Resolve run naming from explicit CLI-owned values."""
+    label = f"baseline_gs{config.model.gridsize}"
+    return BaselineRunIdentity(
+        label=label,
+        output_prefix=misc.get_path_prefix_explicit(
+            label=label,
+            output_prefix=str(config.output_dir),
+            timestamp=timestamp,
+        ),
+        timestamp=timestamp,
+    )
+
+
+@contextmanager
+def _baseline_tensorflow_scope(
+    config: TrainingConfig,
+    *,
+    intensity_scale=None,
+):
+    """Project config only while a protected TensorFlow leaf executes.
+
+    Remove this adapter when baseline model construction/training and
+    ``tf_helper.reassemble_position`` accept all required values explicitly.
     """
-    Main function to train and evaluate the baseline model.
-    This script uses the modern configuration and data loading pipeline.
+    from ptycho import params
+    from ptycho.config.config import update_legacy_dict
+    from ptycho.config.legacy_state import (
+        configured_params_scope,
+        legacy_params_scope,
+    )
+
+    with legacy_params_scope():
+        with configured_params_scope():
+            update_legacy_dict(params.cfg, config)
+            if intensity_scale is not None:
+                params.cfg["intensity_scale"] = intensity_scale
+            yield
+
+
+def _prepare_baseline_data_inputs(ptycho_dataset, config):
+    """Flatten grouped channels into independent baseline-model samples."""
+    import tensorflow as tf
+    from ptycho.tf_helper import _channel_to_flat
+
+    gridsize = config.model.gridsize
+    if gridsize not in {1, 2}:
+        raise ValueError(
+            "This baseline script only supports gridsize 1 or 2, "
+            f"but got {gridsize}."
+        )
+    n_channels = gridsize**2
+    X_train = ptycho_dataset.train_data.X[..., :n_channels]
+    Y_I_train = ptycho_dataset.train_data.Y_I[..., :n_channels]
+    Y_phi_train = ptycho_dataset.train_data.Y_phi[..., :n_channels]
+    X_test = ptycho_dataset.test_data.X[..., :n_channels]
+    global_offsets = ptycho_dataset.test_data.global_offsets
+
+    if n_channels > 1:
+        logger.info(
+            "Flattening %s channels to independent samples for baseline model",
+            n_channels,
+        )
+        X_train = _channel_to_flat(X_train)
+        Y_I_train = _channel_to_flat(Y_I_train)
+        Y_phi_train = _channel_to_flat(Y_phi_train)
+        X_test = _channel_to_flat(X_test)
+        if global_offsets is not None:
+            original_shape = tf.shape(global_offsets)
+            logger.info("DEBUG: global_offsets original shape: %s", original_shape)
+            batch_size = original_shape[0]
+            actual_channels = original_shape[-1] if len(original_shape) > 3 else 1
+            if actual_channels == 1:
+                global_offsets = tf.tile(
+                    global_offsets,
+                    [1, 1, 1, n_channels],
+                )
+            global_offsets = tf.reshape(
+                global_offsets,
+                [batch_size * n_channels, 1, 2, 1],
+            )
+
+    return X_train, Y_I_train, Y_phi_train, X_test, global_offsets
+
+
+def _load_baseline_dataset(config: TrainingConfig):
+    """Load explicit NPZ inputs or enter the declared simulation legacy leaf."""
+    with _baseline_tensorflow_scope(config):
+        from ptycho import probe as probe_module
+
+        probe_module.set_default_probe()
+        if not (config.train_data_file and config.test_data_file):
+            from ptycho import generate_data
+
+            return generate_data.ptycho_dataset, generate_data.YY_ground_truth
+
+    logger.info("Loading from .npz files: %s", config.train_data_file)
+    train_data_raw = load_data(
+        str(config.train_data_file),
+        n_images=config.n_images,
+    )
+    test_data_raw = load_data(str(config.test_data_file))
+    train_container = create_ptycho_data_container(train_data_raw, config)
+    test_container = create_ptycho_data_container(test_data_raw, config)
+    dataset = PtychoDataset(train_container, test_container)
+    ground_truth = (
+        test_data_raw.objectGuess[None, ..., None]
+        if test_data_raw.objectGuess is not None
+        else None
+    )
+    return dataset, ground_truth
+
+
+def _scalar_intensity_scale(value: Any) -> float:
+    if hasattr(value, "numpy"):
+        value = value.numpy()
+    array = np.asarray(value)
+    if array.size != 1:
+        raise ValueError(
+            "baseline training intensity scale must be scalar, "
+            f"got shape {array.shape}"
+        )
+    return float(array.reshape(()))
+
+
+def _train_baseline_and_predict(
+    X_train,
+    Y_I_train,
+    Y_phi_train,
+    X_test,
+    *,
+    config: TrainingConfig,
+    intensity_scale: float,
+):
+    """Execute model construction, training, and prediction in one TF leaf."""
+    with _baseline_tensorflow_scope(
+        config,
+        intensity_scale=intensity_scale,
+    ):
+        from ptycho import baselines
+
+        previous_filter_scale = baselines.n_filters_scale
+        baselines.n_filters_scale = config.model.n_filters_scale
+        try:
+            model, history = baselines.train(
+                X_train,
+                Y_I_train,
+                Y_phi_train,
+            )
+            pred_I_patches, pred_phi_patches = model.predict(X_test)
+        finally:
+            baselines.n_filters_scale = previous_filter_scale
+    return model, history, pred_I_patches, pred_phi_patches
+
+
+def _reassemble_predictions(
+    pred_I_patches,
+    pred_phi_patches,
+    global_offsets,
+    *,
+    config: TrainingConfig,
+    intensity_scale: float,
+):
+    """Call the protected coordinate reassembly with scoped geometry."""
+    with _baseline_tensorflow_scope(
+        config,
+        intensity_scale=intensity_scale,
+    ):
+        import tensorflow as tf
+        from ptycho.tf_helper import reassemble_position
+
+        patches = tf.cast(pred_I_patches, tf.complex64) * tf.exp(
+            1j * tf.cast(pred_phi_patches, tf.complex64)
+        )
+        stitched = reassemble_position(
+            patches,
+            global_offsets,
+            M=BASELINE_STITCH_SIZE,
+        )
+        return stitched[None, ..., None]
+
+
+def _save_reconstructions_legacy(
+    *,
+    output_prefix: str,
+    stitched_obj,
+    ground_truth_obj,
+) -> None:
+    """Contain the output-prefix read of the legacy reconstruction exporter.
+
+    Remove this adapter when ``ptycho.export.save_recons`` accepts its output
+    directory explicitly.
     """
-    # 1. --- Configuration and CLI Setup ---
-    # Use the centralized argument parser which is aware of all TrainingConfig parameters
-    args = parse_arguments()
-    config = setup_configuration(args, args.config)
+    from ptycho import params
+    from ptycho.config.legacy_state import legacy_params_scope
+    from ptycho.export import save_recons
 
-    # CRITICAL FIX: Override model_type to 'supervised' for baseline training
-    # This prevents the bug where baseline inherits model_type='pinn' from default config
-    from dataclasses import replace
-    config = replace(config, model=replace(config.model, model_type='supervised'))
+    with legacy_params_scope():
+        params.cfg["output_prefix"] = output_prefix
+        save_recons(
+            model_type="supervised",
+            stitched_obj=stitched_obj,
+            ground_truth_obj=ground_truth_obj,
+        )
 
-    # For compatibility with legacy modules, update the global params dictionary.
-    update_legacy_dict(p.cfg, config)
 
-    # GUARDRAIL: Validate model_type is correct for baseline training
-    assert config.model.model_type == 'supervised', f"Baseline script requires model_type='supervised', got '{config.model.model_type}'"
-    logger.info(f"✅ Validated model_type = '{config.model.model_type}' for baseline training")
+def _evaluation_snapshot(
+    config: TrainingConfig,
+    *,
+    identity: BaselineRunIdentity,
+    intensity_scale: float,
+) -> dict[str, Any]:
+    snapshot = dataclass_to_legacy_dict(config)
+    snapshot.update(
+        {
+            "label": identity.label,
+            "output_prefix": identity.output_prefix,
+            "timestamp": identity.timestamp,
+            "intensity_scale": intensity_scale,
+        }
+    )
+    return snapshot
 
-    p.cfg['label'] = f"baseline_gs{config.model.gridsize}" # Set a specific label for this run
-    p.cfg['output_prefix'] = misc.get_path_prefix()
-    out_prefix = p.get('output_prefix')
-    os.makedirs(out_prefix, exist_ok=True)
+
+def run_baseline(
+    config: TrainingConfig,
+    *,
+    timestamp: str | None = None,
+) -> dict[str, Any]:
+    """Run the baseline from resolved configuration without global authority."""
+    if config.model.model_type != "supervised":
+        raise ValueError(
+            "Baseline script requires model_type='supervised', "
+            f"got {config.model.model_type!r}"
+        )
+    timestamp = timestamp or datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
+    identity = _resolve_run_identity(config, timestamp=timestamp)
+    Path(identity.output_prefix).mkdir(parents=True, exist_ok=True)
 
     logger.info("--- Starting Supervised Baseline Run ---")
-    logger.info(f"Results will be saved to: {out_prefix}")
-    p.print_params()
+    logger.info("Results will be saved to: %s", identity.output_prefix)
+    logger.info("Resolved configuration: %s", config)
 
-    # 2. --- Probe and Data Initialization ---
-    logger.info("\n[1/6] Initializing probe...")
-    probe_module.set_default_probe()
+    dataset, ground_truth = _load_baseline_dataset(config)
+    intensity_scale = _scalar_intensity_scale(dataset.train_data.norm_Y_I)
+    logger.info("Resolved intensity_scale from training data: %s", intensity_scale)
 
-    logger.info(f"\n[2/6] Loading data...")
-    # MODIFIED: Logic now depends on whether data file paths are provided, not on 'data_source'.
-    if config.train_data_file and config.test_data_file:
-        logger.info(f"Loading from .npz files: {config.train_data_file}")
-        # Load from .npz files using the project's established "generic" loader
-        train_data_raw = load_data(str(config.train_data_file), n_images=config.n_images)
-        test_data_raw = load_data(str(config.test_data_file))
-
-        train_container = create_ptycho_data_container(train_data_raw, config)
-        test_container = create_ptycho_data_container(test_data_raw, config)
-        
-        ptycho_dataset = PtychoDataset(train_container, test_container)
-        YY_ground_truth = test_data_raw.objectGuess[None, ..., None] if test_data_raw.objectGuess is not None else None
-
-        # --- FIX: Set the calculated intensity_scale globally ---
-        # The model.py module requires this to be set before it can be imported.
-        p.set('intensity_scale', ptycho_dataset.train_data.norm_Y_I)
-        logger.info(f"Globally set intensity_scale to: {p.get('intensity_scale')}")
-    else:
-        logger.info(f"Generating simulated data...")
-        # Fallback to generating data on the fly using the simulation pipeline
-        from ptycho import generate_data
-        ptycho_dataset = generate_data.ptycho_dataset
-        YY_ground_truth = generate_data.YY_ground_truth
-
-        # --- FIX: Set the calculated intensity_scale globally ---
-        # The model.py module requires this to be set before it can be imported.
-        p.set('intensity_scale', ptycho_dataset.train_data.norm_Y_I)
-        logger.info(f"Globally set intensity_scale to: {p.get('intensity_scale')}")
-
-    # 3. --- Shape Data for Baseline Model ---
-    logger.info("\n[3/6] Shaping data for the baseline model...")
-    if config.model.gridsize == 1:
-        n_channels = 1
-    elif config.model.gridsize == 2:
-        n_channels = 4
-    else:
-        raise ValueError(f"This baseline script only supports gridsize 1 or 2, but got {config.model.gridsize}.")
-
-    def _prepare_baseline_data_inputs(ptycho_dataset, config):
-        """Prepare data inputs for baseline model training.
-        
-        For gridsize > 1, this function flattens multi-channel data into 
-        independent single-channel samples for the baseline model.
-        
-        Args:
-            ptycho_dataset: PtychoDataContainer with train and test data
-            config: TrainingConfig with model parameters
-            
-        Returns:
-            Tuple of (X_train, Y_I_train, Y_phi_train, X_test, global_offsets_reshaped)
-        """
-        from ptycho.tf_helper import _channel_to_flat
-        
-        gridsize = config.model.gridsize
-        n_channels = gridsize ** 2
-        
-        # Get the raw data
-        X_train = ptycho_dataset.train_data.X[..., :n_channels]
-        Y_I_train = ptycho_dataset.train_data.Y_I[..., :n_channels] 
-        Y_phi_train = ptycho_dataset.train_data.Y_phi[..., :n_channels]
-        X_test = ptycho_dataset.test_data.X[..., :n_channels]
-        global_offsets = ptycho_dataset.test_data.global_offsets
-        
-        # For gridsize > 1, flatten channels to batch dimension
-        if n_channels > 1:
-            # Only log if logger is available (might not be during testing)
-            try:
-                logger.info(f"Flattening {n_channels} channels to independent samples for baseline model")
-            except NameError:
-                pass
-            X_train = _channel_to_flat(X_train)
-            Y_I_train = _channel_to_flat(Y_I_train)
-            Y_phi_train = _channel_to_flat(Y_phi_train)
-            X_test = _channel_to_flat(X_test)
-            # Also reshape global_offsets to match flattened patches
-            # global_offsets shape: (batch, 1, 2, channels) -> (batch*channels, 1, 2, 1)
-            if global_offsets is not None:
-                original_shape = tf.shape(global_offsets)
-                logger.info(f"DEBUG: global_offsets original shape: {original_shape}")
-                
-                batch_size = original_shape[0]
-                actual_channels = original_shape[-1] if len(original_shape) > 3 else 1
-                
-                # For random sampling with gridsize>1, we need to replicate offsets
-                # since each group represents multiple patches at the same location
-                if actual_channels == 1 and n_channels > 1:
-                    # Replicate the offsets for each channel
-                    global_offsets_expanded = tf.tile(global_offsets, [1, 1, 1, n_channels])
-                    global_offsets_reshaped = tf.reshape(global_offsets_expanded, 
-                                                         [batch_size * n_channels, 1, 2, 1])
-                else:
-                    global_offsets_reshaped = tf.reshape(global_offsets, 
-                                                         [batch_size * n_channels, 1, 2, 1])
-            else:
-                global_offsets_reshaped = None
-        else:
-            global_offsets_reshaped = global_offsets
-        
-        return X_train, Y_I_train, Y_phi_train, X_test, global_offsets_reshaped
-
-    # Use the new function
-    X_train_in, Y_I_train_in, Y_phi_train_in, X_test_in, global_offsets_reshaped = _prepare_baseline_data_inputs(ptycho_dataset, config)
-    logger.info(f"Final training input shape: {X_train_in.shape}")
-
-    # 4. --- Model Training ---
-    logger.info(f"\n[4/6] Training the baseline model for {config.nepochs} epochs with batch size {config.batch_size}...")
-    logger.info(f"Training with {X_train_in.shape[0]} images")
-    model, history = bl.train(X_train_in, Y_I_train_in, Y_phi_train_in)
-
-    model_path = os.path.join(out_prefix, 'baseline_model.h5')
+    prepared = _prepare_baseline_data_inputs(dataset, config)
+    X_train, Y_I_train, Y_phi_train, X_test, reassembly_offsets = prepared
+    logger.info("Final training input shape: %s", X_train.shape)
+    logger.info(
+        "Training the baseline for %s epochs with batch size %s",
+        config.nepochs,
+        config.batch_size,
+    )
+    model, history, pred_I_patches, pred_phi_patches = (
+        _train_baseline_and_predict(
+            X_train,
+            Y_I_train,
+            Y_phi_train,
+            X_test,
+            config=config,
+            intensity_scale=intensity_scale,
+        )
+    )
+    model_path = Path(identity.output_prefix) / "baseline_model.h5"
     model.save(model_path)
-    logger.info(f"Trained model saved to {model_path}")
-
-    # 5. --- Inference and Evaluation ---
-    logger.info("\n[5/6] Performing inference and stitching...")
-    pred_I_patches, pred_phi_patches = model.predict(X_test_in)
-    reconstructed_patches_complex = tf.cast(pred_I_patches, tf.complex64) * tf.exp(1j * tf.cast(pred_phi_patches, tf.complex64))
+    logger.info("Trained model saved to %s", model_path)
 
     try:
-        # Use coordinate-based reassembly for non-grid data.
-        # Use the reshaped global offsets that match the flattened patches
-        
-        # Reassemble the image using the physical scan positions.
-        # The 'M' parameter defines the size of the central region of each patch to use.
-        stitched_obj = reassemble_position(reconstructed_patches_complex, global_offsets_reshaped, M=20)
-        
-        # The evaluation function expects a 4D tensor (batch, H, W, channels).
-        # Add the necessary dimensions to the stitched object.
-        stitched_obj = stitched_obj[None, ..., None]
-        
-        logger.info(f"Stitched object shape: {stitched_obj.shape}")
-        
-    except Exception as e:
+        stitched_obj = _reassemble_predictions(
+            pred_I_patches,
+            pred_phi_patches,
+            reassembly_offsets,
+            config=config,
+            intensity_scale=intensity_scale,
+        )
+        logger.info("Stitched object shape: %s", stitched_obj.shape)
+    except Exception as exc:
         stitched_obj = None
-        logger.error(f"Object stitching failed: {e}", exc_info=True)
+        logger.error("Object stitching failed: %s", exc, exc_info=True)
 
-    # 6. --- Save Results and Metrics ---
-    logger.info("\n[6/6] Evaluating reconstruction and saving results...")
-    if stitched_obj is not None and YY_ground_truth is not None:
-        # Local import to avoid premature execution
-        from ptycho.evaluation import eval_reconstruction, save_metrics
-        from ptycho.export import save_recons
-
-        # Squeeze dimensions to 2D for processing
+    metrics: dict[str, Any] | None = None
+    if stitched_obj is not None and ground_truth is not None:
         recon_complex = np.squeeze(stitched_obj)
-        gt_complex = np.squeeze(YY_ground_truth)
-
-        logger.info("Aligning ground truth to match reconstruction bounds...")
-        
-        # --- REFACTORED ALIGNMENT LOGIC ---
-        
-        # 1. Define the stitching parameter
-        M_STITCH_SIZE = 20 
-        
-        # 2. Extract scan coordinates in (y, x) format
-        global_offsets = ptycho_dataset.test_data.global_offsets
-        scan_coords_xy = np.squeeze(global_offsets)
-        scan_coords_yx = scan_coords_xy[:, [1, 0]] # Convert to (y, x)
-
-        # 3. Call the centralized alignment function
-        recon_obj_cropped, gt_obj_cropped = align_for_evaluation(
+        gt_complex = np.squeeze(ground_truth)
+        scan_coords_xy = np.squeeze(dataset.test_data.global_offsets)
+        scan_coords_yx = scan_coords_xy[:, [1, 0]]
+        recon_cropped, gt_cropped = align_for_evaluation(
             reconstruction_image=recon_complex,
             ground_truth_image=gt_complex,
             scan_coords_yx=scan_coords_yx,
-            stitch_patch_size=M_STITCH_SIZE
+            stitch_patch_size=BASELINE_STITCH_SIZE,
         )
-        
-        # Add back dimensions required by the evaluation function
-        # eval_reconstruction expects: stitched_obj=(batch, H, W, channels), ground_truth_obj=(H, W, channels)
-        recon_obj_final = recon_obj_cropped[None, ..., None]  # (1, H, W, 1)
-        gt_obj_final = gt_obj_cropped[..., None]             # (H, W, 1) - no batch dimension!
-
-        logger.info(f"Final evaluation shapes: Reconstruction={recon_obj_final.shape}, Ground Truth={gt_obj_final.shape}")
-
-        # Now, evaluate with arrays guaranteed to be the same size
-        metrics = eval_reconstruction(recon_obj_final, gt_obj_final)
-        
+        recon_final = recon_cropped[None, ..., None]
+        gt_final = gt_cropped[..., None]
+        metrics = evaluation.eval_reconstruction_explicit(
+            recon_final,
+            gt_final,
+            trim_offset=BASELINE_EVALUATION_TRIM_OFFSET,
+        )
         logger.info("Evaluation Metrics (Amplitude, Phase):")
-        logger.info(f"  MAE:  {metrics['mae']}")
-        logger.info(f"  PSNR: {metrics['psnr']}")
-        
-        save_metrics(recon_obj_final, gt_obj_final, label=p.get('label'))
-        save_recons(model_type='supervised', stitched_obj=recon_obj_final, ground_truth_obj=gt_obj_final)
-        logger.info("Metrics and reconstruction images saved.")
+        logger.info("  MAE:  %s", metrics["mae"])
+        logger.info("  PSNR: %s", metrics["psnr"])
+        evaluation.save_metrics_explicit(
+            recon_final,
+            gt_final,
+            label=identity.label,
+            trim_offset=BASELINE_EVALUATION_TRIM_OFFSET,
+            output_dir=identity.output_prefix,
+            config_snapshot=_evaluation_snapshot(
+                config,
+                identity=identity,
+                intensity_scale=intensity_scale,
+            ),
+        )
+        _save_reconstructions_legacy(
+            output_prefix=identity.output_prefix,
+            stitched_obj=recon_final,
+            ground_truth_obj=gt_final,
+        )
+    elif stitched_obj is not None:
+        recon_final = np.squeeze(stitched_obj)[None, ..., None]
+        _save_reconstructions_legacy(
+            output_prefix=identity.output_prefix,
+            stitched_obj=recon_final,
+            ground_truth_obj=None,
+        )
     else:
-        logger.warning("Skipping evaluation: stitched object or ground truth was not available.")
-        # Still save reconstruction images even without ground truth
-        if stitched_obj is not None:
-            # Add back dimensions required by save_recons function  
-            recon_obj_final = np.squeeze(stitched_obj)[None, ..., None]  # (1, H, W, 1)
-            save_recons(model_type='supervised', stitched_obj=recon_obj_final, ground_truth_obj=None)
-            logger.info("Reconstruction images saved (no ground truth available).")
+        logger.warning(
+            "Skipping evaluation: stitched object or ground truth was not available."
+        )
 
-    logger.info("\n--- Baseline script finished successfully. ---")
+    logger.info("--- Baseline script finished successfully. ---")
+    return {
+        "history": history,
+        "metrics": metrics,
+        "model_path": str(model_path),
+        "output_prefix": identity.output_prefix,
+        "stitched_obj": stitched_obj,
+    }
 
-if __name__ == '__main__':
+
+def main():
+    """Resolve CLI configuration and execute the supervised baseline."""
+    args = parse_arguments()
+    config = setup_configuration(args, args.config)
+    config = replace(
+        config,
+        model=replace(config.model, model_type="supervised"),
+    )
+    return run_baseline(config)
+
+
+if __name__ == "__main__":
     main()

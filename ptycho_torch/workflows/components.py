@@ -65,7 +65,6 @@ from ptycho import params
 from ptycho.acquisition import AcquisitionRecord
 from ptycho.config.config import TrainingConfig, InferenceConfig, PyTorchExecutionConfig
 from ptycho.config.legacy_state import (
-    scoped_legacy_params,
     transactional_legacy_params,
 )
 from ptycho.metadata import MetadataManager
@@ -2310,7 +2309,6 @@ def _reassemble_position_with_legacy_geometry(
             )
 
 
-@scoped_legacy_params
 def train_cdi_model_torch(
     train_data: Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch', 'PtychoDataset'],
     test_data: Optional[Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch']],

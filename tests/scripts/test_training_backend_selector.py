@@ -349,11 +349,6 @@ class TestTrainingCliBackendDispatch:
         )
         monkeypatch.setattr(
             training_script,
-            "update_legacy_dict",
-            lambda *_args: None,
-        )
-        monkeypatch.setattr(
-            training_script,
             "load_data",
             lambda *_args, **_kwargs: object(),
         )
@@ -1023,14 +1018,17 @@ def test_training_entrypoint_shared_parser_preserves_yaml_precedence(
     assert params.cfg == {"sentinel": "unchanged"}
 
 
-def test_metadata_photons_are_revalidated_before_sampling_bridge_and_data(
+def test_unified_cli_defers_projection_to_backend_selector(
     tmp_path,
     monkeypatch,
 ):
     import argparse
 
+    from ptycho import params
     from ptycho.config import ModelConfig, TrainingConfig
+    from ptycho.config.config import update_legacy_dict as real_update_legacy_dict
     from ptycho.metadata import MetadataManager
+    from ptycho.workflows import backend_selector, components
     from scripts.training import train as training_script
 
     train_path = tmp_path / "train.npz"
@@ -1043,10 +1041,31 @@ def test_metadata_photons_are_revalidated_before_sampling_bridge_and_data(
     )
     args = argparse.Namespace(config=None, do_stitching=False)
     events = []
+    monkeypatch.setattr(params, "cfg", {"sentinel": "ambient"})
+    monkeypatch.setattr(params, "_sealed", False)
 
     def record_validation(name, candidate):
         events.append(name)
         assert candidate.nphotons == 25
+
+    def load_data_before_dispatch(*_args, **_kwargs):
+        events.append("load_data")
+        assert params.cfg == {"sentinel": "ambient"}
+        return object()
+
+    def selector_bridge(cfg, candidate):
+        events.append("selector_bridge")
+        assert params.cfg == {"sentinel": "ambient"}
+        real_update_legacy_dict(cfg, candidate)
+
+    def tensorflow_delegate(*_args, **_kwargs):
+        events.append("delegate")
+        assert params.cfg["nphotons"] == 25
+        return None, None, {"backend": "tensorflow"}
+
+    def tensorflow_save(*_args, **_kwargs):
+        events.append("persist")
+        assert params.cfg["nphotons"] == 25
 
     monkeypatch.setattr(training_script, "parse_arguments", lambda: args)
     monkeypatch.setattr(
@@ -1083,24 +1102,26 @@ def test_metadata_photons_are_revalidated_before_sampling_bridge_and_data(
         ),
     )
     monkeypatch.setattr(
-        training_script,
+        backend_selector,
         "update_legacy_dict",
-        lambda _cfg, candidate: record_validation("bridge", candidate),
+        selector_bridge,
     )
     monkeypatch.setattr(
         training_script,
         "load_data",
-        lambda *_args, **_kwargs: events.append("load_data") or object(),
+        load_data_before_dispatch,
+    )
+    monkeypatch.setattr(
+        components,
+        "run_cdi_example",
+        tensorflow_delegate,
     )
     monkeypatch.setattr(
         training_script,
         "run_cdi_example_with_backend",
-        lambda *_args, **_kwargs: (
-            events.append("delegate")
-            or (None, None, {"backend": "tensorflow"})
-        ),
+        backend_selector.run_cdi_example_with_backend,
     )
-    monkeypatch.setattr(training_script.model_manager, "save", lambda *_: None)
+    monkeypatch.setattr(training_script.model_manager, "save", tensorflow_save)
     monkeypatch.setattr(training_script, "save_outputs", lambda *_: None)
 
     training_script.main()
@@ -1110,10 +1131,12 @@ def test_metadata_photons_are_revalidated_before_sampling_bridge_and_data(
         "structure",
         "runnable",
         "sampling",
-        "bridge",
         "load_data",
+        "selector_bridge",
         "delegate",
+        "persist",
     ]
+    assert params.cfg == {"sentinel": "ambient"}
 
 
 def test_invalid_metadata_photons_fail_before_sampling_bridge_or_data(
@@ -1149,11 +1172,6 @@ def test_invalid_metadata_photons_fail_before_sampling_bridge_or_data(
         training_script,
         "interpret_sampling_parameters",
         lambda *_args: pytest.fail("invalid metadata reached sampling"),
-    )
-    monkeypatch.setattr(
-        training_script,
-        "update_legacy_dict",
-        lambda *_args: pytest.fail("invalid metadata reached bridge"),
     )
     monkeypatch.setattr(
         training_script,

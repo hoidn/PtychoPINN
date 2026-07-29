@@ -112,7 +112,7 @@ and more robust reconstruction algorithms.
 # ptycho/nongrid_simulation.py
 
 import numpy as np
-from ptycho.config.legacy_state import legacy_params_scope, scoped_legacy_params
+from ptycho.config.legacy_state import legacy_params_scope
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from typing import Union, Tuple, Dict
@@ -183,7 +183,6 @@ def _generate_simulated_data_legacy_params(config: TrainingConfig, objectGuess: 
     return raw_data
 
 
-@scoped_legacy_params
 def generate_simulated_data(config: TrainingConfig, objectGuess: np.ndarray, probeGuess: np.ndarray, buffer: float, return_patches: bool = True) -> Union[RawData, Tuple[RawData, np.ndarray]]:
     """
     CONFORMING: Generate simulated ptychography data using a configuration object.

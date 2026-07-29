@@ -149,7 +149,7 @@ def test_build_model_separates_training_values_from_runtime_request(
         pt_training_config=object(),
     )
 
-    def fake_create_training_payload(**kwargs):
+    def fake_resolve_training_payload(**kwargs):
         captured.update(kwargs)
         return payload
 
@@ -159,8 +159,8 @@ def test_build_model_separates_training_values_from_runtime_request(
             return object()
 
     monkeypatch.setattr(
-        "ptycho_torch.config_factory.create_training_payload",
-        fake_create_training_payload,
+        "ptycho_torch.config_factory.resolve_training_payload",
+        fake_resolve_training_payload,
     )
     monkeypatch.setattr(
         "ptycho_torch.generators.registry.resolve_generator",

@@ -14,6 +14,7 @@ from ptycho.workflows.grid_lines_workflow import (
     scale_probe,
     apply_probe_mask,
     run_pinn_inference,
+    run_pinn_inference_explicit,
     run_grid_lines_workflow,
     render_grid_lines_visuals,
     save_split_npz,
@@ -308,6 +309,51 @@ def test_run_pinn_inference_uses_first_prediction_output(monkeypatch):
     )
 
     assert output is expected
+
+
+def test_run_pinn_inference_explicit_matches_legacy_without_reading_params(
+    monkeypatch,
+):
+    intensity_scale = np.float32(3.25)
+    X_test = np.arange(32, dtype=np.float32).reshape(2, 4, 4, 1)
+    coords_nominal = np.arange(4, dtype=np.float32).reshape(2, 2)
+
+    class EchoModel:
+        def predict(self, inputs):
+            scaled_X, coords = inputs
+            return (
+                scaled_X.astype(np.complex64) + 1j,
+                coords,
+            )
+
+    monkeypatch.setattr(
+        grid_lines_workflow_module.p,
+        "get",
+        lambda key: intensity_scale if key == "intensity_scale" else None,
+    )
+    expected = run_pinn_inference(EchoModel(), X_test, coords_nominal)
+
+    class _PoisonParams(dict):
+        def __getitem__(self, key):
+            raise AssertionError(f"explicit inference read params.cfg[{key!r}]")
+
+    monkeypatch.setattr(grid_lines_workflow_module.p, "cfg", _PoisonParams())
+    monkeypatch.setattr(
+        grid_lines_workflow_module.p,
+        "get",
+        lambda key: (_ for _ in ()).throw(
+            AssertionError(f"explicit inference called params.get({key!r})")
+        ),
+    )
+
+    actual = run_pinn_inference_explicit(
+        EchoModel(),
+        X_test,
+        coords_nominal,
+        intensity_scale=intensity_scale,
+    )
+
+    np.testing.assert_array_equal(actual, expected)
 
 
 def test_run_pinn_inference_propagates_xla_failure(monkeypatch):
@@ -1706,6 +1752,17 @@ class TestColorbarSharing:
     def test_resolve_display_border_from_output_dir_token(self, tmp_path: Path):
         out_dir = tmp_path / "grid_lines_external_fly001_n128_top_train_full_test_e5"
         assert _resolve_display_border_pixels(out_dir) == 8
+
+    def test_resolve_display_border_does_not_use_ambient_params(self, tmp_path: Path):
+        from ptycho import params
+
+        original = dict(params.cfg)
+        try:
+            params.cfg["N"] = 512
+            assert _resolve_display_border_pixels(tmp_path / "visuals") == 0
+        finally:
+            params.cfg.clear()
+            params.cfg.update(original)
 
     def test_save_comparison_png_skips_missing(self, tmp_path: Path):
         """save_comparison_png_dynamic should skip missing labels."""

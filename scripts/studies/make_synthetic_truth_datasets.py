@@ -33,7 +33,8 @@ import numpy as np
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
-from ptycho import params as p
+from ptycho.config import resolve_training_config, update_legacy_dict
+from ptycho.config.legacy_state import legacy_params_scope
 from ptycho.raw_data import RawData, get_image_patches, get_relative_coords
 from ptycho_torch.datagen.objects import create_dead_leaves
 from ptycho_torch.scaling_contract import CI_SCALE_CONTRACT, COUNT_INTENSITY
@@ -150,19 +151,20 @@ def legacy_simulate_normalized_amplitude(
     N: int,
 ):
     """Reproduce the historical normalized-amplitude simulation path."""
-    orig = {k: p.get(k) for k in ("N", "gridsize", "nphotons", "batch_size")}
-    try:
-        p.set("N", N)
-        p.set("gridsize", 1)
-        p.set("nphotons", NPHOTONS)
-        if p.get("batch_size") is None:
-            p.set("batch_size", 64)
+    training = resolve_training_config(
+        None,
+        {
+            "N": N,
+            "gridsize": 1,
+            "nphotons": NPHOTONS,
+            "batch_size": 16,
+            "backend": "tensorflow",
+        },
+    )
+    with legacy_params_scope() as legacy_cfg:
+        update_legacy_dict(legacy_cfg, training)
         scan_index = np.zeros(len(xc), dtype=int)
-        rd = RawData.from_simulation(xc, yc, probe, obj, scan_index)
-    finally:
-        for k, v in orig.items():
-            p.set(k, v)
-    return rd
+        return RawData.from_simulation(xc, yc, probe, obj, scan_index)
 
 
 def legacy_rescale_normalized_amplitude_to_counts(

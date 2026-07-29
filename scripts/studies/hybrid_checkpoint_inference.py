@@ -11,7 +11,7 @@ from typing import Dict
 import numpy as np
 import torch
 
-from ptycho_torch.config_factory import create_training_payload
+from ptycho_torch.config_factory import resolve_training_payload
 from ptycho_torch.config_params import InferenceConfig as PTInferenceConfig
 from ptycho_torch.execution_request import ExecutionRequest
 from ptycho_torch.generators.registry import resolve_generator
@@ -46,7 +46,7 @@ def _build_model_for_config(cfg: TorchRunnerConfig):
         "object_big": False,
         "probe_big": False,
     }
-    payload = create_training_payload(
+    payload = resolve_training_payload(
         train_data_file=Path(cfg.train_npz),
         output_dir=Path(cfg.output_dir),
         overrides=overrides,

@@ -1457,13 +1457,18 @@ def _write_tf_row_provenance(
     }
 
 
-def run_pinn_inference(model, X_test, coords_nominal):
-    """Run PINN inference on test data.
+def run_pinn_inference_explicit(
+    model,
+    X_test,
+    coords_nominal,
+    *,
+    intensity_scale,
+):
+    """Run PINN inference using caller-owned input normalization.
 
     Returns the reconstructed complex object (first output of model.predict).
     Native inference failures propagate to the caller.
     """
-    intensity_scale = p.get("intensity_scale")
     prediction = model.predict([X_test * intensity_scale, coords_nominal])
     if prediction is None:
         raise ValueError("PINN inference returned no outputs")
@@ -1472,6 +1477,16 @@ def run_pinn_inference(model, X_test, coords_nominal):
             raise ValueError("PINN inference returned no outputs")
         return prediction[0]
     return prediction
+
+
+def run_pinn_inference(model, X_test, coords_nominal):
+    """Legacy params.cfg adapter for :func:`run_pinn_inference_explicit`."""
+    return run_pinn_inference_explicit(
+        model,
+        X_test,
+        coords_nominal,
+        intensity_scale=p.get("intensity_scale"),
+    )
 
 
 def run_baseline_inference(model, X_test):
@@ -1565,10 +1580,7 @@ def _resolve_display_border_pixels(output_dir: Path, override: Optional[int] = N
         return max(0, int(override))
     inferred_n = _infer_patch_size_from_output_dir(output_dir)
     if inferred_n is None:
-        try:
-            inferred_n = int(p.get("N"))
-        except Exception:
-            inferred_n = 0
+        return 0
     # Keep the auto-crop conservative; N//2 can over-tighten color limits.
     # Use a small fraction of N, capped to avoid aggressive clipping on large N.
     border = max(0, int(inferred_n) // 16)

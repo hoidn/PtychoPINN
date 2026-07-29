@@ -399,7 +399,7 @@ def test_cross_dataset_inference_rejects_unknown_backend(tmp_path):
         )
 
 
-def test_build_model_calls_update_legacy_before_generator_build(monkeypatch, tmp_path):
+def test_build_model_resolves_without_legacy_projection(monkeypatch, tmp_path):
     from scripts.studies.grid_lines_torch_runner import TorchRunnerConfig
     import scripts.studies.hybrid_checkpoint_inference as checkpoint_inference
     from ptycho_torch.execution_request import ExecutionRequest
@@ -416,7 +416,6 @@ def test_build_model_calls_update_legacy_before_generator_build(monkeypatch, tmp
     class FakeGenerator:
         def build_model(self, pt_configs):
             _ = pt_configs
-            assert "update_legacy_dict" in events
             events.append("build_model")
 
             class FakeModel:
@@ -433,16 +432,16 @@ def test_build_model_calls_update_legacy_before_generator_build(monkeypatch, tmp
         "scripts.studies.hybrid_checkpoint_inference.resolve_generator",
         lambda config: FakeGenerator(),
     )
-    real_create_training_payload = checkpoint_inference.create_training_payload
+    real_resolve_training_payload = checkpoint_inference.resolve_training_payload
 
-    def capture_create_training_payload(**kwargs):
+    def capture_resolve_training_payload(**kwargs):
         captured.update(kwargs)
-        return real_create_training_payload(**kwargs)
+        return real_resolve_training_payload(**kwargs)
 
     monkeypatch.setattr(
         checkpoint_inference,
-        "create_training_payload",
-        capture_create_training_payload,
+        "resolve_training_payload",
+        capture_resolve_training_payload,
     )
 
     cfg = TorchRunnerConfig(
@@ -457,7 +456,7 @@ def test_build_model_calls_update_legacy_before_generator_build(monkeypatch, tmp
     )
 
     _ = checkpoint_inference._build_model_for_config(cfg)
-    assert events[0] == "update_legacy_dict"
+    assert "update_legacy_dict" not in events
     assert "build_model" in events
     assert isinstance(captured["execution_config"], ExecutionRequest)
     assert "learning_rate" not in captured["execution_config"].values

@@ -9,6 +9,7 @@ import sys
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 
 from scripts.studies.cdi_natural_patch_benchmark import (
     NATURAL_PATCH_DATASET_ID,
@@ -135,7 +136,7 @@ def test_saved_torch_model_build_reads_training_owner_and_sends_runtime_request(
 
     captured = {}
 
-    def fake_create_training_payload(**kwargs):
+    def fake_resolve_training_payload(**kwargs):
         captured.update(kwargs)
         return SimpleNamespace(
             pt_model_config=object(),
@@ -150,8 +151,8 @@ def test_saved_torch_model_build_reads_training_owner_and_sends_runtime_request(
             return object()
 
     monkeypatch.setattr(
-        "ptycho_torch.config_factory.create_training_payload",
-        fake_create_training_payload,
+        "ptycho_torch.config_factory.resolve_training_payload",
+        fake_resolve_training_payload,
     )
     monkeypatch.setattr(
         "ptycho_torch.generators.registry.resolve_generator",
@@ -278,10 +279,14 @@ def test_prepare_natural_patch_inputs_repairs_stale_probe_lineage_on_reuse(tmp_p
 
 
 def test_patchwise_metrics_skips_curve_like_metric_pairs(monkeypatch):
+    from ptycho import params
+
     pred = np.ones((2, 8, 8), dtype=np.complex64)
     gt = np.ones((2, 8, 8), dtype=np.complex64)
+    observed_trim_offsets = []
 
     def fake_eval_reconstruction(*args, **kwargs):
+        observed_trim_offsets.append(kwargs["trim_offset"])
         return {
             "mae": (0.1, 0.2),
             "frc50": (5.0, 6.0),
@@ -289,8 +294,15 @@ def test_patchwise_metrics_skips_curve_like_metric_pairs(monkeypatch):
         }
 
     monkeypatch.setattr(
-        "scripts.studies.cdi_natural_patch_benchmark.evaluation.eval_reconstruction",
+        "scripts.studies.cdi_natural_patch_benchmark.evaluation.eval_reconstruction_explicit",
         fake_eval_reconstruction,
+    )
+    monkeypatch.setattr(
+        params,
+        "get",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("patchwise evaluation must not read params.cfg")
+        ),
     )
 
     metrics = _patchwise_metrics(pred, gt, label="baseline")
@@ -298,6 +310,143 @@ def test_patchwise_metrics_skips_curve_like_metric_pairs(monkeypatch):
     assert metrics["mae"] == (0.1, 0.2)
     assert metrics["frc50"] == (5.0, 6.0)
     assert "frc" not in metrics
+    assert observed_trim_offsets == [4, 4]
+
+
+def test_saved_tf_pinn_inference_restores_ambient_params_after_success(
+    monkeypatch,
+    tmp_path: Path,
+):
+    from ptycho import model_manager, params
+    from ptycho.config.legacy_state import legacy_params_scope
+    from ptycho.workflows import grid_lines_workflow as glw
+    from scripts.studies import cdi_natural_patch_benchmark as benchmark
+
+    projected_states = []
+
+    def fake_load_multiple_models(*_args, **_kwargs):
+        projected_states.append((dict(params.cfg), params._sealed))
+        return {"diffraction_to_obj": object()}
+
+    monkeypatch.setattr(benchmark, "_load_grouped_split", lambda _path: {})
+    monkeypatch.setattr(
+        benchmark,
+        "_build_tf_container",
+        lambda _grouped: SimpleNamespace(X="X", coords_nominal="coords"),
+    )
+    monkeypatch.setattr(
+        model_manager.ModelManager,
+        "load_multiple_models",
+        fake_load_multiple_models,
+    )
+    monkeypatch.setattr(
+        glw,
+        "run_pinn_inference",
+        lambda *_args, **_kwargs: np.ones((1, 8, 8, 1), dtype=np.complex64),
+    )
+
+    with legacy_params_scope():
+        params.cfg.clear()
+        params.cfg.update({"ambient": "sentinel"})
+        params.seal()
+
+        predictions = benchmark._run_saved_pinn_inference(
+            run_root=tmp_path,
+            test_npz=tmp_path / "test.npz",
+        )
+
+        assert predictions.shape == (1, 8, 8, 1)
+        assert projected_states
+        assert projected_states[0][0]["N"] == 128
+        assert projected_states[0][0]["gridsize"] == 1
+        assert projected_states[0][1] is True
+        assert params.cfg == {"ambient": "sentinel"}
+        assert params._sealed is True
+
+
+def test_saved_tf_pinn_inference_restores_ambient_params_after_failure(
+    monkeypatch,
+    tmp_path: Path,
+):
+    from ptycho import model_manager, params
+    from ptycho.config.legacy_state import legacy_params_scope
+    from scripts.studies import cdi_natural_patch_benchmark as benchmark
+
+    monkeypatch.setattr(benchmark, "_load_grouped_split", lambda _path: {})
+
+    def fail_load_multiple_models(*_args, **_kwargs):
+        assert params.cfg["N"] == 128
+        raise RuntimeError("load failed")
+
+    monkeypatch.setattr(
+        model_manager.ModelManager,
+        "load_multiple_models",
+        fail_load_multiple_models,
+    )
+
+    with legacy_params_scope():
+        params.cfg.clear()
+        params.cfg.update({"ambient": "sentinel"})
+        params.unseal()
+
+        with pytest.raises(RuntimeError, match="load failed"):
+            benchmark._run_saved_pinn_inference(
+                run_root=tmp_path,
+                test_npz=tmp_path / "test.npz",
+            )
+
+        assert params.cfg == {"ambient": "sentinel"}
+        assert params._sealed is False
+
+
+@pytest.mark.parametrize(
+    ("runner_name", "model_type"),
+    (
+        ("_run_tf_pinn_row", "pinn"),
+        ("_run_tf_baseline_row", "supervised"),
+    ),
+)
+def test_tf_training_rows_restore_ambient_params_when_legacy_leaf_fails(
+    runner_name: str,
+    model_type: str,
+    monkeypatch,
+    tmp_path: Path,
+):
+    from ptycho import params
+    from ptycho.config.legacy_state import legacy_params_scope
+    from ptycho.workflows import grid_lines_workflow as glw
+    from scripts.studies import cdi_natural_patch_benchmark as benchmark
+
+    monkeypatch.setattr(benchmark, "_load_grouped_split", lambda _path: {})
+
+    def fail_after_projection(_seed):
+        assert params.cfg["N"] == 128
+        assert params.cfg["gridsize"] == 1
+        assert params.cfg["model_type"] == model_type
+        raise RuntimeError("legacy leaf failed")
+
+    monkeypatch.setattr(glw, "_apply_execution_seed", fail_after_projection)
+    runner = getattr(benchmark, runner_name)
+
+    with legacy_params_scope():
+        params.cfg.clear()
+        params.cfg.update({"ambient": runner_name})
+        params.seal()
+
+        with pytest.raises(RuntimeError, match="legacy leaf failed"):
+            runner(
+                train_npz=tmp_path / "train.npz",
+                val_npz=tmp_path / "val.npz",
+                test_npz=tmp_path / "test.npz",
+                probe_npz=tmp_path / "probe.npz",
+                run_root=tmp_path,
+                seed=3,
+                fixed_sample_ids=(0,),
+                scales={},
+            )
+
+        assert params.cfg == {"ambient": runner_name}
+        assert params._sealed is True
 
 
 def test_save_fixed_sample_visuals_accepts_singleton_channel_first_patches(tmp_path: Path):

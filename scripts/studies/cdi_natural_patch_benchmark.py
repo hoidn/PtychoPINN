@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import hashlib
+from contextlib import contextmanager
 from dataclasses import fields
 from datetime import datetime, timezone
 from pathlib import Path
@@ -14,11 +15,9 @@ import zipfile
 import matplotlib.pyplot as plt
 import numpy as np
 
-from ptycho import params
 from ptycho.config.config import ModelConfig, TrainingConfig
 from ptycho.metadata import MetadataManager
 from ptycho import evaluation
-from ptycho.config.config import update_legacy_dict
 from scripts.studies.metrics_tables import write_paper_benchmark_bundle
 from scripts.studies.paper_provenance import (
     file_identity,
@@ -59,6 +58,32 @@ DEFAULT_FNO_WIDTH = 32
 DEFAULT_FNO_BLOCKS = 4
 DEFAULT_FNO_CNN_BLOCKS = 2
 DEFAULT_BATCH_SIZE = 16
+# This benchmark evaluates independent 128x128 object patches, so there is no
+# stitched scan geometry from which to derive a metric crop.  Preserve the
+# historical evaluator contract explicitly: the legacy path trimmed the
+# repository-default four-pixel ``offset`` border from each patch.
+NATURAL_PATCH_METRIC_TRIM_OFFSET = 4
+
+
+@contextmanager
+def _tensorflow_legacy_config_scope(config: TrainingConfig):
+    """Project one config only while an unconverted TensorFlow leaf executes.
+
+    Remove this adapter when the TensorFlow loader, model construction,
+    training, save/load, and PINN inference leaves all accept explicit
+    configuration and normalization inputs.
+    """
+    from ptycho import params
+    from ptycho.config.config import update_legacy_dict
+    from ptycho.config.legacy_state import (
+        configured_params_scope,
+        legacy_params_scope,
+    )
+
+    with legacy_params_scope():
+        with configured_params_scope():
+            update_legacy_dict(params.cfg, config)
+            yield
 
 
 def _json_default(value: object) -> object:
@@ -330,10 +355,11 @@ def _patchwise_metrics(
         raise ValueError(f"prediction/test batch mismatch for {label}: {pred.shape} vs {gt.shape}")
     per_metric: dict[str, list[tuple[float, float]]] = {}
     for index in range(pred.shape[0]):
-        metrics = evaluation.eval_reconstruction(
+        metrics = evaluation.eval_reconstruction_explicit(
             pred[index][..., np.newaxis],
             gt[index][..., np.newaxis],
             label=f"{label}_{index}",
+            trim_offset=NATURAL_PATCH_METRIC_TRIM_OFFSET,
         )
         for metric_name, pair in metrics.items():
             if not isinstance(pair, (list, tuple)) or len(pair) < 2:
@@ -529,7 +555,7 @@ def _torch_runner_config_from_saved_row(row_config_path: Path, *, test_npz: Path
 
 
 def _build_torch_model_from_saved_config(cfg: Any, *, n_groups: int = 1):
-    from ptycho_torch.config_factory import create_training_payload
+    from ptycho_torch.config_factory import resolve_training_payload
     from ptycho_torch.config_params import InferenceConfig as PTInferenceConfig
     from ptycho_torch.generators.registry import resolve_generator
     from scripts.studies import grid_lines_torch_runner as torch_runner
@@ -590,7 +616,7 @@ def _build_torch_model_from_saved_config(cfg: Any, *, n_groups: int = 1):
     if generator_output_mode is not None:
         factory_overrides["generator_output_mode"] = generator_output_mode
     factory_overrides.update(torch_runner._torch_structural_model_overrides(cfg))
-    payload = create_training_payload(
+    payload = resolve_training_payload(
         train_data_file=Path(config.train_data_file),
         output_dir=Path(config.output_dir),
         execution_config=execution_request,
@@ -633,9 +659,6 @@ def _run_saved_baseline_inference(*, run_root: Path, test_npz: Path) -> np.ndarr
 
 
 def _run_saved_pinn_inference(*, run_root: Path, test_npz: Path) -> np.ndarray:
-    from ptycho import model_manager
-    from ptycho.workflows import grid_lines_workflow as glw
-
     test_grouped = _load_grouped_split(test_npz)
     config = _build_tf_training_config(
         model_type="pinn",
@@ -643,20 +666,23 @@ def _run_saved_pinn_inference(*, run_root: Path, test_npz: Path) -> np.ndarray:
         val_npz=test_npz,
         run_root=run_root,
     )
-    update_legacy_dict(params.cfg, config)
-    models = model_manager.ModelManager.load_multiple_models(
-        str(run_root / "pinn" / "wts.h5"),
-        ["diffraction_to_obj"],
-    )
-    container = _build_tf_container(test_grouped)
-    predictions = glw.run_pinn_inference(
-        models["diffraction_to_obj"],
-        container.X,
-        container.coords_nominal,
-    )
-    if predictions is None:
-        raise RuntimeError("saved PINN inference returned None")
-    return predictions
+    with _tensorflow_legacy_config_scope(config):
+        from ptycho import model_manager
+        from ptycho.workflows import grid_lines_workflow as glw
+
+        models = model_manager.ModelManager.load_multiple_models(
+            str(run_root / "pinn" / "wts.h5"),
+            ["diffraction_to_obj"],
+        )
+        container = _build_tf_container(test_grouped)
+        predictions = glw.run_pinn_inference(
+            models["diffraction_to_obj"],
+            container.X,
+            container.coords_nominal,
+        )
+        if predictions is None:
+            raise RuntimeError("saved PINN inference returned None")
+        return predictions
 
 
 def export_saved_patchwise_predictions(
@@ -1361,10 +1387,6 @@ def _run_tf_pinn_row(
     fixed_sample_ids: Sequence[int],
     scales: Mapping[str, Any],
 ) -> dict[str, object]:
-    from ptycho import model_manager
-    from ptycho.workflows import components as wf_components
-    from ptycho.workflows import grid_lines_workflow as glw
-
     train_grouped = _load_grouped_split(train_npz)
     val_grouped = _load_grouped_split(val_npz)
     test_grouped = _load_grouped_split(test_npz)
@@ -1374,33 +1396,41 @@ def _run_tf_pinn_row(
         val_npz=val_npz,
         run_root=run_root,
     )
-    update_legacy_dict(params.cfg, config)
-    glw._apply_execution_seed(seed)
-    train_container = _build_tf_container(train_grouped)
-    val_container = _build_tf_container(val_grouped)
-    test_container = _build_tf_container(test_grouped)
+    with _tensorflow_legacy_config_scope(config):
+        from ptycho import model_manager
+        from ptycho.workflows import components as wf_components
+        from ptycho.workflows import grid_lines_workflow as glw
 
-    train_start = time.perf_counter()
-    results = wf_components.train_cdi_model(train_container, val_container, config)
-    train_wall_time_sec = time.perf_counter() - train_start
-    model = results.get("models", {}).get("diffraction_to_obj")
-    if model is None:
-        from ptycho import model as model_module
+        glw._apply_execution_seed(seed)
+        train_container = _build_tf_container(train_grouped)
+        val_container = _build_tf_container(val_grouped)
+        test_container = _build_tf_container(test_grouped)
 
-        model = getattr(model_module, "diffraction_to_obj", None)
-    if model is None:
-        raise RuntimeError("missing trained TF PINN model")
-    model_params = int(model.count_params()) if hasattr(model, "count_params") else 0
+        train_start = time.perf_counter()
+        results = wf_components.train_cdi_model(train_container, val_container, config)
+        train_wall_time_sec = time.perf_counter() - train_start
+        model = results.get("models", {}).get("diffraction_to_obj")
+        if model is None:
+            from ptycho import model as model_module
 
-    pinn_dir = run_root / "pinn"
-    pinn_dir.mkdir(parents=True, exist_ok=True)
-    model_manager.save(str(pinn_dir))
+            model = getattr(model_module, "diffraction_to_obj", None)
+        if model is None:
+            raise RuntimeError("missing trained TF PINN model")
+        model_params = int(model.count_params()) if hasattr(model, "count_params") else 0
 
-    inference_start = time.perf_counter()
-    predictions = glw.run_pinn_inference(model, test_container.X, test_container.coords_nominal)
-    inference_time_s = time.perf_counter() - inference_start
-    if predictions is None:
-        raise RuntimeError("PINN inference returned None")
+        pinn_dir = run_root / "pinn"
+        pinn_dir.mkdir(parents=True, exist_ok=True)
+        model_manager.save(str(pinn_dir))
+
+        inference_start = time.perf_counter()
+        predictions = glw.run_pinn_inference(
+            model,
+            test_container.X,
+            test_container.coords_nominal,
+        )
+        inference_time_s = time.perf_counter() - inference_start
+        if predictions is None:
+            raise RuntimeError("PINN inference returned None")
     pred_complex = np.asarray(predictions, dtype=np.complex64)[..., 0]
     gt = np.asarray(test_grouped["YY_ground_truth"], dtype=np.complex64)
     metrics = _patchwise_metrics(pred_complex, gt, label="pinn")
@@ -1483,10 +1513,6 @@ def _run_tf_baseline_row(
     fixed_sample_ids: Sequence[int],
     scales: Mapping[str, Any],
 ) -> dict[str, object]:
-    import tensorflow as tf
-    from ptycho import baselines
-    from ptycho.workflows import grid_lines_workflow as glw
-
     train_grouped = _load_grouped_split(train_npz)
     val_grouped = _load_grouped_split(val_npz)
     test_grouped = _load_grouped_split(test_npz)
@@ -1496,47 +1522,51 @@ def _run_tf_baseline_row(
         val_npz=val_npz,
         run_root=run_root,
     )
-    update_legacy_dict(params.cfg, config)
-    glw._apply_execution_seed(seed)
-    x_train, y_i_train, y_phi_train = glw.select_baseline_channels(
-        np.asarray(train_grouped["diffraction"], dtype=np.float32),
-        np.asarray(train_grouped["Y_I"], dtype=np.float32),
-        np.asarray(train_grouped["Y_phi"], dtype=np.float32),
-    )
-    x_val, y_i_val, y_phi_val = glw.select_baseline_channels(
-        np.asarray(val_grouped["diffraction"], dtype=np.float32),
-        np.asarray(val_grouped["Y_I"], dtype=np.float32),
-        np.asarray(val_grouped["Y_phi"], dtype=np.float32),
-    )
-    model = baselines.build_model(x_train, y_i_train, y_phi_train)
-    earlystop = tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=3)
-    reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
-        monitor="val_loss",
-        factor=DEFAULT_TORCH_PLATEAU_FACTOR,
-        patience=DEFAULT_TORCH_PLATEAU_PATIENCE,
-        min_lr=DEFAULT_TORCH_PLATEAU_MIN_LR,
-        verbose=1,
-    )
-    train_start = time.perf_counter()
-    history = model.fit(
-        x_train,
-        [y_i_train, y_phi_train],
-        shuffle=True,
-        batch_size=DEFAULT_BATCH_SIZE,
-        verbose=1,
-        epochs=DEFAULT_EPOCHS,
-        validation_data=(x_val, [y_i_val, y_phi_val]),
-        callbacks=[reduce_lr, earlystop],
-    )
-    train_wall_time_sec = time.perf_counter() - train_start
-    baseline_dir = run_root / "baseline"
-    baseline_dir.mkdir(parents=True, exist_ok=True)
-    model.save(baseline_dir / "baseline.keras")
+    with _tensorflow_legacy_config_scope(config):
+        import tensorflow as tf
+        from ptycho import baselines
+        from ptycho.workflows import grid_lines_workflow as glw
 
-    x_test = np.asarray(test_grouped["diffraction"], dtype=np.float32)
-    inference_start = time.perf_counter()
-    predictions = glw.run_baseline_inference(model, x_test)
-    inference_time_s = time.perf_counter() - inference_start
+        glw._apply_execution_seed(seed)
+        x_train, y_i_train, y_phi_train = glw.select_baseline_channels(
+            np.asarray(train_grouped["diffraction"], dtype=np.float32),
+            np.asarray(train_grouped["Y_I"], dtype=np.float32),
+            np.asarray(train_grouped["Y_phi"], dtype=np.float32),
+        )
+        x_val, y_i_val, y_phi_val = glw.select_baseline_channels(
+            np.asarray(val_grouped["diffraction"], dtype=np.float32),
+            np.asarray(val_grouped["Y_I"], dtype=np.float32),
+            np.asarray(val_grouped["Y_phi"], dtype=np.float32),
+        )
+        model = baselines.build_model(x_train, y_i_train, y_phi_train)
+        earlystop = tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=3)
+        reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
+            monitor="val_loss",
+            factor=DEFAULT_TORCH_PLATEAU_FACTOR,
+            patience=DEFAULT_TORCH_PLATEAU_PATIENCE,
+            min_lr=DEFAULT_TORCH_PLATEAU_MIN_LR,
+            verbose=1,
+        )
+        train_start = time.perf_counter()
+        history = model.fit(
+            x_train,
+            [y_i_train, y_phi_train],
+            shuffle=True,
+            batch_size=DEFAULT_BATCH_SIZE,
+            verbose=1,
+            epochs=DEFAULT_EPOCHS,
+            validation_data=(x_val, [y_i_val, y_phi_val]),
+            callbacks=[reduce_lr, earlystop],
+        )
+        train_wall_time_sec = time.perf_counter() - train_start
+        baseline_dir = run_root / "baseline"
+        baseline_dir.mkdir(parents=True, exist_ok=True)
+        model.save(baseline_dir / "baseline.keras")
+
+        x_test = np.asarray(test_grouped["diffraction"], dtype=np.float32)
+        inference_start = time.perf_counter()
+        predictions = glw.run_baseline_inference(model, x_test)
+        inference_time_s = time.perf_counter() - inference_start
     pred_complex = np.asarray(predictions, dtype=np.complex64)[..., 0]
     gt = np.asarray(test_grouped["YY_ground_truth"], dtype=np.complex64)
     metrics = _patchwise_metrics(pred_complex, gt, label="baseline")

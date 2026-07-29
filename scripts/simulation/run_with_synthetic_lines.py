@@ -39,7 +39,6 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from ptycho import params as p
 from ptycho.config import (
     ProbeSimulationConfig,
     ScanSimulationConfig,
@@ -50,6 +49,7 @@ from ptycho.config import (
     validate_simulation_config,
 )
 from ptycho.config.config import update_legacy_dict
+from ptycho.config.legacy_state import legacy_params_scope
 from ptycho.simulation.probe_transform import (
     parse_probe_transform_pipeline,
     serialize_probe_transform_pipeline,
@@ -133,27 +133,43 @@ def generate_and_save_synthetic_input(
     """
     print("--- Step 1: Generating Synthetic Input Data ---")
 
-    update_legacy_dict(p.cfg, simulation)
-    from ptycho.diffsim import sim_object_image
-    from ptycho.probe import get_default_probe
-
     if simulation.seed is not None:
         np.random.seed(simulation.seed)
-    if simulation.probe.source == "ideal":
-        print(f"Creating a default probe for target size {simulation.N}...")
-        source_probe = get_default_probe(N=simulation.N, fmt='np').astype(np.complex64)
-    else:
-        if simulation.probe.source_path is None:
-            raise ValueError("custom probe construction requires simulation.probe.source_path")
-        with np.load(simulation.probe.source_path, allow_pickle=False) as archive:
-            source_probe = np.asarray(archive["probeGuess"], dtype=np.complex64)
     full_object_size = simulation.object.image_size[0]
-    
-    print(f"Creating a synthetic 'lines' object of size {full_object_size}x{full_object_size}...")
-    p.set('data_source', 'lines')
-    p.set('size', full_object_size)
-    
-    synthetic_object = sim_object_image(size=full_object_size)
+
+    # ``diffsim.sim_object_image`` remains a TensorFlow-era params.cfg
+    # consumer. Project the resolved owner only around that legacy leaf.
+    with legacy_params_scope() as legacy_cfg:
+        update_legacy_dict(legacy_cfg, simulation)
+        from ptycho.diffsim import sim_object_image
+        from ptycho.probe import get_default_probe
+
+        if simulation.probe.source == "ideal":
+            print(f"Creating a default probe for target size {simulation.N}...")
+            source_probe = get_default_probe(
+                N=simulation.N,
+                fmt="np",
+            ).astype(np.complex64)
+        else:
+            if simulation.probe.source_path is None:
+                raise ValueError(
+                    "custom probe construction requires "
+                    "simulation.probe.source_path"
+                )
+            with np.load(
+                simulation.probe.source_path,
+                allow_pickle=False,
+            ) as archive:
+                source_probe = np.asarray(
+                    archive["probeGuess"],
+                    dtype=np.complex64,
+                )
+
+        print(
+            "Creating a synthetic 'lines' object of size "
+            f"{full_object_size}x{full_object_size}..."
+        )
+        synthetic_object = sim_object_image(size=full_object_size)
     synthetic_object = synthetic_object.squeeze().astype(np.complex64)
     
     print(f"Generated source probe: {source_probe.shape}, object: {synthetic_object.shape}")

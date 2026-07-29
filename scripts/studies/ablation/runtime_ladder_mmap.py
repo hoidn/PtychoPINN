@@ -101,11 +101,12 @@ def build_mmap_dataset_payload(
 ) -> Any:
     """Resolve the torch config payload for the generic loader.
 
-    Uses the canonical ``config_factory.create_training_payload`` — the same
+    Uses the canonical global-free ``config_factory.resolve_training_payload`` —
+    the same
     factory ``_train_with_lightning`` uses internally — so the dataset is
     constructed under configs identical to the ones training will re-derive.
     """
-    from ptycho_torch.config_factory import create_training_payload
+    from ptycho_torch.config_factory import resolve_training_payload
     from ptycho_torch.execution_request import ExecutionRequest
 
     x_bounds, y_bounds = BOUNDS_FILTER_MODES[str(config["mmap_bounds_filter"])]
@@ -134,7 +135,7 @@ def build_mmap_dataset_payload(
     }
     payload_dir = Path(payload_dir)
     payload_dir.mkdir(parents=True, exist_ok=True)
-    return create_training_payload(
+    return resolve_training_payload(
         train_data_file=Path(train_npz),
         output_dir=payload_dir,
         execution_config=ExecutionRequest(

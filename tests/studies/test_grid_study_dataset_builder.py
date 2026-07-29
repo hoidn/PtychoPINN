@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 
@@ -151,3 +152,147 @@ def test_build_external_raw_with_none_n_groups_uses_full_split_sizes(tmp_path):
         assert train_data["diffraction"].shape[0] == 80
     with np.load(test_npz, allow_pickle=True) as test_data:
         assert test_data["diffraction"].shape[0] == 120
+
+
+def test_external_grouping_uses_explicit_adapters_without_mutating_ambient_params(
+    monkeypatch,
+    tmp_path,
+):
+    from ptycho import params
+    from ptycho.acquisition import AcquisitionRecord
+    from ptycho_torch.raw_data_bridge import RawDataTorch
+    from scripts.studies import grid_study_dataset_builder as builder
+
+    ambient = {
+        "N": "poison-N",
+        "gridsize": "poison-gridsize",
+        "use_xla_translate": "poison-xla",
+        "unrelated": "preserve-me",
+    }
+    monkeypatch.setattr(params, "cfg", ambient)
+    ambient_before = dict(ambient)
+
+    object_guess = (
+        np.arange(128 * 128, dtype=np.float32).reshape(128, 128)
+        + 1j * np.ones((128, 128), dtype=np.float32)
+    ).astype(np.complex64)
+    probe_guess = np.full((64, 64), 2.0 + 3.0j, dtype=np.complex64)
+
+    def raw_split(split_value):
+        coords = np.arange(4, dtype=np.float32)
+
+        def reject_legacy_grouping(**_kwargs):
+            raise AssertionError("builder called legacy RawData.generate_grouped_data")
+
+        return SimpleNamespace(
+            xcoords=coords,
+            ycoords=coords + 10,
+            xcoords_start=coords + 20,
+            ycoords_start=coords + 30,
+            diff3d=np.full((4, 64, 64), split_value, dtype=np.float32),
+            probeGuess=probe_guess,
+            scan_index=np.arange(4, dtype=np.int32),
+            objectGuess=object_guess,
+            Y=None,
+            norm_Y_I=None,
+            metadata={"split": split_value},
+            sample_indices=np.arange(4, dtype=np.int32),
+            subsample_seed=7,
+            generate_grouped_data=reject_legacy_grouping,
+        )
+
+    raw_splits = iter((raw_split(1.0), raw_split(2.0)))
+    monkeypatch.setattr(
+        builder.wf_components,
+        "load_data",
+        lambda *_args, **_kwargs: next(raw_splits),
+    )
+
+    grouped_by_split = {}
+    adapter_calls = []
+
+    def grouped_payload(split_value):
+        values = np.full((2, 2, 2, 1), split_value, dtype=np.float32)
+        phase = np.float32(split_value / 10.0)
+        grouped = {
+            "X_full": values,
+            "Y": np.exp(1j * phase).astype(np.complex64) * values,
+            "coords_relative": np.full(
+                (2, 1, 2, 1), split_value + 4.0, dtype=np.float32
+            ),
+            "coords_offsets": np.full(
+                (2, 1, 2, 1), split_value + 8.0, dtype=np.float32
+            ),
+        }
+        grouped_by_split[split_value] = grouped
+        return grouped
+
+    class FakeAdapter:
+        def __init__(self, record, config):
+            self.record = record
+            self.config = config
+
+        def generate_grouped_data(self, **kwargs):
+            split_value = float(self.record.diff3d[0, 0, 0])
+            assert kwargs == {
+                "N": 64,
+                "K": 3,
+                "nsamples": 2,
+                "dataset_path": str(
+                    tmp_path
+                    / (
+                        "fly_train_raw.npz"
+                        if split_value == 1.0
+                        else "fly_test_raw.npz"
+                    )
+                ),
+                "seed": 7,
+                "gridsize": 1,
+            }
+            return grouped_payload(split_value)
+
+    def fake_from_acquisition(cls, record, config=None):
+        assert isinstance(record, AcquisitionRecord)
+        adapter_calls.append((record, config))
+        return FakeAdapter(record, config)
+
+    monkeypatch.setattr(
+        RawDataTorch,
+        "from_acquisition",
+        classmethod(fake_from_acquisition),
+    )
+
+    train_raw_path = tmp_path / "fly_train_raw.npz"
+    test_raw_path = tmp_path / "fly_test_raw.npz"
+    result = builder.build_datasets(
+        dataset_source="external_raw_npz",
+        cfg=_grid_cfg(tmp_path),
+        required_ns=[64],
+        train_data=train_raw_path,
+        test_data=test_raw_path,
+        n_groups=2,
+        n_subsample=None,
+        neighbor_count=3,
+        subsample_seed=7,
+    )
+
+    assert params.cfg is ambient
+    assert params.cfg == ambient_before
+    assert len(adapter_calls) == 2
+    assert adapter_calls[0][1].model.N == 64
+    assert adapter_calls[0][1].model.gridsize == 1
+    assert adapter_calls[1][1].model.N == 64
+    assert adapter_calls[1][1].model.gridsize == 1
+
+    for split_value, key in ((1.0, "train_npz"), (2.0, "test_npz")):
+        expected = grouped_by_split[split_value]
+        with np.load(result[64][key], allow_pickle=True) as saved:
+            np.testing.assert_array_equal(saved["diffraction"], expected["X_full"])
+            np.testing.assert_array_equal(saved["Y_I"], np.abs(expected["Y"]))
+            np.testing.assert_array_equal(saved["Y_phi"], np.angle(expected["Y"]))
+            np.testing.assert_array_equal(
+                saved["coords_relative"], expected["coords_relative"]
+            )
+            np.testing.assert_array_equal(
+                saved["coords_offsets"], expected["coords_offsets"]
+            )
