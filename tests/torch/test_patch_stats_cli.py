@@ -61,11 +61,7 @@ class TestPatchStatsCLI:
         mock_payload.tf_training_config = MagicMock()
         mock_factory.return_value = mock_payload
 
-        # Mock main() to avoid full training execution
-        mock_main = MagicMock()
-
-        with patch('ptycho_torch.config_factory.create_training_payload', mock_factory), \
-             patch('ptycho_torch.train.main', mock_main):
+        with patch('ptycho_torch.config_factory.create_training_payload', mock_factory):
 
             # CLI invocation with patch stats flags
             test_args = minimal_train_args + [
@@ -113,10 +109,7 @@ class TestPatchStatsCLI:
         mock_payload.pt_model_config = MagicMock()
         mock_payload.tf_training_config = MagicMock()
         mock_factory.return_value = mock_payload
-        mock_main = MagicMock()
-
-        with patch('ptycho_torch.config_factory.create_training_payload', mock_factory), \
-             patch('ptycho_torch.train.main', mock_main):
+        with patch('ptycho_torch.config_factory.create_training_payload', mock_factory):
 
             # No patch stats flags
             test_args = minimal_train_args

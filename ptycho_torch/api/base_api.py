@@ -1,24 +1,19 @@
 from typing import Optional, Dict, Any, Tuple, Union, Protocol
+from collections.abc import Mapping
 from enum import Enum
-from dataclasses import dataclass, replace
-import json
-from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig, InferenceConfig, DatagenConfig, update_existing_config
+from dataclasses import replace
+from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig, InferenceConfig, DatagenConfig
 from ptycho_torch.scaling_contract import validate_scale_contract
-from ptycho_torch.utils import load_all_configs_from_mlflow, load_config_from_json, validate_and_process_config
 import os
 
 
 class ConfigManager:
     """
-    Manages config handling. Assumes configs are fully expoed to user
+    Holds resolved configuration records for the deprecated high-level API.
 
-    Can load configs from either:
-    1. Previous mlflow training run (which includes all necessary replication artifacts)
-    2. Config file containing all replacement configs
-
-    These are both built off the base config classes in ptycho_torch, which start of with default values
-    See ptycho_torch.config_params.py for details
-    
+    New configuration input is resolved by ``ptycho_torch.config_factory``.
+    This manager also supports fail-closed restoration through the versioned
+    Lightning checkpoint loader.
     """
 
     def __init__(
@@ -36,118 +31,13 @@ class ConfigManager:
             self.datagen_config = datagen_config or DatagenConfig()
 
     @classmethod
-    def _from_mlflow(
-          cls,
-          run_id: str,
-          mlflow_tracking_uri: Optional[str] = None
-    ) -> 'ConfigManager':
-        """
-        Loads configs via artifacts from mflow run (based on run-id)
-        """
-
-        try:
-            configs = load_all_configs_from_mlflow(run_id, mlflow_tracking_uri)
-            print(f"Successfully loaded configuration from run {run_id} from tracking uri {mlflow_tracking_uri}")
-        except Exception as e:
-            print("Failed to load configs from MlFlow. Defaulting to vanilla...")
-            configs = (None, None, None, None, None)
-
-        return cls(*configs)
-    
-    @classmethod
-    def _from_json(
-        cls,
-        json_path: str
-    ) -> 'ConfigManager':
-        """
-        Loads configs from JSON file
-        """
-        #Try loading from json, otherwise defaults to vanilla behavior
-        json_loaded = False
-        try:
-            config_data = load_config_from_json(json_path)
-            d_cfg, m_cfg, t_cfg, i_cfg, dgen_cfg = validate_and_process_config(config_data)
-            json_loaded = True
-        except Exception as e:
-            d_cfg, m_cfg, t_cfg, i_cfg, dgen_cfg = {}, {}, {}, {}, {} 
-
-        #Create configs and update with JSON values
-        data_config = DataConfig()
-        model_config = ModelConfig()
-        training_config = TrainingConfig()
-        datagen_config = DatagenConfig()
-        inference_config = InferenceConfig()
-
-        update_existing_config(data_config, d_cfg)       
-        update_existing_config(model_config, m_cfg)       
-        update_existing_config(training_config, t_cfg)
-        update_existing_config(datagen_config, dgen_cfg)        
-        update_existing_config(inference_config, i_cfg)
-
-        return cls(data_config, model_config, training_config, inference_config, datagen_config), json_loaded
-    
-    @classmethod
     def _from_lightning_json(
         cls,
         json_base_path: str
     ) -> 'ConfigManager':
-        
-        from ptycho_torch.api.api_helper import load_configs_from_local_dir
+        from ptycho_torch.lightning_utils import load_configs_from_checkpoint
 
-        try:
-            configs = load_configs_from_local_dir(json_base_path)
-        except Exception as e:
-            print("Failed to load default configs, using empty defaults instead.")
-            configs = (None, None, None, None, None)
-        
-        return cls(*configs)
-
-    @classmethod
-    def _flexible_load(
-         cls,
-         run_id: Optional[str],
-         json_path: str,
-         mlflow_tracking_uri: Optional[str] = None
-    ) -> 'ConfigManager':
-         """
-         Optionally load from mlflow config first before overriding with JSON in relevant fields
-         """
-
-         #Start with mlflow
-         mlflow_manager = cls._from_mlflow(run_id, mlflow_tracking_uri)
-
-         #Return setup with json
-         json_manager, json_loaded = cls._from_json(json_path)
-
-         #Apply overrides
-         if json_loaded:
-            update_existing_config(mlflow_manager.data_config, json_manager.data_config)
-            update_existing_config(mlflow_manager.model_config, json_manager.model_config)
-            update_existing_config(mlflow_manager.training_config, json_manager.training_config)
-            update_existing_config(mlflow_manager.inference_config, json_manager.inference_config)
-            update_existing_config(mlflow_manager.datagen_config, json_manager.datagen_config)
-
-         return mlflow_manager
-
-    def update(
-        self,
-        data_config: Optional[Dict[str, Any]] = None,
-        model_config: Optional[Dict[str, Any]] = None,
-        training_config: Optional[Dict[str, Any]] = None,
-        inference_config: Optional[Dict[str, Any]] = None,
-        datagen_config: Optional[Dict[str, Any]] = None,
-    ):
-        "Manually update config fields, exposing this to the user"
-        if data_config:
-            update_existing_config(self.data_config, data_config)
-        if model_config:
-            update_existing_config(self.model_config, model_config)
-        if training_config:
-            update_existing_config(self.training_config, training_config)
-        if inference_config:
-            update_existing_config(self.inference_config, inference_config)
-        if datagen_config:
-            update_existing_config(self.datagen_config, datagen_config)
+        return cls(*load_configs_from_checkpoint(json_base_path))
 
     def to_tuple(self) -> Tuple[DataConfig, ModelConfig, TrainingConfig, InferenceConfig, DatagenConfig]:
         """
@@ -161,30 +51,38 @@ class ConfigManager:
             self.datagen_config
         )
     @staticmethod
-    def _parse_config(config: Optional[Union[Any, Dict]], ConfigClass):
+    def _parse_config(config: Optional[Any], ConfigClass):
         """
-        Parses a single config to ensure that the format abides by 
+        Copy an exact resolved owner or construct its default.
+
+        Ownerless mappings are deliberately rejected: configuration mappings
+        must first pass through the supported return-new factory resolver.
         """
         if config is None:
             return ConfigClass()
-        elif isinstance(config, dict):
-            instance = ConfigClass()
-            update_existing_config(instance, config)
-            return instance
-        else:
-            return config
+        if type(config) is ConfigClass:
+            return replace(config)
+        if isinstance(config, Mapping):
+            raise TypeError(
+                f"Expected a resolved {ConfigClass.__name__} instance, not a "
+                "mapping; resolve inputs through ptycho_torch.config_factory "
+                "before calling the legacy API."
+            )
+        raise TypeError(
+            f"Expected None or an exact {ConfigClass.__name__} instance; got "
+            f"{type(config).__name__}."
+        )
     @classmethod
     def from_configs(
         cls,
-        model_config: Optional[Union[ModelConfig,Dict]] = None,
-        data_config: Optional[Union[ModelConfig,Dict]] = None,
-        training_config: Optional[Union[ModelConfig,Dict]] = None,
-        inference_config: Optional[Union[ModelConfig,Dict]] = None,
-        datagen_config: Optional[Union[ModelConfig,Dict]] = None
+        model_config: Optional[ModelConfig] = None,
+        data_config: Optional[DataConfig] = None,
+        training_config: Optional[TrainingConfig] = None,
+        inference_config: Optional[InferenceConfig] = None,
+        datagen_config: Optional[DatagenConfig] = None,
     ) -> 'ConfigManager':
         """
-        Creates a ConfigManager from individual config objects or dicts.
-        Provides flexibility for users who want to specify configs individually.
+        Create a manager from resolved configuration records.
         """
         return cls(
             data_config=cls._parse_config(data_config, DataConfig),
@@ -230,9 +128,9 @@ class PtychoDataLoader:
         self,
         data_dir: str,
         config_manager: Optional[ConfigManager] = None,
-        data_config: Optional[Union[DataConfig, Dict[str, Any]]] = None,
-        model_config: Optional[Union[ModelConfig, Dict[str, Any]]] = None,
-        training_config: Optional[Union[TrainingConfig, Dict[str, Any]]] = None,
+        data_config: Optional[DataConfig] = None,
+        model_config: Optional[ModelConfig] = None,
+        training_config: Optional[TrainingConfig] = None,
         data_format: Union[DataloaderFormats, str] = DataloaderFormats.LIGHTNING_MODULE,
         output_dir: Optional[str] = None,
         timestamp: Optional[str] = None,
@@ -397,10 +295,10 @@ class PtychoModel:
     """
     def __init__(
         self,
-        model_config: Optional[Union[ModelConfig,Dict]] = None,
-        data_config: Optional[Union[ModelConfig,Dict]] = None,
-        training_config: Optional[Union[ModelConfig,Dict]] = None,
-        inference_config: Optional[Union[ModelConfig,Dict]] = None
+        model_config: Optional[ModelConfig] = None,
+        data_config: Optional[DataConfig] = None,
+        training_config: Optional[TrainingConfig] = None,
+        inference_config: Optional[InferenceConfig] = None,
     ):
         """
         Initializes with just settings, will load model with methods later (since they're setting-dependent)
@@ -446,10 +344,10 @@ class PtychoModel:
     def _load(
         cls,
         config_manager: Optional[ConfigManager] = None,
-        model_config: Optional[Union[ModelConfig,Dict]] = None,
-        data_config: Optional[Union[ModelConfig,Dict]] = None,
-        training_config: Optional[Union[ModelConfig,Dict]] = None,
-        inference_config: Optional[Union[ModelConfig,Dict]] = None,
+        model_config: Optional[ModelConfig] = None,
+        data_config: Optional[DataConfig] = None,
+        training_config: Optional[TrainingConfig] = None,
+        inference_config: Optional[InferenceConfig] = None,
         strategy: Union[Orchestration, str] = Orchestration.MLFLOW,
         **kwargs
     ) -> 'PtychoModel':
@@ -504,10 +402,10 @@ class PtychoModel:
         cls,
         model=None,
         config_manager: Optional[ConfigManager] = None,
-        model_config: Optional[Union[ModelConfig, Dict]] = None,
-        data_config: Optional[Union[DataConfig, Dict]] = None,
-        training_config: Optional[Union[TrainingConfig, Dict]] = None,
-        inference_config: Optional[Union[InferenceConfig, Dict]] = None
+        model_config: Optional[ModelConfig] = None,
+        data_config: Optional[DataConfig] = None,
+        training_config: Optional[TrainingConfig] = None,
+        inference_config: Optional[InferenceConfig] = None,
     ) -> 'PtychoModel': 
         """
         Creates PtychoModel class with new specified model
@@ -878,7 +776,7 @@ class Trainer:
                  model: PtychoModel,
                  dataloader: PtychoDataLoader,
                  config_manager: Optional[ConfigManager],
-                 training_config: Optional[Union[TrainingConfig,Dict]],
+                 training_config: Optional[TrainingConfig],
                  strategy: TrainStrategy):
         """
         Args:
@@ -901,7 +799,7 @@ class Trainer:
                        dataloader: PtychoDataLoader, 
                        orchestration: Orchestration,
                        config_manager: Optional[ConfigManager] = None,
-                       training_config: Optional[Union[TrainingConfig, Dict]] = None) -> 'Trainer':
+                       training_config: Optional[TrainingConfig] = None) -> 'Trainer':
         
         if config_manager is not None:
             parsed_config = config_manager.training_config
@@ -923,7 +821,7 @@ class Trainer:
                      model: PtychoModel,
                      dataloader: PtychoDataLoader, 
                      config_manager: Optional[ConfigManager] = None,
-                     training_config: Optional[Union[TrainingConfig, Dict]] = None) -> 'Trainer':
+                     training_config: Optional[TrainingConfig] = None) -> 'Trainer':
         pass #TBD
     
     def _setup_lightning_trainer(self, orchestration, output_dir):
@@ -1101,7 +999,7 @@ class Datagen:
     def _from_npz(cls,
                  npz_path,
                  config_manager: Optional[ConfigManager] = None,
-                 datagen_config: Optional[Union[DatagenConfig, Dict]] = None) -> 'Datagen':
+                 datagen_config: Optional[DatagenConfig] = None) -> 'Datagen':
         """
         Abstracted class method to generate a new instance of datagen
         """
@@ -1180,10 +1078,10 @@ class InferenceEngine:
     def __init__(self,
                  ptycho_model: PtychoModel,
                  config_manager: Optional[ConfigManager] = None,
-                 model_config: Optional[Union[ModelConfig, Dict]] = None,
-                 data_config: Optional[Union[DataConfig, Dict]] = None,
-                 training_config: Optional[Union[TrainingConfig, Dict]] = None,
-                 inference_config: Optional[Union[InferenceConfig, Dict]] = None,
+                 model_config: Optional[ModelConfig] = None,
+                 data_config: Optional[DataConfig] = None,
+                 training_config: Optional[TrainingConfig] = None,
+                 inference_config: Optional[InferenceConfig] = None,
                  ):
         """
         Instantiates base class with just configurations. Other methods will set up the data
@@ -1250,25 +1148,6 @@ class InferenceEngine:
 
         return result_cpu
     
-#Usage examples
-
-#1.a Instantiate ConfigManager instance, either using json file, mlflow load or existing settings
-# config_manager = ConfigManager._flexible_load(run_id run_id) <- load from mlflow
-# config_manager = ConfigManager._flexible_load(json_path = '/path/to/config.json') <- load from json
-#1.b Update ConfigManager parameters using update function if using user interface to modify any values
-# config_manager.update(data_config = new_data_config_dict) <- Example of updating certain parameters in data_config for any keys in the dict
-
-#2.a Instantiate PtychoDataloader instance, using built in class methods depending on dataloader format.
-
-#3. Instantiate PtychoModel instance, using built in class methods depending on model format
-
-#4. Training only: Instantiate trainer based on orchestration
-        
-
-        
-        
-
-
 
 
 
@@ -1284,7 +1163,4 @@ class InferenceEngine:
     
     
         
-
-
-
 

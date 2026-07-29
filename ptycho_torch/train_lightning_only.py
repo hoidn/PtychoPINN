@@ -1,10 +1,7 @@
 #Most basic modules
 import sys
-import argparse
 import os
 import json
-import random
-import math
 from pathlib import Path
 
 #Typing
@@ -13,12 +10,7 @@ from typing import Any, Dict, Optional
 from ptycho.config.config import PyTorchExecutionConfig
 from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig, InferenceConfig, DatagenConfig
 
-#ML libraries
-import numpy as np
 import torch
-from torch import nn
-from torch.nn import functional as F
-from torch.utils.data import Subset
 import torch.distributed as dist
 
 #Automation modules
@@ -26,20 +18,16 @@ import torch.distributed as dist
 try:
     import lightning as L
     from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
-    from lightning.pytorch.strategies import DDPStrategy
 except ImportError as e:
     raise RuntimeError(
         "PyTorch backend requires Lightning. Install with: pip install -e .[torch]"
     ) from e
 
 #Configs/Params
-from ptycho_torch.config_params import update_existing_config
-
 #Custom modules
 from ptycho_torch.model import PtychoPINN_Lightning
 from ptycho_torch.scaling_contract import validate_scale_contract
-from ptycho_torch.utils import config_to_json_serializable_dict, load_config_from_json, validate_and_process_config
-from ptycho_torch.train_utils import set_seed, get_training_strategy, find_learning_rate, is_effectively_global_rank_zero, PtychoDataModule, PtychoDataModuleLightning
+from ptycho_torch.train_utils import set_seed, get_training_strategy, find_learning_rate, is_effectively_global_rank_zero, PtychoDataModuleLightning
 
 # NEW: Import our custom Lightning utilities
 from ptycho_torch.lightning_utils import (
@@ -49,14 +37,10 @@ from ptycho_torch.lightning_utils import (
     create_experiment_loggers,
     print_run_summary,
     find_best_checkpoint,
-    DDPSafeProgressCallback
 )
 
-from ptycho_torch.model_finetuner_modified import ModelFineTuner
 from ptycho_torch.training_history import build_training_history
 
-from lightning.pytorch.callbacks import RichProgressBar
-from lightning.pytorch.callbacks.progress.rich_progress import RichProgressBarTheme
 from lightning.pytorch.callbacks import Callback, LearningRateMonitor
 from lightning.pytorch.callbacks import TQDMProgressBar
 
@@ -427,7 +411,7 @@ def _infer_probe_size(npz_file):
             # probeGuess key not found - return None for fallback to default
             return None
 
-    except (zipfile.BadZipFile, FileNotFoundError, KeyError) as e:
+    except (zipfile.BadZipFile, FileNotFoundError, KeyError):
         # If NPZ is invalid or missing, return None
         # Caller can decide whether to use default or raise error
         return None
@@ -436,8 +420,7 @@ def _infer_probe_size(npz_file):
 #----- Main -------
 
 def main(ptycho_dir,
-         config_path = None,
-         existing_config = None,
+         existing_config,
          output_dir = None,
          execution_config = None,
          run_name = None,
@@ -457,8 +440,9 @@ def main(ptycho_dir,
     --------
     ptycho_dir: Directory of ptychography files. Assumed that all diffraction pattern dimensions are equal, and the formatting is identical
                 Read dataloader.py to get a sense of the formats expected
-    config_path: Path to JSON configuration file (optional, for legacy interface)
-    existing_config: Tuple of (DataConfig, ModelConfig, TrainingConfig, InferenceConfig, DatagenConfig) if configs already instantiated
+    existing_config: Already-resolved tuple of
+                     (DataConfig, ModelConfig, TrainingConfig, InferenceConfig,
+                     DatagenConfig)
     output_dir: Optional override for output directory. If provided, configures trainer's default_root_dir.
     execution_config: Optional PyTorchExecutionConfig for runtime knobs (Phase C4.C3 - ADR-003).
                      If None, uses the default execution config.
@@ -477,37 +461,34 @@ def main(ptycho_dir,
     run_dir: Path to run directory containing checkpoints, configs, and logs
     '''
     try:
-        #Define configs
         print('Starting training loop. Loading configs...')
-        #Legacy function, if train is called by itself instead of train_full
-        if not existing_config:
-            try:
-                config_data = load_config_from_json(config_path)
-                d_config_replace, m_config_replace, t_config_replace, i_config_replace, dgen_config_replace = validate_and_process_config(config_data)
-            except Exception as e:
-                print(f"Failed to open/validate config because of: {e}")
-            
-            data_config = DataConfig()
-            if d_config_replace is not None:
-                update_existing_config(data_config, d_config_replace)
-            
-            model_config = ModelConfig()
-            if m_config_replace is not None:
-                update_existing_config(model_config, m_config_replace)
-            
-            training_config = TrainingConfig()
-            if t_config_replace is not None:
-                update_existing_config(training_config, t_config_replace)    
-
-            inference_config = InferenceConfig()
-            
-            datagen_config = DatagenConfig()
-            if dgen_config_replace is not None:
-                update_existing_config(datagen_config, dgen_config_replace)
-        
-        #If train is called via train_full, these settings will already have been loaded
-        else:
-            data_config, model_config, training_config, inference_config, datagen_config = existing_config
+        expected_types = (
+            DataConfig,
+            ModelConfig,
+            TrainingConfig,
+            InferenceConfig,
+            DatagenConfig,
+        )
+        if (
+            not isinstance(existing_config, tuple)
+            or len(existing_config) != len(expected_types)
+            or any(
+                not isinstance(config, expected)
+                for config, expected in zip(existing_config, expected_types)
+            )
+        ):
+            raise TypeError(
+                "existing_config must be a five-member resolved config tuple "
+                "(DataConfig, ModelConfig, TrainingConfig, InferenceConfig, "
+                "DatagenConfig)"
+            )
+        (
+            data_config,
+            model_config,
+            training_config,
+            inference_config,
+            datagen_config,
+        ) = tuple(replace(config) for config in existing_config)
 
         from ptycho_torch.config_factory import resolve_profile_overrides
         explicit_profile = resolve_profile_overrides({
@@ -515,8 +496,11 @@ def main(ptycho_dir,
             "measurement_domain": measurement_domain,
         })
         if explicit_profile is not None:
-            data_config.scale_contract_version = explicit_profile[0]
-            data_config.measurement_domain = explicit_profile[1]
+            data_config = replace(
+                data_config,
+                scale_contract_version=explicit_profile[0],
+                measurement_domain=explicit_profile[1],
+            )
 
         training_config = _resolve_direct_training_config(
             training_config,
@@ -838,49 +822,3 @@ def main(ptycho_dir,
     except Exception as e:
         print(f"Training failed: {e}")
         raise
-    
-
-    #Define main function
-if __name__ == '__main__':
-    #Parsing
-    parser = argparse.ArgumentParser(description = "Run training for ptycho_torch")
-    #Arguments
-    parser.add_argument('--ptycho_dir', type = str, help = 'Path to ptycho directory')
-    parser.add_argument('--config', type = str, default=None, help = 'Path to JSON configuration file (mandatory)')
-    parser.add_argument('--output_dir', type = str, default=None, help = 'Path to output directory')
-    parser.add_argument(
-        '--scale-contract-version',
-        choices=['ci_intensity_v2', 'legacy_v1'],
-        default=None,
-    )
-    parser.add_argument(
-        '--measurement-domain',
-        choices=['count_intensity', 'normalized_amplitude'],
-        default=None,
-    )
-    
-    #Parse
-    args = parser.parse_args()
-
-    #Assign to vars
-    ptycho_dir = args.ptycho_dir
-    config_path = args.config
-    output_dir = args.output_dir
-
-    print(f"Ptycho directory: {ptycho_dir}")
-    print(f"Configuration file: {config_path}")
-    print(f"Current working directory: {os.getcwd()}")
-
-    try:
-        main(
-            ptycho_dir,
-            config_path,
-            False,
-            output_dir,
-            scale_contract_version=args.scale_contract_version,
-            measurement_domain=args.measurement_domain,
-        )
-
-    except Exception as e:
-        print(f"Training failed: {str(e)}")
-        sys.exit(1)

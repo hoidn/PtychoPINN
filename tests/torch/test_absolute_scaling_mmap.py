@@ -727,19 +727,12 @@ def test_ci_statistics_actual_lightning_checkpoint_round_trip(tmp_path):
         torch.testing.assert_close(restored.get_ci_statistics()[name], expected)
 
 
-def test_training_entry_points_construct_rank_safe_ci_statistics_callbacks():
-    import ptycho_torch.train as train
+def test_training_entry_point_constructs_rank_safe_ci_statistics_callback():
     import ptycho_torch.train_lightning_only as train_lightning_only
     from ptycho_torch.lightning_utils import CIStatisticsCallback
 
-    tracked = train._build_ci_statistics_callback(disable_mlflow=False)
-    untracked = train._build_ci_statistics_callback(disable_mlflow=True)
     lightning_only = train_lightning_only._build_ci_statistics_callback()
 
-    assert isinstance(tracked, CIStatisticsCallback)
-    assert tracked.metadata_sink is train._persist_finalized_ci_statistics_to_mlflow
-    assert isinstance(untracked, CIStatisticsCallback)
-    assert untracked.metadata_sink is None
     assert isinstance(lightning_only, CIStatisticsCallback)
     assert lightning_only.metadata_sink is None
 
@@ -780,60 +773,6 @@ def test_ci_statistics_callback_registers_every_rank_and_gates_side_effects(
     else:
         assert logger_payloads == []
         assert metadata_payloads == []
-
-
-def test_mlflow_callback_persists_finalized_statistics_after_data_setup(monkeypatch):
-    import ptycho_torch.train as train
-    from ptycho_torch.lightning_utils import CIStatisticsCallback
-
-    provisional = {
-        "rms_input_scale": torch.tensor([9.0]),
-        "mean_measured_intensity": torch.tensor([9000.0]),
-    }
-    finalized = {
-        "rms_input_scale": torch.tensor([0.25]),
-        "mean_measured_intensity": torch.tensor([2.0]),
-    }
-    persisted = []
-    logger_payloads = []
-
-    monkeypatch.setattr(train.mlflow, "active_run", lambda: object())
-    monkeypatch.setattr(
-        train.mlflow,
-        "log_dict",
-        lambda payload, path: persisted.append((payload, path)),
-    )
-
-    class Model:
-        def __init__(self):
-            self.statistics = provisional
-
-        def register_ci_statistics(self, statistics):
-            self.statistics = statistics
-
-    class Logger:
-        def log_hyperparams(self, payload):
-            logger_payloads.append(payload)
-
-    trainer = SimpleNamespace(
-        datamodule=SimpleNamespace(ci_statistics=finalized),
-        logger=Logger(),
-        is_global_zero=True,
-    )
-    model = Model()
-    callback = CIStatisticsCallback(
-        metadata_sink=train._persist_finalized_ci_statistics_to_mlflow
-    )
-
-    callback.on_fit_start(trainer, model)
-
-    expected = {
-        "rms_input_scale": [0.25],
-        "mean_measured_intensity": [2.0],
-    }
-    assert model.statistics is finalized
-    assert logger_payloads == [{"ci_statistics": expected}]
-    assert persisted == [(expected, "ci_statistics.json")]
 
 
 def test_ci_compute_loss_does_not_require_physics_scaling_constant():
