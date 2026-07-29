@@ -647,6 +647,29 @@ runtime control, or let the CLI build it with
 | `num_workers` | `0` | Controls DataLoader worker processes. |
 | `logger_backend` | `'csv'` | Selects CSV, TensorBoard, MLflow, or disabled logging (`None` after resolving CLI `'none'`). |
 
+#### Distributed Data Parallel (DDP)
+
+DDP is execution configuration, not model topology or optimization. The
+current native and unified CLIs do not expose `devices` or `strategy`;
+programmatic callers request them at the high-level Torch workflow boundary:
+
+```python
+from ptycho_torch.execution_request import ExecutionRequest
+
+ddp_request = ExecutionRequest(
+    values={"accelerator": "cuda", "devices": 2, "strategy": "ddp"},
+    explicit_fields=frozenset({"accelerator", "devices", "strategy"}),
+)
+```
+
+Pass this request as `execution_config`; do not construct
+`PyTorchExecutionConfig` as input. Before capability resolution, `devices`
+accepts a positive integer or `"auto"`; the resolved carrier always contains a
+positive integer. Lightning validates and applies `strategy`. Batch size and
+optimizer settings remain in `TrainingConfig`, and architecture remains in
+`ModelConfig`. See the [PyTorch Workflow](workflows/pytorch.md#43-programmatic)
+for the complete programmatic call.
+
 Learning rate, optimizer, scheduler, gradient clipping, and gradient
 accumulation are not execution fields. Configure them through Torch
 `TrainingConfig` or an explicitly supplied canonical factory training patch.
