@@ -7,7 +7,7 @@ implementation in ptycho/model_manager.py while supporting torch-optional execut
 
 Critical Design Requirements:
 - Archive format MUST match TensorFlow baseline (manifest.dill + per-model subdirs)
-- params.cfg snapshot MUST be captured via dataclass_to_legacy_dict (CONFIG-001)
+- Legacy projection snapshots MUST come from dataclass_to_legacy_dict (CONFIG-001)
 - Dual-model bundle support MUST be maintained (spec §4.6 requirement)
 - All functions MUST be torch-optional (importable when PyTorch unavailable)
 
@@ -76,7 +76,7 @@ def save_torch_bundle(
         ├── manifest.dill  # {'models': [...], 'version': '2.0-pytorch'}
         ├── autoencoder/
         │   ├── model.pth  # PyTorch state_dict
-        │   └── params.dill  # Full params.cfg snapshot (CONFIG-001)
+        │   └── params.dill  # Config-derived legacy projection (CONFIG-001)
         └── diffraction_to_obj/
             ├── model.pth
             └── params.dill
@@ -86,10 +86,10 @@ def save_torch_bundle(
                      MUST contain 'autoencoder' and 'diffraction_to_obj' keys
                      (dual-model bundle requirement per spec §4.6).
         base_path: Base path for output archive (will create {base_path}.zip).
-        config: TrainingConfig instance used to generate params.cfg snapshot via
+        config: TrainingConfig instance used to generate the legacy projection via
                 dataclass_to_legacy_dict (CONFIG-001 bridge from Phase B).
-        intensity_scale: Optional intensity normalization factor. If None, attempts
-                        to extract from params.cfg or model attributes.
+        intensity_scale: Optional learned intensity normalization factor. ``None``
+                        uses the versioned codec default of ``1.0``.
 
     Raises:
         ValueError: If models_dict is empty or missing required model names.
@@ -103,7 +103,6 @@ def save_torch_bundle(
         >>> # Creates output/wts.h5.zip with dual-model structure
     """
     from ptycho.config.config import dataclass_to_legacy_dict
-    from ptycho import params
 
     # Validate inputs
     if not models_dict:
@@ -117,19 +116,13 @@ def save_torch_bundle(
             f"expected {expected_keys}."
         )
 
-    # Generate params.cfg snapshot via config bridge (CONFIG-001)
+    # Build the legacy projection from the caller-owned resolved config only.
     params_snapshot = dataclass_to_legacy_dict(config)
 
-    # Add intensity_scale to snapshot
-    if intensity_scale is not None:
-        params_snapshot['intensity_scale'] = intensity_scale
-    elif 'intensity_scale' not in params_snapshot:
-        # Attempt to extract from params.cfg if available
-        if 'intensity_scale' in params.cfg:
-            params_snapshot['intensity_scale'] = params.cfg['intensity_scale']
-        else:
-            # Default fallback (documented in Phase D3.A open question Q2)
-            params_snapshot['intensity_scale'] = 1.0
+    # Learned state is supplied explicitly; absence has a codec-owned default.
+    params_snapshot['intensity_scale'] = (
+        1.0 if intensity_scale is None else intensity_scale
+    )
 
     # Add version tag for backend detection
     params_snapshot['_version'] = '2.0-pytorch'

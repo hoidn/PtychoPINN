@@ -34,15 +34,13 @@ Design Principles:
     - Override Transparency: Explicit override dict parameter for execution-specific knobs
     - Test-Driven: RED tests written before implementation (Phase B2.b)
 
-Override Precedence (highest to lowest):
-    1. Explicit overrides dict (user-provided via factory call)
-    2. Execution config fields (PyTorchExecutionConfig instance)
-    3. CLI argument defaults (from argparse)
-    4. PyTorch config defaults (DataConfig, ModelConfig, TrainingConfig)
-    5. TensorFlow config defaults (TrainingConfig, ModelConfig, InferenceConfig)
+Ownership:
+    - ``overrides`` contains canonical scientific, model, and training inputs.
+    - ``ExecutionRequest`` contains unresolved runtime inputs only.
+    - ``PyTorchExecutionConfig`` is the resolved runtime output carrier.
 """
 
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Any, Optional, Union
 import warnings
@@ -77,7 +75,6 @@ from ptycho_torch.model_spec import ModelSpec, derive_model_spec
 from ptycho_torch.execution_request import (
     ExecutionCapabilities,
     ExecutionRequest,
-    OPTIMIZER_EXECUTION_COMPAT_FIELDS,
     ResolutionNotice,
     normalize_execution_input,
     resolve_runtime_execution_request,
@@ -85,7 +82,6 @@ from ptycho_torch.execution_request import (
     validate_execution_input_structure,
 )
 from ptycho_torch.config_resolution import (
-    DEPRECATED_EXECUTION_MODEL_ALIASES,
     InferenceObservations,
     TRAINING_OWNER_FIELDS as TRAINING_OWNER_FIELDS,
     TrainingObservations,
@@ -94,7 +90,6 @@ from ptycho_torch.config_resolution import (
     normalize_training_patch,
     observe_probe_size,
     resolve_inference_bundle,
-    resolve_optimizer_ownership as resolve_optimizer_ownership,
     resolve_training_bundle,
     training_factory_baseline,
 )
@@ -239,32 +234,6 @@ class InferencePayload:
     overrides_applied: Dict[str, Any] = field(default_factory=dict)  # Audit trail
 
 
-def _mirror_effective_optimizer_owner(
-    runtime_config: PyTorchExecutionConfig,
-    training_config: PTTrainingConfig,
-) -> PyTorchExecutionConfig:
-    """Return the runtime carrier with its optimizer compatibility view synced."""
-
-    explicit_structural_aliases = getattr(
-        runtime_config,
-        "_explicit_structural_aliases",
-        frozenset(),
-    )
-    mirrored = replace(
-        runtime_config,
-        **{
-            field_name: getattr(training_config, field_name)
-            for field_name in OPTIMIZER_EXECUTION_COMPAT_FIELDS
-        },
-    )
-    object.__setattr__(
-        mirrored,
-        "_explicit_structural_aliases",
-        explicit_structural_aliases,
-    )
-    return mirrored
-
-
 def _load_nphotons_from_metadata(data_file: Path) -> Optional[float]:
     """Return nphotons from embedded NPZ metadata if present."""
     import json
@@ -295,9 +264,7 @@ def create_training_payload(
     train_data_file: Path,
     output_dir: Path,
     overrides: Optional[Dict[str, Any]] = None,
-    execution_config: Optional[
-        Union[ExecutionRequest, PyTorchExecutionConfig]
-    ] = None,
+    execution_config: Optional[ExecutionRequest] = None,
     profile: Optional[str] = None,
     *,
     training_baseline: TFTrainingConfig | PTTrainingConfig | None = None,
@@ -324,8 +291,8 @@ def create_training_payload(
         overrides: Dict of field overrides (highest precedence). Required keys:
             - n_groups: Number of grouped samples (no default, raises error if missing)
             Optional keys: batch_size, gridsize, max_epochs, nphotons, etc.
-        execution_config: PyTorchExecutionConfig instance for runtime knobs (accelerator,
-            deterministic, num_workers, etc.). If None, uses defaults.
+        execution_config: Unresolved runtime request. ``None`` uses request
+            defaults. A resolved ``PyTorchExecutionConfig`` is not an input.
         profile: Optional named configuration profile. ``None`` (default)
             preserves prior behavior bit-for-bit. ``'ci'`` resolves the
             canonical PtychoPINN-CI bundle via resolve_ci_profile() and merges
@@ -358,9 +325,9 @@ def create_training_payload(
         ...         'gridsize': 2,
         ...         'max_epochs': 10,
         ...     },
-        ...     execution_config=PyTorchExecutionConfig(
-        ...         accelerator='cpu',
-        ...         enable_progress_bar=True,
+        ...     execution_config=ExecutionRequest(
+        ...         values={'accelerator': 'cpu'},
+        ...         explicit_fields=frozenset({'accelerator'}),
         ...     ),
         ... )
         >>> assert isinstance(payload.tf_training_config, TrainingConfig)
@@ -371,6 +338,15 @@ def create_training_payload(
         - Override precedence: .../override_matrix.md §6
         - Integration: .../factory_design.md §3 (CLI/workflow call sites)
     """
+    if execution_config is not None and not isinstance(
+        execution_config,
+        ExecutionRequest,
+    ):
+        raise TypeError(
+            "execution_config must be an ExecutionRequest or None; "
+            "PyTorchExecutionConfig is a resolved output carrier"
+        )
+
     raw_patch = dict(overrides or {})
     if profile is not None:
         if profile != "ci":
@@ -397,10 +373,7 @@ def create_training_payload(
             normalized_execution,
             mode="training",
         )
-    normalized = normalize_training_patch(
-        raw_patch,
-        normalized_execution=normalized_execution,
-    )
+    normalized = normalize_training_patch(raw_patch)
     if not train_data_file.exists():
         raise FileNotFoundError(f"Training data file not found: {train_data_file}")
     probe_observation = observe_probe_size(train_data_file)
@@ -416,7 +389,6 @@ def create_training_payload(
             photon_metadata=_load_nphotons_from_metadata(train_data_file),
             notices=probe_observation.notices,
         ),
-        normalized_execution=normalized_execution,
     )
 
     from ptycho_torch.config_bridge import to_model_config, to_training_config
@@ -442,26 +414,12 @@ def create_training_payload(
         mode="training",
         execution_capabilities=execution_capabilities,
     )
-    runtime_config = _mirror_effective_optimizer_owner(
-        runtime.config,
-        resolved.training,
-    )
     overrides_applied = dict(resolved.audit)
     if resolved.aliases:
         overrides_applied["input_aliases"] = {
             name: tuple(sources)
             for name, sources in resolved.aliases.items()
         }
-        topology_compatibility = {
-            source_name: canonical
-            for canonical, source_names in resolved.aliases.items()
-            for source_name in source_names
-            if source_name in DEPRECATED_EXECUTION_MODEL_ALIASES
-        }
-        if topology_compatibility:
-            overrides_applied["topology_compatibility"] = (
-                topology_compatibility
-            )
     if profile is not None:
         overrides_applied["profile"] = profile
     overrides_applied["execution_runtime"] = runtime.audit_dict()
@@ -472,7 +430,7 @@ def create_training_payload(
         "enable_progress_bar",
         "logger_backend",
     ):
-        overrides_applied[name] = getattr(runtime_config, name)
+        overrides_applied[name] = getattr(runtime.config, name)
 
     model_spec = derive_model_spec(
         tf_model_config,
@@ -486,7 +444,7 @@ def create_training_payload(
         pt_training_config=resolved.training,
         pt_inference_config=resolved.inference,
         model_spec=model_spec,
-        execution_config=runtime_config,
+        execution_config=runtime.config,
         overrides_applied=overrides_applied,
     )
     params.unseal()
@@ -510,9 +468,7 @@ def create_inference_payload(
     test_data_file: Path,
     output_dir: Path,
     overrides: Optional[Dict[str, Any]] = None,
-    execution_config: Optional[
-        Union[ExecutionRequest, PyTorchExecutionConfig]
-    ] = None,
+    execution_config: Optional[ExecutionRequest] = None,
     *,
     execution_capabilities: ExecutionCapabilities | None = None,
 ) -> InferencePayload:
@@ -538,8 +494,8 @@ def create_inference_payload(
         overrides: Dict of field overrides (highest precedence). Required keys:
             - n_groups: Number of grouped samples (no default, raises error if missing)
             Optional keys: gridsize, batch_size, middle_trim, pad_eval, etc.
-        execution_config: PyTorchExecutionConfig instance for runtime knobs (accelerator,
-            inference_batch_size, etc.). If None, uses defaults.
+        execution_config: Unresolved runtime request. ``None`` uses request
+            defaults. A resolved ``PyTorchExecutionConfig`` is not an input.
 
     Returns:
         InferencePayload containing:
@@ -563,8 +519,9 @@ def create_inference_payload(
         ...         'n_groups': 128,
         ...         'gridsize': 2,
         ...     },
-        ...     execution_config=PyTorchExecutionConfig(
-        ...         inference_batch_size=64,
+        ...     execution_config=ExecutionRequest(
+        ...         values={'inference_batch_size': 64},
+        ...         explicit_fields=frozenset({'inference_batch_size'}),
         ...     ),
         ... )
 
@@ -572,6 +529,15 @@ def create_inference_payload(
         - Design: .../factory_design.md §3.3
         - Checkpoint loading: specs/ptychodus_api_spec.md §4.6
     """
+    if execution_config is not None and not isinstance(
+        execution_config,
+        ExecutionRequest,
+    ):
+        raise TypeError(
+            "execution_config must be an ExecutionRequest or None; "
+            "PyTorchExecutionConfig is a resolved output carrier"
+        )
+
     raw_patch = dict(overrides or {})
     resolved_profile = resolve_profile_overrides(raw_patch)
     if resolved_profile is not None:

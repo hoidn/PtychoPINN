@@ -824,20 +824,25 @@ class TestExecutionConfigOverrides:
         assert exec_cfg.num_workers == 0  # CPU-safe default
 
     def test_execution_config_explicit_instance_propagates(self, mock_train_npz, temp_output_dir):
-        """User-provided execution_config instance propagates through payload."""
-        from ptycho.config.config import PyTorchExecutionConfig
+        """User-provided runtime request resolves into the payload carrier."""
+        from ptycho_torch.execution_request import ExecutionRequest
 
-        custom_exec_cfg = PyTorchExecutionConfig(
-            accelerator='gpu',
-            enable_progress_bar=True,
-            deterministic=False,
+        request = ExecutionRequest(
+            values={
+                "accelerator": "gpu",
+                "enable_progress_bar": True,
+                "deterministic": False,
+            },
+            explicit_fields=frozenset(
+                {"accelerator", "enable_progress_bar", "deterministic"}
+            ),
         )
 
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
             overrides={'n_groups': 512},
-            execution_config=custom_exec_cfg,
+            execution_config=request,
         )
         # GREEN phase assertions:
         assert payload.execution_config.accelerator == 'gpu'
@@ -857,23 +862,29 @@ class TestExecutionConfigOverrides:
         assert hasattr(exec_cfg, 'deterministic')
         assert hasattr(exec_cfg, 'num_workers')
         assert hasattr(exec_cfg, 'enable_progress_bar')
-        assert hasattr(exec_cfg, 'gradient_clip_val')
+        assert not hasattr(exec_cfg, 'gradient_clip_val')
+        assert hasattr(payload.pt_training_config, 'gradient_clip_val')
 
     def test_overrides_applied_records_execution_knobs(self, mock_train_npz, temp_output_dir):
         """Factory audit trail includes execution config knobs when applied."""
-        from ptycho.config.config import PyTorchExecutionConfig
+        from ptycho_torch.execution_request import ExecutionRequest
 
-        custom_exec_cfg = PyTorchExecutionConfig(
-            accelerator='cpu',
-            num_workers=4,
-            deterministic=True,
+        request = ExecutionRequest(
+            values={
+                "accelerator": "cpu",
+                "num_workers": 4,
+                "deterministic": True,
+            },
+            explicit_fields=frozenset(
+                {"accelerator", "num_workers", "deterministic"}
+            ),
         )
 
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
             overrides={'n_groups': 512, 'batch_size': 8},
-            execution_config=custom_exec_cfg,
+            execution_config=request,
         )
         # GREEN phase assertions:
         # Execution knobs should be recorded in overrides_applied
@@ -893,21 +904,32 @@ class TestExecutionConfigOverrides:
         - input.md EB1.E (checkpoint controls RED tests)
         - plans/.../phase_e_execution_knobs/plan.md §EB1.C (factory wiring)
         """
-        from ptycho.config.config import PyTorchExecutionConfig
+        from ptycho_torch.execution_request import ExecutionRequest
 
-        custom_exec_cfg = PyTorchExecutionConfig(
-            enable_checkpointing=False,
-            checkpoint_save_top_k=3,
-            checkpoint_monitor_metric='train_loss',
-            checkpoint_mode='max',
-            early_stop_patience=10,
+        request = ExecutionRequest(
+            values={
+                "enable_checkpointing": False,
+                "checkpoint_save_top_k": 3,
+                "checkpoint_monitor_metric": "train_loss",
+                "checkpoint_mode": "max",
+                "early_stop_patience": 10,
+            },
+            explicit_fields=frozenset(
+                {
+                    "enable_checkpointing",
+                    "checkpoint_save_top_k",
+                    "checkpoint_monitor_metric",
+                    "checkpoint_mode",
+                    "early_stop_patience",
+                }
+            ),
         )
 
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
             overrides={'n_groups': 512},
-            execution_config=custom_exec_cfg,
+            execution_config=request,
         )
 
         # GREEN phase assertions:
@@ -947,66 +969,32 @@ class TestExecutionConfigOverrides:
         assert exec_cfg.early_stop_patience == 100  # Default per dataclass
 
     def test_scheduler_override_applied(self, mock_train_npz, temp_output_dir):
-        """
-        Test: --scheduler override propagates to execution_config and overrides_applied.
-
-        Expected Behavior:
-        - execution_config.scheduler matches provided value
-        - overrides_applied['scheduler'] records the applied value
-
-        References:
-        - input.md EB2.B2 (factory override tests)
-        - plans/.../phase_e_execution_knobs/2025-10-23T081500Z/eb2_plan.md §EB2.B (factory wiring)
-        """
-        from ptycho.config.config import PyTorchExecutionConfig
-
-        custom_exec_cfg = PyTorchExecutionConfig(
-            scheduler='Exponential',
-        )
+        """Scheduler overrides resolve only on canonical TrainingConfig."""
 
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 512},
-            execution_config=custom_exec_cfg,
+            overrides={'n_groups': 512, 'scheduler': 'Exponential'},
         )
 
-        # GREEN phase assertions:
-        assert payload.execution_config.scheduler == 'Exponential', \
-            f"Expected scheduler='Exponential', got {payload.execution_config.scheduler}"
+        assert payload.pt_training_config.scheduler == 'Exponential'
+        assert not hasattr(payload.execution_config, 'scheduler')
         assert 'scheduler' in payload.overrides_applied, \
             "scheduler must appear in overrides_applied audit trail"
         assert payload.overrides_applied['scheduler'] == 'Exponential', \
             f"Expected overrides_applied['scheduler']='Exponential', got {payload.overrides_applied['scheduler']}"
 
     def test_accum_steps_override_applied(self, mock_train_npz, temp_output_dir):
-        """
-        Test: --accumulate-grad-batches override propagates to execution_config and overrides_applied.
-
-        Expected Behavior:
-        - execution_config.accum_steps matches provided value
-        - overrides_applied['accum_steps'] records the applied value
-
-        References:
-        - input.md EB2.B2 (factory override tests)
-        - plans/.../phase_e_execution_knobs/2025-10-23T081500Z/eb2_plan.md §EB2.B (factory wiring)
-        """
-        from ptycho.config.config import PyTorchExecutionConfig
-
-        custom_exec_cfg = PyTorchExecutionConfig(
-            accum_steps=4,
-        )
+        """Accumulation overrides resolve only on canonical TrainingConfig."""
 
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 512},
-            execution_config=custom_exec_cfg,
+            overrides={'n_groups': 512, 'accum_steps': 4},
         )
 
-        # GREEN phase assertions:
-        assert payload.execution_config.accum_steps == 4, \
-            f"Expected accum_steps=4, got {payload.execution_config.accum_steps}"
+        assert payload.pt_training_config.accum_steps == 4
+        assert not hasattr(payload.execution_config, 'accum_steps')
         assert 'accum_steps' in payload.overrides_applied, \
             "accum_steps must appear in overrides_applied audit trail"
         assert payload.overrides_applied['accum_steps'] == 4, \
@@ -1029,17 +1017,18 @@ class TestExecutionConfigOverrides:
         - input.md EB3.B1 (factory logger tests)
         - plans/.../phase_e_execution_knobs/2025-10-23T110500Z/decision/approved.md §Q1
         """
-        from ptycho.config.config import PyTorchExecutionConfig
+        from ptycho_torch.execution_request import ExecutionRequest
 
-        custom_exec_cfg = PyTorchExecutionConfig(
-            logger_backend='csv',
+        request = ExecutionRequest(
+            values={"logger_backend": "csv"},
+            explicit_fields=frozenset({"logger_backend"}),
         )
 
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
             overrides={'n_groups': 512},
-            execution_config=custom_exec_cfg,
+            execution_config=request,
         )
 
         # GREEN phase assertions:
@@ -1066,17 +1055,18 @@ class TestExecutionConfigOverrides:
         - input.md EB3.B1 (factory logger tests)
         - plans/.../phase_e_execution_knobs/2025-10-23T110500Z/decision/approved.md §Q2
         """
-        from ptycho.config.config import PyTorchExecutionConfig
+        from ptycho_torch.execution_request import ExecutionRequest
 
-        custom_exec_cfg = PyTorchExecutionConfig(
-            logger_backend='tensorboard',
+        request = ExecutionRequest(
+            values={"logger_backend": "tensorboard"},
+            explicit_fields=frozenset({"logger_backend"}),
         )
 
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
             overrides={'n_groups': 512},
-            execution_config=custom_exec_cfg,
+            execution_config=request,
         )
 
         # GREEN phase assertions:
@@ -1084,32 +1074,25 @@ class TestExecutionConfigOverrides:
             f"Expected logger_backend='tensorboard', got {payload.execution_config.logger_backend}"
 
 
-def test_execution_precedence_canonical_training_override_wins(
+def test_training_optimizer_inputs_resolve_from_canonical_overrides(
     mock_train_npz,
     temp_output_dir,
 ):
     request = ExecutionRequest(
-        values={
-            "accelerator": "cpu",
-            "learning_rate": 2e-4,
-            "scheduler": "Exponential",
-            "gradient_clip_val": 5.0,
-            "accum_steps": 4,
-        },
-        explicit_fields=frozenset(
-            {
-                "learning_rate",
-                "scheduler",
-                "gradient_clip_val",
-                "accum_steps",
-            }
-        ),
+        values={"accelerator": "cpu"},
+        explicit_fields=frozenset({"accelerator"}),
     )
 
     payload = create_training_payload(
         train_data_file=mock_train_npz,
         output_dir=temp_output_dir,
-        overrides={"n_groups": 4, "learning_rate": 3e-4},
+        overrides={
+            "n_groups": 4,
+            "learning_rate": 3e-4,
+            "scheduler": "Exponential",
+            "gradient_clip_val": 5.0,
+            "accum_steps": 4,
+        },
         training_baseline=PTTrainingConfig(scheduler="WarmupCosine"),
         execution_config=request,
     )
@@ -1123,15 +1106,15 @@ def test_execution_precedence_canonical_training_override_wins(
     ] == "canonical_override"
     assert payload.overrides_applied["training_config_provenance"][
         "scheduler"
-    ] == "execution_compatibility"
+    ] == "canonical_override"
 
 
-def test_execution_precedence_omitted_request_value_does_not_override_baseline(
+def test_runtime_request_does_not_override_training_baseline(
     mock_train_npz,
     temp_output_dir,
 ):
     request = ExecutionRequest(
-        values={"accelerator": "cpu", "learning_rate": 9e-4},
+        values={"accelerator": "cpu"},
         explicit_fields=frozenset({"accelerator"}),
     )
 
@@ -1149,35 +1132,17 @@ def test_execution_precedence_omitted_request_value_does_not_override_baseline(
     ] == "training_baseline"
 
 
-def test_execution_precedence_bare_legacy_config_is_priority_two(
+def test_factory_rejects_bare_resolved_execution_carrier(
     mock_train_npz,
     temp_output_dir,
 ):
-    legacy = PyTorchExecutionConfig(
-        accelerator="cpu",
-        learning_rate=7e-4,
-        scheduler="Adaptive",
-        gradient_clip_val=2.0,
-        gradient_clip_algorithm="value",
-        accum_steps=3,
-    )
-
-    payload = create_training_payload(
-        train_data_file=mock_train_npz,
-        output_dir=temp_output_dir,
-        overrides={"n_groups": 4},
-        training_baseline=PTTrainingConfig(
-            learning_rate=4e-4,
-            scheduler="WarmupCosine",
-        ),
-        execution_config=legacy,
-    )
-
-    assert payload.pt_training_config.learning_rate == 7e-4
-    assert payload.pt_training_config.scheduler == "Adaptive"
-    assert payload.pt_training_config.gradient_clip_val == 2.0
-    assert payload.pt_training_config.gradient_clip_algorithm == "value"
-    assert payload.pt_training_config.accum_steps == 3
+    with pytest.raises(TypeError, match="ExecutionRequest"):
+        create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={"n_groups": 4},
+            execution_config=PyTorchExecutionConfig(),
+        )
 
 
 def test_execution_ownership_public_scheduler_is_baseline_not_explicit_patch(
@@ -1188,31 +1153,24 @@ def test_execution_ownership_public_scheduler_is_baseline_not_explicit_patch(
         model=TFModelConfig(),
         scheduler="WarmupCosine",
     )
-    request = ExecutionRequest(
-        values={"accelerator": "cpu", "scheduler": "Exponential"},
-        explicit_fields=frozenset({"scheduler"}),
-    )
-
-    compatibility = create_training_payload(
+    baseline = create_training_payload(
         train_data_file=mock_train_npz,
         output_dir=temp_output_dir,
         overrides={"n_groups": 4},
         training_baseline=public,
-        execution_config=request,
     )
     canonical = create_training_payload(
         train_data_file=mock_train_npz,
         output_dir=temp_output_dir,
         overrides={"n_groups": 4, "scheduler": "WarmupCosine"},
         training_baseline=public,
-        execution_config=request,
     )
 
-    assert compatibility.pt_training_config.scheduler == "Exponential"
+    assert baseline.pt_training_config.scheduler == "WarmupCosine"
     assert canonical.pt_training_config.scheduler == "WarmupCosine"
-    assert compatibility.overrides_applied["training_config_provenance"][
+    assert baseline.overrides_applied["training_config_provenance"][
         "scheduler"
-    ] == "execution_compatibility"
+    ] == "training_baseline"
     assert canonical.overrides_applied["training_config_provenance"][
         "scheduler"
     ] == "canonical_override"
@@ -1292,10 +1250,10 @@ def test_execution_deferred_invalid_patch_does_not_observe_capabilities(
         create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={"n_groups": 4},
+            overrides={"n_groups": 4, "learning_rate": 0.0},
             execution_config=ExecutionRequest(
-                values={"accelerator": "auto", "learning_rate": 0.0},
-                explicit_fields=frozenset({"learning_rate"}),
+                values={"accelerator": "auto"},
+                explicit_fields=frozenset({"accelerator"}),
             ),
         )
 
@@ -1596,42 +1554,6 @@ def test_execution_deferred_resolved_constructor_does_not_repeat_cuda_lookup(
     assert payload.execution_config.devices == 2
 
 
-def test_execution_provenance_legacy_cuda_auto_devices_observes_count_only(
-    mock_train_npz,
-    temp_output_dir,
-    monkeypatch,
-):
-    import torch
-
-    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
-    legacy = PyTorchExecutionConfig(
-        accelerator="auto",
-        devices="auto",
-    )
-    assert legacy.accelerator == "cuda"
-
-    monkeypatch.setattr(
-        torch.cuda,
-        "is_available",
-        lambda: pytest.fail("legacy resolved accelerator was observed again"),
-    )
-    monkeypatch.setattr(torch.cuda, "device_count", lambda: 2)
-
-    payload = create_training_payload(
-        train_data_file=mock_train_npz,
-        output_dir=temp_output_dir,
-        overrides={"n_groups": 4},
-        execution_config=legacy,
-    )
-
-    assert payload.execution_config.accelerator == "cuda"
-    assert payload.execution_config.devices == 2
-    assert payload.overrides_applied["execution_runtime"]["capabilities"] == {
-        "cuda_available": True,
-        "cuda_device_count": 2,
-    }
-
-
 def test_execution_provenance_cpu_runtime_downgrades_are_deferred_and_audited(
     mock_train_npz,
     temp_output_dir,
@@ -1702,34 +1624,27 @@ def test_execution_inference_accepts_runtime_request_and_rejects_optimizer(
             model_path=mock_checkpoint_dir,
             test_data_file=mock_test_npz,
             output_dir=temp_output_dir,
-            overrides={"n_groups": 4},
+            overrides={"n_groups": 4, "learning_rate": 1e-3},
             execution_config=ExecutionRequest(
-                values={"accelerator": "cpu", "learning_rate": 1e-3},
-                explicit_fields=frozenset({"learning_rate"}),
+                values={"accelerator": "cpu"},
+                explicit_fields=frozenset({"accelerator"}),
             ),
         )
 
 
-def test_execution_inference_legacy_optimizer_defaults_are_ignored(
+def test_execution_inference_rejects_bare_resolved_carrier(
     mock_checkpoint_dir,
     mock_test_npz,
     temp_output_dir,
 ):
-    payload = create_inference_payload(
-        model_path=mock_checkpoint_dir,
-        test_data_file=mock_test_npz,
-        output_dir=temp_output_dir,
-        overrides={"n_groups": 4},
-        execution_config=PyTorchExecutionConfig(
-            accelerator="cpu",
-            scheduler="Exponential",
-        ),
-    )
-
-    assert payload.execution_config.scheduler == "Exponential"
-    assert "scheduler" not in payload.overrides_applied[
-        "execution_runtime"
-    ]["explicit_fields"]
+    with pytest.raises(TypeError, match="ExecutionRequest"):
+        create_inference_payload(
+            model_path=mock_checkpoint_dir,
+            test_data_file=mock_test_npz,
+            output_dir=temp_output_dir,
+            overrides={"n_groups": 4},
+            execution_config=PyTorchExecutionConfig(),
+        )
 
 
 # ============================================================================

@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 #Typing
-from dataclasses import dataclass, fields, replace
+from dataclasses import dataclass, replace
 from typing import Any, Dict, Optional
 from ptycho.config.config import PyTorchExecutionConfig
 from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig, InferenceConfig, DatagenConfig
@@ -27,6 +27,7 @@ except ImportError as e:
 #Custom modules
 from ptycho_torch.model import PtychoPINN_Lightning
 from ptycho_torch.scaling_contract import validate_scale_contract
+from ptycho_torch.execution_request import resolve_runtime_execution_request
 from ptycho_torch.train_utils import set_seed, get_training_strategy, find_learning_rate, is_effectively_global_rank_zero, PtychoDataModuleLightning
 
 # NEW: Import our custom Lightning utilities
@@ -108,37 +109,6 @@ def _effective_device_count(devices, accelerator) -> int:
         count = torch.cuda.device_count() if torch.cuda.is_available() else 0
         return max(count, 1)
     return 1
-
-
-def _resolve_direct_training_config(
-    training_config: TrainingConfig,
-    execution_config: PyTorchExecutionConfig | None,
-) -> TrainingConfig:
-    """Resolve legacy execution optimizer aliases into the training owner."""
-    from ptycho_torch.config_factory import (
-        TRAINING_OWNER_FIELDS,
-        resolve_optimizer_ownership,
-    )
-    from ptycho_torch.execution_request import normalize_execution_input
-
-    resolved_owner, _ = resolve_optimizer_ownership(
-        training_baseline=training_config,
-        normalized_execution=normalize_execution_input(
-            execution_config,
-            mode="training",
-        ),
-        canonical_training_patch={},
-    )
-    owner_fields = TRAINING_OWNER_FIELDS & {
-        item.name for item in fields(training_config)
-    }
-    return replace(
-        training_config,
-        **{
-            name: getattr(resolved_owner, name)
-            for name in owner_fields
-        },
-    )
 
 
 def _trainer_strategy(strategy, devices, accelerator):
@@ -502,12 +472,16 @@ def main(ptycho_dir,
                 measurement_domain=explicit_profile[1],
             )
 
-        training_config = _resolve_direct_training_config(
-            training_config,
-            execution_config,
-        )
         if execution_config is None:
-            execution_config = PyTorchExecutionConfig()
+            execution_config = resolve_runtime_execution_request(
+                None,
+                mode="training",
+            ).config
+        elif not isinstance(execution_config, PyTorchExecutionConfig):
+            raise TypeError(
+                "execution_config must be a resolved "
+                "PyTorchExecutionConfig or None"
+            )
         validate_scale_contract(data_config, model_config, training_config)
 
         # Execution config is authoritative; project its compatibility aliases

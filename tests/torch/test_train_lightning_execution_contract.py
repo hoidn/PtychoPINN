@@ -2,6 +2,7 @@ import json
 import math
 from dataclasses import fields, replace
 from pathlib import Path
+from types import SimpleNamespace
 
 import lightning as L
 import pytest
@@ -65,8 +66,8 @@ def test_execution_config_accepts_explicit_default_contract():
     assert config.precision == "32-true"
 
 
-@pytest.mark.parametrize("devices", [1, 3, "auto"])
-def test_execution_config_accepts_supported_devices(devices):
+@pytest.mark.parametrize("devices", [1, 3])
+def test_resolved_execution_config_accepts_positive_device_counts(devices):
     config = PyTorchExecutionConfig(accelerator="cpu", devices=devices)
 
     assert config.devices == devices
@@ -175,7 +176,13 @@ def test_invalid_persistent_worker_settings_never_reach_data_loader(monkeypatch)
     assert captured == []
 
 
-def _install_training_fakes(monkeypatch, run_dir):
+def _install_training_fakes(
+    monkeypatch,
+    run_dir,
+    *,
+    automatic_optimization=False,
+):
+    automatic_mode = automatic_optimization
     captured = {
         "checkpoint_kwargs": [],
         "early_stop_kwargs": [],
@@ -214,7 +221,7 @@ def _install_training_fakes(monkeypatch, run_dir):
     class FakeModel:
         loss_name = "train_loss"
         val_loss_name = "poisson_val"
-        automatic_optimization = False
+        automatic_optimization = automatic_mode
 
         def __init__(self, _model, _data, training, _inference, **_kwargs):
             self.training_config = training
@@ -292,120 +299,6 @@ def _install_training_fakes(monkeypatch, run_dir):
     return captured
 
 
-def test_lightning_only_main_singular_owner_uses_resolved_training(
-    tmp_path,
-    monkeypatch,
-):
-    from ptycho_torch import config_factory
-
-    run_dir = tmp_path / "run"
-    run_dir.mkdir()
-    captured = _install_training_fakes(monkeypatch, run_dir)
-    monkeypatch.setattr(train_module, "set_seed", lambda *_args, **_kwargs: None)
-    configs = _configs(tmp_path)
-    source_training = replace(
-        configs[2],
-        learning_rate=1e-2,
-        accum_steps=2,
-        gradient_clip_val=0.2,
-        gradient_clip_algorithm="norm",
-        batch_size=23,
-    )
-    original_training = replace(source_training)
-    configs = (*configs[:2], source_training, *configs[3:])
-    resolved_training = replace(
-        source_training,
-        learning_rate=4e-4,
-        accum_steps=5,
-        gradient_clip_val=0.75,
-        gradient_clip_algorithm="agc",
-    )
-    resolver_calls = []
-
-    def fake_resolve_optimizer_ownership(**kwargs):
-        resolver_calls.append(kwargs)
-        return resolved_training, {}
-
-    monkeypatch.setattr(
-        config_factory,
-        "resolve_optimizer_ownership",
-        fake_resolve_optimizer_ownership,
-    )
-
-    train_module.main(
-        tmp_path / "data",
-        existing_config=configs,
-        output_dir=tmp_path / "output",
-        execution_config=PyTorchExecutionConfig(
-            accelerator="cpu",
-            devices=2,
-            strategy="auto",
-            precision="bf16-mixed",
-            learning_rate=0.9,
-            accum_steps=8,
-            gradient_clip_val=9.0,
-            gradient_clip_algorithm="value",
-            enable_checkpointing=False,
-        ),
-        run_name="singular-owner",
-        seed=11,
-    )
-
-    model = captured["fit"][0]
-    trainer_kwargs = captured["trainer_kwargs"]
-    assert len(resolver_calls) == 1
-    assert source_training == original_training
-    assert model.training_config is not source_training
-    assert captured["data_training_config"] is model.training_config
-    assert model.training_config.batch_size == 23
-    assert model.training_config.learning_rate == 4e-4
-    assert model.lr == 4e-4
-    assert model.training_config.accum_steps == 5
-    assert model.training_config.gradient_clip_algorithm == "agc"
-    assert trainer_kwargs["accumulate_grad_batches"] == 1
-    assert trainer_kwargs["gradient_clip_val"] is None
-    assert trainer_kwargs["devices"] == 2
-    assert trainer_kwargs["strategy"] == "auto"
-    assert trainer_kwargs["precision"] == "bf16-mixed"
-
-
-def test_lightning_only_main_without_execution_input_preserves_training_owner(
-    tmp_path,
-    monkeypatch,
-):
-    run_dir = tmp_path / "run"
-    run_dir.mkdir()
-    captured = _install_training_fakes(monkeypatch, run_dir)
-    monkeypatch.setattr(train_module, "set_seed", lambda *_args, **_kwargs: None)
-    configs = _configs(tmp_path)
-    baseline_training = replace(
-        configs[2],
-        learning_rate=4.321e-3,
-        scheduler="WarmupCosine",
-        accum_steps=7,
-        gradient_clip_val=0.45,
-        gradient_clip_algorithm="value",
-    )
-    configs = (*configs[:2], baseline_training, *configs[3:])
-
-    train_module.main(
-        tmp_path / "data",
-        existing_config=configs,
-        output_dir=tmp_path / "output",
-        execution_config=None,
-        run_name="training-owner-with-runtime-defaults",
-        seed=11,
-    )
-
-    model = captured["fit"][0]
-    assert model.training_config.learning_rate == 4.321e-3
-    assert model.lr == 4.321e-3
-    assert model.training_config.scheduler == "WarmupCosine"
-    assert model.training_config.accum_steps == 7
-    assert model.training_config.gradient_clip_val == 0.45
-    assert model.training_config.gradient_clip_algorithm == "value"
-
-
 def test_main_copies_resolved_records_before_applying_runtime_overrides(
     tmp_path,
     monkeypatch,
@@ -434,44 +327,101 @@ def test_main_copies_resolved_records_before_applying_runtime_overrides(
     assert captured["data_training_config"] is not configs[2]
 
 
-def test_direct_training_resolution_reuses_original_without_mutation():
-    module = train_module
-    baseline = TrainingConfig(
-        learning_rate=4.321e-3,
-        scheduler="WarmupCosine",
-        accum_steps=7,
-        gradient_clip_val=0.45,
-        gradient_clip_algorithm="value",
-        batch_size=23,
-    )
-    original = replace(baseline)
-    execution_config = PyTorchExecutionConfig(
+def test_main_resolves_default_request_through_environment_resolver(
+    tmp_path,
+    monkeypatch,
+):
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    captured = _install_training_fakes(monkeypatch, run_dir)
+    monkeypatch.setattr(train_module, "set_seed", lambda *_args, **_kwargs: None)
+    resolved = PyTorchExecutionConfig(
         accelerator="cpu",
-        learning_rate=0.9,
-        scheduler="Exponential",
-        accum_steps=8,
-        gradient_clip_val=9.0,
+        devices=1,
+        enable_checkpointing=False,
+    )
+    calls = []
+
+    def resolve(request, *, mode):
+        calls.append((request, mode))
+        return SimpleNamespace(config=resolved)
+
+    monkeypatch.setattr(
+        train_module,
+        "resolve_runtime_execution_request",
+        resolve,
+        raising=False,
+    )
+
+    train_module.main(
+        tmp_path / "data",
+        existing_config=_configs(tmp_path),
+        output_dir=tmp_path / "output",
+        execution_config=None,
+        run_name="default-request",
+        seed=11,
+    )
+
+    assert calls == [(None, "training")]
+    assert captured["data_module_kwargs"]["execution_config"] is resolved
+
+
+@pytest.mark.parametrize(
+    (
+        "automatic_optimization",
+        "expected_accumulation",
+        "expected_clip",
+        "expected_algorithm",
+    ),
+    [
+        (True, 4, 0.75, "norm"),
+        (False, 1, None, None),
+    ],
+)
+def test_main_trainer_mirrors_only_resolved_training_optimizer_owner(
+    tmp_path,
+    monkeypatch,
+    automatic_optimization,
+    expected_accumulation,
+    expected_clip,
+    expected_algorithm,
+):
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    captured = _install_training_fakes(
+        monkeypatch,
+        run_dir,
+        automatic_optimization=automatic_optimization,
+    )
+    monkeypatch.setattr(train_module, "set_seed", lambda *_args, **_kwargs: None)
+    configs = _configs(tmp_path)
+    owner = replace(
+        configs[2],
+        accum_steps=4,
+        gradient_clip_val=0.75,
         gradient_clip_algorithm="norm",
     )
 
-    first = module._resolve_direct_training_config(baseline, execution_config)
-    second = module._resolve_direct_training_config(baseline, None)
+    train_module.main(
+        tmp_path / "data",
+        existing_config=(*configs[:2], owner, *configs[3:]),
+        output_dir=tmp_path / "output",
+        execution_config=PyTorchExecutionConfig(
+            accelerator="cpu",
+            enable_checkpointing=False,
+        ),
+        run_name=f"optimizer-owner-{automatic_optimization}",
+        seed=11,
+    )
 
-    assert baseline == original
-    assert first is not baseline
-    assert second is not baseline
-    assert second is not first
-    assert first.learning_rate == 0.9
-    assert first.scheduler == "Exponential"
-    assert first.accum_steps == 8
-    assert first.gradient_clip_val == 9.0
-    assert first.gradient_clip_algorithm == "norm"
-    assert second.learning_rate == original.learning_rate
-    assert second.scheduler == original.scheduler
-    assert second.accum_steps == original.accum_steps
-    assert second.gradient_clip_val == original.gradient_clip_val
-    assert second.gradient_clip_algorithm == original.gradient_clip_algorithm
-    assert first.batch_size == second.batch_size == original.batch_size
+    model_owner = captured["fit"][0].training_config
+    assert model_owner.accum_steps == 4
+    assert model_owner.gradient_clip_val == pytest.approx(0.75)
+    assert model_owner.gradient_clip_algorithm == "norm"
+    trainer_kwargs = captured["trainer_kwargs"]
+    assert trainer_kwargs["accumulate_grad_batches"] == expected_accumulation
+    assert trainer_kwargs["gradient_clip_val"] == expected_clip
+    assert trainer_kwargs.get("gradient_clip_algorithm") == expected_algorithm
 
 
 def test_main_resolves_default_checkpoint_monitor_to_model_metric(
@@ -648,7 +598,7 @@ def test_milestone_capture_does_not_drift_selected_best_score_or_model_payload(
         )
 
 
-def test_effective_runtime_uses_actual_cpu_trainer_resolution(tmp_path):
+def test_effective_runtime_uses_resolved_cpu_carrier(tmp_path):
     checkpoint = ModelCheckpoint(
         dirpath=tmp_path / "checkpoints",
         monitor="poisson_val",
@@ -666,7 +616,7 @@ def test_effective_runtime_uses_actual_cpu_trainer_resolution(tmp_path):
         "default_root_dir": str(tmp_path),
         "callbacks": [checkpoint, early_stopping],
         "logger": logger,
-        "devices": "auto",
+        "devices": 1,
         "accelerator": "cpu",
         "strategy": "auto",
         "deterministic": True,
@@ -677,7 +627,7 @@ def test_effective_runtime_uses_actual_cpu_trainer_resolution(tmp_path):
     trainer = L.Trainer(**trainer_kwargs, enable_model_summary=False)
     execution_config = PyTorchExecutionConfig(
         accelerator="cpu",
-        devices="auto",
+        devices=1,
         precision="16-mixed",
         checkpoint_save_top_k=2,
         early_stop_patience=4,
@@ -722,7 +672,7 @@ def test_effective_runtime_uses_actual_cpu_trainer_resolution(tmp_path):
     assert runtime["effective"]["accelerator"]["trainer_value"] == "cpu"
     assert runtime["effective"]["devices"]["count"] == trainer.num_devices
     assert runtime["effective"]["devices"]["ids"] == trainer.device_ids
-    assert runtime["effective"]["devices"]["trainer_value"] == "auto"
+    assert runtime["effective"]["devices"]["trainer_value"] == 1
     assert runtime["effective"]["strategy"]["root_device"] == str(trainer.strategy.root_device)
     assert runtime["effective"]["strategy"]["trainer_value"] == "auto"
     checkpoint_runtime = next(

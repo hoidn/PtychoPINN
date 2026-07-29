@@ -1048,9 +1048,21 @@ def _dummy_eval_metrics():
 
 def test_metrics_call_eval_reconstruction_with_plane_phase_alignment_by_default(monkeypatch):
     study = _import_study()
+    from ptycho import params
+
+    poisoned_cfg = {"offset": 98, "poison": "must-remain-untouched"}
+    monkeypatch.setattr(params, "cfg", poisoned_cfg)
     calls = []
 
-    def fake_eval(recon, gt, label, phase_align_method, frc_sigma, ms_ssim_sigma):
+    def fake_eval(
+        recon,
+        gt,
+        label,
+        phase_align_method,
+        frc_sigma,
+        ms_ssim_sigma,
+        trim_offset,
+    ):
         calls.append(
             {
                 "recon_shape": recon.shape,
@@ -1059,7 +1071,7 @@ def test_metrics_call_eval_reconstruction_with_plane_phase_alignment_by_default(
                 "phase_align_method": phase_align_method,
                 "frc_sigma": frc_sigma,
                 "ms_ssim_sigma": ms_ssim_sigma,
-                "offset": study.legacy_params.cfg["offset"],
+                "trim_offset": trim_offset,
             }
         )
         return _dummy_eval_metrics()
@@ -1082,9 +1094,10 @@ def test_metrics_call_eval_reconstruction_with_plane_phase_alignment_by_default(
             "phase_align_method": "plane",
             "frc_sigma": 0.0,
             "ms_ssim_sigma": 1.0,
-            "offset": 4,
+            "trim_offset": 4,
         }
     ]
+    assert params.cfg == poisoned_cfg
     assert payload["row_id"] == "toy"
     assert manifest["metric_status"] == "ok"
     assert manifest["pre_eval_adapter_reconstruction_shape"] == [64, 64]
@@ -1124,31 +1137,29 @@ def test_metrics_records_amplitude_scale_factor_phase_policy_background_policy_o
     assert "eval_reconstruction_legacy_trim" in manifest["metric_contract"]
 
 
-def test_metrics_sets_and_restores_params_cfg_offset_around_eval_reconstruction(monkeypatch):
+def test_metrics_never_mutates_params_cfg_for_explicit_evaluation(monkeypatch):
     study = _import_study()
-    before = study.legacy_params.cfg.get("offset")
-    study.legacy_params.cfg["offset"] = 98
-    observed = []
+    from ptycho import params
 
-    def fake_eval(*_args, **_kwargs):
-        observed.append(study.legacy_params.cfg["offset"])
+    poisoned_cfg = {"offset": 98, "poison": "must-remain-untouched"}
+    monkeypatch.setattr(params, "cfg", poisoned_cfg)
+    observed_offsets = []
+
+    def fake_eval(*_args, **kwargs):
+        observed_offsets.append(kwargs["trim_offset"])
         return _dummy_eval_metrics()
 
     monkeypatch.setattr(study, "eval_reconstruction", fake_eval)
-    try:
-        study.compute_row_metrics(
-            row=study.StudyRow("toy", "ID", "PtychoPINN", Path("recon.npz"), None),
-            recon_registered=np.ones((64, 64), dtype=np.complex64),
-            gt_registered=np.ones((64, 64), dtype=np.complex64),
-            args=_metric_args(eval_offset=6),
-        )
-        assert observed == [6]
-        assert study.legacy_params.cfg["offset"] == 98
-    finally:
-        if before is None:
-            study.legacy_params.cfg.pop("offset", None)
-        else:
-            study.legacy_params.cfg["offset"] = before
+    study.compute_row_metrics(
+        row=study.StudyRow("toy", "ID", "PtychoPINN", Path("recon.npz"), None),
+        recon_registered=np.ones((64, 64), dtype=np.complex64),
+        gt_registered=np.ones((64, 64), dtype=np.complex64),
+        args=_metric_args(eval_offset=6),
+    )
+
+    assert observed_offsets == [6]
+    assert params.cfg == poisoned_cfg
+    assert not hasattr(study, "legacy_params")
 
 
 def test_eval_offset_must_be_positive_even_and_smaller_than_registered_shape():

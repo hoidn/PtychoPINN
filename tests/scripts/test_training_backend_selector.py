@@ -17,6 +17,7 @@ References:
 """
 
 import sys
+import argparse
 from pathlib import Path
 import pytest
 from unittest.mock import MagicMock, patch, call
@@ -48,7 +49,7 @@ class TestTrainingCliBackendDispatch:
         Phase: R (backend selector integration)
         Reference: input.md Do Now step 2
         """
-        from ptycho.config.config import ModelConfig, TrainingConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig
         from ptycho.raw_data import RawData
 
         # Create config with PyTorch backend
@@ -117,6 +118,281 @@ class TestTrainingCliBackendDispatch:
                     assert 'bundle_path' in results, \
                         "PyTorch results should include bundle_path for logging"
 
+    @pytest.mark.parametrize(
+        "execution_input",
+        ["request", "none"],
+    )
+    def test_backend_selector_forwards_torch_execution_input_without_rebuilding(
+        self,
+        execution_input,
+        monkeypatch,
+    ):
+        """The selector forwards the unresolved request or None unchanged."""
+        from ptycho.config import ModelConfig, TrainingConfig
+        from ptycho.workflows import backend_selector
+        from ptycho_torch.execution_request import ExecutionRequest
+        from ptycho_torch.workflows import components as torch_components
+
+        if execution_input == "request":
+            supplied = ExecutionRequest(
+                values={"accelerator": "cpu"},
+                explicit_fields={"accelerator"},
+            )
+        else:
+            supplied = None
+        sidecar = {"scheduler": "WarmupCosine"}
+        delegate = MagicMock(
+            return_value=(None, None, {"backend": "pytorch"})
+        )
+        monkeypatch.setattr(torch_components, "run_cdi_example_torch", delegate)
+        monkeypatch.setattr(
+            backend_selector,
+            "validate_training_config_structure",
+            lambda *_args: None,
+        )
+        monkeypatch.setattr(
+            backend_selector,
+            "validate_runnable_training_config",
+            lambda *_args: None,
+        )
+        monkeypatch.setattr(
+            backend_selector,
+            "update_legacy_dict",
+            lambda *_args: None,
+        )
+        config = TrainingConfig(
+            model=ModelConfig(),
+            train_data_file=Path("train.npz"),
+            backend="pytorch",
+        )
+
+        backend_selector.run_cdi_example_with_backend(
+            object(),
+            None,
+            config,
+            torch_execution_config=supplied,
+            torch_factory_overrides=sidecar,
+        )
+
+        assert delegate.call_args.kwargs["execution_config"] is supplied
+        assert delegate.call_args.kwargs["overrides"] is sidecar
+
+    def test_backend_selector_rejects_resolved_carrier_before_bridge(
+        self,
+        monkeypatch,
+    ):
+        """A resolved runtime carrier cannot masquerade as a request."""
+        from ptycho.config import (
+            ModelConfig,
+            PyTorchExecutionConfig,
+            TrainingConfig,
+        )
+        from ptycho.workflows import backend_selector
+        from ptycho_torch.workflows import components as torch_components
+
+        events = []
+        monkeypatch.setattr(
+            backend_selector,
+            "validate_training_config_structure",
+            lambda *_args: events.append("structure"),
+        )
+        monkeypatch.setattr(
+            backend_selector,
+            "validate_runnable_training_config",
+            lambda *_args: events.append("runnable"),
+        )
+        monkeypatch.setattr(
+            backend_selector,
+            "update_legacy_dict",
+            lambda *_args: events.append("bridge"),
+        )
+        monkeypatch.setattr(
+            torch_components,
+            "run_cdi_example_torch",
+            lambda *_args, **_kwargs: events.append("delegate"),
+        )
+        config = TrainingConfig(
+            model=ModelConfig(),
+            train_data_file=Path("train.npz"),
+            backend="pytorch",
+        )
+
+        with pytest.raises(TypeError, match="ExecutionRequest"):
+            backend_selector.run_cdi_example_with_backend(
+                object(),
+                None,
+                config,
+                torch_execution_config=PyTorchExecutionConfig(
+                    accelerator="cpu"
+                ),
+            )
+
+        assert events == ["structure", "runnable"]
+
+    def test_training_only_selector_forwards_execution_request(
+        self,
+        monkeypatch,
+    ):
+        from ptycho.config import ModelConfig, TrainingConfig
+        from ptycho.workflows import backend_selector
+        from ptycho_torch.execution_request import ExecutionRequest
+        from ptycho_torch.workflows import components as torch_components
+
+        request = ExecutionRequest(
+            values={"accelerator": "cpu"},
+            explicit_fields={"accelerator"},
+        )
+        delegate = MagicMock(return_value={})
+        monkeypatch.setattr(
+            torch_components,
+            "train_cdi_model_torch",
+            delegate,
+        )
+        monkeypatch.setattr(
+            backend_selector,
+            "validate_training_config_structure",
+            lambda *_args: None,
+        )
+        monkeypatch.setattr(
+            backend_selector,
+            "validate_runnable_training_config",
+            lambda *_args: None,
+        )
+        monkeypatch.setattr(
+            backend_selector,
+            "update_legacy_dict",
+            lambda *_args: None,
+        )
+        config = TrainingConfig(
+            model=ModelConfig(),
+            train_data_file=Path("train.npz"),
+            backend="pytorch",
+        )
+
+        backend_selector.train_cdi_model_with_backend(
+            object(),
+            None,
+            config,
+            torch_execution_config=request,
+            torch_factory_overrides={"learning_rate": 0.002},
+        )
+
+        assert delegate.call_args.kwargs == {
+            "execution_config": request,
+            "overrides": {"learning_rate": 0.002},
+        }
+
+    def test_unified_training_main_threads_request_and_canonical_sidecar(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        """Raw argv drives execution provenance and canonical priority separately."""
+        from ptycho.config import ModelConfig, TrainingConfig
+        from ptycho.metadata import MetadataManager
+        from ptycho_torch.cli.shared import (
+            build_execution_request_from_args as real_request_builder,
+        )
+        from ptycho_torch.execution_request import ExecutionRequest
+        from scripts.training import train as training_script
+
+        train_path = tmp_path / "train.npz"
+        train_path.touch()
+        config = TrainingConfig(
+            model=ModelConfig(),
+            train_data_file=train_path,
+            backend="pytorch",
+            output_dir=tmp_path / "out",
+            n_groups=1,
+        )
+        args = argparse.Namespace(
+            config=None,
+            do_stitching=False,
+            quiet=True,
+            torch_accelerator="cpu",
+            torch_scheduler="Exponential",
+            torch_plateau_factor=0.25,
+            torch_plateau_patience=None,
+            torch_plateau_min_lr=None,
+            torch_plateau_threshold=None,
+            scheduler="WarmupCosine",
+        )
+        raw_argv = (
+            "--torch-accelerator=cpu",
+            "--quiet",
+            "--torch-scheduler",
+            "Exponential",
+            "--scheduler=WarmupCosine",
+            "--torch-plateau-factor=0.25",
+        )
+        monkeypatch.setattr(sys, "argv", ["train.py", *raw_argv])
+        monkeypatch.setattr(training_script, "parse_arguments", lambda: args)
+        monkeypatch.setattr(
+            training_script,
+            "setup_configuration",
+            lambda *_args: config,
+        )
+        monkeypatch.setattr(
+            MetadataManager,
+            "load_with_metadata",
+            staticmethod(lambda _path: (None, None)),
+        )
+        monkeypatch.setattr(
+            training_script,
+            "validate_training_config_structure",
+            lambda *_args: None,
+        )
+        monkeypatch.setattr(
+            training_script,
+            "validate_runnable_training_config",
+            lambda *_args: None,
+        )
+        monkeypatch.setattr(
+            training_script,
+            "update_legacy_dict",
+            lambda *_args: None,
+        )
+        monkeypatch.setattr(
+            training_script,
+            "load_data",
+            lambda *_args, **_kwargs: object(),
+        )
+        delegate = MagicMock(
+            return_value=(None, None, {"backend": "pytorch"})
+        )
+        monkeypatch.setattr(
+            training_script,
+            "run_cdi_example_with_backend",
+            delegate,
+        )
+
+        with patch(
+            "ptycho_torch.cli.shared.build_execution_request_from_args",
+            wraps=real_request_builder,
+        ) as request_builder:
+            training_script.main()
+
+        request_builder.assert_called_once_with(
+            args,
+            mode="training",
+            explicit_options=raw_argv,
+            lane="unified-training",
+        )
+        request = delegate.call_args.kwargs["torch_execution_config"]
+        assert isinstance(request, ExecutionRequest)
+        assert request.explicit_fields == frozenset(
+            {
+                "accelerator",
+                "enable_progress_bar",
+            }
+        )
+        assert "scheduler" not in request.values
+        assert request.values["enable_progress_bar"] is False
+        assert delegate.call_args.kwargs["torch_factory_overrides"] == {
+            "scheduler": "WarmupCosine",
+            "plateau_factor": 0.25,
+        }
+
     def test_tensorflow_backend_persistence(self):
         """
         Test that training CLI with backend='tensorflow' uses legacy persistence.
@@ -129,7 +405,7 @@ class TestTrainingCliBackendDispatch:
         Phase: R (backend selector integration)
         Reference: input.md Do Now step 2 (guard TensorFlow-only helpers)
         """
-        from ptycho.config.config import ModelConfig, TrainingConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig
         from ptycho.raw_data import RawData
 
         # Create config with TensorFlow backend (default)
@@ -182,513 +458,6 @@ class TestTrainingCliBackendDispatch:
                     assert results['backend'] == 'tensorflow', \
                         "Results should indicate TensorFlow backend was used"
 
-    def test_metadata_photons_are_reconstructed_and_revalidated_before_bridge(
-        self,
-        tmp_path,
-        monkeypatch,
-    ):
-        import argparse
-
-        from ptycho.config import ModelConfig, TrainingConfig
-        from ptycho.metadata import MetadataManager
-        from scripts.training import train as training_script
-
-        train_path = tmp_path / "train.npz"
-        train_path.touch()
-        config = TrainingConfig(
-            model=ModelConfig(),
-            train_data_file=train_path,
-            nphotons=10,
-            backend="tensorflow",
-        )
-        args = argparse.Namespace(
-            config=None,
-            do_stitching=False,
-        )
-        events = []
-
-        def record_validation(name, candidate):
-            events.append(name)
-            assert candidate.nphotons == 25
-
-        monkeypatch.setattr(training_script, "parse_arguments", lambda: args)
-        monkeypatch.setattr(
-            training_script,
-            "setup_configuration",
-            lambda *_args: config,
-        )
-        monkeypatch.setattr(
-            MetadataManager,
-            "load_with_metadata",
-            staticmethod(
-                lambda _path: (
-                    events.append("metadata")
-                    or (None, {"physics_parameters": {"nphotons": 25}})
-                )
-            ),
-        )
-        monkeypatch.setattr(
-            training_script,
-            "validate_training_config_structure",
-            lambda candidate: record_validation("structure", candidate),
-            raising=False,
-        )
-        monkeypatch.setattr(
-            training_script,
-            "validate_runnable_training_config",
-            lambda candidate: record_validation("runnable", candidate),
-            raising=False,
-        )
-        monkeypatch.setattr(
-            training_script,
-            "update_legacy_dict",
-            lambda _cfg, candidate: record_validation("bridge", candidate),
-        )
-        monkeypatch.setattr(
-            training_script,
-            "load_data",
-            lambda *_args, **_kwargs: events.append("load_data") or object(),
-        )
-        monkeypatch.setattr(
-            training_script,
-            "run_cdi_example_with_backend",
-            lambda *_args, **_kwargs: (
-                events.append("delegate")
-                or (None, None, {"backend": "tensorflow"})
-            ),
-        )
-        monkeypatch.setattr(training_script.model_manager, "save", lambda *_: None)
-        monkeypatch.setattr(training_script, "save_outputs", lambda *_: None)
-
-        training_script.main()
-
-        assert events == [
-            "metadata",
-            "structure",
-            "runnable",
-            "bridge",
-            "load_data",
-            "delegate",
-        ]
-
-    def test_invalid_metadata_photons_fail_before_bridge_or_data_consumption(
-        self,
-        tmp_path,
-        monkeypatch,
-    ):
-        import argparse
-
-        from ptycho.config import ModelConfig, TrainingConfig
-        from ptycho.metadata import MetadataManager
-        from scripts.training import train as training_script
-
-        train_path = tmp_path / "train.npz"
-        train_path.touch()
-        config = TrainingConfig(
-            model=ModelConfig(),
-            train_data_file=train_path,
-            backend="tensorflow",
-        )
-        args = argparse.Namespace(config=None, do_stitching=False)
-        monkeypatch.setattr(training_script, "parse_arguments", lambda: args)
-        monkeypatch.setattr(
-            training_script,
-            "setup_configuration",
-            lambda *_args: config,
-        )
-        monkeypatch.setattr(
-            MetadataManager,
-            "load_with_metadata",
-            staticmethod(lambda _path: (None, {"nphotons": 0})),
-        )
-        monkeypatch.setattr(
-            training_script,
-            "update_legacy_dict",
-            lambda *_args: pytest.fail("invalid metadata reached bridge"),
-        )
-        monkeypatch.setattr(
-            training_script,
-            "load_data",
-            lambda *_args, **_kwargs: pytest.fail(
-                "invalid metadata reached data loading"
-            ),
-        )
-
-        with pytest.raises(ValueError, match="nphotons"):
-            training_script.main()
-
-    def test_pytorch_execution_config_flags(self):
-        """
-        Test that training CLI PyTorch execution config flags are plumbed correctly.
-
-        Expected behavior:
-        - CLI flags (--torch-accelerator, --torch-num-workers, --torch-learning-rate, etc.)
-          are collected into exec_args namespace
-        - build_execution_config_from_args is called with mode='training'
-        - Resulting PyTorchExecutionConfig is passed to run_cdi_example_with_backend
-          as torch_execution_config parameter
-        - TensorFlow backend ignores execution config (remains None)
-
-        Phase: Training execution config flags
-        Reference: input.md Do Now (training CLI execution-config surface)
-        """
-        import argparse
-        from ptycho.config.config import TrainingConfig, ModelConfig
-        from ptycho.raw_data import RawData
-
-        # Create config with PyTorch backend
-        model_config = ModelConfig(N=64, gridsize=1)
-        config = TrainingConfig(
-            model=model_config,
-            train_data_file=Path('train.npz'),
-            backend='pytorch',
-            batch_size=16,
-            nepochs=1,
-            output_dir=Path('outputs/test')
-        )
-
-        # Simulate CLI args with PyTorch execution flags
-        cli_args = argparse.Namespace(
-            torch_accelerator='cpu',
-            torch_deterministic=True,
-            torch_num_workers=0,
-            torch_learning_rate=5e-4,
-            torch_scheduler='ReduceLROnPlateau',
-            torch_logger='csv',
-            torch_enable_checkpointing=True,
-            torch_checkpoint_save_top_k=2,
-            torch_accumulate_grad_batches=2,
-            debug=False  # Will be inverted to quiet=True
-        )
-
-        # Mock the execution config builder to verify it's called correctly
-        mock_exec_config = MagicMock()
-        mock_exec_config.accelerator = 'cpu'
-        mock_exec_config.num_workers = 0
-        mock_exec_config.learning_rate = 5e-4
-        mock_exec_config.logger_backend = 'csv'
-
-        mock_build_exec_config = MagicMock(return_value=mock_exec_config)
-
-        # Mock the backend selector to verify it receives execution_config
-        mock_run_cdi_example = MagicMock(
-            return_value=(
-                None,  # recon_amp
-                None,  # recon_phase
-                {'backend': 'pytorch', 'bundle_path': Path('outputs/test/bundle.zip')}
-            )
-        )
-
-        # Patch at the location where it's imported (ptycho_torch.cli.shared)
-        with patch('ptycho_torch.cli.shared.build_execution_config_from_args', mock_build_exec_config):
-            with patch('ptycho.workflows.backend_selector.run_cdi_example_with_backend', mock_run_cdi_example):
-                # Simulate the training CLI execution config building logic
-                # (from scripts/training/train.py:356-384)
-                from ptycho_torch.cli.shared import build_execution_config_from_args
-                train_data = MagicMock(spec=RawData)
-                test_data = None
-
-                # Build execution config (as train.py does when backend='pytorch')
-                if config.backend == 'pytorch':
-                    exec_args = argparse.Namespace(
-                        accelerator=getattr(cli_args, 'torch_accelerator', 'auto'),
-                        deterministic=getattr(cli_args, 'torch_deterministic', True),
-                        num_workers=getattr(cli_args, 'torch_num_workers', 0),
-                        learning_rate=getattr(cli_args, 'torch_learning_rate', None),
-                        scheduler=getattr(cli_args, 'torch_scheduler', 'Default'),
-                        logger_backend=getattr(cli_args, 'torch_logger', 'csv'),
-                        enable_checkpointing=getattr(cli_args, 'torch_enable_checkpointing', True),
-                        checkpoint_save_top_k=getattr(cli_args, 'torch_checkpoint_save_top_k', 1),
-                        accumulate_grad_batches=getattr(cli_args, 'torch_accumulate_grad_batches', 1),
-                        checkpoint_monitor_metric='val_loss',
-                        checkpoint_mode='min',
-                        early_stop_patience=100,
-                        quiet=getattr(cli_args, 'debug', False) == False,
-                        disable_mlflow=False
-                    )
-                    torch_execution_config = build_execution_config_from_args(exec_args, mode='training')
-                else:
-                    torch_execution_config = None
-
-                # Call backend selector with execution config
-                recon_amp, recon_phase, results = mock_run_cdi_example(
-                    train_data, test_data, config, do_stitching=False,
-                    torch_execution_config=torch_execution_config
-                )
-
-                # Verify build_execution_config_from_args was called exactly once
-                mock_build_exec_config.assert_called_once()
-                call_args = mock_build_exec_config.call_args
-
-                # Verify the exec_args namespace has the expected values
-                exec_args_passed = call_args[0][0]
-                assert exec_args_passed.accelerator == 'cpu', \
-                    "Should pass accelerator from CLI flags"
-                assert exec_args_passed.num_workers == 0, \
-                    "Should pass num_workers from CLI flags"
-                assert exec_args_passed.learning_rate == 5e-4, \
-                    "Should pass learning_rate from CLI flags"
-                assert exec_args_passed.scheduler == 'ReduceLROnPlateau', \
-                    "Should pass scheduler from CLI flags"
-                assert exec_args_passed.logger_backend == 'csv', \
-                    "Should pass logger from CLI flags"
-                assert exec_args_passed.accumulate_grad_batches == 2, \
-                    "Should pass accumulate_grad_batches from CLI flags"
-
-                # Verify mode='training' was passed
-                assert call_args[1]['mode'] == 'training', \
-                    "Should call build_execution_config_from_args with mode='training'"
-
-                # Verify run_cdi_example_with_backend received the execution config
-                backend_call_args = mock_run_cdi_example.call_args
-                assert backend_call_args[1]['torch_execution_config'] is mock_exec_config, \
-                    "Backend selector should receive the PyTorchExecutionConfig as torch_execution_config parameter"
-
-    def test_unified_training_execution_request_and_explicit_optimizer_sidecar(
-        self,
-        tmp_path,
-        monkeypatch,
-    ):
-        """Unified training preserves both execution and canonical suppliedness."""
-        import argparse
-
-        from ptycho.config import ModelConfig, TrainingConfig
-        from ptycho.metadata import MetadataManager
-        from ptycho_torch.cli.shared import (
-            build_execution_request_from_args as real_request_builder,
-        )
-        from ptycho_torch.execution_request import ExecutionRequest
-        from scripts.training import train as training_script
-
-        train_path = tmp_path / 'train.npz'
-        train_path.touch()
-        config = TrainingConfig(
-            model=ModelConfig(N=64, gridsize=1),
-            train_data_file=train_path,
-            backend='pytorch',
-            output_dir=tmp_path / 'output',
-            n_groups=1,
-        )
-        args = argparse.Namespace(
-            config=None,
-            do_stitching=False,
-            torch_accelerator='cpu',
-            torch_deterministic=True,
-            torch_num_workers=2,
-            torch_accumulate_grad_batches=5,
-            torch_learning_rate=0.004,
-            torch_scheduler='Exponential',
-            torch_logger='none',
-            torch_recon_log_every_n_epochs=2,
-            torch_recon_log_num_patches=7,
-            torch_recon_log_fixed_indices=[1, 3],
-            torch_recon_log_stitch=True,
-            torch_recon_log_max_stitch_samples=11,
-            torch_enable_checkpointing=True,
-            torch_checkpoint_save_top_k=0,
-            torch_plateau_factor=None,
-            torch_plateau_patience=None,
-            torch_plateau_min_lr=None,
-            torch_plateau_threshold=None,
-            gradient_clip_val=0.75,
-            gradient_clip_algorithm='value',
-            optimizer='adamw',
-            momentum=0.8,
-            weight_decay=0.01,
-            adam_beta1=0.85,
-            adam_beta2=0.95,
-            scheduler='WarmupCosine',
-            lr_warmup_epochs=4,
-            lr_min_ratio=0.2,
-            plateau_factor=0.4,
-            plateau_patience=3,
-            plateau_min_lr=1e-5,
-            plateau_threshold=0.001,
-        )
-        raw_argv = (
-            '--torch-accelerator=cpu',
-            '--torch-deterministic',
-            '--torch-num-workers=2',
-            '--torch-accumulate-grad-batches', '5',
-            '--torch-learning-rate=0.004',
-            '--torch-scheduler=Exponential',
-            '--torch-logger=none',
-            '--torch-recon-log-every-n-epochs=2',
-            '--torch-recon-log-num-patches', '7',
-            '--torch-recon-log-fixed-indices', '1', '3',
-            '--torch-recon-log-stitch',
-            '--torch-recon-log-max-stitch-samples=11',
-            '--torch-enable-checkpointing',
-            '--torch-checkpoint-save-top-k=0',
-            '--gradient_clip_val=0.75',
-            '--gradient_clip_algorithm=value',
-            '--optimizer=adamw',
-            '--momentum=0.8',
-            '--weight_decay=0.01',
-            '--adam_beta1=0.85',
-            '--adam_beta2=0.95',
-            '--scheduler=WarmupCosine',
-            '--lr_warmup_epochs=4',
-            '--lr_min_ratio=0.2',
-            '--plateau_factor=0.4',
-            '--plateau_patience=3',
-            '--plateau_min_lr=1e-5',
-            '--plateau_threshold=0.001',
-        )
-        monkeypatch.setattr(sys, 'argv', ['train.py', *raw_argv])
-        monkeypatch.setattr(training_script, 'parse_arguments', lambda: args)
-        monkeypatch.setattr(
-            training_script,
-            'setup_configuration',
-            lambda *_args: config,
-        )
-        monkeypatch.setattr(
-            MetadataManager,
-            'load_with_metadata',
-            staticmethod(lambda _path: (None, None)),
-        )
-        monkeypatch.setattr(
-            training_script,
-            'validate_training_config_structure',
-            lambda *_args: None,
-        )
-        monkeypatch.setattr(
-            training_script,
-            'validate_runnable_training_config',
-            lambda *_args: None,
-        )
-        monkeypatch.setattr(training_script, 'update_legacy_dict', lambda *_args: None)
-        monkeypatch.setattr(training_script, 'load_data', lambda *_args, **_kwargs: object())
-        backend = MagicMock(return_value=(None, None, {'backend': 'pytorch'}))
-        monkeypatch.setattr(training_script, 'run_cdi_example_with_backend', backend)
-
-        with patch(
-            'ptycho_torch.cli.shared.build_execution_request_from_args',
-            wraps=real_request_builder,
-        ) as request_builder:
-            training_script.main()
-
-        request_builder.assert_called_once()
-        assert request_builder.call_args.kwargs == {
-            'mode': 'training',
-            'explicit_options': raw_argv,
-            'lane': 'unified-training',
-        }
-        request = backend.call_args.kwargs['torch_execution_config']
-        assert isinstance(request, ExecutionRequest)
-        assert request.explicit_fields == frozenset(
-            {
-                'accelerator',
-                'deterministic',
-                'num_workers',
-                'accum_steps',
-                'learning_rate',
-                'scheduler',
-                'logger_backend',
-                'recon_log_every_n_epochs',
-                'recon_log_num_patches',
-                'recon_log_fixed_indices',
-                'recon_log_stitch',
-                'recon_log_max_stitch_samples',
-                'enable_checkpointing',
-                'checkpoint_save_top_k',
-            }
-        )
-        assert request.values['scheduler'] == 'Exponential'
-        assert request.values['recon_log_fixed_indices'] == [1, 3]
-        assert backend.call_args.kwargs['torch_factory_overrides'] == {
-            'gradient_clip_val': 0.75,
-            'gradient_clip_algorithm': 'value',
-            'optimizer': 'adamw',
-            'momentum': 0.8,
-            'weight_decay': 0.01,
-            'adam_beta1': 0.85,
-            'adam_beta2': 0.95,
-            'scheduler': 'WarmupCosine',
-            'lr_warmup_epochs': 4,
-            'lr_min_ratio': 0.2,
-            'plateau_factor': 0.4,
-            'plateau_patience': 3,
-            'plateau_min_lr': 1e-5,
-            'plateau_threshold': 0.001,
-        }
-
-    def test_backend_selector_execution_routes_explicit_torch_factory_overrides_only_to_torch(
-        self,
-        monkeypatch,
-    ):
-        """The sidecar reaches Torch's existing overrides channel, never TensorFlow."""
-        from ptycho.config import ModelConfig, TrainingConfig
-        from ptycho.workflows import backend_selector
-        from ptycho.workflows import components as tf_components
-        from ptycho_torch.workflows import components as torch_components
-
-        sidecar = {'scheduler': 'WarmupCosine'}
-        torch_delegate = MagicMock(
-            return_value=(None, None, {'backend': 'pytorch'})
-        )
-        tf_delegate = MagicMock(
-            return_value=(None, None, {'backend': 'tensorflow'})
-        )
-        monkeypatch.setattr(torch_components, 'run_cdi_example_torch', torch_delegate)
-        monkeypatch.setattr(tf_components, 'run_cdi_example', tf_delegate)
-        monkeypatch.setattr(
-            backend_selector,
-            'validate_training_config_structure',
-            lambda *_args: None,
-        )
-        monkeypatch.setattr(
-            backend_selector,
-            'validate_runnable_training_config',
-            lambda *_args: None,
-        )
-        monkeypatch.setattr(backend_selector, 'update_legacy_dict', lambda *_args: None)
-
-        pytorch_config = TrainingConfig(
-            model=ModelConfig(),
-            train_data_file=Path('train.npz'),
-            backend='pytorch',
-        )
-        backend_selector.run_cdi_example_with_backend(
-            object(),
-            None,
-            pytorch_config,
-            torch_factory_overrides=sidecar,
-        )
-        assert torch_delegate.call_args.kwargs['overrides'] is sidecar
-
-        tensorflow_config = TrainingConfig(
-            model=ModelConfig(),
-            train_data_file=Path('train.npz'),
-            backend='tensorflow',
-        )
-        backend_selector.run_cdi_example_with_backend(
-            object(),
-            None,
-            tensorflow_config,
-            torch_factory_overrides=sidecar,
-        )
-        assert tf_delegate.call_args.kwargs == {}
-
-    @pytest.mark.parametrize(
-        'scheduler',
-        ['Default', 'Exponential', 'WarmupCosine', 'ReduceLROnPlateau'],
-    )
-    def test_unified_training_execution_explicit_scheduler_domain(
-        self,
-        scheduler,
-        monkeypatch,
-    ):
-        """The wrapper exposes the canonical public Torch scheduler domain."""
-        from scripts.training import train as training_script
-
-        monkeypatch.setattr(
-            sys,
-            'argv',
-            ['train.py', '--torch-scheduler', scheduler],
-        )
-        assert training_script.parse_arguments().torch_scheduler == scheduler
-
     def test_supervised_mode_enforces_mae_loss(self):
         """
         Test that supervised model_type forces loss_function='MAE' in PyTorch backend.
@@ -734,6 +503,17 @@ class TestTrainingCliBackendDispatch:
             backend='pytorch',
         )
 
+        # Simulate factory payload creation (as _train_with_lightning does)
+        mode_map = {'pinn': 'Unsupervised', 'supervised': 'Supervised'}
+        factory_overrides = {
+            'n_groups': config.n_groups,
+            'gridsize': config.model.gridsize,
+            'model_type': mode_map.get(config.model.model_type, 'Unsupervised'),
+            'amp_activation': config.model.amp_activation,
+            'n_filters_scale': config.model.n_filters_scale,
+            'max_epochs': config.nepochs,
+        }
+
         # The factory now resolves the objective before sealing ModelSpec.
         from types import SimpleNamespace
         from ptycho_torch.config_bridge import to_model_config
@@ -758,7 +538,7 @@ class TestTrainingCliBackendDispatch:
             pt_training_config=mock_pt_training_config,
             pt_inference_config=PTInferenceConfig(),
             execution_config=PyTorchExecutionConfig(
-                accelerator='cpu',
+                accelerator="cpu",
                 enable_checkpointing=False,
                 logger_backend=None,
             ),
@@ -778,28 +558,28 @@ class TestTrainingCliBackendDispatch:
             # Import the helper that applies the supervised→MAE override
             from ptycho_torch.workflows.components import _train_with_lightning
 
-            # Mock the Lightning module instantiation to capture the corrected config
             mock_lightning_module = MagicMock()
             mock_lightning_module.val_loss_name = 'mae_val_loss'  # Expected for MAE
+
             # Mock all dependencies of _train_with_lightning
             mock_train_container = MagicMock()
             mock_train_container.diffraction = MagicMock()
             mock_test_container = None
-            train_loader = [
+            mock_train_loader = [
                 (
                     {
-                        'label_amp': object(),
-                        'label_phase': object(),
+                        "label_amp": object(),
+                        "label_phase": object(),
                     },
                     object(),
                 )
             ]
 
             with patch(
-                'ptycho_torch.application_factory.build_ptychopinn_application',
+                "ptycho_torch.application_factory.build_ptychopinn_application",
                 return_value=mock_lightning_module,
             ) as build_application:
-                with patch('ptycho_torch.workflows.components._build_lightning_dataloaders', return_value=(train_loader, None)):
+                with patch('ptycho_torch.workflows.components._build_lightning_dataloaders', return_value=(mock_train_loader, None)):
                     with patch('lightning.pytorch.Trainer') as mock_trainer_class:
                         mock_trainer = MagicMock()
                         mock_trainer.fit = MagicMock()
@@ -812,15 +592,18 @@ class TestTrainingCliBackendDispatch:
                             execution_config=None
                         )
 
-            sealed_model_config = build_application.call_args.args[0].to_model_config()
+            # Verify the model_config passed to Lightning module has loss_function='MAE'
+            sealed_model_config = (
+                build_application.call_args.args[0].to_model_config()
+            )
             assert sealed_model_config.mode == 'Supervised', \
                 "Model should be in Supervised mode"
             assert sealed_model_config.loss_function == 'MAE', \
                 "Supervised mode should enforce loss_function='MAE' (prevents missing loss_name AttributeError)"
             assert captured_factory_overrides["torch_loss_mode"] == "mae"
 
-    def test_manual_accumulation_is_owned_by_model_not_trainer(self):
-        """Manual optimization keeps accumulation out of Lightning Trainer."""
+    def test_manual_optimization_keeps_accumulation_out_of_trainer(self):
+        """Manual accumulation remains model-owned, not Trainer-owned."""
         from ptycho.config.config import TrainingConfig, ModelConfig, PyTorchExecutionConfig
         from pathlib import Path
 
@@ -839,22 +622,13 @@ class TestTrainingCliBackendDispatch:
             backend='pytorch',
         )
 
-        # Compatibility execution input requests accumulation; the payload resolves
-        # it into TrainingConfig before the workflow consumes either owner.
-        execution_config = PyTorchExecutionConfig(
-            accum_steps=2,
-            accelerator='cpu',
-            deterministic=True,
-        )
-
         # Mock all dependencies
         mock_train_container = MagicMock()
         mock_train_container.diffraction = MagicMock()
         mock_test_container = None
 
-        # Mock Lightning module with manual optimization
         mock_lightning_module = MagicMock()
-        mock_lightning_module.automatic_optimization = False  # This is the key incompatibility
+        mock_lightning_module.automatic_optimization = False
         mock_lightning_module.save_hyperparameters = MagicMock()
 
         # Mock factory payload
@@ -867,10 +641,14 @@ class TestTrainingCliBackendDispatch:
         mock_payload = MagicMock()
         mock_payload.pt_model_config = PTModelConfig(mode='Unsupervised', C_forward=4, C_model=4)
         mock_payload.pt_data_config = PTDataConfig()
-        mock_payload.pt_training_config = PTTrainingConfig(accum_steps=2)
+        mock_payload.pt_training_config = PTTrainingConfig(
+            accum_steps=2,
+            gradient_clip_val=0.5,
+            gradient_clip_algorithm="norm",
+        )
         mock_payload.pt_inference_config = PTInferenceConfig()
         mock_payload.execution_config = PyTorchExecutionConfig(
-            accelerator='cpu',
+            accelerator="cpu",
             enable_checkpointing=False,
             logger_backend=None,
         )
@@ -882,29 +660,37 @@ class TestTrainingCliBackendDispatch:
             mock_payload.pt_data_config,
         )
 
-        # Mock dataloader builder to return first batch with diffraction
         mock_train_loader = MagicMock()
         mock_val_loader = None
+        mock_trainer = MagicMock()
 
         with patch('ptycho_torch.config_factory.create_training_payload', return_value=mock_payload):
             with patch(
-                'ptycho_torch.application_factory.build_ptychopinn_application',
+                "ptycho_torch.application_factory.build_ptychopinn_application",
                 return_value=mock_lightning_module,
             ) as build_application:
                 with patch('ptycho_torch.workflows.components._build_lightning_dataloaders',
                           return_value=(mock_train_loader, mock_val_loader)):
-                    with patch('lightning.pytorch.Trainer') as trainer_class:
+                    with patch(
+                        "lightning.pytorch.Trainer",
+                        return_value=mock_trainer,
+                    ) as trainer_class:
                         from ptycho_torch.workflows.components import _train_with_lightning
 
                         _train_with_lightning(
                             mock_train_container,
                             mock_test_container,
                             config,
-                            execution_config=execution_config
+                            resolved_payload=mock_payload,
                         )
 
-        assert build_application.call_args.args[2].accum_steps == 2
-        assert trainer_class.call_args.kwargs['accumulate_grad_batches'] == 1
+        model_training_config = build_application.call_args.args[2]
+        assert model_training_config.accum_steps == 2
+        assert model_training_config.gradient_clip_val == 0.5
+        trainer_kwargs = trainer_class.call_args.kwargs
+        assert trainer_kwargs["accumulate_grad_batches"] == 1
+        assert trainer_kwargs["gradient_clip_val"] is None
+        assert "gradient_clip_algorithm" not in trainer_kwargs
 
     def test_pytorch_backend_defaults_auto_execution_config(self, caplog):
         """
@@ -1043,8 +829,11 @@ def test_torch_scheduler_plateau_roundtrip(monkeypatch, tmp_path):
     assert args.torch_scheduler == 'ReduceLROnPlateau'
 
 
-def test_torch_scheduler_plateau_params_roundtrip(monkeypatch, tmp_path):
-    """Verify torch plateau params map into TrainingConfig when provided."""
+def test_torch_scheduler_plateau_params_enter_explicit_training_patch(
+    monkeypatch,
+    tmp_path,
+):
+    """Torch plateau aliases map into canonical TrainingConfig ownership."""
     import importlib
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'scripts' / 'training'))
@@ -1063,85 +852,143 @@ def test_torch_scheduler_plateau_params_roundtrip(monkeypatch, tmp_path):
     monkeypatch.setattr(sys, 'argv', test_argv)
 
     args = train_mod.parse_arguments()
-    train_mod.apply_torch_plateau_overrides(args, argv=test_argv)
+    from ptycho_torch.cli.shared import build_training_config_patch_from_args
 
-    from ptycho.workflows.components import setup_configuration
-    config = setup_configuration(args, None)
-
-    assert config.scheduler == 'ReduceLROnPlateau'
-    assert config.plateau_factor == 0.25
-    assert config.plateau_patience == 5
-    assert config.plateau_min_lr == 1e-5
-    assert config.plateau_threshold == 1e-3
+    assert build_training_config_patch_from_args(
+        args,
+        explicit_options=test_argv,
+        lane="unified-training",
+    ) == {
+        "scheduler": "ReduceLROnPlateau",
+        "plateau_factor": 0.25,
+        "plateau_patience": 5,
+        "plateau_min_lr": 1e-5,
+        "plateau_threshold": 1e-3,
+    }
 
 
 @pytest.mark.parametrize(
-    (
-        'field',
-        'canonical_value',
-        'compatibility_value',
-        'canonical_argv',
-        'compatibility_argv',
-    ),
+    "scheduler",
+    ["Default", "Exponential", "WarmupCosine", "ReduceLROnPlateau"],
+)
+def test_unified_torch_scheduler_uses_selected_compatibility_domain(
+    scheduler,
+    monkeypatch,
+):
+    from scripts.training import train as train_mod
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["train.py", "--torch-scheduler", scheduler],
+    )
+
+    assert train_mod.parse_arguments().torch_scheduler == scheduler
+
+
+def test_unified_torch_scheduler_rejects_unowned_cosine_annealing(
+    monkeypatch,
+):
+    from scripts.training import train as train_mod
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["train.py", "--torch-scheduler", "CosineAnnealing"],
+    )
+
+    with pytest.raises(SystemExit):
+        train_mod.parse_arguments()
+
+
+@pytest.mark.parametrize(
+    "raw_argv",
     [
         (
-            'plateau_factor',
-            0.8,
-            0.2,
-            ('--plateau_factor=0.8',),
-            ('--torch-plateau-factor=0.2',),
+            "--torch-plateau-factor",
+            "0.25",
+            "--torch-plateau-patience",
+            "5",
+            "--torch-plateau-min-lr",
+            "1e-5",
+            "--torch-plateau-threshold",
+            "1e-3",
         ),
         (
-            'plateau_patience',
-            8,
-            2,
-            ('--plateau_patience', '8'),
-            ('--torch-plateau-patience', '2'),
-        ),
-        (
-            'plateau_min_lr',
-            8e-5,
-            2e-5,
-            ('--plateau_min_lr', '8e-5'),
-            ('--torch-plateau-min-lr', '2e-5'),
-        ),
-        (
-            'plateau_threshold',
-            8e-4,
-            2e-4,
-            ('--plateau_threshold', '8e-4'),
-            ('--torch-plateau-threshold', '2e-4'),
+            "--torch-plateau-factor=0.25",
+            "--torch-plateau-patience=5",
+            "--torch-plateau-min-lr=1e-5",
+            "--torch-plateau-threshold=1e-3",
         ),
     ],
 )
-def test_unified_training_execution_explicit_canonical_plateau_wins_compat_alias(
-    field,
-    canonical_value,
-    compatibility_value,
-    canonical_argv,
-    compatibility_argv,
+def test_explicit_torch_plateau_aliases_enter_canonical_sidecar(
+    raw_argv,
 ):
-    """An explicit canonical plateau option outranks its compatibility alias."""
-    import argparse
-
-    from scripts.training import train as train_mod
+    from ptycho_torch.cli.shared import build_training_config_patch_from_args
 
     args = argparse.Namespace(
-        **{
-            field: canonical_value,
-            f'torch_{field}': compatibility_value,
-        }
+        torch_plateau_factor=0.25,
+        torch_plateau_patience=5,
+        torch_plateau_min_lr=1e-5,
+        torch_plateau_threshold=1e-3,
     )
-    raw_argv = (*canonical_argv, *compatibility_argv)
 
-    train_mod.apply_torch_plateau_overrides(args, argv=raw_argv)
-    sidecar = train_mod._explicit_public_optimizer_overrides(
+    sidecar = build_training_config_patch_from_args(
         args,
-        raw_argv,
+        explicit_options=raw_argv,
+        lane="unified-training",
     )
 
-    assert getattr(args, field) == canonical_value
-    assert sidecar == {field: canonical_value}
+    assert sidecar == {
+        "plateau_factor": 0.25,
+        "plateau_patience": 5,
+        "plateau_min_lr": 1e-5,
+        "plateau_threshold": 1e-3,
+    }
+
+
+def test_explicit_canonical_plateau_value_wins_over_torch_alias():
+    from ptycho_torch.cli.shared import build_training_config_patch_from_args
+
+    args = argparse.Namespace(
+        plateau_factor=0.4,
+        torch_plateau_factor=0.25,
+    )
+    raw_argv = (
+        "--torch-plateau-factor=0.25",
+        "--plateau_factor=0.4",
+    )
+
+    sidecar = build_training_config_patch_from_args(
+        args,
+        explicit_options=raw_argv,
+        lane="unified-training",
+    )
+
+    assert args.plateau_factor == 0.4
+    assert sidecar == {"plateau_factor": 0.4}
+
+
+def test_unified_sidecar_adds_explicit_learning_rate_and_accumulation():
+    from ptycho_torch.cli.shared import build_training_config_patch_from_args
+
+    args = argparse.Namespace(
+        torch_learning_rate=0.002,
+        torch_accumulate_grad_batches=3,
+    )
+
+    assert build_training_config_patch_from_args(
+        args,
+        explicit_options=(
+            "--torch-learning-rate=0.002",
+            "--torch-accumulate-grad-batches=3",
+        ),
+        lane="unified-training",
+    ) == {
+        "learning_rate": 0.002,
+        "accum_steps": 3,
+    }
 
 
 def test_training_entrypoint_shared_parser_preserves_yaml_precedence(
@@ -1173,3 +1020,148 @@ def test_training_entrypoint_shared_parser_preserves_yaml_precedence(
     config = setup_configuration(args, args.config)
 
     assert config.nepochs == 9
+    assert params.cfg == {"sentinel": "unchanged"}
+
+
+def test_metadata_photons_are_revalidated_before_sampling_bridge_and_data(
+    tmp_path,
+    monkeypatch,
+):
+    import argparse
+
+    from ptycho.config import ModelConfig, TrainingConfig
+    from ptycho.metadata import MetadataManager
+    from scripts.training import train as training_script
+
+    train_path = tmp_path / "train.npz"
+    train_path.touch()
+    config = TrainingConfig(
+        model=ModelConfig(),
+        train_data_file=train_path,
+        nphotons=10,
+        backend="tensorflow",
+    )
+    args = argparse.Namespace(config=None, do_stitching=False)
+    events = []
+
+    def record_validation(name, candidate):
+        events.append(name)
+        assert candidate.nphotons == 25
+
+    monkeypatch.setattr(training_script, "parse_arguments", lambda: args)
+    monkeypatch.setattr(
+        training_script,
+        "setup_configuration",
+        lambda *_args: config,
+    )
+    monkeypatch.setattr(
+        MetadataManager,
+        "load_with_metadata",
+        staticmethod(
+            lambda _path: (
+                events.append("metadata")
+                or (None, {"physics_parameters": {"nphotons": 25}})
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        training_script,
+        "validate_training_config_structure",
+        lambda candidate: record_validation("structure", candidate),
+    )
+    monkeypatch.setattr(
+        training_script,
+        "validate_runnable_training_config",
+        lambda candidate: record_validation("runnable", candidate),
+    )
+    monkeypatch.setattr(
+        training_script,
+        "interpret_sampling_parameters",
+        lambda candidate: (
+            events.append("sampling")
+            or (512, 512, False, None, "sampling")
+        ),
+    )
+    monkeypatch.setattr(
+        training_script,
+        "update_legacy_dict",
+        lambda _cfg, candidate: record_validation("bridge", candidate),
+    )
+    monkeypatch.setattr(
+        training_script,
+        "load_data",
+        lambda *_args, **_kwargs: events.append("load_data") or object(),
+    )
+    monkeypatch.setattr(
+        training_script,
+        "run_cdi_example_with_backend",
+        lambda *_args, **_kwargs: (
+            events.append("delegate")
+            or (None, None, {"backend": "tensorflow"})
+        ),
+    )
+    monkeypatch.setattr(training_script.model_manager, "save", lambda *_: None)
+    monkeypatch.setattr(training_script, "save_outputs", lambda *_: None)
+
+    training_script.main()
+
+    assert events == [
+        "metadata",
+        "structure",
+        "runnable",
+        "sampling",
+        "bridge",
+        "load_data",
+        "delegate",
+    ]
+
+
+def test_invalid_metadata_photons_fail_before_sampling_bridge_or_data(
+    tmp_path,
+    monkeypatch,
+):
+    import argparse
+
+    from ptycho.config import ModelConfig, TrainingConfig
+    from ptycho.metadata import MetadataManager
+    from scripts.training import train as training_script
+
+    train_path = tmp_path / "train.npz"
+    train_path.touch()
+    config = TrainingConfig(
+        model=ModelConfig(),
+        train_data_file=train_path,
+        backend="tensorflow",
+    )
+    args = argparse.Namespace(config=None, do_stitching=False)
+    monkeypatch.setattr(training_script, "parse_arguments", lambda: args)
+    monkeypatch.setattr(
+        training_script,
+        "setup_configuration",
+        lambda *_args: config,
+    )
+    monkeypatch.setattr(
+        MetadataManager,
+        "load_with_metadata",
+        staticmethod(lambda _path: (None, {"nphotons": 0})),
+    )
+    monkeypatch.setattr(
+        training_script,
+        "interpret_sampling_parameters",
+        lambda *_args: pytest.fail("invalid metadata reached sampling"),
+    )
+    monkeypatch.setattr(
+        training_script,
+        "update_legacy_dict",
+        lambda *_args: pytest.fail("invalid metadata reached bridge"),
+    )
+    monkeypatch.setattr(
+        training_script,
+        "load_data",
+        lambda *_args, **_kwargs: pytest.fail(
+            "invalid metadata reached data loading"
+        ),
+    )
+
+    with pytest.raises(ValueError, match="nphotons"):
+        training_script.main()

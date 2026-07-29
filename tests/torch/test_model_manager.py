@@ -9,7 +9,7 @@ ptycho/model_manager.py TensorFlow implementation.
 Critical Behavioral Requirements (from spec §4.6 + Phase D3 callchain):
 1. save_torch_bundle MUST produce wts.h5.zip-compatible archives with dual-model structure
 2. Archive MUST contain manifest.dill, per-model subdirectories with params.dill snapshots
-3. params.dill MUST capture full params.cfg state via dataclass_to_legacy_dict (CONFIG-001)
+3. params.dill MUST capture the config-derived legacy projection (CONFIG-001)
 4. Archives identify their backend; unsupported cross-backend loads fail descriptively
 5. All persistence functions must be torch-optional (importable when PyTorch unavailable)
 
@@ -24,13 +24,15 @@ Artifacts (Phase D3.B):
 - plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T110500Z/pytest_green.log
 """
 
-import pytest
+import copy
 import io
 from pathlib import Path
 import tempfile
 import zipfile
+
 import dill
 import numpy as np
+import pytest
 
 # Add to conftest.py TORCH_OPTIONAL_MODULES if not already present
 # This test must run without torch runtime
@@ -124,7 +126,6 @@ class TestSaveTorchBundle:
     def test_archive_structure(
         self,
         tmp_path,
-        params_cfg_snapshot,
         minimal_training_config,
         dummy_torch_models
     ):
@@ -141,7 +142,7 @@ class TestSaveTorchBundle:
         ├── manifest.dill  # {'models': ['autoencoder', 'diffraction_to_obj'], 'version': '2.0-pytorch'}
         ├── autoencoder/
         │   ├── model.pth  # PyTorch state_dict (replaces model.keras)
-        │   └── params.dill  # Full params.cfg snapshot (CONFIG-001 critical)
+        │   └── params.dill  # Config-derived legacy projection (CONFIG-001)
         └── diffraction_to_obj/
             ├── model.pth
             └── params.dill
@@ -152,7 +153,7 @@ class TestSaveTorchBundle:
         - MUST create {base_path}.zip archive
         - MUST include manifest.dill at root with 'models' and 'version' keys
         - MUST create subdirectory per model in models_dict
-        - Each model dir MUST contain params.dill with params.cfg snapshot
+        - Each model dir MUST contain the config-derived params.dill projection
 
         Test mechanism:
         - Call save_torch_bundle with dummy models + minimal config
@@ -164,10 +165,6 @@ class TestSaveTorchBundle:
         pytest.importorskip("ptycho_torch.model_manager", reason="model_manager module not yet implemented")
 
         from ptycho_torch.model_manager import save_torch_bundle
-        from ptycho.config.config import update_legacy_dict
-
-        # Populate params.cfg via config bridge (CONFIG-001 requirement)
-        update_legacy_dict(params_cfg_snapshot, minimal_training_config)
 
         # Define output path
         base_path = tmp_path / "test_bundle"
@@ -243,12 +240,11 @@ class TestSaveTorchBundle:
     def test_params_snapshot(
         self,
         tmp_path,
-        params_cfg_snapshot,
         minimal_training_config,
         dummy_torch_models
     ):
         """
-        CRITICAL CONFIG-001 TEST: params.dill must capture full params.cfg state.
+        CRITICAL CONFIG-001 TEST: params.dill captures the config projection.
 
         Requirement: Phase D3.A callchain finding #1 — TensorFlow loader calls
         `params.cfg.update(loaded_params)` at model_manager.py:119 to restore
@@ -270,10 +266,7 @@ class TestSaveTorchBundle:
         pytest.importorskip("ptycho_torch.model_manager", reason="model_manager module not yet implemented")
 
         from ptycho_torch.model_manager import save_torch_bundle
-        from ptycho.config.config import update_legacy_dict, dataclass_to_legacy_dict
-
-        # Populate params.cfg via config bridge (CONFIG-001 requirement)
-        update_legacy_dict(params_cfg_snapshot, minimal_training_config)
+        from ptycho.config.config import dataclass_to_legacy_dict
 
         # Capture expected params snapshot for comparison
         expected_params = dataclass_to_legacy_dict(minimal_training_config)
@@ -328,7 +321,6 @@ class TestSaveTorchBundle:
     def test_save_bundle_with_intensity_scale(
         self,
         tmp_path,
-        params_cfg_snapshot,
         minimal_training_config,
         dummy_torch_models
     ):
@@ -346,10 +338,6 @@ class TestSaveTorchBundle:
         - Verify intensity_scale field equals the provided value
         """
         from ptycho_torch.model_manager import save_torch_bundle
-        from ptycho.config.config import update_legacy_dict
-
-        # Populate params.cfg via config bridge (CONFIG-001 requirement)
-        update_legacy_dict(params_cfg_snapshot, minimal_training_config)
 
         # Define output path
         base_path = tmp_path / "test_intensity_scale"
@@ -377,6 +365,48 @@ class TestSaveTorchBundle:
             f"Expected intensity_scale={test_intensity_scale}, "
             f"got {loaded_params['intensity_scale']}"
         )
+
+    def test_save_snapshot_ignores_poisoned_global_state(
+        self,
+        tmp_path,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_torch_models,
+    ):
+        """The save codec is derived only from its config and explicit scale."""
+        from ptycho.config.config import dataclass_to_legacy_dict
+        from ptycho_torch.model_manager import save_torch_bundle
+
+        config_before = copy.deepcopy(minimal_training_config)
+        params_cfg_snapshot.clear()
+        params_cfg_snapshot.update(
+            {
+                "N": 999,
+                "intensity_scale": 137.0,
+                "poisoned_global_only": True,
+            }
+        )
+        base_path = tmp_path / "poisoned_global"
+
+        save_torch_bundle(
+            models_dict=dummy_torch_models,
+            base_path=str(base_path),
+            config=minimal_training_config,
+        )
+
+        expected = dataclass_to_legacy_dict(minimal_training_config)
+        expected["intensity_scale"] = 1.0
+        expected["_version"] = "2.0-pytorch"
+        with zipfile.ZipFile(f"{base_path}.zip", "r") as archive:
+            autoencoder_bytes = archive.read("autoencoder/params.dill")
+            reconstruction_bytes = archive.read(
+                "diffraction_to_obj/params.dill"
+            )
+
+        assert dill.loads(autoencoder_bytes) == expected
+        assert autoencoder_bytes == reconstruction_bytes
+        assert autoencoder_bytes == dill.dumps(expected)
+        assert minimal_training_config == config_before
 
 
 class TestLoadTorchBundle:

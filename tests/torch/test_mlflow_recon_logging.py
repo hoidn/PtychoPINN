@@ -5,8 +5,8 @@ missing-data skip paths, MLflow artifact logging calls.
 """
 
 import numpy as np
-import pytest
 import torch
+from types import SimpleNamespace
 from unittest import mock
 
 from ptycho_torch.workflows.recon_logging import PtychoReconLoggingCallback
@@ -357,16 +357,98 @@ class TestStitchedLogging:
         assert config['offset'] == 16
         assert config['nimgs_test'] == 8
 
-    def test_build_stitch_config_returns_none_without_metadata(self):
-        """Verify _build_stitch_config returns None when no metadata available."""
+    def test_build_stitch_config_ignores_poisoned_global_without_geometry(
+        self, monkeypatch
+    ):
+        """Modern logging must not reconstruct geometry from params.cfg."""
+        from ptycho import params
+
+        monkeypatch.setattr(
+            params,
+            "cfg",
+            {
+                "N": 999,
+                "gridsize": 9,
+                "offset": 91,
+                "outer_offset_test": 92,
+            },
+        )
         dataset = FakeDataset(n=4)
         val_dl = FakeValDataloader(dataset)
 
         cb = PtychoReconLoggingCallback()
-        # Without metadata attr and without params.cfg having N/gridsize,
-        # this may return None or a config depending on params state.
-        # The key is it doesn't raise.
-        cb._build_stitch_config(val_dl)
+
+        assert cb._build_stitch_config(val_dl) is None
+
+    def test_build_stitch_config_uses_dataset_owned_configs_over_poisoned_global(
+        self, monkeypatch
+    ):
+        """Dataset/model owners provide modern stitch geometry explicitly."""
+        from ptycho import params
+
+        monkeypatch.setattr(
+            params,
+            "cfg",
+            {
+                "N": 999,
+                "gridsize": 9,
+                "offset": 91,
+                "outer_offset_test": 92,
+            },
+        )
+        dataset = FakeDataset(n=4)
+        dataset.data_config = SimpleNamespace(N=64, grid_size=(2, 2))
+        dataset.model_config = SimpleNamespace(offset=6)
+        val_dl = FakeValDataloader(dataset)
+
+        config = PtychoReconLoggingCallback()._build_stitch_config(val_dl)
+
+        assert config == {
+            "N": 64,
+            "gridsize": 2,
+            "offset": 6,
+            "outer_offset_test": 6,
+            "nimgs_test": 4,
+        }
+
+    def test_build_stitch_config_uses_wrapped_container_metadata(
+        self, monkeypatch
+    ):
+        """Lightning's dataset wrapper retains acquisition metadata on its container."""
+        from ptycho import params
+
+        monkeypatch.setattr(
+            params,
+            "cfg",
+            {
+                "N": 999,
+                "gridsize": 9,
+                "offset": 91,
+                "outer_offset_test": 92,
+            },
+        )
+        dataset = FakeDataset(n=4)
+        dataset.model_config = SimpleNamespace(offset=6)
+        dataset.container = SimpleNamespace(
+            metadata={
+                "physics_parameters": {"N": 128, "gridsize": 2},
+                "additional_parameters": {
+                    "offset": 5,
+                    "outer_offset_test": 17,
+                },
+            }
+        )
+        val_dl = FakeValDataloader(dataset)
+
+        config = PtychoReconLoggingCallback()._build_stitch_config(val_dl)
+
+        assert config == {
+            "N": 128,
+            "gridsize": 2,
+            "offset": 5,
+            "outer_offset_test": 17,
+            "nimgs_test": 4,
+        }
 
 
 class TestConfigFields:
@@ -405,4 +487,4 @@ class TestRunnerPropagation:
             recon_log_max_stitch_samples=8,
         )
         _, exec_cfg = setup_torch_configs(cfg)
-        assert exec_cfg.recon_log_max_stitch_samples == 8
+        assert exec_cfg.values["recon_log_max_stitch_samples"] == 8

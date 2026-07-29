@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Torch runner for grid-lines workflow with FNO/hybrid architectures.
+"""Torch runner for the public grid-lines Torch architectures.
 
-This runner executes PyTorch-based training and inference for FNO and hybrid
+This runner executes PyTorch-based training and inference for public
 architectures, consuming cached NPZ datasets from the TensorFlow grid-lines
 workflow and producing compatible metrics JSON for comparison.
 
@@ -10,7 +10,7 @@ Contract:
         - train_npz: Path to cached training dataset (from grid_lines_workflow)
         - test_npz: Path to cached test dataset (from grid_lines_workflow)
         - output_dir: Base output directory for artifacts
-        - architecture: 'fno' or 'hybrid'
+        - architecture: one of the public Torch architecture names
         - seed: Random seed for reproducibility
         - Training hyperparams (epochs, batch_size, learning_rate)
 
@@ -57,8 +57,6 @@ logger = logging.getLogger(__name__)
 PAPER_MODEL_LABELS = {
     "ffno": "FFNO + PINN",
     "fno": "FNO + PINN",
-    "hybrid": "Hybrid + PINN",
-    "stable_hybrid": "Stable Hybrid + PINN",
     "fno_vanilla": "FNO Vanilla + PINN",
     "neuralop_uno": "U-NO + PINN",
 }
@@ -146,7 +144,7 @@ class TorchRunnerConfig:
     train_npz: Path
     test_npz: Path
     output_dir: Path
-    architecture: str  # 'ffno', 'fno', or 'hybrid'
+    architecture: str  # Public Torch architecture name.
     artifact_root: Optional[Path] = None
     training_procedure: str = "pinn"
     model_id_override: Optional[str] = None
@@ -1007,15 +1005,16 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
     """Set up PyTorch configuration objects from runner config.
 
     Returns:
-        Tuple of (TrainingConfig, PyTorchExecutionConfig)
+        Tuple of (TrainingConfig, unresolved ExecutionRequest)
     """
     from typing import cast, Literal
-    from ptycho.config.config import TrainingConfig, ModelConfig, PyTorchExecutionConfig
+    from ptycho.config.config import TrainingConfig, ModelConfig
+    from ptycho_torch.execution_request import ExecutionRequest
 
     # Cast N and architecture to their Literal types
     N_literal = cast(Literal[64, 128, 256], cfg.N)
     arch_literal = cast(
-        Literal['cnn', 'ffno', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'neuralop_uno'],
+        Literal['cnn', 'ffno', 'fno', 'fno_vanilla', 'neuralop_uno'],
         cfg.architecture,
     )
     if cfg.architecture == "neuralop_uno":
@@ -1096,33 +1095,23 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
     # backward implementation. Use Lightning's "warn" mode for that architecture so
     # the locked U-NO contract trains on GPU; record the caveat in row provenance.
     deterministic_mode: Union[bool, Literal["warn"]] = _deterministic_mode_for(cfg.architecture)
-    encoder_recipe = _fixed_hybrid_encoder_recipe(cfg) or {}
-    execution_config = PyTorchExecutionConfig(
-        learning_rate=cfg.learning_rate,
-        deterministic=deterministic_mode,
-        gradient_clip_val=cfg.gradient_clip_val,
-        enable_progress_bar=True,
-        enable_checkpointing=cfg.enable_checkpointing,
-        logger_backend=cfg.logger_backend,
-        ffno_encoder_blocks=int(encoder_recipe.get("ffno_encoder_blocks", 24)),
-        ffno_encoder_modes=int(encoder_recipe.get("ffno_encoder_modes", cfg.fno_modes)),
-        ffno_encoder_share_weights=bool(encoder_recipe.get("ffno_encoder_share_weights", True)),
-        ffno_encoder_gate_init=float(encoder_recipe.get("ffno_encoder_gate_init", 0.1)),
-        ffno_encoder_norm=str(encoder_recipe.get("ffno_encoder_norm", "instance")),
-        ffno_encoder_mlp_ratio=float(encoder_recipe.get("ffno_encoder_mlp_ratio", 2.0)),
-        spectral_bottleneck_blocks=cfg.spectral_bottleneck_blocks,
-        spectral_bottleneck_modes=cfg.spectral_bottleneck_modes,
-        spectral_bottleneck_share_weights=cfg.spectral_bottleneck_share_weights,
-        spectral_bottleneck_gate_init=cfg.spectral_bottleneck_gate_init,
-        spectral_bottleneck_gate_mode=cfg.spectral_bottleneck_gate_mode,
-        recon_log_every_n_epochs=cfg.recon_log_every_n_epochs,
-        recon_log_num_patches=cfg.recon_log_num_patches,
-        recon_log_fixed_indices=cfg.recon_log_fixed_indices,
-        recon_log_stitch=cfg.recon_log_stitch,
-        recon_log_max_stitch_samples=cfg.recon_log_max_stitch_samples,
+    runtime_values = {
+        "deterministic": deterministic_mode,
+        "enable_progress_bar": True,
+        "enable_checkpointing": cfg.enable_checkpointing,
+        "logger_backend": cfg.logger_backend,
+        "recon_log_every_n_epochs": cfg.recon_log_every_n_epochs,
+        "recon_log_num_patches": cfg.recon_log_num_patches,
+        "recon_log_fixed_indices": cfg.recon_log_fixed_indices,
+        "recon_log_stitch": cfg.recon_log_stitch,
+        "recon_log_max_stitch_samples": cfg.recon_log_max_stitch_samples,
+    }
+    execution_request = ExecutionRequest(
+        values=runtime_values,
+        explicit_fields=frozenset(runtime_values),
     )
 
-    return training_config, execution_config
+    return training_config, execution_request
 
 
 def _resolve_split_nphotons(
@@ -1237,7 +1226,7 @@ def run_torch_training(
     np.random.seed(cfg.seed)
 
     # Set up configs
-    training_config, execution_config = setup_torch_configs(cfg)
+    training_config, execution_request = setup_torch_configs(cfg)
 
     from ptycho_torch.config_params import (
         DataConfig as PTDataConfig,
@@ -1429,7 +1418,7 @@ def run_torch_training(
         train_container,
         test_container,
         training_config,
-        execution_config=execution_config,
+        execution_config=execution_request,
         overrides=lightning_overrides,
     )
     results["generator"] = cfg.architecture
@@ -2536,7 +2525,7 @@ def run_grid_lines_torch(
 def main(argv=None) -> None:
     """CLI entry point."""
     parser = argparse.ArgumentParser(
-        description="Torch runner for grid-lines FNO/hybrid architectures"
+        description="Torch runner for public grid-lines architectures"
     )
     parser.add_argument("--train-npz", type=Path, required=True,
                         help="Path to cached training NPZ")
@@ -2545,7 +2534,7 @@ def main(argv=None) -> None:
     parser.add_argument("--output-dir", type=Path, required=True,
                         help="Output directory for artifacts")
     parser.add_argument("--architecture", type=str, required=True,
-                        choices=['cnn', 'ffno', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'neuralop_uno'],
+                        choices=['cnn', 'ffno', 'fno', 'fno_vanilla', 'neuralop_uno'],
                         help="Generator architecture to use ('cnn' uses the built-in Autoencoder; no generator module)")
     parser.add_argument(
         "--training-procedure",
