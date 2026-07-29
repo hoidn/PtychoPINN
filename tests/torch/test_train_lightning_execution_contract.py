@@ -189,7 +189,9 @@ def _install_training_fakes(monkeypatch, run_dir):
         save_dir = str(run_dir.parent)
 
     class FakeDataModule:
-        def __init__(self, _ptycho_dir, _model, _data, training, **_kwargs):
+        def __init__(self, _ptycho_dir, model, data, training, **_kwargs):
+            captured["data_config"] = data
+            captured["model_config"] = model
             captured["data_training_config"] = training
             captured["data_module_kwargs"] = _kwargs
 
@@ -404,188 +406,36 @@ def test_lightning_only_main_without_execution_input_preserves_training_owner(
     assert model.training_config.gradient_clip_algorithm == "value"
 
 
-def test_legacy_train_main_singular_owner_uses_resolved_training(
+def test_main_copies_resolved_records_before_applying_runtime_overrides(
     tmp_path,
     monkeypatch,
 ):
-    import ptycho_torch.train as legacy_train
-    from ptycho_torch import config_factory
-
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    captured = _install_training_fakes(monkeypatch, run_dir)
+    monkeypatch.setattr(train_module, "set_seed", lambda *_args, **_kwargs: None)
     configs = _configs(tmp_path)
-    source_training = replace(
-        configs[2],
-        device="cuda",
-        strategy="ddp",
-        n_devices=1,
-        num_workers=4,
-        learning_rate=1e-2,
-        accum_steps=2,
-        gradient_clip_val=0.2,
-        batch_size=23,
-    )
-    original_training = replace(source_training)
-    configs = (*configs[:2], source_training, *configs[3:])
-    resolved_training = replace(
-        source_training,
-        learning_rate=4e-4,
-        accum_steps=5,
-        gradient_clip_val=0.75,
-        gradient_clip_algorithm="agc",
-    )
-    resolver_calls = []
-    captured = {}
+    snapshots = tuple(replace(config) for config in configs)
 
-    def fake_resolve_optimizer_ownership(**kwargs):
-        resolver_calls.append(kwargs)
-        return resolved_training, {}
-
-    class FakeModel:
-        val_loss_name = "val_loss"
-        automatic_optimization = False
-
-        def __init__(self, _model, _data, training, _inference):
-            self.training_config = training
-            self.training = False
-            self.lr = None
-
-    class FakeTrainer:
-        global_rank = 0
-
-        def __init__(self, **kwargs):
-            captured["trainer_kwargs"] = kwargs
-
-        def fit(self, model, datamodule):
-            captured["fit"] = (model, datamodule)
-
-    class FakeDataModule:
-        def __init__(self, _ptycho_dir, _model, _data, training, **_kwargs):
-            captured["data_training_config"] = training
-
-    monkeypatch.setattr(
-        config_factory,
-        "resolve_optimizer_ownership",
-        fake_resolve_optimizer_ownership,
-    )
-    monkeypatch.setattr(legacy_train, "validate_scale_contract", lambda *_args: None)
-    monkeypatch.setattr(legacy_train, "set_seed", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(legacy_train, "PtychoDataModule", FakeDataModule)
-    monkeypatch.setattr(legacy_train, "PtychoPINN_Lightning", FakeModel)
-    monkeypatch.setattr(legacy_train, "ModelCheckpoint", lambda **_kwargs: object())
-    monkeypatch.setattr(legacy_train, "EarlyStopping", lambda **_kwargs: object())
-    monkeypatch.setattr(legacy_train, "_build_ci_statistics_callback", lambda *_args: object())
-    monkeypatch.setattr(legacy_train, "find_learning_rate", lambda lr, *_args: lr)
-    monkeypatch.setattr(legacy_train, "is_effectively_global_rank_zero", lambda: True)
-    monkeypatch.setattr(legacy_train.L, "Trainer", FakeTrainer)
-
-    legacy_train.main(
+    train_module.main(
         tmp_path / "data",
         existing_config=configs,
         output_dir=tmp_path / "output",
-        execution_config=PyTorchExecutionConfig(
-            accelerator="cpu",
-            devices=2,
-            strategy="ddp_spawn",
-            num_workers=0,
-            precision="bf16-mixed",
-            learning_rate=0.9,
-            accum_steps=8,
-            gradient_clip_val=9.0,
-            gradient_clip_algorithm="value",
-        ),
-        disable_mlflow=True,
+        execution_config=PyTorchExecutionConfig(accelerator="cpu"),
+        run_name="immutable-inputs",
+        scale_contract_version="ci_intensity_v2",
+        measurement_domain="count_intensity",
+        seed=11,
     )
 
-    model = captured["fit"][0]
-    trainer_kwargs = captured["trainer_kwargs"]
-    assert len(resolver_calls) == 1
-    assert source_training == original_training
-    assert model.training_config is not source_training
-    assert captured["data_training_config"] is model.training_config
-    assert model.training_config.batch_size == 23
-    assert model.training_config.device == "cpu"
-    assert model.training_config.strategy == "ddp_spawn"
-    assert model.training_config.n_devices == 2
-    assert model.training_config.num_workers == 0
-    assert model.training_config.learning_rate == 4e-4
-    assert model.lr == 4e-4
-    assert model.training_config.accum_steps == 5
-    assert trainer_kwargs["accumulate_grad_batches"] == 1
-    assert trainer_kwargs["gradient_clip_val"] is None
-    assert trainer_kwargs["devices"] == 2
-    assert trainer_kwargs["strategy"] == "ddp_spawn"
-    assert trainer_kwargs["precision"] == "bf16-mixed"
+    assert configs == snapshots
+    assert captured["data_config"] is not configs[0]
+    assert captured["model_config"] is not configs[1]
+    assert captured["data_training_config"] is not configs[2]
 
 
-def test_legacy_train_main_without_execution_input_preserves_training_owner(
-    tmp_path,
-    monkeypatch,
-):
-    import ptycho_torch.train as legacy_train
-
-    configs = _configs(tmp_path)
-    baseline_training = replace(
-        configs[2],
-        learning_rate=4.321e-3,
-        scheduler="WarmupCosine",
-        accum_steps=7,
-        gradient_clip_val=0.45,
-        gradient_clip_algorithm="value",
-    )
-    configs = (*configs[:2], baseline_training, *configs[3:])
-    captured = {}
-
-    class FakeModel:
-        val_loss_name = "val_loss"
-        automatic_optimization = False
-
-        def __init__(self, _model, _data, training, _inference):
-            self.training_config = training
-            self.training = False
-            self.lr = None
-
-    class FakeTrainer:
-        global_rank = 0
-
-        def __init__(self, **kwargs):
-            captured["trainer_kwargs"] = kwargs
-
-        def fit(self, model, datamodule):
-            captured["fit"] = (model, datamodule)
-
-    monkeypatch.setattr(legacy_train, "validate_scale_contract", lambda *_args: None)
-    monkeypatch.setattr(legacy_train, "set_seed", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(legacy_train, "PtychoDataModule", lambda *_args, **_kwargs: object())
-    monkeypatch.setattr(legacy_train, "PtychoPINN_Lightning", FakeModel)
-    monkeypatch.setattr(legacy_train, "ModelCheckpoint", lambda **_kwargs: object())
-    monkeypatch.setattr(legacy_train, "EarlyStopping", lambda **_kwargs: object())
-    monkeypatch.setattr(legacy_train, "_build_ci_statistics_callback", lambda *_args: object())
-    monkeypatch.setattr(legacy_train, "find_learning_rate", lambda lr, *_args: lr)
-    monkeypatch.setattr(legacy_train, "is_effectively_global_rank_zero", lambda: True)
-    monkeypatch.setattr(legacy_train.L, "Trainer", FakeTrainer)
-
-    legacy_train.main(
-        tmp_path / "data",
-        existing_config=configs,
-        output_dir=tmp_path / "output",
-        execution_config=None,
-        disable_mlflow=True,
-    )
-
-    model = captured["fit"][0]
-    assert model.training_config.learning_rate == 4.321e-3
-    assert model.lr == 4.321e-3
-    assert model.training_config.scheduler == "WarmupCosine"
-    assert model.training_config.accum_steps == 7
-    assert model.training_config.gradient_clip_val == 0.45
-    assert model.training_config.gradient_clip_algorithm == "value"
-
-
-@pytest.mark.parametrize(
-    "module_name",
-    ["ptycho_torch.train", "ptycho_torch.train_lightning_only"],
-)
-def test_direct_training_resolution_reuses_original_without_mutation(module_name):
-    module = __import__(module_name, fromlist=["_resolve_direct_training_config"])
+def test_direct_training_resolution_reuses_original_without_mutation():
+    module = train_module
     baseline = TrainingConfig(
         learning_rate=4.321e-3,
         scheduler="WarmupCosine",

@@ -1760,14 +1760,9 @@ class TestVarProProbeWeightingKnobOverrides:
     """Prove the 5 ModelConfig knobs added by Phase-2 (Tasks 2.3-2.6) survive
     create_training_payload's override round-trip.
 
-    update_existing_config() (ptycho_torch/config_params.py) silently drops any
-    override key that is not an existing attribute on the target dataclass
-    instance (no exception, no warning by default). A naive test that only
-    checks create_training_payload() didn't raise would pass even if the
-    factory silently dropped the key. These tests instead assert the override
-    actually moved pt_model_config's field value away from its class default,
-    which is only possible if update_existing_config really applied the
-    override via setattr.
+    A naive test that only checks create_training_payload() did not raise would
+    pass even if the resolver silently dropped a key. These tests instead
+    assert that each override reaches the resolved ModelConfig owner.
     """
 
     def test_cnn_output_mode_override_survives_training_payload(self, mock_train_npz, temp_output_dir):

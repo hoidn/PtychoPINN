@@ -1,8 +1,8 @@
 """
 PyTorch Training Script for PtychoPINN (INTEGRATE-PYTORCH-001)
 
-This module provides the main training entry point for the PyTorch backend.
-It supports both programmatic use via the main() function and CLI execution.
+This module provides the canonical CLI training entry point for the PyTorch
+backend.
 
 CLI Interface (Phase E2.C1):
     python -m ptycho_torch.train \\
@@ -15,17 +15,6 @@ CLI Interface (Phase E2.C1):
         --batch_size <int>             # Optional: Training batch size (default: 16)
         --device <cpu|cuda>            # Optional: Compute device (default: cpu)
         --disable_mlflow               # Optional: Suppress MLflow autologging
-
-Legacy Interface (Backward Compatible):
-    python -m ptycho_torch.train --ptycho_dir <path> --config <config.json> [--disable_mlflow]
-
-MLflow Behavior:
-    By default, training uses MLflow for experiment tracking (autologging, metrics, artifacts).
-    When --disable_mlflow is set:
-    - mlflow.pytorch.autolog() is skipped
-    - No experiment or run creation
-    - Training proceeds normally without tracking overhead
-    - Checkpoints are still saved via Lightning callbacks
 
 Key Features:
 - CONFIG-001 compliant: Populates params.cfg before workflow dispatch
@@ -41,74 +30,11 @@ References:
 #Most basic modules
 import sys
 import argparse
-import os
-import json
-import random
-import math
 from pathlib import Path
 
-#Typing
-from dataclasses import asdict, fields, replace
-from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig, InferenceConfig, DatagenConfig
-
-#ML libraries
-import numpy as np
-import torch
-from torch import nn
-from torch.nn import functional as F
-from torch.utils.data import Subset
-import torch.distributed as dist
 from ptycho.config.legacy_state import scoped_legacy_params
 
-#Automation modules
-#Lightning
-try:
-    import lightning as L
-    from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
-    from lightning.pytorch.strategies import DDPStrategy
-except ImportError as e:
-    raise RuntimeError(
-        "PyTorch backend requires Lightning. Install with: pip install -e .[torch]"
-    ) from e
-
-#MLFlow
-try:
-    import mlflow.pytorch
-    from mlflow import MlflowClient
-except ImportError as e:
-    raise RuntimeError(
-        "PyTorch backend requires MLflow. Install with: pip install -e .[torch]"
-    ) from e
-
-#Configs/Params
-from ptycho_torch.config_params import update_existing_config
-
-#Custom modules
-from ptycho_torch.model import PtychoPINN_Lightning
-from ptycho_torch.scaling_contract import validate_scale_contract
-from ptycho_torch.utils import config_to_json_serializable_dict, load_config_from_json, validate_and_process_config
-from ptycho_torch.train_utils import set_seed, find_learning_rate, log_parameters_mlflow, is_effectively_global_rank_zero, print_auto_logged_info
-from ptycho_torch.train_utils import ModelFineTuner, PtychoDataModule, LightningConfigSaveCallback, ModelFineTuner_Lightning
-from ptycho_torch.lightning_utils import CIStatisticsCallback
-
-# mlflow.set_tracking_uri("http://127.0.0.1:5000")
-# mlflow.set_experiment("PtychoPINN")
-
 #----- Helper Functions -------
-
-def _persist_finalized_ci_statistics_to_mlflow(statistics):
-    """Persist finalized training-split CI statistics to the active MLflow run."""
-    if mlflow.active_run() is not None:
-        mlflow.log_dict(statistics, "ci_statistics.json")
-
-
-def _build_ci_statistics_callback(disable_mlflow):
-    metadata_sink = (
-        None
-        if disable_mlflow
-        else _persist_finalized_ci_statistics_to_mlflow
-    )
-    return CIStatisticsCallback(metadata_sink=metadata_sink)
 
 
 def _infer_probe_size(npz_file):
@@ -134,7 +60,6 @@ def _infer_probe_size(npz_file):
         >>> print(N)  # 64 (for this dataset)
     """
     import zipfile
-    import numpy as np
     from ptycho_torch.npz_utils import read_npy_shape
 
     try:
@@ -152,484 +77,18 @@ def _infer_probe_size(npz_file):
             # probeGuess key not found - return None for fallback to default
             return None
 
-    except (zipfile.BadZipFile, FileNotFoundError, KeyError) as e:
+    except (zipfile.BadZipFile, FileNotFoundError, KeyError):
         # If NPZ is invalid or missing, return None
         # Caller can decide whether to use default or raise error
         return None
-
-#----- Main -------
-
-def _effective_device_count(devices, accelerator) -> int:
-    if isinstance(devices, int):
-        return devices
-    if accelerator in {"cuda", "gpu"}:
-        count = torch.cuda.device_count() if torch.cuda.is_available() else 0
-        return max(count, 1)
-    return 1
-
-
-def _torch_device_accelerator(accelerator: str) -> str:
-    return "cuda" if accelerator == "gpu" else accelerator
-
-
-def _resolve_direct_training_config(
-    training_config: TrainingConfig,
-    execution_config,
-) -> TrainingConfig:
-    """Resolve legacy execution optimizer aliases into the training owner."""
-    from ptycho_torch.config_factory import (
-        TRAINING_OWNER_FIELDS,
-        resolve_optimizer_ownership,
-    )
-    from ptycho_torch.execution_request import normalize_execution_input
-
-    resolved_owner, _ = resolve_optimizer_ownership(
-        training_baseline=training_config,
-        normalized_execution=normalize_execution_input(
-            execution_config,
-            mode="training",
-        ),
-        canonical_training_patch={},
-    )
-    owner_fields = TRAINING_OWNER_FIELDS & {
-        item.name for item in fields(training_config)
-    }
-    return replace(
-        training_config,
-        **{
-            name: getattr(resolved_owner, name)
-            for name in owner_fields
-        },
-    )
-
-
-@scoped_legacy_params
-def main(ptycho_dir,
-         config_path = None,
-         existing_config = None,
-         disable_mlflow = False,
-         output_dir = None,
-         execution_config = None):
-    '''
-    Main training script. Can provide dictionary of modified configs based off of dataclass attributes to overwrite
-
-    Inputs
-    --------
-    ptycho_dir: Directory of ptychography files. Assumed that all diffraction pattern dimensions are equal, and the formatting is identical
-                Read dataloader.py to get a sense of the formats expected
-    config_path: Path to JSON configuration file (optional, for legacy interface)
-    existing_config: Tuple of (DataConfig, ModelConfig, TrainingConfig, InferenceConfig, DatagenConfig) if configs already instantiated
-    disable_mlflow: If True, suppresses all MLflow tracking (autologging, experiment tracking, run creation).
-                   Useful for CI environments without MLflow server. Default: False.
-    output_dir: Optional override for checkpoint output directory. If provided, configures Lightning's default_root_dir.
-    execution_config: Optional PyTorchExecutionConfig for runtime knobs (Phase C4.C3 - ADR-003).
-                     If None, uses default execution config with CPU accelerator.
-
-    Outputs
-    --------
-    run_id: Can be recycled to load things through MLFlow. See inference.py for details (only when disable_mlflow=False)
-    '''
-    #Define configs
-    print('Starting training loop. Loading configs...')
-    #Legacy function, if train is called by itself instead of train_full
-    if not existing_config:
-        try:
-            config_data = load_config_from_json(config_path)
-            d_config_replace, m_config_replace, t_config_replace, i_config_replace, dgen_config_replace = validate_and_process_config(config_data)
-        except Exception as e:
-            print(f"Failed to open/validate config because of: {e}")
-        
-        data_config = DataConfig()
-        if d_config_replace is not None:
-            update_existing_config(data_config, d_config_replace)
-        
-        model_config = ModelConfig()
-        if m_config_replace is not None:
-            update_existing_config(model_config, m_config_replace)
-        
-        training_config = TrainingConfig()
-        if t_config_replace is not None:
-            update_existing_config(training_config, t_config_replace)    
-
-        inference_config = InferenceConfig()
-        
-        datagen_config = DatagenConfig()
-        if dgen_config_replace is not None:
-            update_existing_config(datagen_config, dgen_config_replace)
-    
-    #If train is called via train_full, these settings will already have been loaded
-    else:
-        data_config, model_config, training_config, inference_config, datagen_config = existing_config
-
-    training_config = _resolve_direct_training_config(
-        training_config,
-        execution_config,
-    )
-    if execution_config is None:
-        from ptycho.config.config import PyTorchExecutionConfig
-        execution_config = PyTorchExecutionConfig(
-            accelerator='cpu',
-            deterministic=True,
-            num_workers=0,
-        )
-    training_config = replace(
-        training_config,
-        n_devices=execution_config.devices,
-        strategy=execution_config.strategy,
-        device=_torch_device_accelerator(execution_config.accelerator),
-        num_workers=execution_config.num_workers,
-    )
-    validate_scale_contract(data_config, model_config, training_config)
-
-    #Setting seed
-    runtime_device_count = _effective_device_count(
-        execution_config.devices,
-        execution_config.accelerator,
-    )
-    set_seed(42, n_devices=runtime_device_count)
-
-    # Data module in place of pytorch native dataloaders. Data module is a lightning class
-    # Create DataModule
-    print("Creating data module")
-    data_module = PtychoDataModule(
-        ptycho_dir,
-        model_config,
-        data_config,
-        training_config,
-        initial_remake_map=True, # Set to True to force recreation on this run
-        val_split=0.05,  # Use 5% for validation (should be fine, need more training data)
-        val_seed=42     # Reproducible split
-    )
-
-    #Create model
-    print('Creating model...')
-    model = PtychoPINN_Lightning(model_config, data_config, training_config, inference_config)
-    model.training = True
-
-    # Learning rate is owned by the resolved TrainingConfig.
-    updated_lr = find_learning_rate(
-        training_config.learning_rate,
-        runtime_device_count,
-        training_config.batch_size,
-    )
-    model.lr = updated_lr
-
-    #Loss
-    val_loss_label = model.val_loss_name
-
-    # Configure checkpoint directory
-    # If output_dir provided, use it; otherwise use current working directory parent
-    checkpoint_root = Path(output_dir) if output_dir else Path(os.path.dirname(os.getcwd()))
-    checkpoint_dir = checkpoint_root / "checkpoints"
-    checkpoint_dir.mkdir(parents=True, exist_ok=True)
-
-    #Callbacks
-    checkpoint_callback = ModelCheckpoint(
-        dirpath=str(checkpoint_dir),
-        monitor=val_loss_label,
-        mode='min',
-        save_top_k=1,
-        filename='best-checkpoint',
-        save_last=True  # Also save last checkpoint for recovery
-    )
-
-    # Stop early when validation loss stops improving
-    early_stop_callback = EarlyStopping(
-        monitor=val_loss_label,
-        mode='min',
-        patience=100,
-        verbose=True,
-        strict=True
-    )
-    callbacks = [
-        _build_ci_statistics_callback(disable_mlflow),
-        checkpoint_callback,
-        early_stop_callback
-    ]
-
-    # All training now runs single-stage
-    total_training_epochs = training_config.epochs
-
-    # Resolve accelerator from the execution owner.
-    if execution_config.accelerator == 'auto':
-        resolved_accelerator = (
-            'gpu'
-            if runtime_device_count > 0 and torch.cuda.is_available()
-            else 'cpu'
-        )
-    else:
-        resolved_accelerator = execution_config.accelerator
-        # Map 'cuda' alias to 'gpu' for Lightning compatibility
-        if resolved_accelerator == 'cuda':
-            resolved_accelerator = 'gpu'
-
-    trainer_kwargs = dict(
-        max_epochs = total_training_epochs,
-        default_root_dir = str(checkpoint_root),
-        devices = execution_config.devices,
-        accelerator = resolved_accelerator,
-        callbacks = callbacks,
-        strategy=execution_config.strategy,
-        precision=execution_config.precision,
-        check_val_every_n_epoch=1,  # Validate every epoch
-        enable_checkpointing=True,  # Enable checkpointing for early stopping
-        enable_progress_bar=execution_config.enable_progress_bar,  # Controlled by execution config
-        deterministic=execution_config.deterministic,  # Reproducibility control
-    )
-    automatic_optimization = getattr(model, "automatic_optimization", True)
-    clip_algorithm = training_config.gradient_clip_algorithm
-    if automatic_optimization and clip_algorithm == "agc":
-        raise ValueError(
-            "gradient_clip_algorithm='agc' requires manual optimization; "
-            "Lightning automatic optimization accepts only 'norm' or 'value'"
-        )
-    trainer_kwargs.update(
-        accumulate_grad_batches=(
-            training_config.accum_steps if automatic_optimization else 1
-        ),
-        gradient_clip_val=(
-            training_config.gradient_clip_val
-            if automatic_optimization
-            else None
-        ),
-    )
-    if automatic_optimization:
-        trainer_kwargs["gradient_clip_algorithm"] = clip_algorithm
-    trainer = L.Trainer(**trainer_kwargs)
-
-    #Mlflow setup
-    # mlflow.set_tracking_uri("")
-    print("training_config name:", training_config.experiment_name)
-
-    if not disable_mlflow:
-        mlflow.pytorch.autolog(checkpoint_monitor = val_loss_label)
-
-    #Train the model
-    # if trainer.is_global_zero:
-    if is_effectively_global_rank_zero():
-        if not disable_mlflow:
-            mlflow.set_experiment(training_config.experiment_name)
-
-            with mlflow.start_run() as run:
-                run_ids = {}
-                # Log configuration parameters
-                log_parameters_mlflow(data_config, model_config, training_config, inference_config, datagen_config)
-                #Set tags (relatively new)
-                mlflow.set_tag("stage", "training")
-                mlflow.set_tag("encoder_frozen", "False")
-                mlflow.set_tag("model_name", training_config.model_name)
-                if training_config.notes:
-                    mlflow.set_tag("notes", training_config.notes)
-                mlflow.set_tag("stage", "training")
-
-                #Train base model
-                print(f'[Rank {trainer.global_rank}] Beginning model training/final data prep...')
-                trainer.fit(model, datamodule = data_module)
-
-                print(f'[Rank {trainer.global_rank}] Done training. Printing training params...')
-                print_auto_logged_info(mlflow.get_run(run_id = run.info.run_id))
-                run_ids['training'] = run.info.run_id
-        else:
-            # MLflow disabled: train without tracking
-            run_ids = {}
-            print(f'[Rank {trainer.global_rank}] Beginning model training/final data prep... (MLflow disabled)')
-            trainer.fit(model, datamodule = data_module)
-            print(f'[Rank {trainer.global_rank}] Done training.')
-            run_ids['training'] = None  # No run_id when MLflow disabled
-
-    #Fine-tune if applicable (encoder frozen default)
-    if training_config.epochs_fine_tune > 0:
-        #Fine-tuning
-        fine_tuner = ModelFineTuner(model, data_module, training_config)
-        fine_tuning_run_id = fine_tuner.fine_tune(experiment_name = training_config.experiment_name)
-        
-        if is_effectively_global_rank_zero():
-            run_ids['fine-tune'] = fine_tuning_run_id
-    
-    # if is_effectively_global_rank_zero():
-    #     print(f"Training run_id: {run_ids['training']}")
-    #     print(f"Fine_tune run_id: {run_ids['fine-tune']}")
-        
-    #     return run_ids
-    # else:
-    #     return None
-
-    # CRITICAL: Final synchronization before returning
-    if dist.is_initialized():
-        print(f'[Rank {trainer.global_rank}] Waiting at final barrier before return...')
-        dist.barrier()
-        print(f'[Rank {trainer.global_rank}] ✓ Passed final barrier, about to return')
-
-    if is_effectively_global_rank_zero():
-        if run_ids.get('training'):
-            print(f"Training run_id: {run_ids['training']}")
-        if 'fine-tune' in run_ids:
-            print(f"Fine_tune run_id: {run_ids['fine-tune']}")
-        print(f"Checkpoints saved to: {checkpoint_dir}")
-        return run_ids
-    else:
-        print(f'[Rank {trainer.global_rank}] Non-zero rank returning None')
-        return None
-    
-@scoped_legacy_params
-def main_lightning(
-    ptycho_dir,
-    config_path = None,
-    existing_config = None,
-    output_dir = None
-):
-    """
-    Training with lightning-only (no MLFlow). Requires some substitutes for parameter logging, etc.
-    
-    :param ptycho_dir: Description
-    :param config_path: Description
-    :param existing_config: Description
-    :param output_dir: Description
-    """
-    # Load configs
-    from ptycho_torch.utils import load_config_from_json, validate_and_process_config
-    from ptycho_torch.config_params import update_existing_config
-    from datetime import datetime
-    
-    if config_path:
-        config_data = load_config_from_json(config_path)
-        d_config_replace, m_config_replace, t_config_replace, i_config_replace, _ = validate_and_process_config(config_data)
-    else:
-        d_config_replace = m_config_replace = t_config_replace = i_config_replace = None
-    
-    data_config = DataConfig()
-    if d_config_replace:
-        update_existing_config(data_config, d_config_replace)
-    
-    model_config = ModelConfig()
-    if m_config_replace:
-        update_existing_config(model_config, m_config_replace)
-    
-    training_config = TrainingConfig()
-    if t_config_replace:
-        update_existing_config(training_config, t_config_replace)
-    
-    inference_config = InferenceConfig()
-    if i_config_replace:
-        update_existing_config(inference_config, i_config_replace)
-
-    validate_scale_contract(data_config, model_config, training_config)
-    
-    print(f"Config: {training_config.n_devices} GPUs, batch_size={training_config.batch_size}")
-
-    # Setup configurations to save
-    config_dict = {
-        "data_config": data_config,
-        "model_config": model_config,
-        "training_config": training_config,
-        "inference_config": inference_config
-    }
-    
-    # Create YOUR actual DataModule
-    print("\nCreating YOUR PtychoDataModule...")
-    data_module = PtychoDataModule(
-        ptycho_dir=ptycho_dir,
-        model_config=model_config,
-        data_config=data_config,
-        training_config=training_config,
-        initial_remake_map=True,
-        val_split=0.05,
-        val_seed=42
-    )
-    
-    # Create YOUR actual model
-    print("\nCreating YOUR PtychoPINN_Lightning model...")
-    model = PtychoPINN_Lightning(
-        model_config=model_config,
-        data_config=data_config,
-        training_config=training_config,
-        inference_config=inference_config
-    )
-    
-    # Callbacks
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    
-    # Define the root run directory
-    run_dir = os.path.join(output_dir, f"run_{timestamp}")
-
-    val_loss_name = model.val_loss_name
-    
-    checkpoint_callback = ModelCheckpoint(
-        monitor=val_loss_name,
-        mode='min',
-        save_top_k=1,
-        filename='best-checkpoint'
-    )
-    
-    early_stop_callback = EarlyStopping(
-        monitor=val_loss_name,
-        mode='min',
-        patience=10,
-        verbose=True
-    )
-
-    # Initialize our syncing callback
-    config_sync_callback = LightningConfigSaveCallback(
-        config_map=config_dict, 
-        base_output_dir=run_dir
-    )
-
-    callback_list = [checkpoint_callback,
-                     early_stop_callback,
-                     config_sync_callback]
-    
-    # Minimal Trainer - exactly like working tests
-    trainer = L.Trainer(
-        max_epochs=training_config.epochs,
-        devices=training_config.n_devices,
-        accelerator='gpu',
-        strategy=DDPStrategy(
-            find_unused_parameters=False,
-            static_graph=True,
-            gradient_as_bucket_view=True,
-            process_group_backend='nccl'
-        ) if training_config.n_devices > 1 else 'auto',
-        callbacks=callback_list,
-        enable_checkpointing=True,
-        enable_progress_bar=True,
-        logger=False,  # No logger for clean test
-    )
-    
-    # Train
-    trainer.fit(model, datamodule=data_module)
-
-    print("Finished training run...")
-
-    # --- 2. Fine-Tuning Stage ---
-    if training_config.epochs_fine_tune > 0:
-        print("Beginning fine tuning...")
-        # Note: In DDP, all ranks reach this point after trainer.fit finishes.
-        fine_tuner = ModelFineTuner_Lightning(
-            model=model, 
-            train_module=data_module, 
-            training_config=training_config,
-            run_dir=run_dir
-        )
-        fine_tuner.fine_tune()
-
-    print("Finished everything!")
-    
-    return model, trainer, run_dir
-
 
 @scoped_legacy_params
 def cli_main():
     """
     CLI entrypoint for PyTorch training workflow (Phase E2.C1).
 
-    This function bridges the CLI interface to the existing main() function by:
-    1. Parsing CLI arguments
-    2. Creating PyTorch config singletons
-    3. Using config_bridge adapters to convert to TensorFlow dataclasses
-    4. Calling update_legacy_dict(params.cfg) to ensure CONFIG-001 compliance
-    5. Delegating to main() for actual training execution
-
-    The CLI interface mirrors the TensorFlow training script flags for consistency.
+    The CLI resolves configuration through the supported factory and delegates
+    training to the versioned workflow path.
     """
     raw_argv = tuple(sys.argv[1:])
     parser = argparse.ArgumentParser(
@@ -637,11 +96,7 @@ def cli_main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Train with new CLI interface
   python -m ptycho_torch.train --train_data_file data/train.npz --output_dir ./outputs --max_epochs 10 --device cpu --disable_mlflow
-
-  # Train with legacy interface
-  python -m ptycho_torch.train --ptycho_dir data/ --config config.json
         """
     )
 
@@ -902,40 +357,12 @@ Examples:
         )
     )
 
-    # Legacy interface flags (backward compatibility)
-    parser.add_argument('--ptycho_dir', type=str,
-                       help='Path to ptycho directory (legacy interface)')
-    parser.add_argument('--config', type=str,
-                       help='Path to JSON configuration file (legacy interface)')
-
     args = parser.parse_args()
 
-    # Determine which interface is being used
-    legacy_interface = args.ptycho_dir is not None or args.config is not None
-    new_interface = args.train_data_file is not None or args.output_dir is not None
-
-    if legacy_interface and new_interface:
-        print("ERROR: Cannot mix legacy (--ptycho_dir, --config) and new CLI flags (--train_data_file, --output_dir)")
-        print("Use either the legacy interface OR the new CLI interface, not both.")
-        sys.exit(1)
-
-    if legacy_interface:
-        # Legacy interface: --ptycho_dir --config
-        print("Using legacy interface (--ptycho_dir --config)")
-        if not args.ptycho_dir:
-            print("ERROR: --ptycho_dir required for legacy interface")
-            sys.exit(1)
-
-        try:
-            main(args.ptycho_dir, args.config, existing_config=None,
-                 disable_mlflow=args.disable_mlflow)
-        except Exception as e:
-            print(f"Training failed: {str(e)}")
-            import traceback
-            traceback.print_exc()
-            sys.exit(1)
-
-    elif new_interface:
+    canonical_interface = (
+        args.train_data_file is not None or args.output_dir is not None
+    )
+    if canonical_interface:
         # New CLI interface: --train_data_file --output_dir ... (Phase C4.C2 - ADR-003)
         print("Using new CLI interface with factory-based config (ADR-003)")
 
@@ -959,10 +386,6 @@ Examples:
         except FileNotFoundError as e:
             print(f"ERROR: {e}")
             sys.exit(1)
-
-        # Extract ptycho_dir from train_data_file parent directory
-        # The existing main() expects a directory containing NPZ files
-        ptycho_dir = train_data_file.parent
 
         # Preserve raw-option suppliedness until the factory resolves runtime.
         from ptycho_torch.cli.shared import build_execution_request_from_args
@@ -1018,17 +441,6 @@ Examples:
             print(f"✓ Execution config: accelerator={payload.execution_config.accelerator}, "
                   f"deterministic={payload.execution_config.deterministic}, "
                   f"learning_rate={payload.pt_training_config.learning_rate}")
-
-            # Extract configs for main()
-            # Note: Factory only creates training-relevant configs; create InferenceConfig/DatagenConfig defaults
-            from ptycho_torch.config_params import DatagenConfig
-            existing_config = (
-                payload.pt_data_config,
-                payload.pt_model_config,
-                payload.pt_training_config,
-                payload.pt_inference_config,
-                DatagenConfig(),  # Not in payload, use default
-            )
 
         except Exception as e:
             print(f"ERROR: Configuration factory failed: {e}")
@@ -1115,10 +527,10 @@ Examples:
             sys.exit(1)
 
     else:
-        # No interface specified
-        print("ERROR: Must specify either:")
-        print("  - New CLI interface: --train_data_file <path> --output_dir <path>")
-        print("  - Legacy interface: --ptycho_dir <dir> --config <json>")
+        print(
+            "ERROR: --train_data_file and --output_dir are required for "
+            "PyTorch training"
+        )
         parser.print_help()
         sys.exit(1)
 

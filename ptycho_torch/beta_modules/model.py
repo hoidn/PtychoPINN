@@ -10,7 +10,7 @@ import math
 from typing import Optional
 
 #Helper
-from ptycho_torch.config_params import ModelConfig, TrainingConfig, DataConfig, InferenceConfig, update_existing_config
+from ptycho_torch.config_params import ModelConfig, TrainingConfig, DataConfig, InferenceConfig
 import ptycho_torch.helper as hh
 from ptycho_torch.model_attention import CBAM, ECALayer, BasicSpatialAttention
 import copy
@@ -1756,5 +1756,4 @@ class PtychoPINN_Lightning(L.LightningModule):
             grad_norm = self.model.autoencoder.decoder_amp.amp.conv1.weight.grad.norm()
             # Show in progress bar
             self.log("grad_norm", grad_norm, on_step=True, prog_bar=True, logger=True)
-
 
