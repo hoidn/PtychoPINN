@@ -465,11 +465,12 @@ def test_prepare_baseline_inference_data_grouped_flatten_helper():
     - Function logs resolved gridsize when channel count is perfect square
     - Function returns tuple (baseline_input, baseline_offsets) as numpy arrays
     - Both tensors have correct shapes for flattened grouped data
-    - Function forces params.cfg['gridsize'] sync for downstream Translation
+    - Function does not use params.cfg as configuration authority
     """
     import numpy as np
     import tensorflow as tf
     from unittest.mock import Mock
+    from ptycho import params
     from scripts.compare_models import prepare_baseline_inference_data
 
     # Test case 1: Perfect square channel count (gridsize=2 → 4 channels)
@@ -484,7 +485,14 @@ def test_prepare_baseline_inference_data_grouped_flatten_helper():
     mock_container_gs2.global_offsets = tf.random.normal((B, 1, 2, 1), dtype=tf.float32)
     mock_container_gs2.local_offsets = None
 
-    baseline_input, baseline_offsets = prepare_baseline_inference_data(mock_container_gs2)
+    original_params = dict(params.cfg)
+    params.cfg["gridsize"] = 17
+    try:
+        baseline_input, baseline_offsets = prepare_baseline_inference_data(mock_container_gs2)
+        assert params.cfg["gridsize"] == 17
+    finally:
+        params.cfg.clear()
+        params.cfg.update(original_params)
 
     # Verify return types are numpy arrays
     assert isinstance(baseline_input, np.ndarray), f"Expected numpy array, got {type(baseline_input)}"

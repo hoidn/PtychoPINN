@@ -42,7 +42,6 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from ptycho import params
 from ptycho.raw_data import RawData
 from ptycho.workflows.components import load_data
 from ptycho.workflows.backend_selector import load_inference_bundle_with_backend
@@ -826,7 +825,7 @@ def main():
             reconstructed_amplitude, reconstructed_phase, epie_amplitude, epie_phase = perform_inference(
                 model,
                 test_data,
-                params.cfg,
+                archive_params,
                 K=config.neighbor_count,
                 nsamples=nsamples,
                 debug_dump_dir=debug_dump_dir,

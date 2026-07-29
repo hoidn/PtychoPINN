@@ -39,8 +39,10 @@ from ptycho.config.config import (
     update_legacy_dict,
     validate_simulation_config,
 )
-from ptycho import params as p
-from ptycho.config.legacy_state import scoped_legacy_params
+from ptycho.config.legacy_state import (
+    configured_params_scope,
+    legacy_params_scope,
+)
 from ptycho.image.cropping import center_crop_spatial
 from ptycho.metadata import MetadataManager
 from ptycho.simulation.probe_transform import (
@@ -94,7 +96,34 @@ def load_data_for_sim(file_path: str, load_all: bool = False) -> tuple:
     else:
         return objectGuess, probeGuess, None
 
-@scoped_legacy_params
+def _generate_simulated_data_legacy(
+    *,
+    config: TrainingConfig,
+    simulation: SimulationConfig,
+    object_guess: np.ndarray,
+    probe_guess: np.ndarray,
+    buffer: int,
+):
+    """Run the protected TensorFlow simulator under a bounded projection."""
+    from ptycho import params
+    from ptycho.nongrid_simulation import generate_simulated_data
+
+    with legacy_params_scope():
+        with configured_params_scope():
+            update_legacy_dict(params.cfg, simulation)
+            update_legacy_dict(params.cfg, config)
+            print("--- Configuration Updated for Simulation ---")
+            params.print_params()
+            print("------------------------------------------\n")
+            return generate_simulated_data(
+                config=config,
+                objectGuess=object_guess,
+                probeGuess=probe_guess,
+                buffer=buffer,
+                return_patches=True,
+            )
+
+
 def simulate_and_save(
     config: TrainingConfig,
     simulation: SimulationConfig,
@@ -107,12 +136,6 @@ def simulate_and_save(
     Loads an object/probe, runs a ptychography simulation, saves the result,
     and optionally generates a visualization.
     """
-    update_legacy_dict(p.cfg, simulation)
-    update_legacy_dict(p.cfg, config)
-    print("--- Configuration Updated for Simulation ---")
-    p.print_params()
-    print("------------------------------------------\n")
-    
     object_guess, probe_guess, _ = load_data_for_sim(str(input_file_path), load_all=False)
     probe_guess, probe_lineage = prepare_probe_for_simulation_with_lineage(
         probe_guess, simulation
@@ -134,15 +157,12 @@ def simulate_and_save(
         expected_recipe_digest=str(probe_lineage["dataset_recipe_sha256"]),
     )
     print(f"Simulating {config.n_images} diffraction patterns...")
-    # The simulation bridge must be populated before importing legacy simulation.
-    from ptycho.nongrid_simulation import generate_simulated_data
-
-    raw_data_instance, ground_truth_patches = generate_simulated_data(
+    raw_data_instance, ground_truth_patches = _generate_simulated_data_legacy(
         config=config,
-        objectGuess=object_guess,
-        probeGuess=probe_guess,
+        simulation=simulation,
+        object_guess=object_guess,
+        probe_guess=probe_guess,
         buffer=buffer,
-        return_patches=True,
     )
     print("Simulation complete.")
     

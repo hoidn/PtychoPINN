@@ -180,14 +180,14 @@ def create_torch_model_with_gridsize(
     """
     Create PyTorch Lightning model with specified gridsize and N (Phase D3.C helper).
 
-    Reconstructs PtychoPINN_Lightning module architecture from saved params, mirroring
+    Reconstructs PtychoPINN_Lightning module architecture from decoded params, mirroring
     TensorFlow create_model_with_gridsize in ptycho/model_manager.py:45-86. Required
-    for load_torch_bundle model reconstruction (CONFIG-001 compliance).
+    by the explicit Torch bundle reconstruction core.
 
     Args:
         gridsize: Group size parameter (e.g., 2 means 2x2 = 4 adjacent patterns).
         N: Diffraction pattern size (e.g., 64 means 64x64 pixels).
-        params_dict: Optional params.cfg snapshot from bundle. If None, uses defaults.
+        params_dict: Optional decoded legacy projection. If None, uses defaults.
 
     Returns:
         nn.Module: Reconstructed PtychoPINN_Lightning instance with uninitialized weights.
@@ -280,11 +280,17 @@ def load_torch_bundle(
     base_path: str,
     model_name: str = None
 ) -> Tuple[Dict[str, Any], dict]:
-    """Load a Torch bundle and commit archived flat state only on success."""
-    _, params_dict = _read_torch_bundle_manifest_and_params(base_path)
+    """Legacy/API wrapper that commits archive state after strict reconstruction."""
+    manifest, params_dict = _read_torch_bundle_manifest_and_params(base_path)
+    models_dict, decoded_params = _reconstruct_torch_bundle_explicit(
+        base_path,
+        manifest=manifest,
+        params_dict=params_dict,
+        model_name=model_name,
+    )
 
-    with archived_params_scope(params_dict):
-        return _load_torch_bundle_uncontained(base_path, model_name=model_name)
+    with archived_params_scope(decoded_params):
+        return models_dict, decoded_params
 
 
 def _read_torch_bundle_manifest_and_params(base_path: str) -> Tuple[dict, dict]:
@@ -317,110 +323,69 @@ def _read_torch_bundle_manifest_and_params(base_path: str) -> Tuple[dict, dict]:
     return manifest, params_dict
 
 
-def _load_torch_bundle_uncontained(
+def _reconstruct_torch_bundle_explicit(
     base_path: str,
-    model_name: str = None
+    *,
+    manifest: dict,
+    params_dict: dict,
+    model_name: str = None,
 ) -> Tuple[Dict[str, Any], dict]:
     """
-    Load PyTorch model bundle with CONFIG-001-compliant params restoration (Phase C4.D).
+    Reconstruct both Torch bundle roles from explicitly decoded archive inputs.
 
-    Extracts wts.h5.zip archive, restores params.cfg state, and reconstructs BOTH
-    models (autoencoder + diffraction_to_obj) to satisfy spec §4.6 dual-model
-    requirement. Returns models dict + config (not single model tuple).
+    This modern core is independent of ``params.cfg``. The public
+    ``load_torch_bundle`` wrapper owns the remaining post-validation legacy
+    commit required by CONFIG-001.
 
-    **CHANGED SIGNATURE (Phase C4.D):** Returns (models_dict, config) instead of
-    (single_model, config) to match TensorFlow ModelManager.load_multiple_models
-    contract and unblock integration workflow.
-
-    Args:
-        base_path: Base path of archive (reads {base_path}.zip).
-        model_name: DEPRECATED (retained for backwards compatibility). Ignored;
-                   function always loads both models per spec §4.6.
-
-    Returns:
-        Tuple of (models_dict, params_dict) where:
-        - models_dict: Dictionary with 'autoencoder' and 'diffraction_to_obj' keys,
-                      each containing restored nn.Module instances.
-        - params_dict: Dictionary containing training-time params.cfg snapshot.
-
-    Raises:
-        FileNotFoundError: If archive does not exist.
-        ValueError: If params missing required fields.
-        RuntimeError: If model reconstruction fails.
-
-    Example:
-        >>> models, params = load_torch_bundle('output/wts.h5')
-        >>> recon_model = models['diffraction_to_obj']
-        >>> # params.cfg automatically updated via CONFIG-001 gate
+    ``model_name`` remains accepted for the historical call signature but both
+    required roles are always reconstructed.
     """
-    from ptycho import params
+    del model_name
 
-    # PyTorch is now mandatory (no availability check needed)
-
-    # Validate archive exists
     zip_path = f"{base_path}.zip"
     if not os.path.exists(zip_path):
         raise FileNotFoundError(f"Model archive not found: {zip_path}")
 
-    # Extract archive
+    available_models = manifest["models"]
+    required_fields = ["N", "gridsize"]
+    missing = [field for field in required_fields if field not in params_dict]
+    if missing:
+        raise ValueError(
+            f"params.dill missing required fields: {missing}. "
+            "Cannot reconstruct model architecture."
+        )
+
+    expected_models = {"autoencoder", "diffraction_to_obj"}
+    if set(available_models) != expected_models:
+        raise RuntimeError(
+            "Torch bundle does not contain the required dual-model weights "
+            f"{sorted(expected_models)}; found {sorted(available_models)}. "
+            "Regenerate the bundle from a successful training result."
+        )
+
     with tempfile.TemporaryDirectory() as temp_dir:
-        with zipfile.ZipFile(zip_path, 'r') as zf:
+        with zipfile.ZipFile(zip_path, "r") as zf:
             zf.extractall(temp_dir)
 
-        # Load manifest
-        manifest_path = os.path.join(temp_dir, 'manifest.dill')
-        with open(manifest_path, 'rb') as f:
-            manifest = dill.load(f)
-
-        # Get available models from manifest
-        available_models = manifest['models']
-
-        # Load params snapshot from first model directory (CONFIG-001 gate)
-        # (Both models share the same params.cfg snapshot in the bundle)
-        first_model = available_models[0]
-        model_dir = os.path.join(temp_dir, first_model)
-        params_path = os.path.join(model_dir, 'params.dill')
-        with open(params_path, 'rb') as f:
-            params_dict = dill.load(f)
-
-        # Validate required fields
-        required_fields = ['N', 'gridsize']
-        missing = [f for f in required_fields if f not in params_dict]
-        if missing:
-            raise ValueError(
-                f"params.dill missing required fields: {missing}. "
-                "Cannot reconstruct model architecture."
-            )
-
-        expected_models = {'autoencoder', 'diffraction_to_obj'}
-        if set(available_models) != expected_models:
-            raise RuntimeError(
-                "Torch bundle does not contain the required dual-model weights "
-                f"{sorted(expected_models)}; found {sorted(available_models)}. "
-                "Regenerate the bundle from a successful training result."
-            )
-
-        # Restore params.cfg (CONFIG-001 critical side effect)
-        params.cfg.update(params_dict)
-
-        # Reconstruct models dict (Phase C4.D A2 implementation)
-        gridsize = params_dict['gridsize']
-        N = params_dict['N']
+        gridsize = params_dict["gridsize"]
+        N = params_dict["N"]
 
         models_dict = {}
         for model_name_iter in available_models:
-            # Create model architecture
             model = create_torch_model_with_gridsize(gridsize, N, params_dict)
 
-            # Load weights from archive
-            model_path = os.path.join(temp_dir, model_name_iter, 'model.pth')
+            model_path = os.path.join(temp_dir, model_name_iter, "model.pth")
             if not os.path.isfile(model_path):
                 raise RuntimeError(
                     f"Bundle weights are missing for model '{model_name_iter}'. "
                     "Regenerate the bundle from a successful training result."
                 )
-            state_dict = torch.load(model_path, map_location='cpu', weights_only=False)
-            if not isinstance(state_dict, dict) or '_sentinel' in state_dict:
+            state_dict = torch.load(
+                model_path,
+                map_location="cpu",
+                weights_only=False,
+            )
+            if not isinstance(state_dict, dict) or "_sentinel" in state_dict:
                 raise RuntimeError(
                     f"Bundle weights for model '{model_name_iter}' are not a trained "
                     "state_dict. Regenerate the bundle from a successful training result."

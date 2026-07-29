@@ -1763,16 +1763,17 @@ class TestTrainWithLightningVarProProbeWeightingForwarding:
             n_groups=4,
         )
 
-        real_create_training_payload = config_factory_module.create_training_payload
+        real_resolve_training_payload = config_factory_module.resolve_training_payload
         captured = {}
 
-        def spy_create_payload(*args, **kwargs):
-            payload = real_create_training_payload(*args, **kwargs)
+        def spy_resolve_payload(*args, **kwargs):
+            payload = real_resolve_training_payload(*args, **kwargs)
             captured["pt_model_config"] = payload.pt_model_config
             raise RuntimeError("stop-after-capture")
 
         monkeypatch.setattr(
-            "ptycho_torch.config_factory.create_training_payload", spy_create_payload
+            "ptycho_torch.config_factory.resolve_training_payload",
+            spy_resolve_payload,
         )
 
         with pytest.raises(RuntimeError, match="stop-after-capture"):
@@ -1811,16 +1812,17 @@ class TestTrainWithLightningVarProProbeWeightingForwarding:
             n_groups=4,
         )
 
-        real_create_training_payload = config_factory_module.create_training_payload
+        real_resolve_training_payload = config_factory_module.resolve_training_payload
         captured = {}
 
-        def spy_create_payload(*args, **kwargs):
-            payload = real_create_training_payload(*args, **kwargs)
+        def spy_resolve_payload(*args, **kwargs):
+            payload = real_resolve_training_payload(*args, **kwargs)
             captured["pt_model_config"] = payload.pt_model_config
             raise RuntimeError("stop-after-capture")
 
         monkeypatch.setattr(
-            "ptycho_torch.config_factory.create_training_payload", spy_create_payload
+            "ptycho_torch.config_factory.resolve_training_payload",
+            spy_resolve_payload,
         )
 
         with pytest.raises(RuntimeError, match="stop-after-capture"):

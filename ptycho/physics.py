@@ -98,7 +98,6 @@ See Also
 - `ptycho.tf_helper` : TensorFlow utilities for physics operations
 - `ptycho.model` : Neural network architecture with physics layers
 """
-from . import params as p
 from . import tf_helper as hh
 import tensorflow as tf
 import numpy as np

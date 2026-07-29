@@ -25,11 +25,12 @@ Key Design Decisions:
 4. **NumPy-First Output**: Returns NumPy arrays (matching TensorFlow RawData behavior)
    to maintain compatibility with existing test fixtures and downstream code.
 
-Remaining legacy seam:
+Contained legacy seam:
 ----------------------
-When no precomputed ``Y`` exists and ``objectGuess`` is supplied, the delegated
-TensorFlow ground-truth patch fallback still owns a legacy translation-policy lookup.
-That shared-data seam is separate from this adapter's explicit grouping geometry.
+When no precomputed ``Y`` exists and ``objectGuess`` is supplied, only the
+TensorFlow ground-truth translation leaf receives a temporary projection of the
+retained caller config. Group selection and all other data preparation remain
+global-free, and the ambient legacy dictionary is restored exactly afterward.
 
 Public Interface:
 -----------------
@@ -107,6 +108,44 @@ try:
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
+
+
+def _get_object_patches_with_legacy_translation(
+    *,
+    object_guess: np.ndarray,
+    global_offsets: np.ndarray,
+    local_offsets: np.ndarray,
+    N: int,
+    gridsize: int,
+    config: Any,
+) -> Any:
+    """Call the remaining TensorFlow translation leaf with contained legacy state."""
+    from ptycho import params, raw_data
+    from ptycho.config.config import update_legacy_dict
+    from ptycho.config.legacy_state import (
+        configured_params_scope,
+        legacy_params_scope,
+    )
+
+    if config is None:
+        raise ValueError(
+            "objectGuess fallback requires an explicit caller config; "
+            "ambient params.cfg is not configuration authority"
+        )
+
+    # configured_params_scope owns the projection lifecycle; the immediately
+    # enclosing restoration scope guarantees that even a successful legacy
+    # translation leaves the caller's exact ambient state intact.
+    with legacy_params_scope():
+        with configured_params_scope():
+            update_legacy_dict(params.cfg, config)
+            return raw_data.get_image_patches(
+                object_guess,
+                global_offsets,
+                local_offsets,
+                N=N,
+                gridsize=gridsize,
+            )
 
 
 class RawDataTorch:
@@ -270,16 +309,55 @@ class RawDataTorch:
                     "gridsize must be provided explicitly or via config.model.gridsize"
                 )
 
-        # Direct delegation to TensorFlow RawData with explicit grouping geometry.
-        return self._tf_raw_data.generate_grouped_data(
-            N=N,
-            K=K,
-            nsamples=nsamples,
-            dataset_path=dataset_path,  # Forwarded to TensorFlow (currently ignored for caching)
-            seed=seed,
-            sequential_sampling=sequential_sampling,
-            gridsize=gridsize
+        needs_object_patch_fallback = (
+            self._tf_raw_data.Y is None
+            and self._tf_raw_data.objectGuess is not None
         )
+        if needs_object_patch_fallback and self._config is None:
+            raise ValueError(
+                "objectGuess fallback requires an explicit caller config; "
+                "ambient params.cfg is not configuration authority"
+            )
+
+        if not needs_object_patch_fallback:
+            return self._tf_raw_data.generate_grouped_data(
+                N=N,
+                K=K,
+                nsamples=nsamples,
+                dataset_path=dataset_path,
+                seed=seed,
+                sequential_sampling=sequential_sampling,
+                gridsize=gridsize,
+            )
+
+        # Delegate global-free grouping first. The protected TensorFlow adapter
+        # couples object-patch extraction to dataset assembly, so suppress only
+        # that fallback and restore the retained object immediately afterward.
+        object_guess = self._tf_raw_data.objectGuess
+        self._tf_raw_data.objectGuess = None
+        try:
+            grouped_data = self._tf_raw_data.generate_grouped_data(
+                N=N,
+                K=K,
+                nsamples=nsamples,
+                dataset_path=dataset_path,
+                seed=seed,
+                sequential_sampling=sequential_sampling,
+                gridsize=gridsize,
+            )
+        finally:
+            self._tf_raw_data.objectGuess = object_guess
+
+        grouped_data["Y"] = _get_object_patches_with_legacy_translation(
+            object_guess=object_guess,
+            global_offsets=grouped_data["coords_offsets"],
+            local_offsets=grouped_data["coords_relative"],
+            N=N,
+            gridsize=gridsize,
+            config=self._config,
+        )
+        grouped_data["objectGuess"] = object_guess
+        return grouped_data
 
     @property
     def probeGuess(self) -> np.ndarray:

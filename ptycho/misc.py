@@ -146,7 +146,11 @@ def _dataset_hash_inputs(func, args, kwargs, cfg):
 
 
 def memoize_disk_and_memory(func):
-    from ptycho.params import cfg
+    """Cache a legacy simulation leaf without retaining its global-state alias.
+
+    Remove the ``params.cfg`` key fallback when the remaining TensorFlow
+    simulation callers provide an explicit cache-key record.
+    """
     from ptycho import probe
     memory_cache = {}
     disk_cache_dir = 'memoized_data'
@@ -183,12 +187,16 @@ def memoize_disk_and_memory(func):
             return func(*args, **kwargs)
         key_mode = _memoize_key_mode()
         if key_mode == "dataset":
-            hash_input = _dataset_hash_inputs(func, args, kwargs, cfg)
+            hash_input = _dataset_hash_inputs(func, args, kwargs, params.cfg)
         else:
             cfg_keys = ['offset', 'N', 'outer_offset_train', 'outer_offset_test',
                         'nphotons', 'nimgs_train', 'nimgs_test', 'set_phi',
                         'data_source', 'gridsize', 'big_gridsize', 'default_probe_scale']
-            hash_input = {k: cfg[k] for k in cfg_keys if k in cfg}
+            hash_input = {
+                key: params.cfg[key]
+                for key in cfg_keys
+                if key in params.cfg
+            }
             if key_mode in {"data", "full"}:
                 hash_input.update({f'arg_{i}': _hash_value(arg) for i, arg in enumerate(args)})
                 hash_input.update({f'kwarg_{k}': _hash_value(v) for k, v in kwargs.items()})

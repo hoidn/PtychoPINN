@@ -35,7 +35,14 @@ import numpy as np
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO)); sys.path.insert(0, str(REPO / "scripts/studies"))
 
-from ptycho import params as p
+from ptycho.config import (
+    ProbeSimulationConfig,
+    SimulationConfig,
+    SyntheticObjectConfig,
+    update_legacy_dict,
+    validate_simulation_config,
+)
+from ptycho.config.legacy_state import legacy_params_scope
 from ptycho.diffsim import sim_object_image
 import make_synthetic_truth_datasets as M
 
@@ -43,16 +50,27 @@ AMP_LO = 0.3      # normalized-amplitude floor (background); ceiling is 1.0
 PHASE_MAX = 0.5   # +-rad, in-box; nonzero to keep VarPro non-degenerate
 
 
-def _raw_lines(obj_res: int) -> np.ndarray:
+def _lines_simulation_config(N: int, obj_res: int) -> SimulationConfig:
+    """Resolve the owner for the protected legacy lines generator."""
+    simulation = SimulationConfig(
+        N=N,
+        probe=ProbeSimulationConfig(transform_pipeline=f"pad_preserve:{N}"),
+        object=SyntheticObjectConfig(
+            kind="lines",
+            image_size=(obj_res, obj_res),
+        ),
+    )
+    validate_simulation_config(simulation)
+    return simulation
+
+
+def _raw_lines(simulation: SimulationConfig) -> np.ndarray:
     """sim_object_image('lines') amplitude map at obj_res (its shipped recipe)."""
-    orig = {k: p.get(k) for k in ("data_source", "size", "N")}
-    try:
-        p.set("data_source", "lines")
-        p.set("size", obj_res)
+    validate_simulation_config(simulation)
+    obj_res = simulation.object.image_size[0]
+    with legacy_params_scope() as legacy_cfg:
+        update_legacy_dict(legacy_cfg, simulation)
         img = sim_object_image(size=obj_res).squeeze().astype(np.float64)
-    finally:
-        for k, v in orig.items():
-            p.set(k, v)
     return np.abs(img)
 
 
@@ -62,7 +80,7 @@ def frozen_lines_object(N: int, obj_res: int) -> np.ndarray:
     cache = M.DS_DIR / f"linesobj_N{N}.npy"
     if cache.exists():
         return np.load(cache)
-    raw = _raw_lines(obj_res)
+    raw = _raw_lines(_lines_simulation_config(N, obj_res))
     t = (raw - raw.min()) / (raw.max() - raw.min() + 1e-12)   # [0,1]
     amp = AMP_LO + (1.0 - AMP_LO) * t                          # [AMP_LO, 1.0]
     phase = PHASE_MAX * (2.0 * t - 1.0)                        # [-PHASE_MAX, PHASE_MAX]

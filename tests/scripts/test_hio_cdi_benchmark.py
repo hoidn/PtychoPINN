@@ -918,6 +918,243 @@ def test_pinn_comparator_metrics_payload_records_historical_tolerance(tmp_path):
     assert payload["metric_policy"] == "fresh_same_split_rerun_historical_context_only"
 
 
+def test_pinn_model_artifacts_uses_caller_owned_archive_name(monkeypatch, tmp_path):
+    import scripts.reconstruction.hio_cdi_benchmark as hio
+    from ptycho import params
+
+    checkpoint_dir = tmp_path / "checkpoints"
+    checkpoint_dir.mkdir()
+    (checkpoint_dir / "epoch-1.weights.h5").write_bytes(b"checkpoint")
+    archive = tmp_path / "pinn" / "custom-name.h5.zip"
+    archive.parent.mkdir()
+    archive.write_bytes(b"archive")
+    monkeypatch.setitem(params.cfg, "h5_path", "poisoned-ambient-name.h5")
+
+    payload = hio._pinn_model_artifacts(
+        tmp_path,
+        checkpoint_dir,
+        h5_path="custom-name.h5",
+    )
+
+    assert payload["model_archive"]["path"] == str(archive)
+    assert payload["model_archive"]["exists"] is True
+
+
+def test_pinn_training_config_resolution_is_pure(monkeypatch, tmp_path):
+    import scripts.reconstruction.hio_cdi_benchmark as hio
+    from ptycho import params
+    from ptycho.workflows.grid_lines_workflow import GridLinesConfig
+
+    monkeypatch.setitem(params.cfg, "N", 999)
+    ambient = dict(params.cfg)
+    cfg = GridLinesConfig(
+        N=8,
+        gridsize=1,
+        output_dir=tmp_path,
+        probe_npz=tmp_path / "probe.npz",
+        size=24,
+        offset=2,
+        outer_offset_train=4,
+        outer_offset_test=6,
+        nimgs_train=1,
+        nimgs_test=1,
+        nphotons=1e9,
+        probe_smoothing_sigma=0.0,
+        probe_source="custom",
+        probe_scale_mode="pad_preserve",
+        nepochs=3,
+        batch_size=2,
+        nll_weight=0.25,
+        mae_weight=0.75,
+        realspace_weight=0.5,
+    )
+
+    resolved = hio._resolve_pinn_training_config(cfg)
+
+    assert resolved.model.N == 8
+    assert resolved.model.gridsize == 1
+    assert resolved.nepochs == 3
+    assert resolved.batch_size == 2
+    assert resolved.nphotons == 1e9
+    assert resolved.nll_weight == 0.25
+    assert resolved.mae_weight == 0.75
+    assert resolved.realspace_weight == 0.5
+    assert params.cfg == ambient
+
+
+def test_pinn_comparator_contains_legacy_training_and_uses_explicit_postprocessing(
+    monkeypatch,
+    tmp_path,
+):
+    import ptycho.evaluation as evaluation
+    import ptycho.workflows.grid_lines_workflow as grid_lines
+    import scripts.reconstruction.hio_cdi_benchmark as hio
+    from ptycho import model as model_mod
+    from ptycho import params
+    from ptycho import train_pinn
+    from ptycho.workflows.grid_lines_workflow import GridLinesConfig
+
+    class FakeModel:
+        def get_weights(self):
+            return [np.asarray([1.0], dtype=np.float32)]
+
+    fake_model = FakeModel()
+    calls = {}
+    cfg = GridLinesConfig(
+        N=8,
+        gridsize=1,
+        output_dir=tmp_path,
+        probe_npz=tmp_path / "probe.npz",
+        size=24,
+        offset=2,
+        outer_offset_train=4,
+        outer_offset_test=6,
+        nimgs_train=1,
+        nimgs_test=1,
+        nphotons=1e9,
+        probe_smoothing_sigma=0.0,
+        probe_source="custom",
+        probe_scale_mode="pad_preserve",
+        nepochs=3,
+        batch_size=2,
+    )
+    data = _toy_split_bundle()
+    data["train"]["container"] = SimpleNamespace(probe=_toy_probe())
+    expected_intensity_scale = float(
+        np.sqrt(np.float32(cfg.nphotons)) / np.float32(cfg.N / 2)
+    )
+
+    monkeypatch.setattr(hio, "_configure_pinn_seed", lambda seed: {"training_seed": seed})
+    monkeypatch.setattr(
+        model_mod,
+        "create_compiled_model",
+        lambda: (fake_model, object()),
+    )
+
+    def fake_train(train_container, *, intensity_scale, model_instance):
+        calls["train"] = {
+            "intensity_scale": intensity_scale,
+            "model_instance": model_instance,
+            "legacy": dict(params.cfg),
+        }
+        return model_instance, SimpleNamespace(history={"loss": [1.0, 0.5]})
+
+    monkeypatch.setattr(train_pinn, "train", fake_train)
+
+    def fake_save_pinn_model(received_cfg):
+        calls["save"] = {
+            "cfg": received_cfg,
+            "legacy": dict(params.cfg),
+        }
+
+    monkeypatch.setattr(grid_lines, "save_pinn_model", fake_save_pinn_model)
+    monkeypatch.setattr(
+        grid_lines,
+        "run_pinn_inference",
+        lambda *args, **kwargs: pytest.fail("legacy inference adapter must not be used"),
+    )
+    monkeypatch.setattr(
+        grid_lines,
+        "stitch_predictions",
+        lambda *args, **kwargs: pytest.fail("legacy stitching adapter must not be used"),
+    )
+    monkeypatch.setattr(
+        evaluation,
+        "eval_reconstruction",
+        lambda *args, **kwargs: pytest.fail("legacy evaluation adapter must not be used"),
+    )
+
+    predicted = np.ones((1, 8, 8, 1), dtype=np.complex64)
+
+    def fake_inference(model, X, coords, *, intensity_scale):
+        calls["inference"] = {
+            "model": model,
+            "intensity_scale": intensity_scale,
+        }
+        return predicted
+
+    monkeypatch.setattr(grid_lines, "run_pinn_inference_explicit", fake_inference)
+
+    def fake_stitch(predictions, norm_y_i, **kwargs):
+        calls.setdefault("stitch", []).append(kwargs)
+        if kwargs["part"] == "amp":
+            return np.ones((1, 8, 8, 1), dtype=np.float32)
+        return np.zeros((1, 8, 8, 1), dtype=np.float32)
+
+    monkeypatch.setattr(grid_lines, "stitch_predictions_explicit", fake_stitch)
+
+    def fake_eval(stitched_obj, ground_truth_obj, **kwargs):
+        calls["eval"] = kwargs
+        return {
+            "ssim": (0.9, 0.8),
+            "psnr": (68.0, 20.0),
+            "frc": ([], []),
+        }
+
+    monkeypatch.setattr(evaluation, "eval_reconstruction_explicit", fake_eval)
+
+    recon_path = tmp_path / "recons" / "pinn" / "recon.npz"
+    monkeypatch.setattr(
+        grid_lines,
+        "save_recon_artifact",
+        lambda *args, **kwargs: recon_path,
+    )
+    data_bundle_manifest = tmp_path / "data_bundle_manifest.json"
+    data_bundle_manifest.write_text("{}\n")
+    randomness_manifest = tmp_path / "pinn_randomness_manifest.json"
+    randomness_manifest.write_text("{}\n")
+    args = SimpleNamespace(
+        data_identity_branch="same-split-rerun",
+        pinn_training_seed=2026041211,
+        pinn_comparator_epochs=3,
+        probe_source="custom",
+        run_id="unit",
+    )
+    ambient = {
+        "N": 999,
+        "gridsize": 9,
+        "nphotons": -1,
+        "intensity_scale": -7,
+        "h5_path": "poisoned.h5",
+    }
+    monkeypatch.setattr(params, "cfg", dict(ambient))
+
+    hio.run_pinn_comparator(
+        output_root=tmp_path,
+        args=args,
+        probe=_toy_probe(),
+        cfg=cfg,
+        data=data,
+        data_bundle_manifest=data_bundle_manifest,
+        randomness_manifest=randomness_manifest,
+    )
+
+    assert params.cfg == ambient
+    assert calls["train"]["intensity_scale"] == expected_intensity_scale
+    assert calls["train"]["legacy"]["N"] == 8
+    assert calls["train"]["legacy"]["gridsize"] == 1
+    assert calls["train"]["legacy"]["h5_path"] == hio.CANONICAL_PINN_H5_PATH
+    assert calls["save"]["legacy"]["intensity_scale"] == pytest.approx(expected_intensity_scale)
+    assert calls["inference"]["intensity_scale"] == pytest.approx(expected_intensity_scale)
+    assert calls["stitch"] == [
+        {
+            "N": 8,
+            "gridsize": 1,
+            "nimgs_test": 1,
+            "outer_offset_test": 6,
+            "part": "amp",
+        },
+        {
+            "N": 8,
+            "gridsize": 1,
+            "nimgs_test": 1,
+            "outer_offset_test": 6,
+            "part": "phase",
+        },
+    ]
+    assert calls["eval"]["trim_offset"] == 2
+
+
 def test_hio_metric_evaluation_uses_stored_test_split_ground_truth(monkeypatch, tmp_path):
     import ptycho.evaluation as evaluation
     import ptycho.workflows.grid_lines_workflow as grid_lines
@@ -952,16 +1189,41 @@ def test_hio_metric_evaluation_uses_stored_test_split_ground_truth(monkeypatch, 
             "tolerance": 5e-3,
         },
     )
-    monkeypatch.setattr(grid_lines, "stitch_predictions", lambda predictions, norm_y_i, part: predictions)
+    monkeypatch.setattr(
+        grid_lines,
+        "stitch_predictions",
+        lambda *args, **kwargs: pytest.fail("legacy stitching adapter must not be used"),
+    )
+    stitch_calls = {}
+
+    def fake_stitch_predictions_explicit(predictions, norm_y_i, **kwargs):
+        stitch_calls.update(kwargs)
+        return predictions
+
+    monkeypatch.setattr(
+        grid_lines,
+        "stitch_predictions_explicit",
+        fake_stitch_predictions_explicit,
+    )
     monkeypatch.setattr(grid_lines, "save_recon_artifact", lambda output_root, label, stitched: tmp_path / "recon.npz")
 
     calls = {}
 
-    def fake_eval_reconstruction(stitched_obj, ground_truth_obj, **kwargs):
+    def fake_eval_reconstruction_explicit(stitched_obj, ground_truth_obj, **kwargs):
         calls["ground_truth_obj"] = ground_truth_obj
+        calls["eval_kwargs"] = kwargs
         return {"ssim": (1.0, 1.0), "psnr": (1.0, 1.0), "frc": ([], [])}
 
-    monkeypatch.setattr(evaluation, "eval_reconstruction", fake_eval_reconstruction)
+    monkeypatch.setattr(
+        evaluation,
+        "eval_reconstruction",
+        lambda *args, **kwargs: pytest.fail("legacy evaluation adapter must not be used"),
+    )
+    monkeypatch.setattr(
+        evaluation,
+        "eval_reconstruction_explicit",
+        fake_eval_reconstruction_explicit,
+    )
 
     hio.run_smoke_benchmark(
         tmp_path,
@@ -980,11 +1242,25 @@ def test_hio_metric_evaluation_uses_stored_test_split_ground_truth(monkeypatch, 
         _toy_probe(),
         np.ones((8, 8), dtype=bool),
         {"support_threshold": 0.05},
-        cfg=SimpleNamespace(nimgs_test=2),
+        cfg=SimpleNamespace(
+            N=8,
+            gridsize=1,
+            nimgs_test=2,
+            outer_offset_test=4,
+            offset=1,
+        ),
         data=data,
     )
 
     assert np.array_equal(calls["ground_truth_obj"], stored_ground_truth)
+    assert stitch_calls == {
+        "N": 8,
+        "gridsize": 1,
+        "nimgs_test": 2,
+        "outer_offset_test": 4,
+        "part": "complex",
+    }
+    assert calls["eval_kwargs"]["trim_offset"] == 1
 
 
 def test_known_probe_smoke_path_uses_object_solver_and_labels_row(monkeypatch, tmp_path):
@@ -1027,9 +1303,27 @@ def test_known_probe_smoke_path_uses_object_solver_and_labels_row(monkeypatch, t
             "tolerance": 5e-3,
         },
     )
-    monkeypatch.setattr(grid_lines, "stitch_predictions", lambda predictions, norm_y_i, part: predictions)
+    monkeypatch.setattr(
+        grid_lines,
+        "stitch_predictions",
+        lambda *args, **kwargs: pytest.fail("legacy stitching adapter must not be used"),
+    )
+    monkeypatch.setattr(
+        grid_lines,
+        "stitch_predictions_explicit",
+        lambda predictions, norm_y_i, **kwargs: predictions,
+    )
     monkeypatch.setattr(grid_lines, "save_recon_artifact", lambda output_root, label, stitched: tmp_path / label / "recon.npz")
-    monkeypatch.setattr(evaluation, "eval_reconstruction", lambda *args, **kwargs: {"ssim": (1.0, 1.0), "psnr": (1.0, 1.0), "frc": ([], [])})
+    monkeypatch.setattr(
+        evaluation,
+        "eval_reconstruction",
+        lambda *args, **kwargs: pytest.fail("legacy evaluation adapter must not be used"),
+    )
+    monkeypatch.setattr(
+        evaluation,
+        "eval_reconstruction_explicit",
+        lambda *args, **kwargs: {"ssim": (1.0, 1.0), "psnr": (1.0, 1.0), "frc": ([], [])},
+    )
 
     metrics_paths, residual_paths, recon_paths = hio.run_smoke_benchmark(
         tmp_path,
@@ -1049,7 +1343,13 @@ def test_known_probe_smoke_path_uses_object_solver_and_labels_row(monkeypatch, t
         _toy_probe(),
         np.ones((8, 8), dtype=bool),
         {"support_threshold": 0.05},
-        cfg=SimpleNamespace(nimgs_test=1),
+        cfg=SimpleNamespace(
+            N=8,
+            gridsize=1,
+            nimgs_test=1,
+            outer_offset_test=4,
+            offset=1,
+        ),
         data=data,
     )
 

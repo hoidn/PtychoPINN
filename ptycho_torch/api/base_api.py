@@ -618,12 +618,49 @@ class PtychoModel:
         
         return dest_uri
 
+    def _pytorch_manifest_params_snapshot(self) -> Dict[str, Any]:
+        """Project this model's resolved owners into the legacy manifest shape."""
+        from ptycho.config.config import update_legacy_dict
+        from ptycho_torch.config_bridge import (
+            to_model_config,
+            to_training_config,
+        )
+
+        bridge_values = {
+            "train_data_file": self.training_config.train_data_file,
+            "output_dir": self.training_config.output_dir,
+            "n_groups": self.training_config.n_groups,
+            "nphotons": self.data_config.nphotons,
+        }
+        if self.training_config.test_data_file is not None:
+            bridge_values["test_data_file"] = (
+                self.training_config.test_data_file
+            )
+        if self.data_config.subsample_seed is not None:
+            bridge_values["subsample_seed"] = self.data_config.subsample_seed
+
+        public_model_config = to_model_config(
+            self.data_config,
+            self.model_config,
+        )
+        public_training_config = to_training_config(
+            public_model_config,
+            self.data_config,
+            self.model_config,
+            self.training_config,
+            overrides=bridge_values,
+        )
+        snapshot: Dict[str, Any] = {}
+        update_legacy_dict(snapshot, public_training_config)
+        return snapshot
+
     def save_pytorch(self, destination_path: str, checkpoint_path: Optional[str] = None) -> Path:
         """
         Minimal persistence shim for PyTorch backend (Phase R reactivation).
 
-        Emits a Lightning checkpoint + manifest bundle referencing params.cfg so
-        ptychodus loaders can track backend provenance per specs/ptychodus_api_spec.md §4.6.
+        Emits a Lightning checkpoint + manifest bundle containing the model's
+        resolved configuration projection so ptychodus loaders can track
+        backend provenance per specs/ptychodus_api_spec.md §4.6.
 
         This is a transitional implementation until full .h5.zip adapter lands in Phase 5.
 
@@ -636,7 +673,7 @@ class PtychoModel:
 
         Raises:
             FileNotFoundError: If checkpoint_path not provided and can't find .ckpt in destination
-            ValueError: If params.cfg is empty (CONFIG-001 violation)
+            ValueError: If the model's resolved records are incomplete
 
         Example:
             >>> model = PtychoModel(...)
@@ -649,17 +686,9 @@ class PtychoModel:
         """
         import json
         from pathlib import Path
-        import ptycho.params as params
 
         dest = Path(destination_path)
         dest.mkdir(parents=True, exist_ok=True)
-
-        # Validate params.cfg populated (CONFIG-001 gate)
-        if not params.cfg:
-            raise ValueError(
-                "params.cfg is empty. Must call update_legacy_dict(params.cfg, config) "
-                "before save_pytorch(). See CONFIG-001 in docs/findings.md."
-            )
 
         # Locate Lightning checkpoint
         if checkpoint_path is None:
@@ -676,11 +705,13 @@ class PtychoModel:
         if not ckpt_path.exists():
             raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
 
+        params_snapshot = self._pytorch_manifest_params_snapshot()
+
         # Create manifest bundle
         manifest = {
             'backend': 'pytorch',
             'checkpoint': str(ckpt_path.name),  # Relative to destination_path
-            'params_cfg_snapshot': dict(params.cfg),  # Serialize params.cfg for provenance
+            'params_cfg_snapshot': params_snapshot,
             'version': '1.0',
             'notes': 'Minimal PyTorch persistence shim (Phase R reactivation)'
         }
@@ -1163,4 +1194,3 @@ class InferenceEngine:
     
     
         
-

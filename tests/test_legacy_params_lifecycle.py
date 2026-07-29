@@ -237,6 +237,12 @@ def test_scoped_entrypoint_restores_temporary_global_state():
         params.cfg.update(original)
 
 
+def test_nongrid_entrypoint_has_no_redundant_outer_legacy_scope():
+    from ptycho.nongrid_simulation import generate_simulated_data
+
+    assert not hasattr(generate_simulated_data, "__wrapped__")
+
+
 def test_backend_workflow_entrypoint_contains_legacy_bridge(
     monkeypatch,
     tmp_path,
@@ -270,7 +276,6 @@ def test_backend_workflow_entrypoint_contains_legacy_bridge(
             None,
             None,
             config,
-            torch_execution_config=object(),
         )
 
         assert params.cfg["workflow_marker"] == "root"
@@ -403,18 +408,24 @@ def test_inference_adapter_restores_inferred_gridsize_after_call():
 
     def observe_gridsize(*_args, **_kwargs):
         assert params.cfg["gridsize"] == 2
+        assert params.cfg["N"] == 64
         return "result"
 
     base_model.side_effect = observe_gridsize
-    adapter = DiffractionToObjectAdapter(base_model)
+    adapter = DiffractionToObjectAdapter(
+        base_model,
+        runtime_params={"N": 64, "gridsize": 1},
+    )
 
     original = dict(params.cfg)
     try:
         params.cfg["gridsize"] = 1
+        params.cfg["N"] = 13
         result = adapter.call(np.zeros((1, 8, 8, 4), dtype=np.float32))
 
         assert result == "result"
         assert params.cfg["gridsize"] == 1
+        assert params.cfg["N"] == 13
     finally:
         params.cfg.clear()
         params.cfg.update(original)
