@@ -325,4 +325,5 @@ tail -f output_dir/logs/debug.log
 nvidia-smi
 ```
 
-For detailed explanations, see the <doc-ref type="guide">docs/DEVELOPER_GUIDE.md</doc-ref>.
+For detailed explanations, see the [Configuration Guide](CONFIGURATION.md) and
+[Troubleshooting Guide](TROUBLESHOOTING.md).

@@ -127,12 +127,10 @@ and no global schema dispatcher. To determine the route for a run, start from
 the invoked CLI/function and follow the input type it accepts. Schema
 validation occurs inside the already-selected loader.
 
-The normative standalone and batch shapes remain owned by
-[PtychoPINN Core Contract](specs/spec-ptycho-core.md) and
-[Torch Loader and Batch Contract](specs/spec-ptycho-interfaces.md). The routing
-description above is an implementation guide: it explains which current
-entry-point consumes each contract without turning historical runner choices
-into new format requirements.
+Standalone NPZ shapes are described in the
+[PtychoPINN Data Contracts](data_contracts.md). The routing description above
+explains which current entry point consumes each input form without turning
+historical runner choices into new format requirements.
 
 ## The Probe Lifecycle
 

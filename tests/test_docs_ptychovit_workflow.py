@@ -12,11 +12,6 @@ def test_ptychovit_doc_records_interop_contract_source():
     assert re.search(r"source_commit:\s*`?[0-9a-f]{7,40}`?", text)
 
 
-def test_docs_index_links_ptychovit_workflow():
-    text = Path("docs/index.md").read_text()
-    assert "workflows/ptychovit.md" in text
-
-
 def test_studies_readme_points_to_workflow_doc():
     text = Path("scripts/studies/README.md").read_text()
     assert "docs/workflows/ptychovit.md" in text

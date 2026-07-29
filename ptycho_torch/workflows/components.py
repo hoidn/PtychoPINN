@@ -907,7 +907,7 @@ def _build_lightning_dataloaders(
         raise RuntimeError(
             "PyTorch backend requires torch and lightning. "
             "Install with: pip install -e .[torch]\n"
-            "See docs/findings.md#policy-001 for PyTorch requirement policy."
+            "See docs/workflows/pytorch.md for installation guidance."
         ) from e
     
     if payload and not config:
@@ -1482,7 +1482,7 @@ def _build_inference_dataloader(
         raise RuntimeError(
             "PyTorch backend requires torch. "
             "Install with: pip install -e .[torch]\n"
-            "See docs/findings.md#policy-001 for PyTorch requirement policy."
+            "See docs/workflows/pytorch.md for installation guidance."
         ) from e
 
     # Extract tensors using same helper pattern as training loader
@@ -1626,7 +1626,7 @@ def _train_with_lightning(
         raise RuntimeError(
             "PyTorch backend requires torch>=2.2 and lightning. "
             "Install with: pip install -e .[torch]\n"
-            "See docs/findings.md#policy-001 for PyTorch requirement policy."
+            "See docs/workflows/pytorch.md for installation guidance."
         ) from e
 
     logger.info("_train_with_lightning orchestrating Lightning training")
@@ -1777,8 +1777,7 @@ def _train_with_lightning(
                     f"Supervised mode (model_type='supervised') requires labeled datasets with "
                     f"'label_amp' and 'label_phase' keys, but training data lacks these fields. "
                     f"Either: (1) Use a labeled NPZ dataset (see ptycho_torch/notebooks/create_supervised_datasets.ipynb), "
-                    f"or (2) Switch to PINN mode (--model_type pinn) for self-supervised physics-based training. "
-                    f"See DATA-SUP-001 in docs/findings.md for details."
+                    f"or (2) Switch to PINN mode (--model_type pinn) for self-supervised physics-based training."
                 )
         except StopIteration:
             raise RuntimeError(
@@ -2133,7 +2132,7 @@ def _reassemble_cdi_image_torch(
         raise RuntimeError(
             "PyTorch backend requires torch. "
             "Install with: pip install -e .[torch]\n"
-            "See docs/findings.md#policy-001 for PyTorch requirement policy."
+            "See docs/workflows/pytorch.md for installation guidance."
         ) from e
 
     # Validate train_results contains models

@@ -191,7 +191,7 @@ class PtychoDataContainerTorch:
                 raise ValueError(
                     f"DATA-001 violation: Y patches MUST be complex64, got {Y_np.dtype}. "
                     f"Historical bug: silent float64 conversion caused major training failure. "
-                    f"See docs/findings.md:DATA-001 and specs/data_contracts.md:19"
+                    f"See specs/data_contracts.md for the public data contract."
                 )
         else:
             # Create dummy complex tensor matching X shape (per TensorFlow loader.py:310-313)
