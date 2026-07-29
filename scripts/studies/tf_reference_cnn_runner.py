@@ -39,11 +39,15 @@ logger = logging.getLogger("tf_reference_cnn_runner")
 
 from ptycho.workflows.components import setup_configuration, load_data
 from ptycho.workflows.backend_selector import run_cdi_example_with_backend
+from ptycho.config import TrainingConfig
 from ptycho.config.config import update_legacy_dict
-from ptycho import params
+from ptycho.config.legacy_state import legacy_params_scope
 
 from varpro_probe_ablation_runner import compute_objframe_metrics, place_patches_objframe
 from ablation_diagnostics import canvas_rail_diagnostics
+
+
+TF_MODEL_ARTIFACT = "wts.h5.zip"
 
 
 def parse_args():
@@ -80,11 +84,64 @@ def save_trained_model(output_dir: Path):
     try:
         from ptycho import model_manager
         model_manager.save(str(output_dir))
-        model_artifact = params.get("h5_path") + ".zip"
-        return True, model_artifact, None
+        return True, TF_MODEL_ARTIFACT, None
     except Exception as exc:  # scoring must proceed even if the save fails
         logger.warning(f"Model save FAILED (scoring continues): {exc}")
         return False, None, str(exc)
+
+
+def run_tensorflow_reference_leaf(
+    train_data,
+    test_data,
+    config: TrainingConfig,
+    output_dir: Path,
+    *,
+    timer_start: float | None = None,
+):
+    """Run the remaining TensorFlow training/save leaf under one resolved owner."""
+    with legacy_params_scope() as legacy_cfg:
+        update_legacy_dict(legacy_cfg, config)
+        effective = legacy_cfg["intensity_scale.trainable"]
+        logger.info("intensity_scale.trainable effective = %s", effective)
+        if effective != config.intensity_scale_trainable:
+            raise AssertionError("trainable override did not take")
+
+        recon_amp, recon_phase, results = run_cdi_example_with_backend(
+            train_data,
+            test_data,
+            config,
+            do_stitching=False,
+        )
+        train_wall_s = (
+            time.time() - timer_start
+            if timer_start is not None
+            else None
+        )
+
+        log_scale_init = float(np.log(legacy_cfg["intensity_scale"]))
+        log_scale_final = None
+        try:
+            from ptycho.model import _lazy_cache
+            ls_var = _lazy_cache.get("log_scale")
+            if ls_var is not None:
+                log_scale_final = float(ls_var.numpy())
+        except Exception as exc:  # surface, don't crash scoring
+            logger.warning(f"log_scale extraction failed: {exc}")
+
+        model_saved, model_artifact, model_save_error = save_trained_model(
+            output_dir
+        )
+
+    diagnostics = {
+        "log_scale_init": log_scale_init,
+        "log_scale_final": log_scale_final,
+        "model_saved": model_saved,
+        "model_artifact": model_artifact,
+        "model_save_error": model_save_error,
+    }
+    if train_wall_s is not None:
+        diagnostics["train_wall_s"] = train_wall_s
+    return recon_amp, recon_phase, results, diagnostics
 
 
 def main():
@@ -107,15 +164,8 @@ def main():
     )
     config = setup_configuration(args, None)
     want_trainable = bool(cli.intensity_scale_trainable)
-    # Override on the modern config object if the field lives there...
     if hasattr(config, "intensity_scale_trainable"):
         config = dataclasses.replace(config, intensity_scale_trainable=want_trainable)
-    update_legacy_dict(params.cfg, config)
-    # ...and pin the legacy key ptycho/model.py::_get_log_scale actually reads.
-    params.cfg["intensity_scale.trainable"] = want_trainable
-    effective = params.params()["intensity_scale.trainable"]
-    logger.info(f"intensity_scale.trainable effective = {effective}")
-    assert effective == want_trainable, "trainable override did not take"
 
     (output_dir / "invocation.json").write_text(json.dumps({
         "argv": sys.argv,
@@ -137,26 +187,26 @@ def main():
                 f"nepochs={config.nepochs} batch_size={config.batch_size} n_groups={n_groups} "
                 f"nphotons={config.nphotons} trainable={want_trainable}")
 
-    recon_amp, recon_phase, results = run_cdi_example_with_backend(
-        train_data, test_data, config, do_stitching=False,
+    recon_amp, recon_phase, results, leaf_diagnostics = (
+        run_tensorflow_reference_leaf(
+            train_data,
+            test_data,
+            config,
+            output_dir,
+            timer_start=t0,
+        )
     )
 
-    train_wall_s = time.time() - t0
+    train_wall_s = leaf_diagnostics["train_wall_s"]
     logger.info(f"Training complete in {train_wall_s:.1f}s")
 
-    # log_scale init/final (the tf.Variable ptycho/model.py trains)
-    log_scale_init = float(np.log(params.cfg["intensity_scale"]))
-    log_scale_final = None
-    try:
-        from ptycho.model import _lazy_cache
-        ls_var = _lazy_cache.get("log_scale")
-        if ls_var is not None:
-            log_scale_final = float(ls_var.numpy())
-    except Exception as exc:  # surface, don't crash scoring
-        logger.warning(f"log_scale extraction failed: {exc}")
+    log_scale_init = leaf_diagnostics["log_scale_init"]
+    log_scale_final = leaf_diagnostics["log_scale_final"]
     logger.info(f"log_scale init={log_scale_init:.4f} final={log_scale_final}")
 
-    model_saved, model_artifact, model_save_error = save_trained_model(output_dir)
+    model_saved = leaf_diagnostics["model_saved"]
+    model_artifact = leaf_diagnostics["model_artifact"]
+    model_save_error = leaf_diagnostics["model_save_error"]
     if model_saved:
         logger.info(f"Model saved: {output_dir / model_artifact}")
 

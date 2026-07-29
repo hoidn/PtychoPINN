@@ -563,8 +563,23 @@ def execution_config_from_args(args: argparse.Namespace):
         metadata["effective_config"] = _config_payload(approved_cfg)
         return approved_cfg, metadata
 
+    smoke_simulation = replace(
+        approved_cfg.simulation,
+        object=replace(
+            approved_cfg.simulation.object,
+            image_size=(int(args.smoke_size), int(args.smoke_size)),
+        ),
+        scan=replace(
+            approved_cfg.simulation.scan,
+            outer_offset_train=int(args.smoke_outer_offset),
+            outer_offset_test=int(args.smoke_outer_offset),
+            train_groups=int(args.smoke_nimgs_train),
+            test_groups=int(args.smoke_nimgs_test),
+        ),
+    )
     smoke_cfg = replace(
         approved_cfg,
+        simulation=smoke_simulation,
         size=int(args.smoke_size),
         outer_offset_train=int(args.smoke_outer_offset),
         outer_offset_test=int(args.smoke_outer_offset),
@@ -1541,12 +1556,32 @@ def _restore_model_probe_variable(model: Any, old_value: np.ndarray | None) -> N
             return
 
 
-def _stitch_prediction(prediction: np.ndarray, sim: dict[str, Any]) -> np.ndarray:
-    from ptycho.workflows.grid_lines_workflow import stitch_predictions
+def _stitch_prediction(
+    prediction: np.ndarray,
+    sim: dict[str, Any],
+    cfg: Any,
+) -> np.ndarray:
+    from ptycho.workflows.grid_lines_workflow import stitch_predictions_explicit
 
     norm_Y_I = sim["test"]["norm_Y_I"]
-    amp = stitch_predictions(prediction, norm_Y_I, part="amp")
-    phase = stitch_predictions(prediction, norm_Y_I, part="phase")
+    geometry = {
+        "N": cfg.N,
+        "gridsize": cfg.gridsize,
+        "nimgs_test": cfg.nimgs_test,
+        "outer_offset_test": cfg.outer_offset_test,
+    }
+    amp = stitch_predictions_explicit(
+        prediction,
+        norm_Y_I,
+        part="amp",
+        **geometry,
+    )
+    phase = stitch_predictions_explicit(
+        prediction,
+        norm_Y_I,
+        part="phase",
+        **geometry,
+    )
     return amp * np.exp(1j * phase)
 
 
@@ -1557,13 +1592,23 @@ def run_probe_consumption_smoke(
     large_perturbed_probe: np.ndarray,
     cfg: Any,
 ) -> dict[str, Any]:
-    from ptycho.workflows.grid_lines_workflow import run_pinn_inference
+    from ptycho.workflows.grid_lines_workflow import run_pinn_inference_explicit
 
     true_test = clone_container_with_probe(sim["test"]["container"], true_probe)
     perturbed_test = clone_container_with_probe(sim["test"]["container"], large_perturbed_probe)
 
-    true_pred = run_pinn_inference(model, true_test._X_np, true_test._coords_nominal_np)
-    container_pred = run_pinn_inference(model, perturbed_test._X_np, perturbed_test._coords_nominal_np)
+    true_pred = run_pinn_inference_explicit(
+        model,
+        true_test._X_np,
+        true_test._coords_nominal_np,
+        intensity_scale=sim["intensity_scale"],
+    )
+    container_pred = run_pinn_inference_explicit(
+        model,
+        perturbed_test._X_np,
+        perturbed_test._coords_nominal_np,
+        intensity_scale=sim["intensity_scale"],
+    )
     container_result = _prediction_delta(true_pred, container_pred)
     container_result["metric_delta"] = None
 
@@ -1573,7 +1618,12 @@ def run_probe_consumption_smoke(
     direct_result["assigned"] = bool(assigned)
     if assigned:
         try:
-            direct_pred = run_pinn_inference(model, true_test._X_np, true_test._coords_nominal_np)
+            direct_pred = run_pinn_inference_explicit(
+                model,
+                true_test._X_np,
+                true_test._coords_nominal_np,
+                intensity_scale=sim["intensity_scale"],
+            )
             direct_result.update(_prediction_delta(true_pred, direct_pred))
         finally:
             _restore_model_probe_variable(model, old_value)
@@ -1884,10 +1934,10 @@ def run_condition(
     baseline_model: Any | None = None,
     canonical_data_checksums: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    from ptycho.evaluation import eval_reconstruction
+    from ptycho.evaluation import eval_reconstruction_explicit
     from ptycho.workflows.grid_lines_workflow import (
         configure_legacy_params,
-        run_pinn_inference,
+        run_pinn_inference_explicit,
         train_pinn_model,
     )
 
@@ -1917,7 +1967,12 @@ def run_condition(
             )
             configure_legacy_params(cfg, assumed_probe)
             model, history = train_pinn_model(train_container)
-            prediction = run_pinn_inference(model, test_container._X_np, test_container._coords_nominal_np)
+            prediction = run_pinn_inference_explicit(
+                model,
+                test_container._X_np,
+                test_container._coords_nominal_np,
+                intensity_scale=sim["intensity_scale"],
+            )
         elif branch_decision == "frozen_model_assumed_probe":
             if model is None:
                 raise ValueError("frozen_model_assumed_probe requires a baseline model")
@@ -1936,7 +1991,12 @@ def run_condition(
             if not assigned:
                 raise RuntimeError(f"could not assign probe variable for frozen-model branch: {note}")
             try:
-                prediction = run_pinn_inference(model, test_container._X_np, test_container._coords_nominal_np)
+                prediction = run_pinn_inference_explicit(
+                    model,
+                    test_container._X_np,
+                    test_container._coords_nominal_np,
+                    intensity_scale=sim["intensity_scale"],
+                )
             finally:
                 _restore_model_probe_variable(model, old_value)
         else:
@@ -1959,7 +2019,7 @@ def run_condition(
         write_json(condition_dir / "metrics.json", error_payload)
         return error_payload
 
-    stitched = _stitch_prediction(prediction, sim)
+    stitched = _stitch_prediction(prediction, sim, cfg)
     recon = np.squeeze(stitched)
     if recon.ndim > 2:
         recon = recon[0]
@@ -1967,7 +2027,12 @@ def run_condition(
     if history is not None:
         write_json(condition_dir / "train_history.json", _history_payload(history))
 
-    metrics = eval_reconstruction(stitched, sim["test"]["YY_ground_truth"], label=condition.condition_id)
+    metrics = eval_reconstruction_explicit(
+        stitched,
+        sim["test"]["YY_ground_truth"],
+        label=condition.condition_id,
+        trim_offset=int(cfg.offset),
+    )
     flat = flatten_metrics(condition, metrics, status="ok")
     condition_payload = {
         "status": "ok",

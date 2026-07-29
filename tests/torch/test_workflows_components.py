@@ -7,14 +7,13 @@ contract defined in specs/ptychodus_api_spec.md §4 and maintain parity with
 ptycho/workflows/components.py.
 
 Critical Behavioral Requirements (from CONFIG-001 + spec §4.5):
-1. Entry points MUST call `update_legacy_dict(params.cfg, config)` before delegating
-   to core modules (prevents silent params.cfg drift).
+1. Modern Torch entry points pass resolved configuration explicitly; only named
+   compatibility leaves may receive a contained legacy projection.
 2. All workflow functions must be torch-optional (importable when PyTorch unavailable).
 3. Signatures must match TensorFlow equivalents to enable transparent backend selection.
 
 Test Strategy:
-- Red-phase: document required API via failing tests using monkeypatch spies
-- Green-phase: implement stubs that invoke update_legacy_dict and raise NotImplementedError
+- Pin workflow ownership and orchestration contracts with focused tests
 - torch-optional: module structure follows test_config_bridge.py pattern (guarded imports)
 
 Artifacts (Phase D2.A):
@@ -52,10 +51,10 @@ def _execution_request(**values):
 
 class TestWorkflowsComponentsScaffold:
     """
-    Phase D2.A scaffold tests — verify update_legacy_dict parity guard.
+    Workflow boundary tests for explicit configuration ownership.
 
-    These tests validate that PyTorch workflow entry points follow the critical
-    CONFIG-001 pattern: call update_legacy_dict before delegating to core modules.
+    Modern PyTorch entry points must not create broad legacy projections around
+    descendants that already receive their resolved owners directly.
     """
 
     @pytest.fixture
@@ -63,9 +62,14 @@ class TestWorkflowsComponentsScaffold:
         """Snapshot and restore params.cfg state across tests."""
         from ptycho import params
         original = params.cfg.copy()
+        sealed = params._sealed
         yield params.cfg
         params.cfg.clear()
         params.cfg.update(original)
+        if sealed:
+            params.seal()
+        else:
+            params.unseal()
 
     @pytest.fixture
     def minimal_training_config(self):
@@ -89,128 +93,52 @@ class TestWorkflowsComponentsScaffold:
 
         return training_config
 
-    def test_run_cdi_example_calls_update_legacy_dict(
+    def test_run_cdi_example_does_not_project_redundant_legacy_state(
         self,
         monkeypatch,
         params_cfg_snapshot,
         minimal_training_config
     ):
-        """
-        CRITICAL PARITY TEST: run_cdi_example_torch must call update_legacy_dict.
-
-        Requirement: specs/ptychodus_api_spec.md:187 mandates that PyTorch entry
-        points must synchronize params.cfg via update_legacy_dict() to prevent
-        silent CONFIG-001 violations (shape mismatch errors from empty params.cfg).
-
-        Red-phase contract:
-        - Entry signature: run_cdi_example_torch(train_data, test_data, config, ...)
-        - MUST call ptycho.config.config.update_legacy_dict(params.cfg, config)
-        - Stub implementation may raise NotImplementedError for paths Phase D2.B/C fill
-
-        Test mechanism:
-        - Use monkeypatch to spy on update_legacy_dict calls
-        - Pass minimal dummy data (no actual training execution required)
-        - Assert update_legacy_dict was invoked with correct params.cfg + config args
-        """
-        # Import the module under test
-        # This import must succeed even when torch unavailable (torch-optional)
+        """Explicit descendants must receive config without an outer projection."""
         from ptycho_torch.workflows import components as torch_components
-        from ptycho.config.config import update_legacy_dict
-        from ptycho.raw_data import RawData
+        from ptycho import params
 
-        parent_gridsize = params_cfg_snapshot["gridsize"]
+        params.cfg.clear()
+        params.cfg.update({"poisoned": "ambient-authority", "gridsize": 99})
+        params.seal()
+        ambient = dict(params.cfg)
 
-        # Spy flag to track update_legacy_dict invocation
-        update_legacy_dict_called = {
-            "called": False,
-            "args": None,
-            "projected": None,
-        }
-
-        def mock_update_legacy_dict(cfg_dict, config_obj):
-            """Spy that records invocation and delegates to real function."""
-            update_legacy_dict_called["called"] = True
-            update_legacy_dict_called["args"] = (cfg_dict, config_obj)
-            # Call the real function to populate params.cfg for validation
-            update_legacy_dict(cfg_dict, config_obj)
-            update_legacy_dict_called["projected"] = {
-                "N": cfg_dict["N"],
-                "gridsize": cfg_dict["gridsize"],
+        def mock_train_cdi_model_torch(train_data, test_data, config, **kwargs):
+            assert train_data is sentinel_data
+            assert test_data is None
+            assert config is minimal_training_config
+            assert params.cfg == ambient
+            assert params._sealed is True
+            return {
+                "history": {"train_loss": [0.5]},
+                "train_container": None,
+                "test_container": None,
             }
 
-        # Patch update_legacy_dict with spy
         monkeypatch.setattr(
-            "ptycho.config.config.update_legacy_dict",
-            mock_update_legacy_dict
+            torch_components,
+            "train_cdi_model_torch",
+            mock_train_cdi_model_torch,
         )
 
-        # Create minimal dummy train_data (RawData-compatible stub)
-        # For scaffold test, we don't need valid NPZ data — just RawData structure
-        dummy_coords = np.array([0.0, 1.0, 2.0])
-        dummy_diff = np.random.rand(3, 64, 64).astype(np.float32)
-        dummy_probe = np.ones((64, 64), dtype=np.complex64)
-        dummy_scan_index = np.array([0, 1, 2], dtype=int)
-
-        train_data = RawData(
-            xcoords=dummy_coords,
-            ycoords=dummy_coords,
-            xcoords_start=dummy_coords,
-            ycoords_start=dummy_coords,
-            diff3d=dummy_diff,
-            probeGuess=dummy_probe,
-            scan_index=dummy_scan_index,
-        )
-
-        # Attempt to call run_cdi_example_torch
-        # Phase D2.A: expects NotImplementedError (scaffold only) — COMPLETED
-        # Phase D2.B/C: IMPLEMENTED — now returns results tuple
-        # Test validates update_legacy_dict was called, but doesn't fully exercise training
-        # (training path tested separately in TestWorkflowsComponentsTraining)
-
-        # Monkeypatch train_cdi_model_torch to prevent full training execution in this test
-        def mock_train_cdi_model_torch(*args, **kwargs):
-            """Minimal stub to prevent full training in scaffold test."""
-            return {"history": {"train_loss": [0.5]}, "train_container": None, "test_container": None}
-
-        monkeypatch.setattr(
-            "ptycho_torch.workflows.components.train_cdi_model_torch",
-            mock_train_cdi_model_torch
-        )
-
-        # Call should now succeed (Phase D2.C implemented)
+        sentinel_data = object()
         recon_amp, recon_phase, results = torch_components.run_cdi_example_torch(
-            train_data=train_data,
-            test_data=None,  # Optional
+            train_data=sentinel_data,
+            test_data=None,
             config=minimal_training_config,
-            flip_x=False,
-            flip_y=False,
-            transpose=False,
-            M=20,
             do_stitching=False,
         )
 
-        # Validate update_legacy_dict was called
-        assert update_legacy_dict_called["called"], (
-            "run_cdi_example_torch MUST call update_legacy_dict before delegating "
-            "to prevent CONFIG-001 violations (params.cfg empty → shape mismatches)"
-        )
-
-        # Validate correct arguments passed
-        cfg_dict_arg, config_obj_arg = update_legacy_dict_called["args"]
-        assert cfg_dict_arg is params_cfg_snapshot, (
-            "First argument to update_legacy_dict must be ptycho.params.cfg"
-        )
-        assert config_obj_arg is minimal_training_config, (
-            "Second argument to update_legacy_dict must be the TrainingConfig instance"
-        )
-
-        # Validate the projection was visible before dispatch, then contained.
-        assert update_legacy_dict_called["projected"] == {
-            "N": 64,
-            "gridsize": 2,
-        }
-        assert params_cfg_snapshot["gridsize"] == parent_gridsize
-        assert params_cfg_snapshot['model_type'] == 'pinn', "params.cfg should be populated with model_type='pinn'"
+        assert recon_amp is None
+        assert recon_phase is None
+        assert results["history"]["train_loss"] == [0.5]
+        assert params.cfg == ambient
+        assert params._sealed is True
 
 
 class TestWorkflowsComponentsTraining:
@@ -221,6 +149,37 @@ class TestWorkflowsComponentsTraining:
     via Phase C adapters and delegates to Lightning trainer while maintaining
     torch-optional behavior.
     """
+
+    def test_training_entrypoint_has_no_outer_legacy_scope(
+        self,
+        monkeypatch,
+        minimal_training_config,
+    ):
+        from ptycho.config import legacy_state
+        from ptycho_torch.workflows import components
+
+        def forbidden_scope():
+            raise AssertionError("modern Torch training entered a legacy outer scope")
+
+        monkeypatch.setattr(legacy_state, "legacy_params_scope", forbidden_scope)
+        monkeypatch.setattr(components, "_ensure_container", lambda data, config: data)
+        monkeypatch.setattr(
+            components,
+            "_train_with_lightning",
+            lambda train, test, config: {
+                "history": {},
+                "train_container": train,
+                "test_container": test,
+            },
+        )
+
+        result = components.train_cdi_model_torch(
+            object(),
+            None,
+            minimal_training_config,
+        )
+
+        assert result["test_container"] is None
 
     @pytest.fixture
     def params_cfg_snapshot(self):
@@ -289,7 +248,7 @@ class TestWorkflowsComponentsTraining:
 
         captured = {}
 
-        def fake_create_training_payload(
+        def fake_resolve_training_payload(
             *,
             train_data_file,
             output_dir,
@@ -302,8 +261,14 @@ class TestWorkflowsComponentsTraining:
             raise RuntimeError("stop after overrides capture")
 
         monkeypatch.setattr(
+            "ptycho_torch.config_factory.resolve_training_payload",
+            fake_resolve_training_payload
+        )
+        monkeypatch.setattr(
             "ptycho_torch.config_factory.create_training_payload",
-            fake_create_training_payload
+            lambda **_kwargs: pytest.fail(
+                "internal Torch execution must not use the legacy-projecting factory"
+            ),
         )
 
         model_config = ModelConfig(
@@ -350,11 +315,6 @@ class TestWorkflowsComponentsTraining:
         from ptycho_torch.workflows import components
 
         events = []
-        monkeypatch.setattr(
-            components.ptycho_config,
-            "update_legacy_dict",
-            lambda *_args: events.append("bridge"),
-        )
         monkeypatch.setattr(
             components,
             "_ensure_container",
@@ -1682,135 +1642,156 @@ class TestWorkflowsComponentsRun:
         monkeypatch,
         tmp_path,
         params_cfg_snapshot,
-        minimal_training_config
     ):
-        """
-        REGRESSION TEST: load_inference_bundle_torch must delegate to load_torch_bundle.
+        """The API wrapper commits decoded state only after pure reconstruction."""
+        from types import SimpleNamespace
 
-        Requirement: Phase D4.B2 — validate PyTorch inference loading maintains parity
-        with TensorFlow baseline per specs/ptychodus_api_spec.md:§4.5.
-
-        TensorFlow baseline (ptycho/workflows/components.py:94-174):
-        - load_inference_bundle unpacks wts.h5.zip via ModelManager.load_multiple_models
-        - Restores params.cfg before model reconstruction (CONFIG-001)
-        - Returns (models_dict, params_dict) tuple
-
-        Red-phase expectation:
-        - load_inference_bundle_torch currently raises NotImplementedError
-        - Once Phase D4.C2 complete, SHOULD invoke load_torch_bundle shim
-        - Test will FAIL until loader delegation is wired
-
-        Test mechanism:
-        - Monkeypatch load_torch_bundle to spy on invocation
-        - Call load_inference_bundle_torch with bundle path
-        - Validate load_torch_bundle was called with correct base_path
-        - Validate params.cfg was updated via CONFIG-001 gate
-        """
-        # Import the module under test
         from ptycho_torch.workflows import components as torch_components
         from ptycho import params
 
-        # Spy flag to track load_torch_bundle invocation
-        load_torch_bundle_called = {"called": False, "args": None}
-
-        def mock_load_torch_bundle(base_path, model_name='diffraction_to_obj'):
-            """Spy that records load_torch_bundle invocation."""
-            load_torch_bundle_called["called"] = True
-            load_torch_bundle_called["args"] = (base_path, model_name)
-
-            # Simulate params.cfg restoration (CONFIG-001 requirement)
-            restored_params = {
-                'N': 64,
-                'gridsize': 2,
-                'model_type': 'pinn',
-                'nphotons': 1e9,
-            }
-            params.cfg.update(restored_params)
-
-            # Return sentinel model + params
-            from types import SimpleNamespace
-
-            loaded_model = SimpleNamespace(
-                data_config=SimpleNamespace(
-                    scale_contract_version=None,
-                    measurement_domain=None,
-                )
-            )
-            return (
-                {'diffraction_to_obj': loaded_model},
-                restored_params
-            )
-
-        # Monkeypatch load_torch_bundle
-        monkeypatch.setattr(
-            "ptycho_torch.workflows.components.load_torch_bundle",
-            mock_load_torch_bundle
-        )
+        archived = {
+            "_version": "2.0-pytorch",
+            "N": 64,
+            "gridsize": 2,
+        }
+        manifest = {
+            "models": ["autoencoder", "diffraction_to_obj"],
+            "version": "2.0-pytorch",
+        }
         monkeypatch.setattr(
             "ptycho_torch.workflows.components._read_torch_bundle_manifest_and_params",
-            lambda _base_path: (
-                {
-                    "models": ["autoencoder", "diffraction_to_obj"],
-                    "version": "2.0-pytorch",
-                },
-                {
-                    "_version": "2.0-pytorch",
-                    "N": 64,
-                    "gridsize": 2,
-                },
-            ),
+            lambda _base_path: (manifest, archived),
         )
         monkeypatch.setattr(
             "ptycho_torch.workflows.components._read_bundle_scaling_metadata",
             lambda _zip_path: None,
         )
+        loaded_model = SimpleNamespace()
+        reconstructed = {
+            "autoencoder": loaded_model,
+            "diffraction_to_obj": loaded_model,
+        }
+        observed_during_reconstruction = []
 
-        # Clear params.cfg to simulate fresh process
+        def reconstruct_explicit(*args, **kwargs):
+            observed_during_reconstruction.append(dict(params.cfg))
+            decoded = dict(kwargs["params_dict"])
+            decoded.update(
+                scale_contract_version="legacy_v1",
+                measurement_domain="normalized_amplitude",
+            )
+            return reconstructed, decoded, None
+
+        monkeypatch.setattr(
+            torch_components,
+            "_reconstruct_inference_bundle_explicit",
+            reconstruct_explicit,
+        )
         params.cfg.clear()
-        assert params.cfg.get('N') is None, "Sanity check: params.cfg should be empty"
+        params.cfg["ambient"] = "preserved"
 
-        # Call load_inference_bundle_torch
-        # Red phase: expect NotImplementedError
-        # Green phase: expect successful return
-        try:
-            models_dict, params_dict = torch_components.load_inference_bundle_torch(
+        models_dict, params_dict = (
+            torch_components.load_inference_bundle_torch(
                 bundle_dir=str(tmp_path / "test_bundle"),
                 scale_contract_version="legacy_v1",
                 measurement_domain="normalized_amplitude",
             )
+        )
 
-            # Green phase assertions (once Phase D4.C2 complete)
-            assert load_torch_bundle_called["called"], (
-                "load_inference_bundle_torch MUST delegate to load_torch_bundle"
+        assert observed_during_reconstruction == [
+            {"ambient": "preserved"}
+        ]
+        assert models_dict is reconstructed
+        assert params_dict["N"] == 64
+        assert params.cfg["ambient"] == "preserved"
+        assert params.cfg["N"] == 64
+        assert params.cfg["gridsize"] == 2
+
+    def test_explicit_archive_reconstruction_ignores_poisoned_global(
+        self,
+        monkeypatch,
+        tmp_path,
+        params_cfg_snapshot,
+    ):
+        """The modern archive core receives decoded params/identity explicitly."""
+        from types import SimpleNamespace
+
+        from ptycho import params
+        from ptycho_torch.workflows import components
+
+        archived = {
+            "_version": "2.0-pytorch",
+            "N": 64,
+            "gridsize": 2,
+        }
+        manifest = {
+            "models": ["autoencoder", "diffraction_to_obj"],
+            "version": "2.0-pytorch",
+        }
+        loaded_model = SimpleNamespace(
+            data_config=SimpleNamespace(
+                scale_contract_version=None,
+                measurement_domain=None,
             )
+        )
+        reconstructed = {
+            "autoencoder": loaded_model,
+            "diffraction_to_obj": loaded_model,
+        }
+        captured = {}
 
-            base_path_arg, model_name_arg = load_torch_bundle_called["args"]
-            assert str(tmp_path / "test_bundle") in str(base_path_arg), (
-                "load_torch_bundle MUST receive correct bundle_dir path"
+        def reconstruct_explicit(
+            base_path,
+            *,
+            manifest,
+            params_dict,
+            model_name,
+        ):
+            captured.update(
+                base_path=base_path,
+                manifest=manifest,
+                params_dict=params_dict,
+                model_name=model_name,
             )
+            return reconstructed, params_dict
 
-            # Validate params.cfg was updated (CONFIG-001 requirement)
-            assert params.cfg.get('N') == 64, (
-                "CONFIG-001: params.cfg['N'] must be restored during load"
-            )
-            assert params.cfg.get('gridsize') == 2, (
-                "CONFIG-001: params.cfg['gridsize'] must be restored"
-            )
+        monkeypatch.setattr(
+            components,
+            "_reconstruct_torch_bundle_explicit",
+            reconstruct_explicit,
+            raising=False,
+        )
+        params.cfg.clear()
+        params.cfg.update({"N": 999, "gridsize": 9, "poison": True})
+        poisoned = dict(params.cfg)
+        reconstruct = getattr(
+            components,
+            "_reconstruct_inference_bundle_explicit",
+            None,
+        )
 
-            # Validate return values
-            assert models_dict is not None, "load_inference_bundle_torch MUST return models_dict"
-            assert params_dict is not None, "load_inference_bundle_torch MUST return params_dict"
+        assert callable(reconstruct)
+        models, decoded, identity = reconstruct(
+            tmp_path / "wts.h5",
+            tmp_path / "wts.h5.zip",
+            manifest=manifest,
+            params_dict=archived,
+            identity=None,
+            explicit_profile=(
+                "legacy_v1",
+                "normalized_amplitude",
+            ),
+            model_name="diffraction_to_obj",
+        )
 
-        except NotImplementedError as e:
-            # Red phase: document expected failure
-            if 'load_inference_bundle_torch' in str(e) or 'not yet implemented' in str(e):
-                pytest.xfail(
-                    "Phase D4.B2 red phase: load_inference_bundle_torch delegation not yet wired. "
-                    "Expected NotImplementedError raised. This test will pass once Phase D4.C2 "
-                    "implements loader delegation."
-                )
-            else:
-                raise  # Unexpected NotImplementedError, re-raise
+        assert models is reconstructed
+        assert decoded is not archived
+        assert decoded["scale_contract_version"] == "legacy_v1"
+        assert decoded["measurement_domain"] == "normalized_amplitude"
+        assert identity is None
+        assert captured["manifest"] is manifest
+        assert captured["params_dict"] is archived
+        assert params.cfg == poisoned
 
 
 class TestTrainWithLightningRed:

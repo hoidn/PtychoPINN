@@ -656,7 +656,12 @@ def _coords_relative_for_inference(
     return np.transpose(coords_rel, (0, 3, 1, 2)).astype(np.float32)
 
 
-def _configure_stitching_params(cfg: TorchRunnerConfig, metadata: Optional[Dict[str, Any]]) -> None:
+def _stitch_for_metrics(
+    pred_complex: np.ndarray,
+    cfg: TorchRunnerConfig,
+    metadata: Optional[Dict[str, Any]],
+    norm_Y_I: float,
+) -> np.ndarray:
     if not metadata:
         raise ValueError("Missing metadata; cannot stitch predictions for metrics.")
 
@@ -666,24 +671,17 @@ def _configure_stitching_params(cfg: TorchRunnerConfig, metadata: Optional[Dict[
     if nimgs_test is None or outer_offset_test is None:
         raise ValueError("Metadata missing nimgs_test/outer_offset_test for stitching.")
 
-    from ptycho import params as p
+    from ptycho.workflows.grid_lines_workflow import stitch_predictions_explicit
 
-    p.cfg["N"] = cfg.N
-    p.cfg["gridsize"] = cfg.gridsize
-    p.set("nimgs_test", nimgs_test)
-    p.set("outer_offset_test", outer_offset_test)
-
-
-def _stitch_for_metrics(
-    pred_complex: np.ndarray,
-    cfg: TorchRunnerConfig,
-    metadata: Optional[Dict[str, Any]],
-    norm_Y_I: float,
-) -> np.ndarray:
-    from ptycho.workflows.grid_lines_workflow import stitch_predictions
-
-    _configure_stitching_params(cfg, metadata)
-    return stitch_predictions(pred_complex, float(norm_Y_I), part="complex")
+    return stitch_predictions_explicit(
+        pred_complex,
+        float(norm_Y_I),
+        N=cfg.N,
+        gridsize=cfg.gridsize,
+        nimgs_test=nimgs_test,
+        outer_offset_test=outer_offset_test,
+        part="complex",
+    )
 
 
 def _normalize_position_inputs(
@@ -1783,6 +1781,8 @@ def compute_metrics(
     predictions: np.ndarray,
     ground_truth: np.ndarray,
     label: str,
+    *,
+    trim_offset: int,
 ) -> Dict[str, float]:
     """Compute reconstruction metrics compatible with TF workflow.
 
@@ -1794,7 +1794,7 @@ def compute_metrics(
     Returns:
         Metrics dict with MSE, SSIM, etc.
     """
-    from ptycho.evaluation import eval_reconstruction
+    from ptycho.evaluation import eval_reconstruction_explicit
 
     pred = _normalize_eval_image_array(np.asarray(predictions))
     gt = _normalize_eval_image_array(np.asarray(ground_truth))
@@ -1808,10 +1808,11 @@ def compute_metrics(
         pred = pred[..., None]
     if gt.ndim == 2:
         gt = gt[..., None]
-    return eval_reconstruction(
+    return eval_reconstruction_explicit(
         pred,
         gt,
         label=label,
+        trim_offset=trim_offset,
     )
 
 
@@ -1931,6 +1932,7 @@ def _emit_scaled_recon(
     pred_for_metrics: np.ndarray,
     ground_truth: np.ndarray,
     label: str,
+    trim_offset: int,
     recon_path: Path,
     metrics: Dict[str, Any],
 ) -> Optional[Dict[str, Any]]:
@@ -1952,7 +1954,12 @@ def _emit_scaled_recon(
         return None
     s1, s2 = source["s1"], source["s2"]
     pred_scaled = _apply_rect_scaling(pred_for_metrics, s1, s2)
-    metrics_scaled = compute_metrics(pred_scaled, ground_truth, label)
+    metrics_scaled = compute_metrics(
+        pred_scaled,
+        ground_truth,
+        label,
+        trim_offset=trim_offset,
+    )
     _augment_recon_npz_with_scaled(Path(recon_path), s1, s2)
     metrics["metrics_scaled"] = metrics_scaled
     return source
@@ -2418,6 +2425,13 @@ def run_grid_lines_torch(
             )
         )
         pred_for_metrics = _harmonize_prediction_shape(pred_for_metrics, ground_truth)
+        metric_metadata = (test_metadata or {}).get("additional_parameters", {})
+        if "offset" not in metric_metadata:
+            raise ValueError(
+                "Test metadata missing additional_parameters.offset; "
+                "evaluation trim geometry has no authoritative owner."
+            )
+        trim_offset = int(metric_metadata["offset"])
         from ptycho.workflows.grid_lines_workflow import save_recon_artifact
         recon_target = pred_for_metrics
         if not np.iscomplexobj(recon_target):
@@ -2428,6 +2442,7 @@ def run_grid_lines_torch(
             pred_for_metrics,
             ground_truth,
             model_id,
+            trim_offset=trim_offset,
         )
 
         try:
@@ -2437,6 +2452,7 @@ def run_grid_lines_torch(
                 pred_for_metrics=pred_for_metrics,
                 ground_truth=ground_truth,
                 label=model_id,
+                trim_offset=trim_offset,
                 recon_path=Path(recon_path),
                 metrics=metrics,
             )

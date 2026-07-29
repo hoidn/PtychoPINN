@@ -11,19 +11,23 @@ Design documentation: plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336
 Architecture:
     CLI Args/Workflow Params
       ↓
-    [Factory Entry Point]
+    [Pure Resolved-Payload Entry Point]
       ↓
     [Validate + Infer + Apply Overrides]
       ↓
     [Translate to TensorFlow Canonical Configs via config_bridge]
       ↓
-    [Populate params.cfg (CONFIG-001 checkpoint)]
+    [Return Payload]
       ↓
-    [Return Payload (TF config + PyTorch configs + execution config)]
+    [Optional create_* compatibility entry point]
+      ↓
+    [Populate params.cfg (CONFIG-001 checkpoint)]
 
 Core Functions:
-    create_training_payload(): Constructs complete training configuration bundle
-    create_inference_payload(): Constructs complete inference configuration bundle
+    resolve_training_payload(): Pure training payload resolution
+    resolve_inference_payload(): Pure inference payload resolution
+    create_training_payload(): Compatibility resolution plus CONFIG-001
+    create_inference_payload(): Compatibility resolution plus CONFIG-001
     infer_probe_size(): Extracts probe size from NPZ metadata
     populate_legacy_params(): Wrapper around update_legacy_dict with validation
 
@@ -259,8 +263,7 @@ def _load_nphotons_from_metadata(data_file: Path) -> Optional[float]:
     return MetadataManager.get_nphotons(metadata, default=None)
 
 
-@configured_legacy_params
-def create_training_payload(
+def _resolve_training_payload(
     train_data_file: Path,
     output_dir: Path,
     overrides: Optional[Dict[str, Any]] = None,
@@ -269,9 +272,13 @@ def create_training_payload(
     *,
     training_baseline: TFTrainingConfig | PTTrainingConfig | None = None,
     execution_capabilities: ExecutionCapabilities | None = None,
-) -> TrainingPayload:
+) -> tuple[
+    TrainingPayload,
+    tuple[ResolutionNotice, ...],
+    tuple[ResolutionNotice, ...],
+]:
     """
-    Create complete training configuration payload.
+    Resolve a complete training configuration payload without legacy mutation.
 
     Centralizes all config construction logic for PyTorch training workflows.
     Eliminates duplicated wiring in CLI and workflow entry points by providing
@@ -281,7 +288,7 @@ def create_training_payload(
     3. Constructs PyTorch singleton configs (DataConfig, ModelConfig, TrainingConfig, InferenceConfig)
     4. Applies CLI overrides with precedence rules
     5. Translates to TensorFlow canonical configs via config_bridge
-    6. Populates params.cfg (CONFIG-001 compliance checkpoint)
+    6. Constructs the canonical compatibility config without projecting it
     7. Constructs PyTorchExecutionConfig for runtime knobs
     8. Returns TrainingPayload with all config objects + audit trail
 
@@ -447,23 +454,10 @@ def create_training_payload(
         execution_config=runtime.config,
         overrides_applied=overrides_applied,
     )
-    params.unseal()
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        populate_legacy_params(tf_training_config)
-    params.seal()
-    deferred_notices.extend(
-        ResolutionNotice(item.category, str(item.message))
-        for item in caught
-    )
-    _emit_resolution_notices(
-        tuple(deferred_notices) + runtime.notices
-    )
-    return payload
+    return payload, tuple(deferred_notices), runtime.notices
 
 
-@configured_legacy_params
-def create_inference_payload(
+def _resolve_inference_payload(
     model_path: Path,
     test_data_file: Path,
     output_dir: Path,
@@ -471,9 +465,13 @@ def create_inference_payload(
     execution_config: Optional[ExecutionRequest] = None,
     *,
     execution_capabilities: ExecutionCapabilities | None = None,
-) -> InferencePayload:
+) -> tuple[
+    InferencePayload,
+    tuple[ResolutionNotice, ...],
+    tuple[ResolutionNotice, ...],
+]:
     """
-    Create complete inference configuration payload.
+    Resolve a complete inference configuration payload without legacy mutation.
 
     Centralizes all config construction logic for PyTorch inference workflows.
     Eliminates duplicated wiring in CLI and workflow entry points by providing
@@ -483,7 +481,7 @@ def create_inference_payload(
     3. Constructs PyTorch singleton configs (DataConfig, InferenceConfig)
     4. Applies CLI overrides with precedence rules
     5. Translates to TensorFlow canonical configs via config_bridge
-    6. Populates params.cfg (CONFIG-001 compliance checkpoint)
+    6. Constructs the canonical compatibility config without projecting it
     7. Constructs PyTorchExecutionConfig for runtime knobs
     8. Returns InferencePayload with all config objects + audit trail
 
@@ -616,17 +614,127 @@ def create_inference_payload(
         execution_config=runtime.config,
         overrides_applied=overrides_applied,
     )
+    return payload, tuple(deferred_notices), runtime.notices
+
+
+def resolve_training_payload(
+    train_data_file: Path,
+    output_dir: Path,
+    overrides: Optional[Dict[str, Any]] = None,
+    execution_config: Optional[ExecutionRequest] = None,
+    profile: Optional[str] = None,
+    *,
+    training_baseline: TFTrainingConfig | PTTrainingConfig | None = None,
+    execution_capabilities: ExecutionCapabilities | None = None,
+) -> TrainingPayload:
+    """Resolve Torch training owners without reading or writing ``params.cfg``."""
+    payload, deferred_notices, runtime_notices = _resolve_training_payload(
+        train_data_file=train_data_file,
+        output_dir=output_dir,
+        overrides=overrides,
+        execution_config=execution_config,
+        profile=profile,
+        training_baseline=training_baseline,
+        execution_capabilities=execution_capabilities,
+    )
+    _emit_resolution_notices(deferred_notices + runtime_notices)
+    return payload
+
+
+def resolve_inference_payload(
+    model_path: Path,
+    test_data_file: Path,
+    output_dir: Path,
+    overrides: Optional[Dict[str, Any]] = None,
+    execution_config: Optional[ExecutionRequest] = None,
+    *,
+    execution_capabilities: ExecutionCapabilities | None = None,
+) -> InferencePayload:
+    """Resolve Torch inference owners without reading or writing ``params.cfg``."""
+    payload, deferred_notices, runtime_notices = _resolve_inference_payload(
+        model_path=model_path,
+        test_data_file=test_data_file,
+        output_dir=output_dir,
+        overrides=overrides,
+        execution_config=execution_config,
+        execution_capabilities=execution_capabilities,
+    )
+    _emit_resolution_notices(deferred_notices + runtime_notices)
+    return payload
+
+
+def _project_legacy_config(
+    tf_config: Union[TFTrainingConfig, TFInferenceConfig],
+    deferred_notices: tuple[ResolutionNotice, ...],
+    runtime_notices: tuple[ResolutionNotice, ...],
+) -> None:
+    """Commit one compatibility projection while preserving notice ordering."""
     params.unseal()
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        populate_legacy_params(tf_inference_config)
+        populate_legacy_params(tf_config)
     params.seal()
-    deferred_notices.extend(
+    projection_notices = tuple(
         ResolutionNotice(item.category, str(item.message))
         for item in caught
     )
     _emit_resolution_notices(
-        tuple(deferred_notices) + runtime.notices
+        deferred_notices + projection_notices + runtime_notices
+    )
+
+
+@configured_legacy_params
+def create_training_payload(
+    train_data_file: Path,
+    output_dir: Path,
+    overrides: Optional[Dict[str, Any]] = None,
+    execution_config: Optional[ExecutionRequest] = None,
+    profile: Optional[str] = None,
+    *,
+    training_baseline: TFTrainingConfig | PTTrainingConfig | None = None,
+    execution_capabilities: ExecutionCapabilities | None = None,
+) -> TrainingPayload:
+    """Resolve training owners and perform the CONFIG-001 legacy projection."""
+    payload, deferred_notices, runtime_notices = _resolve_training_payload(
+        train_data_file=train_data_file,
+        output_dir=output_dir,
+        overrides=overrides,
+        execution_config=execution_config,
+        profile=profile,
+        training_baseline=training_baseline,
+        execution_capabilities=execution_capabilities,
+    )
+    _project_legacy_config(
+        payload.tf_training_config,
+        deferred_notices,
+        runtime_notices,
+    )
+    return payload
+
+
+@configured_legacy_params
+def create_inference_payload(
+    model_path: Path,
+    test_data_file: Path,
+    output_dir: Path,
+    overrides: Optional[Dict[str, Any]] = None,
+    execution_config: Optional[ExecutionRequest] = None,
+    *,
+    execution_capabilities: ExecutionCapabilities | None = None,
+) -> InferencePayload:
+    """Resolve inference owners and perform the CONFIG-001 legacy projection."""
+    payload, deferred_notices, runtime_notices = _resolve_inference_payload(
+        model_path=model_path,
+        test_data_file=test_data_file,
+        output_dir=output_dir,
+        overrides=overrides,
+        execution_config=execution_config,
+        execution_capabilities=execution_capabilities,
+    )
+    _project_legacy_config(
+        payload.tf_inference_config,
+        deferred_notices,
+        runtime_notices,
     )
     return payload
 

@@ -17,7 +17,12 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from ptycho.workflows.components import DiffractionToObjectAdapter, load_inference_bundle
+from ptycho import params
+from ptycho.workflows.components import (
+    DiffractionToObjectAdapter,
+    load_inference_bundle,
+    load_inference_bundle_explicit,
+)
 
 
 class TestLoadInferenceBundle(unittest.TestCase):
@@ -86,6 +91,36 @@ class TestLoadInferenceBundle(unittest.TestCase):
             # Verify ModelManager was called correctly
             expected_path = str(self.model_dir / "wts.h5")
             mock_load.assert_called_once_with(expected_path)
+
+    def test_explicit_load_returns_archived_config_without_mutating_ambient_params(self):
+        """Modern reload callers receive archive values without global authority."""
+        self.create_mock_model_archive(include_diffraction_model=True)
+        ambient = {"N": 13, "gridsize": 1, "ambient_marker": "poison"}
+        params.cfg.clear()
+        params.cfg.update(ambient)
+
+        def load_and_restore_archive(_path):
+            params.cfg.clear()
+            params.cfg.update(
+                {
+                    "N": 64,
+                    "gridsize": 2,
+                    "intensity_scale": 7.5,
+                }
+            )
+            return {"diffraction_to_obj": MagicMock(spec=tf.keras.Model)}
+
+        with patch(
+            "ptycho.workflows.components.ModelManager.load_multiple_models",
+            side_effect=load_and_restore_archive,
+        ):
+            model, archived_config = load_inference_bundle_explicit(self.model_dir)
+
+        self.assertIsInstance(model, DiffractionToObjectAdapter)
+        self.assertEqual(archived_config["N"], 64)
+        self.assertEqual(archived_config["gridsize"], 2)
+        self.assertEqual(archived_config["intensity_scale"], 7.5)
+        self.assertEqual(params.cfg, ambient)
             
     def test_nonexistent_directory(self):
         """Test error handling for non-existent directory."""
@@ -157,6 +192,29 @@ class TestLoadInferenceBundle(unittest.TestCase):
                 load_inference_bundle(self.model_dir)
                 
             self.assertIn("Mock loading error", str(context.exception))
+
+    def test_explicit_load_failure_restores_ambient_params(self):
+        self.create_mock_model_archive(include_diffraction_model=True)
+        ambient = {"N": 23, "gridsize": 1, "ambient_marker": "poison"}
+        params.cfg.clear()
+        params.cfg.update(ambient)
+
+        def fail_after_archive_mutation(_path):
+            params.cfg.clear()
+            params.cfg.update({"N": 64, "gridsize": 2})
+            raise RuntimeError("archive reconstruction failed")
+
+        with patch(
+            "ptycho.workflows.components.ModelManager.load_multiple_models",
+            side_effect=fail_after_archive_mutation,
+        ):
+            with self.assertRaisesRegex(
+                RuntimeError,
+                "archive reconstruction failed",
+            ):
+                load_inference_bundle_explicit(self.model_dir)
+
+        self.assertEqual(params.cfg, ambient)
 
 
 if __name__ == '__main__':

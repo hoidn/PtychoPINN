@@ -97,6 +97,7 @@ from ptycho.loader import PtychoDataContainer
 from ptycho.config.config import TrainingConfig, update_legacy_dict
 from ptycho.config.legacy_state import (
     configured_legacy_params,
+    isolated_archived_params_scope,
     legacy_params_scope,
     scoped_legacy_params,
     transactional_legacy_params,
@@ -136,9 +137,15 @@ class DiffractionToObjectAdapter(tf.keras.Model):
     legacy gridsize to sqrt(channel_count) and avoid Translation crashes.
     """
 
-    def __init__(self, base_model: tf.keras.Model):
+    def __init__(
+        self,
+        base_model: tf.keras.Model,
+        *,
+        runtime_params: Optional[dict] = None,
+    ):
         super().__init__(name=getattr(base_model, "name", "diffraction_to_obj"))
         self._model = base_model
+        self._runtime_params = dict(runtime_params or {})
 
     def _infer_channel_count(self, diffraction_input) -> Optional[int]:
         if diffraction_input is None:
@@ -180,11 +187,13 @@ class DiffractionToObjectAdapter(tf.keras.Model):
 
     def call(self, inputs, training=False, **kwargs):
         with legacy_params_scope():
+            params.cfg.update(self._runtime_params)
             self._sync_gridsize(inputs)
             return self._model(inputs, training=training, **kwargs)
 
     def predict(self, *args, **kwargs):
         with legacy_params_scope():
+            params.cfg.update(self._runtime_params)
             input_arg = args[0] if args else kwargs.get('x')
             self._sync_gridsize(input_arg)
             return self._model.predict(*args, **kwargs)
@@ -264,11 +273,13 @@ def load_inference_bundle(model_dir: Path) -> Tuple[tf.keras.Model, dict]:
                 f"The 'diffraction_to_obj' model should be created during training."
             )
         
-        model = DiffractionToObjectAdapter(models_dict['diffraction_to_obj'])
-        
         # ModelManager updates the global params.cfg when loading
         # Return a copy to avoid unintended modifications
         config = params.cfg.copy()
+        model = DiffractionToObjectAdapter(
+            models_dict['diffraction_to_obj'],
+            runtime_params=config,
+        )
         
         logger.info(f"Successfully loaded model from {model_dir}")
         logger.debug(f"Model configuration: {config}")
@@ -278,6 +289,21 @@ def load_inference_bundle(model_dir: Path) -> Tuple[tf.keras.Model, dict]:
     except Exception as e:
         logger.error(f"Failed to load model from {model_dir}: {str(e)}")
         raise
+
+
+def load_inference_bundle_explicit(
+    model_dir: Path,
+) -> Tuple[tf.keras.Model, dict]:
+    """Load an archived TensorFlow model without retaining global state.
+
+    Historical TensorFlow model reconstruction still requires the archived
+    projection while the model is built. This modern seam returns that
+    projection to the caller and restores the exact pre-load ``params.cfg``
+    contents when reconstruction finishes.
+    """
+    with isolated_archived_params_scope():
+        return load_inference_bundle(model_dir)
+
 
 @configured_legacy_params
 def update_config_from_dict(config_updates: dict):
