@@ -73,6 +73,7 @@ import argparse
 import math
 import yaml
 import os
+from types import UnionType
 import numpy as np
 import tensorflow as tf
 from ptycho import params as p
@@ -80,7 +81,7 @@ from ptycho import probe
 from ptycho.loader import RawData, PtychoDataContainer
 import logging
 import matplotlib.pyplot as plt
-from typing import Union, Optional, Dict, Any, Tuple, Literal, get_origin, get_args
+from typing import Annotated, Union, Optional, Dict, Any, Tuple, Literal, get_origin, get_args
 from pathlib import Path
 from ptycho.config.config import (
     TrainingConfig,
@@ -511,15 +512,26 @@ PUBLIC_TRAINING_INPUT_NAMES = frozenset(
 )
 
 
-def _unwrap_optional_type(annotation):
-    if get_origin(annotation) is not Union:
+def _unwrap_public_cli_type(annotation):
+    while True:
+        origin = get_origin(annotation)
+        if origin is Annotated:
+            annotation = get_args(annotation)[0]
+            continue
+        if origin not in (Union, UnionType):
+            return annotation
+        value_types = tuple(
+            item for item in get_args(annotation) if item is not type(None)
+        )
+        if len(value_types) == 1:
+            annotation = value_types[0]
+            continue
+        primitive_types = {
+            _unwrap_public_cli_type(item) for item in value_types
+        }
+        if primitive_types == {int, float}:
+            return float
         return annotation
-    value_types = tuple(
-        item for item in get_args(annotation) if item is not type(None)
-    )
-    if len(value_types) != 1:
-        return annotation
-    return value_types[0]
 
 
 def _literal_argument_type(choices):
@@ -575,7 +587,7 @@ def _add_public_training_argument(
     *,
     model_field: bool,
 ) -> None:
-    value_type = _unwrap_optional_type(config_field.type)
+    value_type = _unwrap_public_cli_type(config_field.type)
     options = {
         "default": argparse.SUPPRESS,
         "help": _public_training_argument_help(
