@@ -1,0 +1,45 @@
+{
+  "contract": {
+    "N": 128,
+    "gridsize": 1,
+    "epochs": 5,
+    "seed": 3,
+    "architecture": "ffno",
+    "scale_contract_version": "ci_intensity_v2",
+    "measurement_domain": "count_intensity",
+    "physics_forward_mode": "rectangular_scaled",
+    "torch_loss_mode": "poisson",
+    "ci_probe_provenance": "simulated",
+    "nimgs_train": 1,
+    "n_train_patterns": 4489
+  },
+  "reference": {
+    "source_commit": "a455b49faf307c25ef333002c478cee868f9bd12",
+    "source_role": "main FFNO model source with one-group integration calibration",
+    "checkpoint_sha256": "656ca7a728d8dc4a356a9fac361c8013dfea6c2c2aa491d1561dde37d64affcd"
+  },
+  "metrics": {
+    "mae": [
+      0.17984698712825775,
+      0.14671303373350614
+    ],
+    "ssim": [
+      0.520342697588406,
+      0.8854946851947426
+    ]
+  },
+  "loss": {
+    "train": 199.52207946777344,
+    "validation": 165.8410186767578
+  },
+  "raw_amplitude_mean_ratio": 1.0351791381835938,
+  "tolerances": {
+    "mae_amp": 0.015,
+    "mae_phase": 0.025,
+    "ssim_amp": 0.035,
+    "ssim_phase": 0.015,
+    "train_loss": 5.0,
+    "validation_loss": 10.0,
+    "raw_amplitude_mean_ratio": 0.05
+  }
+}

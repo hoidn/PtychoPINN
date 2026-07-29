@@ -53,34 +53,34 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Use this when:** Planning work to restore main-compatible CNN physics behavior or auditing why C=1/C>1 Torch numerics differ between `main` and `fno-stable`.
 
 ### [PtychoPINN Refactoring Roadmap](plans/2026-07-07-refactoring-roadmap.md)
-**Description:** Sole live status and sequencing authority for the July 2026 codebase-wide debt-paydown initiative. Historical phase detail remains available in [Phase 0 cleanup](plans/2026-07-07-refactor-phase-0-cleanup.md), [Phase 1 safety net](plans/2026-07-07-refactor-phase-1-safety-net.md), [Phase 2 consolidation](plans/2026-07-07-refactor-phase-2-consolidate.md), and [Phase 3 core extraction](plans/2026-07-07-refactor-phase-3-core-extraction.md); those phase documents do not independently define current initiative status.
+**Description:** Sole live status and sequencing authority for the July 2026 codebase-wide debt-paydown initiative, including the completed Slice 8 configuration-convergence implementation. Historical phase detail remains available in [Phase 0 cleanup](plans/2026-07-07-refactor-phase-0-cleanup.md), [Phase 1 safety net](plans/2026-07-07-refactor-phase-1-safety-net.md), [Phase 2 consolidation](plans/2026-07-07-refactor-phase-2-consolidate.md), and [Phase 3 core extraction](plans/2026-07-07-refactor-phase-3-core-extraction.md); those phase documents do not independently define current initiative status.
 **Keywords:** refactoring, debt-paydown, roadmap, status, sequencing, vertical-boundaries, configuration, reassembly
 **Use this when:** Checking current refactoring status or sequencing, selecting the next authorized slice scope, or locating the historical phase plans.
 
 ### [Configuration Boundary Architecture](superpowers/specs/2026-07-28-configuration-boundary-architecture.md)
-**Description:** Approved parent architecture for complete documents, partial patches, resolved runtime snapshots, execution requests, versioned persistence, and the one-way legacy projection across configuration families.
+**Description:** Implemented parent architecture for complete documents, partial patches, resolved runtime snapshots, execution requests, versioned persistence, and the one-way legacy projection across configuration families; its portfolio records simulation/public Pydantic adoption and Torch retain-manual.
 **Keywords:** configuration, architecture, resolution, validation, persistence, legacy-bridge, pydantic
 **Use this when:** Determining which configuration boundary owns resolution, validation, environment checks, persistence, or compatibility projection.
 
 ### [Representation-Preserving Pydantic Simulation Validation](superpowers/specs/2026-07-28-pydantic-simulation-validation-design.md)
-**Description:** Approved simulation-validation target using a cached `TypeAdapter` without changing stdlib dataclass or wire representation; the public-branch implementation is reference evidence and its internal-safe port remains roadmap Stage A work.
+**Description:** Implemented simulation-validation boundary using a cached `TypeAdapter` without changing stdlib dataclass or wire representation.
 **Keywords:** simulation, pydantic, typeadapter, validation, representation, port
 **Use this when:** Implementing or reviewing the complete simulation-document validation boundary.
 
 ### [Public Configuration Resolution](superpowers/specs/2026-07-28-public-config-resolution-design.md)
-**Description:** Approved resolution contract for public model, training, and inference configuration; the public-branch resolver is reference evidence pending an internal-safe Stage A port.
+**Description:** Implemented return-new resolution contract for public model, training, and inference configuration, including cached complete-snapshot structural adapters and explicit retained semantic/resource validation.
 **Keywords:** public-config, resolution, yaml, cli, precedence, legacy-projection
 **Use this when:** Resolving public configuration sources or reviewing structural versus runnable validity.
 
 ### [Torch Configuration Resolution and Transactional Patch](superpowers/specs/2026-07-28-torch-config-resolution-design.md)
-**Description:** Approved return-new, phase-aware Torch resolver and transactional patch contract, with public-branch implementation evidence pending an internal-safe Stage A port.
+**Description:** Implemented return-new, phase-aware Torch resolver and transactional patch contract; its post-isolation Pydantic gate terminally retained manual validation because an adapter would add complexity.
 **Keywords:** torch, configuration, resolution, transactional-patch, aliases, validation
 **Use this when:** Implementing or reviewing Torch runtime bundle resolution and compatibility patches.
 
 ### [PyTorch Execution Configuration Ownership](superpowers/specs/2026-07-28-execution-config-ownership-design.md)
-**Description:** Approved ownership and precedence contract separating execution requests, structural ownership, environment resolution, and Lightning inputs.
+**Description:** Implemented ownership and precedence contract separating unresolved execution requests, canonical model/training ownership, capability-late runtime resolution, and Lightning inputs.
 **Keywords:** pytorch, execution, ownership, precedence, environment, lightning
-**Use this when:** Deciding whether a value belongs to Torch training configuration, execution compatibility input, or resolved Trainer arguments.
+**Use this when:** Deciding whether a value belongs to Torch model/training configuration, an unresolved execution request, or resolved Trainer arguments.
 
 ### [Configuration Persistence and Compatibility Boundaries](superpowers/specs/2026-07-28-configuration-persistence-boundaries.md)
 **Description:** Approved authority for versioned ModelSpec/artifact codecs, checkpoints, MLflow compatibility data, and the one-way legacy projection.
@@ -88,17 +88,17 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Use this when:** Auditing configuration identity, decoding historical schemas, or keeping runtime validation separate from persistence.
 
 ### [Configuration Compatibility Retirement and Schema Convergence](specs/2026-07-28-configuration-compatibility-retirement-and-schema-convergence-design.md)
-**Description:** Approved transition design coordinating resolver convergence, compatibility removal, execution ownership, global-state isolation, and conditional per-family Pydantic decisions.
+**Description:** Implemented transition design and outcome for resolver convergence, tolerant-updater retirement, execution ownership, modern global-state isolation, and the completed per-family Pydantic decisions.
 **Keywords:** configuration, convergence, compatibility, resolver, updater, execution, params-cfg, pydantic
 **Use this when:** Planning or reviewing the ordered configuration-convergence migration and its consumer-gated removal rules.
 
 ### [`params.cfg` Strangler Design](specs/2026-07-28-params-cfg-strangler-design.md)
-**Description:** Approved transition design for removing supported modern runtime reads of `ptycho.params.cfg` while preserving the bounded one-way projection required by declared legacy consumers.
+**Description:** Implemented through `modern_isolation_complete`: supported modern runtime paths no longer read `ptycho.params.cfg`, while the bounded one-way projection remains for declared legacy/archive/TensorFlow consumers; `global_bridge_retired` is not claimed.
 **Keywords:** params-cfg, global-state, strangler, legacy-bridge, configuration, isolation
 **Use this when:** Migrating a maintained consumer from global configuration reads to explicit resolved-owner inputs.
 
 ### [Pydantic Family Adoption Design](specs/2026-07-28-pydantic-family-adoption-design.md)
-**Description:** Approved conditional design for independently deciding whether the public and Torch configuration families can adopt the simulation boundary's cached-TypeAdapter pattern with net structural-validation deletion.
+**Description:** Completed independent adoption decisions: the public family adopted the cached-TypeAdapter pattern with measured net structural-validation deletion, while the 157-field Torch family terminally retained its explicit resolver.
 **Keywords:** pydantic, typeadapter, configuration, validation, adoption-gate, public, torch
 **Use this when:** Evaluating post-isolation Pydantic adoption or retain-manual outcomes for a complete configuration family.
 
@@ -773,9 +773,9 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 ### Configuration & Data
 
 #### [Configuration Guide](CONFIGURATION.md)
-**Description:** Canonical reference for the four public configuration families, including `SimulationConfig` ownership, parsing and precedence, probe pipelines, and generated-dataset identity alongside model, training, and inference configuration.
-**Keywords:** configuration, simulation, probe-pipeline, parameters, dataclass, YAML, TOML, command-line
-**Use this when:** Generating data, setting up training or inference, understanding parameter precedence, or creating reproducible configurations.
+**Description:** Layered user and developer guide to choosing the right configuration, tracing the physical probe from simulation into the forward model, using the explicit object-layout policy, and understanding Torch payloads, sealed `ModelSpec` v2 identity, runtime isolation, and the one-way legacy bridge.
+**Keywords:** configuration, user-guide, developer-architecture, modelspec-v2, runtime, legacy-bridge, simulation, probe-lifecycle, object-layout, parameters, dataclass, YAML, TOML, command-line
+**Use this when:** Choosing where a value belongs, generating data, setting up training or inference, distinguishing simulation probe construction from model-time probe masking, or maintaining the configuration factory and artifact contracts.
 
 #### [Standalone NPZ and Grouped Data Contract](specs/spec-ptycho-core.md) CRITICAL
 **Description:** Official standalone-NPZ and grouped-dict contract, including required keys, shapes, legacy normalized-amplitude semantics, and the versioned CI count-intensity/physical-probe contract.

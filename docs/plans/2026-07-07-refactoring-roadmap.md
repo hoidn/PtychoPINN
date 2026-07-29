@@ -751,40 +751,107 @@ global cleanup quota or residual sweep is a roadmap completion gate.
 
 ### Slice 8 — Configuration convergence
 
-**Status:** Substrate reconciliation in progress (2026-07-28). The approved
-configuration authorities are colocated on `refactor-internal`; this satisfies
-the authority and discoverability precondition only. No Slice 8 implementation
-stage is complete.
+**Status:** Complete on `refactor-internal` (2026-07-28). All ordered stages
+A–F are implemented. The supported-modern milestone is
+`modern_isolation_complete`; the bounded CONFIG-001 bridge remains and
+`global_bridge_retired` is not claimed.
 
 **Ordered stages and authority crosswalk:**
 
-| Roadmap stage | Owned transition/child scope |
-|---|---|
-| **A — Internal-safe resolver substrate** | Transition entry precondition and resolver substrate |
-| **B — Updater retirement** | Transition Stage 1 |
-| **C — Execution compatibility closure** | Transition Stage 2 |
-| **D — `params.cfg` modern isolation** | Transition Stage 3 plus the `params.cfg` strangler through `modern_isolation_complete`; final strangler Tranche H / `global_bridge_retired` only when its own eligibility conditions hold |
-| **E — Conditional Pydantic gates** | Transition Stage 4 plus Pydantic child-local Stages A–D |
-| **F — Routing and closure** | Transition Stage 5 |
+| Roadmap stage | Outcome | Closeout endpoint | Production `.py` delta |
+|---|---|---|---|
+| **A — Internal-safe resolver substrate** | Ported the representation-preserving simulation adapter, return-new public/Torch resolvers, execution request split, and exact fixtures while preserving all 14 architectures and versioned model/artifact identities | `e6408d97d` | +5126/-1581, net +3545 |
+| **B — Updater retirement** | Migrated supported callers and deleted `update_existing_config()` rather than replacing its tolerant mutation semantics | `afaec0079` | +133/-2292, net -2159 |
+| **C — Execution compatibility closure** | Retired topology/optimizer aliases and the ambiguous bare-resolved-carrier request lane; canonical Model/Training owners and `ExecutionRequest` are singular | production `1e802df3d`; logical test-contract closeout `9065b6352` | +694/-1276, net -582 |
+| **D — `params.cfg` modern isolation** | Removed supported-modern reads through `modern_isolation_complete`; retained only owned legacy/archive/TensorFlow/protected leaves | `03f199591` | +1670/-5190, net -3520 |
+| **E — Conditional Pydantic gates** | Public Model/Training/Inference adopted three cached adapters; Torch Data/Model/Training/Inference terminally retained manual validation | `f2d749b87` | +304/-530, net -226 |
+| **F — Routing and closure** | Reconciled the existing parent/child designs, configuration guide, index routing, and this sole live status surface | documentation-only closeout | 0 |
+
+Across Stages A–E, production Python changed by +6682/-9624, a net reduction
+of 2942 lines. Stage A's positive substrate delta preserves the pre-existing
+architecture and artifact contracts; the retirement/isolation/adoption stages
+more than recover it. Test and documentation lines are excluded from this
+ledger.
+
+The public adoption ledger fixed 321 eligible schema-validation deletion lines
+before implementation. Conservatively charging all 304 public production
+insertions leaves a 17-line adapter-attributable deletion; the raw public cut
+is 226 lines smaller. Focused evidence passed 205 public tests, 83 simulation
+tests, and 66 artifact/live-bridge tests. The Torch gate counted 157 effective
+fields, a 109-line adoption-favorable deletion ceiling, and a 194-line
+addition floor, so `retain manual` avoids at least 85 lines of net growth.
 
 Stage letters and numbers inside child designs are local labels, not roadmap
 stages. In particular, Pydantic child-local Stage A is not roadmap Stage A,
 and `params.cfg` strangler tranche letters are not roadmap stage labels.
 
-Stage A must preserve the internal 14-architecture Hybrid/ResNet family
-contract and the `torch-model-spec-v1` / `torch-model-spec-v2` plus
-`torch-artifact-v1` / `torch-artifact-v2` schema identities. Current authority
-routing is not Stage F implementation closure. There is no machine-readable
-selector, tranche manifest, or active workflow state for this slice; consistent
-with §2.3, this roadmap remains its sole live status and sequencing surface.
+Stage A preserved the internal 14-architecture Hybrid/ResNet family contract
+and the `torch-model-spec-v1` / `torch-model-spec-v2` plus
+`torch-artifact-v1` / `torch-artifact-v2` schema identities. There is no
+machine-readable selector, tranche manifest, or active workflow state for this
+slice; consistent with §2.3, this roadmap remains its sole live status and
+sequencing surface.
 
-Each Slice 8 stage closeout (A–F) additionally runs the stage-closeout
-architecture-integration suites required by the transition parent's
-"Stage-closeout integration evidence" provision: the torch FNO-family
-integration suites. Hybrid-resnet family suites are outside this
-obligation on `refactor-internal` and its descendants (the tracked
-hybrid-resnet code and tests on this branch preserve the Stage A schema
-contract; they are not a supported closeout gate here). The
+The stage-closeout selector is:
+
+```bash
+python -m pytest -q \
+  tests/torch/test_fno_fallback_init.py \
+  tests/torch/test_fno_generators.py \
+  tests/torch/test_fno_integration.py \
+  tests/torch/test_fno_lightning_integration.py \
+  tests/torch/test_fno_reconstruction_quality.py \
+  tests/torch/test_grid_lines_ci_ffno_quality_integration.py \
+  tests/torch/test_grid_lines_c4_ci_integration.py
+```
+
+Stages A, B, corrected C, D, E, and F originally closed with the recorded
+six-file selector at 142 passed and 3 named skips: one optional
+`neuraloperator` dependency and two absent materialized C4 dataset arms. The
+initial physical Stage C endpoint produced four failures because stale tests
+still passed a resolved `PyTorchExecutionConfig` as an unresolved request;
+`9065b6352` aligned those tests to the approved `ExecutionRequest` contract,
+after which that selector passed.
+
+The final-closeout follow-up on `d8956bc26` restored the omitted runnable
+`tests/torch/test_grid_lines_ci_ffno_quality_integration.py` suite to the
+selector above. Its first run failed before training because the test still
+expected `datasets/N128/gs1/{train,test}.npz`, while the production builder
+correctly wrote the canonical
+`datasets/N128/gs1/simulation-<simulation_config_sha256>/{train,test}.npz`
+layout. The identical failure reproduced at Slice 8 entry `f762bd27b`, so it
+is a pre-existing test-harness defect rather than a transition regression.
+The test-owned builder now publishes its returned relative paths in
+`dataset_paths.json`, and the test consumes that manifest, matching the
+established Hybrid integration-fixture contract. With production code,
+baseline, and quality thresholds unchanged, the corrected final suite passed
+2 tests in 119.45 seconds using the git-tracked Run1084 fixture: scaled
+amplitude/phase SSIM `0.74458/0.93751`, MAE `0.12665/0.14602`, final
+train/validation loss `92.2524/70.9368`, and raw amplitude mean ratio
+`1.00447`.
+
+`tests/torch/test_grid_lines_ci_probe_roundtrip_integration.py` is
+intentionally outside this stage-closeout selector. It is an
+architecture-neutral synthetic N=16 CPU probe-gauge/scale-contract round trip
+with no learned generator, training, Run1084 fixture, or quality metric, so it
+remains focused CI-contract evidence rather than FNO/FFNO
+architecture/quality evidence.
+
+The required comprehensive command, `python -m pytest tests/ -q`, was run on
+the final production/test candidate `f2d749b87`. Collection stopped at
+`tests/studies/test_neurips_steered_backlog_runtime.py` because the installed
+external `orchestrator` package no longer exports `orchestrator.loader`.
+The exact failing collection selector reproduces at Slice 8 base
+`f762bd27b`; it is therefore pre-existing dependency/API drift, not a Slice 8
+regression. No configuration-attributable regression remains.
+
+The Slice 8 stage-closeout architecture-integration obligation comes from the
+transition parent's "Stage-closeout integration evidence" provision: the
+torch FNO-family integration suites, including the corrected final selector
+above. Hybrid-resnet family suites are outside this obligation on
+`refactor-internal` and its descendants (the tracked hybrid-resnet code and
+tests on this branch preserve the Stage A schema contract; they are not a
+supported closeout gate here). The
 multi-architecture `tests/torch/test_grid_lines_c4_ci_integration.py`
 suite stays in the closeout set — currently a `cnn` quality arm and a
 `hybrid_resnet` full-path smoke arm; it self-skips when its materialized

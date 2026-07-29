@@ -1,6 +1,7 @@
 # `params.cfg` Strangler Design
 
-**Status:** Approved and authoritative on `refactor-internal` as of 2026-07-28.
+**Status:** Approved; `modern_isolation_complete` implemented on
+`refactor-internal` as of 2026-07-28. `global_bridge_retired` is not claimed.
 
 **Parent authority:**
 `docs/specs/2026-07-28-configuration-compatibility-retirement-and-schema-convergence-design.md`.
@@ -39,6 +40,14 @@ transition parent's secondary line-reduction goal (parent §1): interim
 wrappers and scopes are transient by design — Tranche B removes redundant
 containment, and Tranche G requires every surviving adapter to carry an
 owner and removal condition.
+
+**Implemented outcome:** Supported modern Torch resolution, training,
+inference, archive-consumption, evaluation, and reassembly cores have no
+direct `params.cfg` reads. The remaining process-local accesses belong to the
+CONFIG-001 projection/lifecycle bridge, versioned archive adapters, protected
+TensorFlow/core leaves, simulation/raw-data fallbacks, and narrow legacy
+utilities. Those owners and their removal conditions remain explicit; they
+make Tranche H ineligible under the current external and backend contracts.
 
 ## 2. Terminology and non-equivalence
 

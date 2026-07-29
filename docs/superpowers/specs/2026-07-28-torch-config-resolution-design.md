@@ -1,15 +1,16 @@
 # Torch Configuration Resolution and Transactional Patch Design
 
-**Status:** Approved
+**Status:** Approved and implemented on `refactor-internal`
 **Approved:** 2026-07-28
-**Scope:** PyTorch runtime configuration resolution and compatibility patching
+**Scope:** PyTorch runtime configuration resolution and transactional patching
 **Primary implementation surfaces:** `ptycho_torch/config_factory.py`, `ptycho_torch/config_params.py`
 
 **Implementation state on `refactor-internal`:**
 `ptycho_torch/config_resolution.py` and its transactional resolution fixtures
-on the public `refactor` branch are reference implementation evidence only.
-They are not present here; roadmap Slice 8 Stage A owns the internal-safe port
-with the internal field, alias, ModelSpec, and artifact contracts preserved.
+are present with the internal field, alias, ModelSpec, and artifact contracts
+preserved. The later family-specific Pydantic gate terminated with
+`retain manual`; this resolver remains the approved structural and semantic
+implementation.
 
 ## 1. Purpose
 
@@ -51,9 +52,8 @@ In particular:
   Torch runtime configuration, execution configuration, ModelSpec, and
   artifact persistence.
 - `docs/superpowers/specs/2026-07-28-execution-config-ownership-design.md`
-  owns the field-by-field handoff and precedence between execution
-  compatibility inputs, effective Torch TrainingConfig values, and resolved
-  Trainer arguments.
+  owns the separation between unresolved execution requests, effective Torch
+  TrainingConfig values, and resolved Trainer arguments.
 
 When these sources evolve, their current contract text outranks historical
 resolver behavior and this design must be revised explicitly if its boundary
@@ -73,7 +73,6 @@ This design owns:
 - consistent unknown-key and audit behavior across training and inference;
 - semantic joins across records in a resolved runtime bundle;
 - ordering of environmental checks and mutating side effects;
-- the compatibility boundary around `update_existing_config()`; and
 - delegation from `DatagenConfig` to the canonical simulation configuration.
 
 ### 3.2 Outside scope
@@ -98,17 +97,14 @@ it is complete in memory. The existing ModelSpec and artifact codecs remain the
 only owners of their respective wire contracts.
 
 Although execution ownership is outside this design, the training resolver
-implements the companion execution design's declared handoff. Explicit
-canonical TrainingConfig overrides have priority over explicit
-optimizer-adjacent execution compatibility inputs, which have priority over
-the resolved TrainingConfig value and its defaults. The resolver writes the
-effective value only to Torch TrainingConfig; any Lightning clipping or
-accumulation argument is derived from that effective owner. It does not invent
-a second precedence rule.
+implements the companion design's single-owner boundary. Optimizer-adjacent
+values enter through canonical TrainingConfig patches and resolve only into
+Torch TrainingConfig; any Lightning clipping or accumulation argument is
+derived from that effective owner.
 
-## 4. Current problem
+## 4. Problem addressed
 
-The present Torch boundary mixes several behaviors:
+Before this design, the Torch boundary mixed several behaviors:
 
 - training rejects unknown overrides while inference can silently ignore them;
 - both factories initially copy raw inputs into `overrides_applied`, so an
@@ -116,13 +112,13 @@ The present Torch boundary mixes several behaviors:
 - field-name reflection can make ownership implicit;
 - aliases, inference, environmental defaults, semantic joins, and audit
   recording occur within the same procedural flow;
-- `update_existing_config()` mutates an existing record with `setattr`,
+- `update_existing_config()` mutated an existing record with `setattr`,
   bypasses constructor and `__post_init__` validation, and tolerates unknown
   keys; and
 - legacy JSON and MLflow loaders apply partial mappings to defaults even when
   their names suggest that they loaded a complete configuration.
 
-These properties make failure non-atomic and make it difficult to distinguish
+Those properties made failure non-atomic and made it difficult to distinguish
 consumed input, derived state, and ignored input. They also make a direct
 Pydantic `TypeAdapter` substitution look smaller than it is: the hard contract
 is bundle resolution, not individual field annotation.
@@ -402,30 +398,12 @@ If a workflow requires a side effect before another subsystem can validate,
 that subsystem is not part of the pure resolver. Its adapter must make the
 temporary state explicit and provide atomic restore-on-failure behavior.
 
-## 12. `update_existing_config()` compatibility island
+## 12. Retired in-place updater
 
-`ptycho_torch.config_params.update_existing_config()` remains available only
-for named legacy compatibility consumers that depend on its current behavior:
-
-- in-place mutation;
-- partial mapping semantics;
-- ignored unknown keys unless verbose output is requested; and
-- no reconstruction through dataclass validation.
-
-This behavior is not a supported resolver contract. Therefore:
-
-- new code must not call `update_existing_config()`;
-- `create_training_payload()` and `create_inference_payload()` must not use it;
-- supported loaders must not expose its mutated object as a resolved bundle
-  without passing through the return-new resolver;
-- its tolerant unknown-key behavior must not leak into factory audit; and
-- no additional configuration type or consumer may be added to this island
-  without a separately approved compatibility requirement.
-
-Tests for the island are characterization tests: they preserve existing legacy
-behavior while preventing it from becoming the model for new code. Removing
-or tightening the function requires migration of every named legacy caller and
-is a separate compatibility decision.
+`ptycho_torch.config_params.update_existing_config()` and its tolerant
+mutation island are removed. Its maintained callers now use return-new
+resolution, while compatibility loaders follow their explicit support or
+versioned-decoder contracts. No production definition, import, or call remains.
 
 ## 13. `DatagenConfig` delegates to canonical simulation validation
 
@@ -452,7 +430,7 @@ The delegation contract requires:
 This design does not expand `DatagenConfig` into persistence identity and does
 not create a Torch-specific Pydantic simulation model.
 
-## 14. Pydantic decision: held, not selected
+## 14. Pydantic decision: retain manual
 
 Pydantic is not prescribed for Torch runtime configuration by this design.
 The decision is based on executable public-reference feasibility probes
@@ -478,10 +456,8 @@ against Pydantic 2.12.3 and the corresponding stdlib dataclasses:
 
 These probes demonstrate that a local adapter call would neither replace
 bundle semantics nor preserve current tensor and wire behavior by default.
-They are reference feasibility facts, not evidence that the resolver or probe
-fixtures are present internally and not a permanent prohibition. Stage A must
-port or reproduce the applicable probes before relying on them as
-`refactor-internal` gate evidence.
+The applicable behavior was reproduced internally on Pydantic 2.12.3 before
+the final gate decision.
 
 Pydantic may be reconsidered only when a proposed boundary satisfies all of
 the following adoption gates with executable evidence:
@@ -505,8 +481,27 @@ the following adoption gates with executable evidence:
 10. It passes byte- and value-sensitive persistence fixtures even though
     persistence remains outside the adopted boundary.
 
-Until every gate passes, explicit Python resolution and semantic validation
-remain the approved architecture.
+The post-isolation dry-run gate did not pass. Dataclass reflection exposes 157
+effective fields: Data 21, Model 83, Training 44, and Inference 9. The apparent
+158th source declaration is a duplicate `TrainingConfig.output_dir`; only the
+later declaration survives in the dataclass. An adoption-favorable upper
+bound counts 109 removable production lines across the domain twins, numeric
+helpers and unique call sites, and current flat structural validators.
+Contract-faithful adoption must first make an exact-or-explicitly-unchecked
+decision for all 157 fields, already exceeding that ceiling by 48 before
+adding Pydantic configuration/decorators, four adapters, tensor identity
+handling, an error facade, or conversion and revalidation call points.
+The complete addition floor is 194 lines, so even the adoption-favorable
+comparison is at least +85 production lines (194 added versus at most 109
+deleted).
+
+The tensor fields remain in `ModelConfig`: relocating them would be a separate
+payload and persistence-identity migration, while retaining them would add the
+priced `arbitrary_types_allowed` bridge. Installed-version mutable-dataclass,
+tensor-identity, reflection, and artifact probes passed, including all six
+versioned Pydantic artifact fixtures. This proves feasibility but not
+simplification. The successful terminal decision is therefore
+`retain manual`; no Torch production schema change was made.
 
 ## 15. Persistence and ModelSpec exclusion
 
@@ -549,7 +544,7 @@ An implementation conforming to this design maintains all of these invariants:
    bundle joins.
 9. Read-only environmental observations are explicit and precede mutation.
 10. Mutating side effects occur only after successful validation.
-11. The legacy in-place updater is isolated from supported resolution.
+11. The legacy in-place updater is absent.
 12. Datagen semantics come from the canonical simulation boundary.
 13. Runtime audit is not persistence identity.
 14. ModelSpec, artifact, checkpoint, sidecar, and MLflow wire behavior are
@@ -603,11 +598,10 @@ Rejected because rollback must account for post-init effects, nested mutable
 values, tensors, warnings, global state, and partial failure. Return-new
 candidates make invalid intermediate state unobservable.
 
-### 18.5 Expanding `update_existing_config()` into the supported path
+### 18.5 Reintroducing `update_existing_config()`
 
-Rejected because its tolerant unknown handling and `setattr` mutation are the
-opposite of the selected resolver contract. Its behavior survives only for
-legacy callers.
+Rejected because tolerant unknown handling and `setattr` mutation are the
+opposite of the selected return-new resolver contract.
 
 ### 18.6 Treating runtime audit or MLflow parameters as a snapshot
 
@@ -662,9 +656,8 @@ Spies or isolated state fixtures shall demonstrate:
 
 Focused characterization shall demonstrate:
 
-- named legacy callers of `update_existing_config()` retain their existing
-  partial, in-place behavior;
-- no supported factory calls the legacy updater;
+- no production definition, import, or call of `update_existing_config()`
+  remains;
 - legacy-loaded partial mappings become trusted only after supported
   resolution; and
 - `DatagenConfig` round-trips its supported six fields through the canonical

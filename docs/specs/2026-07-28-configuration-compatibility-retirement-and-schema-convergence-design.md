@@ -1,6 +1,7 @@
 # Configuration Compatibility Retirement and Schema Convergence Design
 
-**Status:** Approved and authoritative on `refactor-internal` as of 2026-07-28.
+**Status:** Approved and implemented on `refactor-internal` as of 2026-07-28.
+The bounded legacy bridge remains under its existing contracts.
 
 **Parent authority:**
 `docs/superpowers/specs/2026-07-28-configuration-boundary-architecture.md`.
@@ -24,6 +25,15 @@ Adoption Gate.
 
 This document coordinates their dependency order. It does not replace their
 family-specific contracts.
+
+**Implementation outcome:** The tolerant updater and its supported callers
+are retired; execution requests and resolved runtime outputs have distinct
+ownership; canonical model/training owners no longer compete with execution
+aliases; and supported modern code has no direct `params.cfg` reads. The
+public structural family adopted cached Pydantic adapters after a net-deletion
+gate, while the wider Torch family terminally retained its explicit manual
+resolver. ModelSpec, artifact, checkpoint, TensorFlow, and one-way legacy
+projection contracts remain unchanged.
 
 ## 1. Decision
 
@@ -342,9 +352,10 @@ independently under the Pydantic Adoption Gate:
   decrease;
 - otherwise record `retain manual` as the successful terminal decision.
 
-Simulation remains the proven adopted family. Execution configuration, partial
-patches, `params.cfg`, MLflow identity, and versioned persistence remain
-outside Pydantic.
+Simulation and public Model/Training/Inference are the proven adopted
+families. Torch Data/Model/Training/Inference terminally retains manual
+validation. Execution configuration, partial patches, `params.cfg`, MLflow
+identity, and versioned persistence remain outside Pydantic.
 
 ### Stage 5: close routing and portfolio state
 

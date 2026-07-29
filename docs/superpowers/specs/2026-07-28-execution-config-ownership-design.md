@@ -1,14 +1,14 @@
 # PyTorch Execution Configuration Ownership Design
 
-**Status:** Approved on 2026-07-28
+**Status:** Approved and implemented on `refactor-internal` on 2026-07-28
 
 **Parent architecture:** `docs/superpowers/specs/2026-07-28-configuration-boundary-architecture.md`
 
-**Implementation state on `refactor-internal`:** The `ExecutionRequest` and
-split ownership/resolution implementation on the public `refactor` branch is
-reference evidence only. It is not present here; roadmap Slice 8 Stage A owns
-the internal-safe port while preserving the internal execution aliases and
-ownership contracts.
+**Implementation state on `refactor-internal`:** `ExecutionRequest`, explicit
+request provenance, capability-late runtime resolution, and canonical
+model/training ownership are implemented. Supported entry points no longer
+accept a bare resolved `PyTorchExecutionConfig` as an unresolved request, and
+the retired topology/optimizer compatibility lanes are absent.
 
 ## Purpose
 
@@ -16,9 +16,9 @@ Separate runtime request, explicit-input provenance, configuration ownership,
 and environment-dependent resolution without converting
 `PyTorchExecutionConfig` into a Pydantic domain model.
 
-## Current Problem
+## Problem addressed
 
-`PyTorchExecutionConfig` currently combines:
+Before this design, `PyTorchExecutionConfig` combined:
 
 - user-requested Lightning and DataLoader settings;
 - optimizer-adjacent inputs;
@@ -27,21 +27,20 @@ and environment-dependent resolution without converting
 - structural validation in `__post_init__`; and
 - environment-dependent accelerator resolution in `__post_init__`.
 
-This makes the constructor both a data carrier and an effectful resolver.
+That made the constructor both a data carrier and an effectful resolver.
 Pydantic conversion cannot simplify that mixture without changing constructor
 timing, hidden provenance, warnings, signatures, or direct programmatic use.
 
-Several fields also have more than one apparent owner. Learning rate,
+Several fields also had more than one apparent owner. Learning rate,
 scheduler, gradient clipping, and accumulation values appear across public
 TrainingConfig, Torch TrainingConfig, execution config, CLI helpers, and
-Lightning consumers. Deprecated spectral fields already belong to Torch
-ModelConfig but remain accepted as execution aliases.
+Lightning consumers. Deprecated spectral fields already belonged to Torch
+ModelConfig but remained accepted as execution aliases.
 
 ## Decision
 
-Retain the stdlib `PyTorchExecutionConfig` and its manual validation for
-compatibility. Move supported workflow architecture toward three explicit
-stages:
+Retain the stdlib `PyTorchExecutionConfig` as a pure, manually validated
+resolved runtime carrier. Supported workflows implement three explicit stages:
 
 ```text
 primitive CLI/programmatic values
@@ -51,8 +50,9 @@ primitive CLI/programmatic values
     -> resolved execution inputs consumed by Lightning
 ```
 
-The migration is staged. It does not change direct-constructor behavior until
-the external contract explicitly allows that change.
+`ExecutionRequest` owns unresolved values and explicit-input provenance.
+`PyTorchExecutionConfig` accepts resolved runtime values only and performs no
+hardware observation.
 
 ## Ownership
 
@@ -65,9 +65,8 @@ Owns model graph and topology:
 - decoder/output representation; and
 - all other generator construction fields.
 
-Execution config may accept deprecated topology aliases only at a declared
-compatibility boundary. Resolved generators never read topology from execution
-config.
+Execution configuration accepts no topology aliases. Resolved generators read
+topology only from Torch ModelConfig.
 
 ### TrainingConfig
 
@@ -79,10 +78,8 @@ Owns optimization semantics:
 - the selected gradient-clipping policy where that policy changes parameter
   updates.
 
-During compatibility migration, execution input may remain a higher-precedence
-source for a subset of these values, but the factory resolves them one-way into
-the effective TrainingConfig. Downstream optimization code reads only the
-resolved training owner.
+Execution input is not a source for these values. Downstream optimization code
+reads only the resolved training owner.
 
 ### PyTorchExecutionConfig
 
@@ -98,37 +95,27 @@ Owns runtime and Trainer mechanics:
 No field on this record is persisted as model structural identity or projected
 to `params.cfg`.
 
-## Selected Field Ownership And Precedence
+## Selected Field Ownership
 
-The target effective owners and compatibility handoff are:
+The implemented effective owners are:
 
-| Effective value | Single downstream owner | Execution-config role during migration |
+| Effective value | Single downstream owner | Execution role |
 |---|---|---|
-| Model topology and spectral fields | Torch ModelConfig | Deprecated input alias only |
+| Model topology and spectral fields | Torch ModelConfig | None |
 | Optimizer, momentum, weight decay, and Adam betas | Torch TrainingConfig | None |
-| Learning rate and scheduler family/settings | Torch TrainingConfig | Deprecated priority-2 input alias |
-| Gradient clip value and algorithm | Torch TrainingConfig | Deprecated priority-2 input alias; resolved Trainer arguments may mirror the effective training value |
-| Gradient accumulation steps | Torch TrainingConfig | Deprecated priority-2 input alias; resolved Trainer arguments may mirror the effective training value |
+| Learning rate and scheduler family/settings | Torch TrainingConfig | None |
+| Gradient clip value and algorithm | Torch TrainingConfig | Resolved Trainer arguments mirror the effective training value |
+| Gradient accumulation steps | Torch TrainingConfig | Resolved Trainer arguments mirror the effective training value |
 | Accelerator, devices, strategy, precision, determinism | Resolved execution inputs | Authoritative request |
 | Workers, pinning, persistence, and prefetch | Resolved execution inputs | Authoritative request |
 | Checkpointing, early stopping, logging, progress, reconstruction logging | Resolved execution inputs | Authoritative request |
 | Inference execution batch and evaluation mechanics | Resolved execution inputs | Authoritative request |
 
-The factory resolves each optimizer-adjacent value once using this precedence:
-
-1. an explicitly supplied canonical/factory TrainingConfig override;
-2. an explicitly supplied execution compatibility input;
-3. an already resolved TrainingConfig value; and
-4. the Torch TrainingConfig default.
-
-Defaults inserted by argparse or dataclass construction are not explicit
-inputs. `ExecutionRequest.explicit_fields` carries that distinction.
-
-A bare programmatic `PyTorchExecutionConfig` without explicit-field provenance
-remains a legacy compatibility input during migration. To preserve its current
-factory behavior, all of its optimizer-adjacent values are treated as supplied
-at priority 2. New supported CLI and programmatic builders return provenance
-and do not use this ambiguous lane.
+Factories resolve optimizer-adjacent values from canonical/factory
+TrainingConfig overrides and the resolved TrainingConfig baseline/default.
+`ExecutionRequest.explicit_fields` records presence only for execution-owned
+runtime fields. A bare `PyTorchExecutionConfig` is rejected as factory input
+because it is already a resolved output carrier.
 
 After resolution:
 
@@ -139,12 +126,6 @@ After resolution:
   optimization mode; and
 - execution config is not read again as an independent optimization owner.
 
-Equal canonical and compatibility inputs are accepted once under the canonical
-TrainingConfig owner. Different values resolve by the precedence above; this
-is not a conflict because priority is explicit. Deprecated topology aliases
-retain their stricter rule: equal dual input is accepted once and unequal dual
-input fails because graph identity must not depend on source precedence.
-
 ## Request And Resolution
 
 ### Explicit-input provenance
@@ -153,7 +134,7 @@ CLI helpers and supported programmatic factories know which fields were
 explicit. They must carry that set alongside the request rather than infer it
 from values after defaults are applied.
 
-The target internal value is conceptually:
+The implemented request value is:
 
 ```python
 @dataclass(frozen=True)
@@ -163,26 +144,16 @@ class ExecutionRequest:
 ```
 
 `values` is a canonical primitive field mapping, not a constructed
-`PyTorchExecutionConfig`. This distinction is required because the compatible
-public dataclass constructor still resolves `accelerator="auto"` immediately;
-constructing it at request time would observe hardware before pure structural
-and ownership resolution. The mapping is copied into an immutable internal
-view and checked against the declared execution field names, so it is an
-internal resolution envelope rather than a replacement public configuration
-schema. It is introduced only if it deletes the hidden
-`_explicit_structural_aliases` behavior from supported factory paths. Direct
-construction remains compatible while deprecated aliases exist.
+`PyTorchExecutionConfig`. This keeps unresolved `accelerator="auto"` and
+presence provenance outside the resolved carrier. The mapping is copied into
+an immutable view and checked against the declared execution field names.
 
 ### Structural resolution
 
 A pure resolver:
 
 - validates field domains and scalar relationships;
-- maps deprecated topology aliases into a candidate Torch ModelConfig patch;
-- rejects conflicting dual input;
-- maps optimizer-adjacent compatibility inputs into the effective training
-  patch;
-- records deprecation warnings and consumed provenance; and
+- records consumed provenance and deferred resolution notices; and
 - returns candidates without inspecting CUDA or mutating global state.
 
 It does not instantiate Lightning, inspect files, import optional logging
@@ -218,12 +189,8 @@ The selected supported-path policy is:
   recorded separately in the runtime audit.
 
 Only after this stage does the supported path instantiate
-`PyTorchExecutionConfig`, passing resolved values so its compatibility
-constructor does not repeat capability observation.
-
-Compatibility constructors may continue performing current auto-resolution
-until the external constructor contract is deliberately revised. Supported
-CLI/factory paths should converge on the explicit resolver.
+`PyTorchExecutionConfig` from resolved values. Its constructor validates but
+never performs capability observation.
 
 ## Selected Contract Alignment
 
@@ -235,15 +202,14 @@ The execution contract is aligned to the supported runtime as follows:
 - `checkpoint_save_top_k` must be non-negative; `-1` is not a supported
   save-all spelling;
 - the effective scheduler domain is owned and validated by Torch
-  TrainingConfig, while the execution field is a compatibility input;
+  TrainingConfig and is absent from execution configuration;
 - logger input accepts `csv`, `tensorboard`, `mlflow`, or disabled (`None`;
   CLI spelling `none`);
 - strategy remains an open Lightning string validated at Trainer
   construction, while the repository explicitly tests supported `auto` and
   DDP paths;
 - `persistent_workers=True` requires `num_workers>0`;
-- optimizer-adjacent execution fields follow the ownership and precedence
-  table above; and
+- optimizer-adjacent fields follow the single-owner table above; and
 - structural validation must use these selected semantics rather than stale
   annotations or duplicated CLI choice lists.
 
@@ -257,26 +223,17 @@ Pydantic is rejected for the current execution constructor because:
 - constructor exception and warning timing is established behavior; and
 - the remaining schema cannot be separated without first resolving ownership.
 
-Pydantic may be reconsidered only after:
+Topology aliases are removed, optimizer ownership is singular,
+explicit-input provenance is an ordinary request input, and environment
+resolution is outside construction. Manual validation remains the accepted
+result because the remaining request/environment lifecycle is not simplified
+by a snapshot adapter.
 
-1. deprecated topology aliases are removed from execution config;
-2. optimizer ownership is singular;
-3. explicit-input provenance is an ordinary resolver input;
-4. environment resolution is outside construction;
-5. the remaining structural checks have one complete accepted-value table; and
-6. an adapter deletes meaningful manual validation without introducing a
-   parallel request model.
+## Implementation Invariants
 
-Manual validation remains the accepted result if these gates do not justify an
-adapter.
-
-## Compatibility Invariants
-
-- `PyTorchExecutionConfig` remains a stdlib dataclass with its public field
-  names and current signature during the compatibility phase.
+- `PyTorchExecutionConfig` remains a stdlib dataclass containing resolved
+  runtime fields only.
 - It never populates `params.cfg`.
-- Equal deprecated topology inputs may resolve once; conflicting dual input
-  fails before model construction.
 - Resolved model construction reads topology only from Torch ModelConfig.
 - Optimizer construction reads only the resolved TrainingConfig owner.
 - Environmental resolution is recorded in the payload audit trail without
@@ -302,11 +259,11 @@ different owners and compatibility rules.
 Rejected because devices, workers, logging, and runtime resolution do not
 define the model graph or scientific state.
 
-### Immediate public request/resolved type split
+### Treating a resolved carrier as an unresolved request
 
-Rejected as an unversioned public API break. An internal envelope may support a
-staged migration, but direct-constructor behavior changes require their own
-contract decision.
+Rejected because it loses explicit-input provenance and makes capability
+resolution timing ambiguous. Supported factories accept `ExecutionRequest` or
+`None`; they return `PyTorchExecutionConfig` only after environment resolution.
 
 ## Complexity Budget
 
@@ -317,21 +274,19 @@ An implementation is acceptable only if it:
 - does not add a second public execution schema;
 - does not add Pydantic, enum, serialization, or artifact machinery;
 - keeps capability checks injectable and outside structural validation; and
-- deletes deprecated alias code when its compatibility window closes.
+- contains no retired topology or optimizer alias machinery.
 
 ## Acceptance Evidence
 
 Focused evidence must cover:
 
-1. explicit default versus omitted topology alias provenance;
-2. positional and keyword compatibility where currently supported;
-3. equal dual input, conflicting dual input, and one-way ModelConfig
-   resolution;
+1. explicit versus omitted runtime-field provenance;
+2. resolved-carrier dataclass signature and validation;
+3. rejection of topology or optimizer fields at the execution boundary;
 4. singular downstream optimizer ownership;
 5. CPU, CUDA-available, and unsupported-accelerator resolution through an
    injected capability provider;
-6. unchanged warnings, public signatures, and current constructor behavior
-   during the compatibility phase;
+6. stable warnings, request provenance, and resolved-carrier behavior;
 7. DDP devices, strategy, precision, and Trainer arguments;
 8. absence of execution values in `params.cfg`, ModelSpec, and artifact
    identity; and

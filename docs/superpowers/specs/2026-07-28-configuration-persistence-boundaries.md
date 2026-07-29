@@ -5,10 +5,10 @@
 **Parent architecture:** `docs/superpowers/specs/2026-07-28-configuration-boundary-architecture.md`
 
 **Implementation state on `refactor-internal`:** The internal ModelSpec and
-artifact codecs described here are current implementation. Their presence does
-not imply that the simulation adapter, resolver modules, execution-request
-split, or companion fixtures have been ported from the public `refactor`
-reference; roadmap Slice 8 Stage A owns that separate work.
+artifact codecs described here remain current. The simulation/public
+structural adapters, return-new resolvers, and execution-request split are now
+implemented without changing these persistence schemas, tensor envelopes, or
+historical upgrade rules.
 
 ## Purpose
 

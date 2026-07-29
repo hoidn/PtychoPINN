@@ -1,16 +1,16 @@
 # Representation-Preserving Pydantic Simulation Validation Design
 
-**Status:** Accepted target design
+**Status:** Accepted and implemented on `refactor-internal`
 
 **Accepted:** 2026-07-28
 
 **Supersedes:** The rejected 2026-07-27 Pydantic/string-enum migration
 
-**Implementation state on `refactor-internal`:** This is an accepted target
-design. The cached `TypeAdapter`, direct Pydantic dependency, and exact
-simulation fixtures implemented on the public `refactor` branch are reference
-evidence, not current internal implementation. They are absent here; roadmap
-Slice 8 Stage A owns the internal-safe port and branch-local proof.
+**Implementation state on `refactor-internal`:** The cached `TypeAdapter`,
+direct Pydantic dependency, exact-representation scalar validation, stable
+error facade, and focused simulation fixtures are implemented. The public
+Model/Training/Inference family now shares the bounded strict-scalar
+primitives while retaining a separate family-owned adapter and semantics.
 
 ## Purpose
 
@@ -310,8 +310,7 @@ They do not call a Pydantic serializer. Their field names, tuple/list
 decisions, path spelling, numeric kinds, JSON settings, and SHA-256 bytes remain
 unchanged.
 
-The public-reference implementation's exact pre-change simulation fixtures
-cover:
+The internal implementation's exact pre-change simulation fixtures cover:
 
 - the canonical default dictionary and digest;
 - optional diameter values represented as both integer and float;
@@ -322,14 +321,13 @@ Torch versioned-artifact fixtures are independent regression coverage. They do
 not become gates for this initiative and do not authorize changes to Torch
 configuration or persistence code.
 
-Equivalent internal-safe fixtures must be ported or reproduced before roadmap
-Stage A may claim this boundary is implemented on `refactor-internal`.
+Those fixtures were reproduced on `refactor-internal` before roadmap Stage A
+closed.
 
 ## Dependency Policy
 
-The accepted target requires the internal-safe port to declare Pydantic as a
-direct dependency everywhere this repository declares runtime/test
-dependencies:
+The implementation declares Pydantic as a direct dependency everywhere this
+repository declares runtime/test dependencies:
 
 ```text
 pydantic>=2.12,<3

@@ -1,6 +1,6 @@
 # Configuration Boundary Architecture
 
-**Status:** Approved on 2026-07-28
+**Status:** Approved and implemented on `refactor-internal` on 2026-07-28
 
 **Companion designs:**
 
@@ -10,13 +10,13 @@
 - `docs/superpowers/specs/2026-07-28-execution-config-ownership-design.md`
 - `docs/superpowers/specs/2026-07-28-configuration-persistence-boundaries.md`
 
-**Implementation state on `refactor-internal`:** This document and its
-companions are approved target authorities. The simulation `TypeAdapter`,
-public and Torch resolver modules, execution-request split, and their fixtures
-on the public `refactor` branch are reference implementation evidence only;
-they are not yet present on this branch. Roadmap Slice 8 Stage A owns their
-internal-safe port. The existing internal ModelSpec and artifact codecs remain
-current and are not replaced by that port.
+**Implementation state on `refactor-internal`:** Roadmap Slice 8 is
+implemented. The representation-preserving simulation adapter, return-new
+public and Torch resolvers, and execution-request split are present on this
+branch. The post-isolation family gates adopted cached Pydantic adapters for
+the public Model/Training/Inference family and retained explicit manual
+validation for the Torch family. Existing internal ModelSpec and artifact
+codecs remain current and were not replaced.
 
 ## Purpose
 
@@ -39,9 +39,9 @@ resolver, an artifact codec, or a replacement for the legacy bridge.
 - CONFIG-001 requires supported legacy-touching workflows to project resolved
   public configuration into `ptycho.params.cfg` before legacy consumers run.
 - The accepted simulation design defines one narrow,
-  representation-preserving use of Pydantic, and its public-branch reference
-  implementation proves feasibility. That evidence does not claim the adapter
-  is already ported internally or authorize migration of another family.
+  representation-preserving use of Pydantic, now implemented internally.
+  Adoption by the public family followed its own measured gate; the Torch
+  family's separate gate terminated with `retain manual`.
 
 Where current specifications, guides, and implementation disagree, the
 conflict must be resolved in the owning contract before a validator freezes
@@ -150,9 +150,9 @@ resolution and preserves its existing declared `None` behavior.
 
 | Boundary | Treatment | Pydantic decision |
 |---|---|---|
-| Simulation recipe | Approved complete-document adapter target; public-reference implementation exists and internal port is pending | Adopted target; internal port pending roadmap Stage A |
-| Public Model/Training/Inference | Consolidate YAML/CLI and consumption boundaries first | Hold pending proof |
-| Torch Data/Model/Training/Inference | Explicit resolver and transactional patch architecture | Hold pending mutation-contract consolidation |
+| Simulation recipe | Cached complete-document adapter over unchanged stdlib dataclasses | Adopted and implemented |
+| Public Model/Training/Inference | Return-new resolution plus cached complete-snapshot adapters; semantics and resources remain explicit | Adopted and implemented after a 17-line conservatively measured adapter-attributable net deletion |
+| Torch Data/Model/Training/Inference | Explicit resolver and transactional patch architecture | Retain manual: the 157-field exactness surface and 194-line addition floor exceed the 109-line adoption-favorable deletion ceiling |
 | `DatagenConfig` | Compatibility view delegated to `SimulationConfig` | No independent schema |
 | `PyTorchExecutionConfig` | Separate ownership, provenance, and environmental resolution | Retain manual validation |
 | CLI patches | Preserve explicit presence, merge, then validate complete result | No direct adapter |
@@ -182,30 +182,27 @@ are demonstrated:
 
 Failure of any gate means the family retains explicit manual validation.
 
-## Contract Alignment Prerequisites
+## Contract Alignment Outcomes
 
-The following contracts are selected or must be made explicit before their
-runtime enforcement:
+The implementation resolves the former alignment prerequisites as follows:
 
 - The public architecture domain is the 14 values, including the Hybrid/ResNet
   families, shared by the public dataclass, Torch registry, ModelSpec,
   configuration guide, configuration bridge, and external API contract.
   Future expansion requires an explicit registry and persistence decision.
-- Public annotations and existing callers disagree about accepted `N`,
-  amplitude-activation, numeric, and non-runnable training values.
-- Training, inference, notebook, and Torch factory paths have different
-  unknown-key behavior.
-- Reflected argparse defaults can overwrite YAML values without an explicitly
-  supplied CLI argument.
-- Inference documentation makes `n_groups` canonical while one production path
-  still consumes `n_images`.
-- Execution optimizer-adjacent compatibility inputs resolve one-way into Torch
-  TrainingConfig using the companion execution design's selected ownership and
-  precedence; accelerator, TPU, and checkpoint retention semantics follow the
-  corrected external API contract.
-
-Each child design identifies the owning resolution. Contract edits must be
-narrow and precede enforcement.
+- The public accepted-value table distinguishes structural validity from
+  runnable/resource validity for `N`, amplitude activation, numeric fields,
+  and incomplete training records.
+- Mapping-based training, inference, notebook, and Torch factory entry points
+  fail closed on unknown keys.
+- CLI presence is explicit, so omitted argparse values do not overwrite YAML
+  or baseline values.
+- `n_groups` is canonical and the deprecated `n_images` input is normalized at
+  the public boundary.
+- Execution topology and optimizer aliases are retired. `ExecutionRequest`
+  owns unresolved runtime provenance, Torch Model/Training records own
+  scientific choices, and `PyTorchExecutionConfig` is the capability-resolved
+  runtime output.
 
 ## Explicitly Rejected Architecture
 

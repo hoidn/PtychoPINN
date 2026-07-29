@@ -1,14 +1,14 @@
 # Public Configuration Resolution Design
 
-**Status:** Approved on 2026-07-28
+**Status:** Approved and implemented on `refactor-internal` on 2026-07-28
 
 **Parent architecture:** `docs/superpowers/specs/2026-07-28-configuration-boundary-architecture.md`
 
-**Implementation state on `refactor-internal`:** The
-`ptycho/config/resolution.py` resolver and its focused fixtures on the public
-`refactor` branch are reference implementation evidence only. That module and
-those fixtures are not present here; roadmap Slice 8 Stage A owns their
-internal-safe port while preserving the internal 14-architecture domain.
+**Implementation state on `refactor-internal`:**
+`ptycho/config/resolution.py`, its focused fixtures, and the internal
+14-architecture domain are present. After compatibility retirement and modern
+global-state isolation, the family-specific Pydantic gate passed and the
+complete Model/Training/Inference structural boundaries use cached adapters.
 
 ## Purpose
 
@@ -17,9 +17,9 @@ TrainingConfig, and InferenceConfig values from configuration files, explicit
 CLI overrides, bridges, and programmatic instances while preserving their
 stdlib dataclass API and one-way legacy projection.
 
-Pydantic is held until boundary consolidation demonstrates that an adapter
-would delete meaningful production code. This design first makes the existing
-contracts coherent enough to validate.
+Boundary consolidation demonstrated that the adapter deletes meaningful
+production code, so the family-specific gate adopted it without changing the
+resolver's ownership, semantic, resource, or legacy-projection contracts.
 
 ## Current Problem
 
@@ -305,11 +305,12 @@ still untrusted until the appropriate public resolver accepts it.
 
 ## Pydantic Decision
 
-Pydantic adoption is held. The only acceptable later shape is:
+**Decision on `refactor-internal`: adopted.** The implemented shape is:
 
 - unchanged stdlib dataclasses;
 - unchanged stored Literal strings;
-- one cached root adapter per adopted complete family boundary;
+- one cached adapter for each supported complete Model, Training, and
+  Inference boundary;
 - mapping validation after file/CLI merge;
 - strict instance revalidation only at explicit validation boundaries;
 - explicit semantic and resource validators afterward; and
@@ -325,7 +326,7 @@ It is not used for:
 - ModelSpec, artifacts, checkpoints, or MLflow; or
 - filesystem and environment validation.
 
-Before adoption, executable feasibility evidence must prove:
+The adoption gate closed with the following evidence:
 
 1. exact accepted scalar/coercion behavior, including booleans and numeric
    subclasses;
@@ -339,6 +340,25 @@ Before adoption, executable feasibility evidence must prove:
    freezing, replacement, and mutable behavior;
 9. exact legacy and persistence fixtures; and
 10. material net production deletion.
+
+The dry-run and final ledger identified 321 production lines of duplicated
+schema-aware validation that the adapter replaces. Conservatively charging
+all 304 production insertions—strict annotations, the bounded
+`strict_types.py` leaf, three adapters, the error facade, semantic call
+relocation, and the Annotated-aware CLI reflector—leaves a 17-line
+adapter-attributable deletion. The raw production diff is +304/-530, or
+226 fewer lines. Three adapters are required because `ModelConfig` has a
+standalone complete validation boundary in addition to its embedding in
+Training and Inference; a Model-only adoption would still have been
+insufficient.
+
+Focused public resolution and feasibility evidence passed 205 tests; shared
+simulation validation passed 83; artifact and live legacy-projection evidence
+passed 66. Stdlib dataclass construction, reflection, mutation/frozen behavior,
+post-init alias handling, exact built-in closed strings, mapping-only
+`Path(value)` conversion, stable domain errors, manual semantic/resource
+validation, legacy projection, and versioned persistence remain outside or
+unchanged by the adapters as specified.
 
 A Model-only adapter is insufficient. Adoption must delete the schema-aware
 field filtering, manual path conversion, duplicated membership/type branches,
