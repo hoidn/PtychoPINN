@@ -533,7 +533,7 @@ def test_resolver_object_policy_types_use_stable_value_errors(
     [
         (
             resolve_training_config,
-            {"object_big": True, "batch_size": 3},
+            {"object_big": True, "batch_size": 0},
         ),
         (
             resolve_inference_config,
@@ -569,7 +569,6 @@ def test_successful_explicit_object_big_warns_exactly_once(
     "updates,message",
     [
         ({"batch_size": True}, "batch_size"),
-        ({"batch_size": 3}, "power of 2"),
         ({"nepochs": -1}, "nepochs"),
         ({"mae_weight": "0.5"}, "mae_weight"),
         ({"nll_weight": 2}, "nll_weight"),
@@ -590,8 +589,8 @@ def test_training_structure_rejects_invalid_exact_types_and_domains(
         validate_training_config_structure(config)
 
 
-@pytest.mark.parametrize("batch_size", [1, 2, 16])
-def test_training_structure_accepts_positive_power_of_two_batches(batch_size):
+@pytest.mark.parametrize("batch_size", [1, 2, 3, 16])
+def test_training_structure_accepts_positive_integer_batches(batch_size):
     validate_training_config_structure(
         TrainingConfig(model=ModelConfig(), batch_size=batch_size)
     )
@@ -882,6 +881,25 @@ def test_public_training_parser_boolean_actions_preserve_explicitness(
 
     assert explicit.probe_mask is True
     assert explicit.probe_big is False
+
+
+def test_public_training_parser_keeps_numeric_overrides_primitive(monkeypatch):
+    args = _parse_public_training_args(
+        monkeypatch,
+        "--mae_weight",
+        "0.25",
+        "--nphotons",
+        "1000",
+        "--gradient_clip_val",
+        "2.5",
+    )
+
+    assert args.mae_weight == 0.25
+    assert type(args.mae_weight) is float
+    assert args.nphotons == 1000.0
+    assert type(args.nphotons) is float
+    assert args.gradient_clip_val == 2.5
+    assert type(args.gradient_clip_val) is float
 
 
 def test_public_training_parser_preserves_required_and_optional_path_values(

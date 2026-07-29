@@ -72,18 +72,29 @@ import hashlib
 import math
 import tomllib
 from pydantic import (
-    AfterValidator,
     BeforeValidator,
     ConfigDict,
-    StrictBool,
-    StrictFloat,
-    StrictInt,
     TypeAdapter,
     ValidationError,
+    ValidationInfo,
     with_config,
 )
 import yaml
 import warnings
+
+from .strict_types import (
+    _require_exact_int,
+    _require_exact_str,
+    _StrictBool,
+    _StrictClosedUnitNumber,
+    _StrictFiniteNonNegativeNumber,
+    _StrictFinitePositiveNumber,
+    _StrictHalfOpenUnitNumber,
+    _StrictNonNegativeInt,
+    _StrictOpenUnitNumber,
+    _StrictOptionalInt,
+    _StrictPositiveInt,
+)
 
 # Export list for public API (ADR-003 Phase C3.A1)
 # Restores exports removed during Phase C2; ensures PyTorchExecutionConfig is discoverable
@@ -118,83 +129,24 @@ __all__ = [
 ]
 
 
-def _require_exact_int(value: Any) -> Any:
-    if type(value) is not int:
-        raise ValueError("must be an exact built-in integer")
-    return value
-
-
-def _require_exact_optional_int(value: Any) -> Any:
-    if value is not None and type(value) is not int:
-        raise ValueError("must be an exact built-in integer or None")
-    return value
-
-
-def _require_exact_bool(value: Any) -> Any:
-    if type(value) is not bool:
-        raise ValueError("must be an exact built-in boolean")
-    return value
-
-
-def _require_exact_finite_number(value: Any) -> Any:
-    if type(value) not in {int, float}:
-        raise ValueError("must be an exact built-in integer or float")
-    return value
-
-
-def _require_exact_str(value: Any) -> Any:
-    if type(value) is not str:
-        raise ValueError("must be an exact built-in string")
-    return value
-
-
 def _require_pair_container(value: Any) -> Any:
     if type(value) not in {list, tuple}:
         raise ValueError("must be a list or tuple")
     return value
 
 
-def _require_positive_int(value: int) -> int:
-    if value <= 0:
-        raise ValueError("must be positive")
-    return value
+def _materialize_public_path(value: Any, info: ValidationInfo) -> Path:
+    if (info.context or {}).get("strict_instance", False):
+        if not isinstance(value, Path):
+            raise ValueError("must be a pathlib.Path")
+        return value
+    try:
+        return Path(value)
+    except (TypeError, ValueError) as error:
+        raise ValueError(f"must be path-like, got {value!r}") from error
 
 
-def _require_non_negative_int(value: int) -> int:
-    if value < 0:
-        raise ValueError("must be non-negative")
-    return value
-
-
-def _require_finite_positive_number(value: int | float) -> int | float:
-    if value <= 0 or (type(value) is float and not math.isfinite(value)):
-        raise ValueError("must be finite and positive")
-    return value
-
-
-_StrictPositiveInt = Annotated[
-    StrictInt,
-    BeforeValidator(_require_exact_int),
-    AfterValidator(_require_positive_int),
-]
-_StrictNonNegativeInt = Annotated[
-    StrictInt,
-    BeforeValidator(_require_exact_int),
-    AfterValidator(_require_non_negative_int),
-]
-_StrictOptionalInt = Annotated[
-    StrictInt | None,
-    BeforeValidator(_require_exact_optional_int),
-]
-_StrictBool = Annotated[
-    StrictBool,
-    BeforeValidator(_require_exact_bool),
-]
-_StrictFinitePositiveNumber = Annotated[
-    StrictInt | StrictFloat,
-    BeforeValidator(_require_exact_finite_number),
-    AfterValidator(_require_finite_positive_number),
-]
+_PublicPath = Annotated[Path, BeforeValidator(_materialize_public_path)]
 _StrictPositivePair = Annotated[
     tuple[_StrictPositiveInt, _StrictPositiveInt],
     BeforeValidator(_require_pair_container),
@@ -212,14 +164,14 @@ _ScanKind = Annotated[
     BeforeValidator(_require_exact_str),
 ]
 
-_SIMULATION_ADAPTER_CONFIG = ConfigDict(
+_DATACLASS_ADAPTER_CONFIG = ConfigDict(
     extra="forbid",
     revalidate_instances="always",
     validate_default=True,
 )
 
 
-@with_config(_SIMULATION_ADAPTER_CONFIG)
+@with_config(_DATACLASS_ADAPTER_CONFIG)
 @dataclass(frozen=True)
 class ProbeSimulationConfig:
     """Probe source and transforms that are baked into generated data.
@@ -238,7 +190,7 @@ class ProbeSimulationConfig:
     mask_diameter: _StrictFinitePositiveNumber | None = None
 
 
-@with_config(_SIMULATION_ADAPTER_CONFIG)
+@with_config(_DATACLASS_ADAPTER_CONFIG)
 @dataclass(frozen=True)
 class SyntheticObjectConfig:
     """Synthetic object family and generation counts."""
@@ -250,7 +202,7 @@ class SyntheticObjectConfig:
     set_phi: _StrictBool = False
 
 
-@with_config(_SIMULATION_ADAPTER_CONFIG)
+@with_config(_DATACLASS_ADAPTER_CONFIG)
 @dataclass(frozen=True)
 class ScanSimulationConfig:
     """Scan layout and train/test geometry for generated data."""
@@ -265,7 +217,7 @@ class ScanSimulationConfig:
     buffer: _StrictNonNegativeInt = 0
 
 
-@with_config(_SIMULATION_ADAPTER_CONFIG)
+@with_config(_DATACLASS_ADAPTER_CONFIG)
 @dataclass(frozen=True)
 class DetectorSimulationConfig:
     """Detector/noise properties baked into generated diffraction data."""
@@ -274,7 +226,7 @@ class DetectorSimulationConfig:
     beamstop_diameter: _StrictFinitePositiveNumber | None = None
 
 
-@with_config(_SIMULATION_ADAPTER_CONFIG)
+@with_config(_DATACLASS_ADAPTER_CONFIG)
 @dataclass(frozen=True)
 class SimulationConfig:
     """Canonical top-level recipe for generated ptychography data."""
@@ -522,39 +474,44 @@ def validate_simulation_compatibility(
             f"{simulation.scan.grid_size} conflicts with model.gridsize={model.gridsize}"
         )
 
+@with_config(_DATACLASS_ADAPTER_CONFIG)
 @dataclass(frozen=True)
 class ModelConfig:
     """Core model architecture parameters."""
-    N: Literal[64, 128, 256] = 64
-    gridsize: int = 1
-    n_filters_scale: int = 2
-    model_type: Literal['pinn', 'supervised'] = 'pinn'
-    architecture: Literal[
-        'cnn', 'ffno', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'neuralop_uno', 'hybrid_resnet', 'hybrid_resnet_ffno_ptychoblock_encoder', 'hybrid_resnet_ptychoblock_ffno_encoder', 'spectral_resnet_bottleneck_net', 'spectral_resnet_bottleneck_linear_decoder', 'hybrid_resnet_ffno_bottleneck', 'hybrid_resnet_convnext_bottleneck'
+    N: Annotated[
+        Literal[64, 128, 256],
+        BeforeValidator(_require_exact_int),
+    ] = 64
+    gridsize: _StrictPositiveInt = 1
+    n_filters_scale: _StrictPositiveInt = 2
+    model_type: Annotated[Literal['pinn', 'supervised'], BeforeValidator(_require_exact_str)] = 'pinn'
+    architecture: Annotated[
+        Literal[
+            'cnn', 'ffno', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'neuralop_uno', 'hybrid_resnet', 'hybrid_resnet_ffno_ptychoblock_encoder', 'hybrid_resnet_ptychoblock_ffno_encoder', 'spectral_resnet_bottleneck_net', 'spectral_resnet_bottleneck_linear_decoder', 'hybrid_resnet_ffno_bottleneck', 'hybrid_resnet_convnext_bottleneck'
+        ],
+        BeforeValidator(_require_exact_str),
     ] = 'cnn'
-    fno_modes: int = 12
-    fno_width: int = 32
-    fno_blocks: int = 4
-    fno_cnn_blocks: int = 2
-    learned_input_channels: int = 1
-    max_hidden_channels: Optional[int] = None
-    resnet_width: Optional[int] = None
-    fno_input_transform: Literal['none', 'sqrt', 'log1p', 'instancenorm'] = 'none'
-    generator_output_mode: Literal['real_imag', 'amp_phase_logits', 'amp_phase'] = 'real_imag'
-    amp_activation: Literal['sigmoid', 'swish', 'softplus', 'relu'] = 'sigmoid'
-    object_big: Optional[bool] = None
-    object_layout: Optional[Literal['single_patch', 'grouped_patches']] = None
-    training_canvas: Optional[Literal['independent', 'relative_overlap']] = None
-    training_patch_weighting: Optional[
-        Literal['central_mask', 'uniform', 'probe']
-    ] = None
-    probe_big: bool = True  # Changed default
-    probe_mask: bool = False  # Changed default
-    probe_mask_sigma: float = 1.0
-    probe_mask_diameter: Optional[float] = None
-    pad_object: bool = True
-    probe_scale: float = 4.
-    gaussian_smoothing_sigma: float = 0.0
+    fno_modes: _StrictPositiveInt = 12
+    fno_width: _StrictPositiveInt = 32
+    fno_blocks: _StrictPositiveInt = 4
+    fno_cnn_blocks: _StrictNonNegativeInt = 2
+    learned_input_channels: _StrictPositiveInt = 1
+    max_hidden_channels: _StrictPositiveInt | None = None
+    resnet_width: _StrictPositiveInt | None = None
+    fno_input_transform: Annotated[Literal['none', 'sqrt', 'log1p', 'instancenorm'], BeforeValidator(_require_exact_str)] = 'none'
+    generator_output_mode: Annotated[Literal['real_imag', 'amp_phase_logits', 'amp_phase'], BeforeValidator(_require_exact_str)] = 'real_imag'
+    amp_activation: Annotated[Literal['sigmoid', 'swish', 'softplus', 'relu'], BeforeValidator(_require_exact_str)] = 'sigmoid'
+    object_big: _StrictBool | None = None
+    object_layout: Annotated[Literal['single_patch', 'grouped_patches'], BeforeValidator(_require_exact_str)] | None = None
+    training_canvas: Annotated[Literal['independent', 'relative_overlap'], BeforeValidator(_require_exact_str)] | None = None
+    training_patch_weighting: Annotated[Literal['central_mask', 'uniform', 'probe'], BeforeValidator(_require_exact_str)] | None = None
+    probe_big: _StrictBool = True  # Changed default
+    probe_mask: _StrictBool = False  # Changed default
+    probe_mask_sigma: _StrictFiniteNonNegativeNumber = 1.0
+    probe_mask_diameter: _StrictFinitePositiveNumber | None = None
+    pad_object: _StrictBool = True
+    probe_scale: _StrictFinitePositiveNumber = 4.
+    gaussian_smoothing_sigma: _StrictFiniteNonNegativeNumber = 0.0
 
 
 def resolve_model_object_policy(
@@ -586,48 +543,49 @@ def resolve_model_object_policy(
         training_patch_weighting=policy.training_patch_weighting,
     )
 
+@with_config(_DATACLASS_ADAPTER_CONFIG)
 @dataclass
 class TrainingConfig:
     """Training specific configuration."""
     model: ModelConfig
-    train_data_file: Optional[Path] = None  # Made optional for simulation scripts
-    test_data_file: Optional[Path] = None  # Added
-    batch_size: int = 16
-    nepochs: int = 50
-    mae_weight: float = 0.0
-    nll_weight: float = 1.0
-    realspace_mae_weight: float = 0.0
-    realspace_weight: float = 0.0
-    nphotons: float = 1e9
-    n_groups: Optional[int] = None  # Number of groups to generate (always means groups, regardless of gridsize)
-    n_images: Optional[int] = None  # DEPRECATED: Use n_groups instead (kept for backward compatibility)
-    n_subsample: Optional[int] = None  # Number of images to subsample before grouping (independent control)
-    subsample_seed: Optional[int] = None  # Random seed for reproducible subsampling
-    neighbor_count: int = 4  # K value: number of nearest neighbors for grouping (use higher values like 7 for K choose C oversampling)
-    enable_oversampling: bool = False  # Explicit opt-in for K choose C oversampling (requires gridsize>1 and neighbor_pool_size>=C)
-    neighbor_pool_size: Optional[int] = None  # Pool size for K choose C oversampling (if None, defaults to neighbor_count)
-    positions_provided: bool = True
-    probe_trainable: bool = False
-    intensity_scale_trainable: bool = True  # Changed default
-    output_dir: Path = Path("training_outputs")
-    sequential_sampling: bool = False  # Use sequential sampling instead of random
-    backend: Literal['tensorflow', 'pytorch'] = 'tensorflow'  # Backend selection: defaults to TensorFlow for backward compatibility
-    torch_loss_mode: Literal['poisson', 'mae'] = 'poisson'  # Backend-specific loss mode selector
-    torch_mae_pred_l2_match_target: bool = False  # Optional Torch MAE prediction scaling mode
-    gradient_clip_val: Optional[float] = None  # Gradient clipping threshold (None = disabled)
-    gradient_clip_algorithm: Literal['norm', 'value', 'agc'] = 'norm'  # Gradient clipping algorithm: norm, value, or agc
-    optimizer: Literal['adam', 'adamw', 'sgd'] = 'adam'  # Optimizer algorithm
-    momentum: float = 0.9  # SGD momentum (ignored for Adam/AdamW)
-    weight_decay: float = 0.0  # Weight decay (L2 penalty)
-    adam_beta1: float = 0.9  # Adam/AdamW beta1
-    adam_beta2: float = 0.999  # Adam/AdamW beta2
-    scheduler: Literal['Default', 'Exponential', 'WarmupCosine', 'ReduceLROnPlateau'] = 'Default'  # LR scheduler type
-    lr_warmup_epochs: int = 0  # Number of warmup epochs for WarmupCosine scheduler
-    lr_min_ratio: float = 0.1  # Minimum LR ratio for WarmupCosine scheduler (eta_min = base_lr * ratio)
-    plateau_factor: float = 0.5
-    plateau_patience: int = 2
-    plateau_min_lr: float = 5e-5
-    plateau_threshold: float = 0.0
+    train_data_file: _PublicPath | None = None  # Made optional for simulation scripts
+    test_data_file: _PublicPath | None = None  # Added
+    batch_size: _StrictPositiveInt = 16
+    nepochs: _StrictNonNegativeInt = 50
+    mae_weight: _StrictClosedUnitNumber = 0.0
+    nll_weight: _StrictClosedUnitNumber = 1.0
+    realspace_mae_weight: _StrictClosedUnitNumber = 0.0
+    realspace_weight: _StrictClosedUnitNumber = 0.0
+    nphotons: _StrictFiniteNonNegativeNumber = 1e9
+    n_groups: _StrictNonNegativeInt | None = None  # Number of groups to generate (always means groups, regardless of gridsize)
+    n_images: _StrictNonNegativeInt | None = None  # DEPRECATED: Use n_groups instead (kept for backward compatibility)
+    n_subsample: _StrictNonNegativeInt | None = None  # Number of images to subsample before grouping (independent control)
+    subsample_seed: _StrictNonNegativeInt | None = None  # Random seed for reproducible subsampling
+    neighbor_count: _StrictPositiveInt = 4  # K value: number of nearest neighbors for grouping (use higher values like 7 for K choose C oversampling)
+    enable_oversampling: _StrictBool = False  # Explicit opt-in for K choose C oversampling (requires gridsize>1 and neighbor_pool_size>=C)
+    neighbor_pool_size: _StrictPositiveInt | None = None  # Pool size for K choose C oversampling (if None, defaults to neighbor_count)
+    positions_provided: _StrictBool = True
+    probe_trainable: _StrictBool = False
+    intensity_scale_trainable: _StrictBool = True  # Changed default
+    output_dir: _PublicPath = Path("training_outputs")
+    sequential_sampling: _StrictBool = False  # Use sequential sampling instead of random
+    backend: Annotated[Literal['tensorflow', 'pytorch'], BeforeValidator(_require_exact_str)] = 'tensorflow'  # Backend selection: defaults to TensorFlow for backward compatibility
+    torch_loss_mode: Annotated[Literal['poisson', 'mae'], BeforeValidator(_require_exact_str)] = 'poisson'  # Backend-specific loss mode selector
+    torch_mae_pred_l2_match_target: _StrictBool = False  # Optional Torch MAE prediction scaling mode
+    gradient_clip_val: _StrictFiniteNonNegativeNumber | None = None  # Gradient clipping threshold (None = disabled)
+    gradient_clip_algorithm: Annotated[Literal['norm', 'value', 'agc'], BeforeValidator(_require_exact_str)] = 'norm'  # Gradient clipping algorithm: norm, value, or agc
+    optimizer: Annotated[Literal['adam', 'adamw', 'sgd'], BeforeValidator(_require_exact_str)] = 'adam'  # Optimizer algorithm
+    momentum: _StrictClosedUnitNumber = 0.9  # SGD momentum (ignored for Adam/AdamW)
+    weight_decay: _StrictFiniteNonNegativeNumber = 0.0  # Weight decay (L2 penalty)
+    adam_beta1: _StrictHalfOpenUnitNumber = 0.9  # Adam/AdamW beta1
+    adam_beta2: _StrictHalfOpenUnitNumber = 0.999  # Adam/AdamW beta2
+    scheduler: Annotated[Literal['Default', 'Exponential', 'WarmupCosine', 'ReduceLROnPlateau'], BeforeValidator(_require_exact_str)] = 'Default'  # LR scheduler type
+    lr_warmup_epochs: _StrictNonNegativeInt = 0  # Number of warmup epochs for WarmupCosine scheduler
+    lr_min_ratio: _StrictClosedUnitNumber = 0.1  # Minimum LR ratio for WarmupCosine scheduler (eta_min = base_lr * ratio)
+    plateau_factor: _StrictOpenUnitNumber = 0.5
+    plateau_patience: _StrictNonNegativeInt = 2
+    plateau_min_lr: _StrictFiniteNonNegativeNumber = 5e-5
+    plateau_threshold: _StrictFiniteNonNegativeNumber = 0.0
 
     def __post_init__(self):
         """Handle backward compatibility for n_images → n_groups migration."""
@@ -646,22 +604,23 @@ class TrainingConfig:
         if self.n_groups is None:
             object.__setattr__(self, 'n_groups', 512)
 
+@with_config(_DATACLASS_ADAPTER_CONFIG)
 @dataclass
 class InferenceConfig:
     """Inference specific configuration."""
     model: ModelConfig
-    model_path: Path
-    test_data_file: Path
-    n_groups: Optional[int] = None  # Number of groups to use (None = use all)
-    n_images: Optional[int] = None  # DEPRECATED: Use n_groups instead (kept for backward compatibility)
-    n_subsample: Optional[int] = None  # Number of images to subsample for inference (independent control)
-    subsample_seed: Optional[int] = None  # Random seed for reproducible subsampling
-    neighbor_count: int = 4  # K value: number of nearest neighbors for grouping (use higher values like 7 for K choose C oversampling)
-    enable_oversampling: bool = False  # Explicit opt-in for K choose C oversampling (requires gridsize>1 and neighbor_pool_size>=C)
-    neighbor_pool_size: Optional[int] = None  # Pool size for K choose C oversampling (if None, defaults to neighbor_count)
-    debug: bool = False
-    output_dir: Path = Path("inference_outputs")
-    backend: Literal['tensorflow', 'pytorch'] = 'tensorflow'  # Backend selection: defaults to TensorFlow for backward compatibility
+    model_path: _PublicPath
+    test_data_file: _PublicPath
+    n_groups: _StrictNonNegativeInt | None = None  # Number of groups to use (None = use all)
+    n_images: _StrictNonNegativeInt | None = None  # DEPRECATED: Use n_groups instead (kept for backward compatibility)
+    n_subsample: _StrictNonNegativeInt | None = None  # Number of images to subsample for inference (independent control)
+    subsample_seed: _StrictNonNegativeInt | None = None  # Random seed for reproducible subsampling
+    neighbor_count: _StrictPositiveInt = 4  # K value: number of nearest neighbors for grouping (use higher values like 7 for K choose C oversampling)
+    enable_oversampling: _StrictBool = False  # Explicit opt-in for K choose C oversampling (requires gridsize>1 and neighbor_pool_size>=C)
+    neighbor_pool_size: _StrictPositiveInt | None = None  # Pool size for K choose C oversampling (if None, defaults to neighbor_count)
+    debug: _StrictBool = False
+    output_dir: _PublicPath = Path("inference_outputs")
+    backend: Annotated[Literal['tensorflow', 'pytorch'], BeforeValidator(_require_exact_str)] = 'tensorflow'  # Backend selection: defaults to TensorFlow for backward compatibility
     
     def __post_init__(self):
         """Handle backward compatibility for n_images → n_groups migration."""
