@@ -61,6 +61,8 @@ The following mappings are normative. Where not listed, identical field names/ty
     - Direct pass-through. Generator architecture for PINN models. Default: 'cnn'. Source of truth: the `architecture` `Literal` in `ptycho.config.config.ModelConfig` and `ptycho_torch.config_params.ModelConfig`.
   - `ModelConfig.resnet_width: Optional[int]` → `ModelConfig.resnet_width: Optional[int]`
     - Direct pass-through. Used by the hybrid_resnet generator to fix bottleneck width.
+  - `ModelConfig.generator_output_mode: Literal['real_imag','amp_phase_logits','amp_phase']` → `ModelConfig.generator_output_mode: {same three values}`
+    - Direct pass-through. `to_model_config` forwards the selected value, and `derive_model_spec` rejects disagreement between the public and Torch structural records.
   - `ModelConfig.amp_activation: str = 'silu'` (PyTorch field is an unvalidated `str`) → `ModelConfig.amp_activation: Literal['sigmoid','swish','softplus','relu'] = 'sigmoid'`
     - Map: silu/SiLU→swish; sigmoid/swish/softplus/relu pass through unchanged. Any other string is accepted by the unvalidated PyTorch field but rejected by `to_model_config`'s `activation_mapping` lookup, which raises `ValueError` for values outside `{silu, SiLU, sigmoid, swish, softplus, relu}`.
   - Public object policy:
@@ -106,8 +108,7 @@ The following mappings are normative. Where not listed, identical field names/ty
   - `DataConfig.grid_size` default `(2,2)` (`ptycho_torch.config_params.DataConfig`) vs `ModelConfig.gridsize` default `1` (`ptycho.config.config.ModelConfig`): a bridged run that never supplies an explicit `grid_size` starts from PyTorch's 2×2-grouping default, not TensorFlow's single-patch default. Set `grid_size` explicitly when parity with TF defaults is required.
   - `positions_provided`: `to_training_config` unconditionally hardcodes `True`, matching the TensorFlow `TrainingConfig.positions_provided` default. This diverges from the legacy `params.cfg` module-level default `False`, which is only in effect before `update_legacy_dict()` has ever run. PyTorch `TrainingConfig` has no `positions_provided` field to translate — the bridge value is not derived from any PyTorch input.
 
-- Non-bridged Torch-only knobs (no TensorFlow counterpart, or present-but-not-forwarded by the current adapter)
-  - `ModelConfig.generator_output_mode: Literal['real_imag','amp_phase_logits','amp_phase']` exists identically on both sides, both default `'real_imag'`, but `to_model_config` does not include it in the `kwargs` it forwards — the bridged TF config takes the TF default unless supplied via `overrides`.
+- Torch-only and asymmetric knobs
   - `ModelConfig.cnn_output_mode: Literal['amp_phase','real_imag']` — Torch-only CNN decoder output selector; no TF field.
   - `ModelConfig.physics_forward_mode: Literal['amplitude','rectangular_scaled']` — Torch-only forward-model physics selector; no TF field.
   - `ModelConfig.rect_s1s2_trainable: bool` — Torch-only; only consulted when `physics_forward_mode='rectangular_scaled'`; no TF field.
@@ -144,16 +145,16 @@ dataclasses:
 | Shared model identity | `ptycho.config.config.ModelConfig` | `config_bridge.to_model_config` maps declared shared fields |
 | Torch-only generator topology and structural physics/output choices | `ptycho_torch.config_params.ModelConfig` | The training factory's closed structural constructor; these fields determine graph/state-dict identity |
 | Optimization and training schedule | Canonical `TrainingConfig`; current Torch carrier `ptycho_torch.config_params.TrainingConfig` | Declared training bridge and factory constructor |
-| Devices, distributed strategy, loaders, logging, and trainer mechanics | `PyTorchExecutionConfig` | Passed to runtime orchestration only; it cannot be read by graph constructors |
+| Requested devices, distributed strategy, loaders, logging, and trainer mechanics | `ExecutionRequest` | Unresolved primitive runtime values plus explicit-input provenance; passed to capability resolution, never graph construction |
+| Effective devices, distributed strategy, loaders, logging, and trainer mechanics | `PyTorchExecutionConfig` | Capability-resolved runtime-only output; passed to runtime orchestration and never accepted as a new unresolved request |
 | Deprecated flat compatibility state | `ptycho.params.cfg` | One-way `update_legacy_dict`; never a source for new structured configuration |
 
-The Hybrid, FFNO-encoder, and spectral topology names historically exposed on
-`PyTorchExecutionConfig` are deprecated input aliases. The training factory maps
-an explicitly supplied alias one-way into Torch `ModelConfig`, warns, accepts an
-equal structural value, and rejects a conflicting structural value. Omitted
-execution aliases do not overwrite model defaults or explicit model input.
-Downstream generator construction reads only Torch `ModelConfig`. Unknown flat
-factory override names are rejected rather than silently dropped.
+Execution accepts no model-topology or optimizer aliases. Callers provide
+unresolved runtime intent through `ExecutionRequest`; capability resolution
+returns a runtime-only `PyTorchExecutionConfig`. Downstream generator
+construction reads topology only from Torch `ModelConfig`, while learning rate,
+scheduler, clipping, and accumulation resolve through Torch `TrainingConfig`.
+Unknown flat factory override names are rejected rather than silently dropped.
 - This applies to both backends to keep legacy modules in sync (e.g., physics routines, helpers).
 - `update_legacy_dict` performs KEY_MAPPINGS translation to legacy names and value serialization.
 

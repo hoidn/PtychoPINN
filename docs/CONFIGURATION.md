@@ -21,7 +21,7 @@ Configure the stage where a choice first changes behavior:
 | Optimization | `TrainingConfig` | Loss, optimizer family, schedule, epochs, batch size, sampling, and training paths |
 | Reconstruction/evaluation | `InferenceConfig` | Checkpoint, test data, grouping, and inference-only reconstruction behavior |
 | Torch execution mechanics | `ExecutionRequest` / explicit CLI runtime values | Requested device, DDP strategy, workers, precision, logging, and Lightning `Trainer` mechanics; capability resolution returns `PyTorchExecutionConfig` |
-| The measured diffraction, positions, or actual probe | The dataset/acquisition record | Physical inputs such as `diff3d`, coordinates, and `probeGuess`; these are data, not model settings |
+| The measured diffraction, positions, or actual probe | The dataset/acquisition record | Physical inputs such as `diff3d`, coordinates, `probeGuess`, and an optional exact simulation probe such as `probe_simulated`; these are data, not model settings |
 
 In normal CLI and study workflows, supply config-file values and explicit
 overrides. The entry point constructs and validates the dataclasses for you.
@@ -55,12 +55,16 @@ SimulationConfig.probe
   source + transform_pipeline + optional simulation mask
                          │
                          ▼
-             generated dataset probeGuess
-                         │
-                         ▼
-          loader / selected scaling contract
-             ├─ legacy: normalized probe carrier
-             └─ CI: probe_physical + probe_training
+             generated dataset acquisition record
+             ├─ probeGuess: transformed stored guess
+             └─ optional probe_simulated: exact post-set_probe illumination
+                                      │
+                                      ▼
+                       loader / selected scaling contract
+             ├─ legacy/non-CI: probeGuess ──► generic probe carrier
+             └─ grid-lines CI: probe_simulated when present,
+                               otherwise probeGuess
+                                      └─► probe_physical + probe_training
                          │
                          ▼
               differentiable forward model
@@ -73,15 +77,18 @@ SimulationConfig.probe
 |---|---|
 | `SimulationConfig.probe.transform_pipeline` | Constructs the probe used to simulate the dataset. Extension from 64×64 to 128×128, for example, happens here. |
 | `SimulationConfig.probe.mask_diameter` | Applies a simulation-time mask before diffraction is generated. Its result is baked into `probeGuess` and the dataset identity. |
-| Dataset `probeGuess` | The actual stored complex probe supplied by the acquisition or simulator. For a synthetic dataset, it already contains the configured simulation transforms and mask. |
-| CI `probe_physical` / `probe_training` | Named physical and normalized training views used by the count-intensity/CI contract. Legacy normalized-amplitude paths use their existing generic probe carrier instead. These are data representations, not independently chosen configs. |
+| Dataset `probeGuess` | The stored complex acquisition guess. For a synthetic dataset, it contains the configured simulation transforms and mask, but a simulator may subsequently normalize it before producing diffraction. |
+| Dataset `probe_simulated` | Optional synthetic grid-lines field containing the post-`set_probe` normalized illumination that actually generated the recorded counts. The writer records it on both train and test splits. The grid-lines CI runner selects it when present, falls back to `probeGuess` only when both splits omit it, and rejects a one-sided train/test field as mixed or corrupt provenance. |
+| CI `probe_physical` / `probe_training` | Named physical and normalized training views derived after selecting the dataset probe for the count-intensity/CI contract. Legacy normalized-amplitude paths use their existing generic probe carrier instead. These are data representations, not independently chosen configs. |
 | `ModelConfig.probe_mask`, `probe_mask_diameter`, `probe_mask_sigma` | Apply an additional model-time support prior inside the differentiable forward model. They do not alter the saved dataset. |
 | `ModelConfig.probe_big` | Historical name for the CNN decoder’s learned complementary outer spatial support. It does **not** resize, pad, extrapolate, or construct the physical probe. |
 
-For an exact matched synthetic replay, the stored `probeGuess` already embodies
-the simulation recipe. Therefore `ModelConfig.probe_mask=False` normally uses
-that probe without applying a second mask. Enable a model-time mask only when
-the experiment intentionally adds that support prior.
+For an exact matched synthetic replay, use the probe field selected by the
+dataset contract. `probeGuess` embodies the configured transform and mask, but
+grid-lines CI prefers `probe_simulated` because it also captures the simulator's
+post-`set_probe` normalization. `ModelConfig.probe_mask=False` then avoids
+applying a second model-time mask. Enable a model-time mask only when the
+experiment intentionally adds that support prior.
 
 Simulation probe settings and model probe settings are not automatically
 inherited from one another, and the current factory does not infer a model mask
@@ -161,24 +168,20 @@ a native Torch run it is the canonical compatibility projection used to update
 `params.cfg`; it is not a second training plan and does not construct the Torch
 model.
 
-The normal Torch training flow is:
+The supported modern Torch training flow is:
 
 ```text
-User / study / CLI values
+User / study / CLI values + optional ExecutionRequest
               │
               ▼
-    create_training_payload()
+    resolve_training_payload()
               │
               ├─ DataConfig
               ├─ Torch ModelConfig
               ├─ Torch TrainingConfig
               ├─ Torch InferenceConfig
-              ├─ canonical TrainingConfig projection
-              ├─ ExecutionRequest
+              ├─ canonical TrainingConfig compatibility projection
               └─ applied-overrides audit
-              │
-              ├─ canonical projection ──► scoped legacy bridge
-              │                              └─► params.cfg ──► named legacy leaves
               │
               ├─ shared model fields + Torch extensions + data joins
               │                         │
@@ -191,10 +194,18 @@ User / study / CLI values
               │                         ▼
               │                PtychoPINN_Lightning
               │
-              └─ ExecutionRequest ──► capability resolution
+              └─ capability resolution of ExecutionRequest
                                       └─► PyTorchExecutionConfig
                                            └─► Trainer / DataLoader setup
 ```
+
+`resolve_training_payload()` may observe runtime capabilities and emit notices,
+but it does not read or write `params.cfg`, mutate global configuration, or
+create filesystem state. Compatibility/native entry points use
+`create_training_payload()`, which performs the same resolution and then
+commits the canonical projection through the scoped legacy bridge. Modern
+workflow code keeps the resolved payload explicit; a surviving legacy leaf
+owns any narrower compatibility scope it needs.
 
 The canonical and Torch model records overlap only where the backends share a
 public concept. Torch-only topology and physics fields remain in the Torch
@@ -292,7 +303,9 @@ For the normative field mappings and CONFIG-001 lifecycle rules, see
 Configuration precedence is entry-point specific:
 
 - Generation CLIs apply retained explicit CLI overrides over `--simulation-config` values. Simulation files may be TOML, YAML, or JSON; omitted file fields use dataclass defaults, while omitting the file invokes the entry point's historical compatibility defaults.
-- Training and inference CLIs retain their documented `--config`/CLI precedence.
+- Training and inference resolution uses dataclass defaults, then config-file
+  values, then explicitly supplied CLI values. Omitted CLI options do not
+  overwrite file values.
 - Unknown simulation keys and conflicting legacy aliases are errors; not every dataclass field has a CLI flag.
 
 ## Parameter Reference
@@ -307,6 +320,7 @@ Supported probe pipeline operations are ordered and composable:
 |---|---|
 | `smooth:0.5` | Smooth complex amplitude and unwrapped phase at the current resolution. |
 | `pad_preserve:128` | Center-pad the prepared complex probe without changing its values. |
+| `pad:128` | Accepted legacy spelling for `pad_preserve:128`; use `pad_preserve` in new authored recipes. |
 | `interp:128` | Cubic real/imaginary interpolation. |
 | `pad_extrapolate:128` | Legacy behavior: fit and evaluate one quadratic phase over the entire target probe, including the center. |
 | `pad_extrapolate_boundary_matched:128` | Center-copy the prepared source exactly and solve a C0 harmonic Dirichlet correction only outside it, relaxing to the fitted quadratic at the target perimeter. This operation must be last. |
@@ -355,7 +369,7 @@ values—follow the [Custom PyTorch CDI Architecture
 Guide](workflows/custom_torch_architecture.md). It covers the additional Torch
 config, construction, `ModelSpec`, training, and inference boundaries.
 
-**Illustrative subset — full field list: `ModelConfig` in `ptycho/config/config.py`.** The `architecture` field's full 14-value `Literal` is enumerated authoritatively in `docs/specs/spec-ptycho-config-bridge.md` §3.
+**Illustrative subset — full field list: `ModelConfig` in `ptycho/config/config.py`.** The `architecture` field's authoritative 14-value `Literal` lives on that dataclass and is mirrored in `docs/specs/spec-ptycho-config-bridge.md` §3.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -379,7 +393,7 @@ config, construction, `ModelSpec`, training, and inference boundaries.
 | `probe_mask` | `bool` | `False` | If true, applies an additional model-time circular support mask inside the forward model. A simulation-time mask is already baked into dataset `probeGuess`. |
 | `pad_object` | `bool` | `True` | Controls padding behavior in the model. |
 | `probe_scale` | `float` | `4.0` | A normalization factor for the probe's amplitude. |
-| `gaussian_smoothing_sigma` | `float` | `0.0` | Standard deviation for the Gaussian filter applied to the probe. 0.0 means no smoothing. |
+| `gaussian_smoothing_sigma` | `float` | `0.0` | TensorFlow `ProbeIllumination` applies this Gaussian smoothing to the illuminated exit wave after multiplying object and probe; `0.0` disables it. Canonical Torch carries and seals the field for shared identity but does not currently consume it in model construction or the forward path. |
 
 ### PyTorch Execution Requests and Resolved Runtime
 

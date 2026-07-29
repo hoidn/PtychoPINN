@@ -162,9 +162,16 @@ The approved resolver substrate and family decisions below are implemented on
   `config.py` and `resolution.py`, in four classes with unequal drift
   protection. The dry-run ledger accounted for each class separately:
   1. field-ownership name sets (`_MODEL_INPUT_NAMES`,
-     `_TRAINING_INPUT_NAMES`, `_INFERENCE_INPUT_NAMES`) — hand-listed but
-     tripwired by import-time asserts against `dataclasses.fields()`;
-     drift is loud except under `python -O`, which strips asserts;
+     `_TRAINING_INPUT_NAMES`, `_INFERENCE_INPUT_NAMES`) — before adoption these
+     were hand-listed and tripwired by equality asserts against
+     `dataclasses.fields()`, with a `python -O` blind spot because optimization
+     strips asserts. A post-adoption follow-up now uses
+     `_MODEL_INPUT_NAMES = frozenset(f.name for f in fields(ModelConfig))`,
+     `_TRAINING_INPUT_NAMES = frozenset(f.name for f in fields(TrainingConfig)) - {"model"}`,
+     and `_INFERENCE_INPUT_NAMES = frozenset(f.name for f in fields(InferenceConfig)) - {"model"}`.
+     The tautological equality asserts are gone. The
+     model-versus-workflow disjointness asserts remain because a name collision
+     is a routing invariant that derivation from each class cannot prevent;
   2. closed value domains — public `Literal[...]` annotations had unchecked
      module-level frozenset twins (`_MODEL_ARCHITECTURES`,
      `_AMP_ACTIVATIONS`, `_PUBLIC_BACKENDS`, `_TORCH_LOSS_MODES`,
@@ -180,7 +187,8 @@ The approved resolver substrate and family decisions below are implemented on
      tripwire (the gap class that produced the pre-campaign `set_phi`
      hole).
   Classes 2–4 supplied the adapter-deletable duplication measured by the
-  ledger; class 1 is the ownership layer that survives adoption.
+  ledger; class 1 is the ownership layer that survives adoption in derived
+  form, with only the cross-owner disjointness assertions retained.
 - The pre-campaign validators `validate_model_config` /
   `validate_training_config` / `validate_inference_config` in
   `ptycho/config/config.py` have zero production callers but remain

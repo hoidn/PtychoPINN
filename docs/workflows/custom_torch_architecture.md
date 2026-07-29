@@ -50,12 +50,13 @@ to the package and must remain importable anywhere its artifacts are loaded.
 The learned module is only one component of the application:
 
 ```text
-public ModelConfig + TrainingConfig + PyTorchExecutionConfig
+public ModelConfig + TrainingConfig + ExecutionRequest
                               |
                               v
                     configuration factory
                               |
           Torch data/model/training/inference configs
+             + resolved PyTorchExecutionConfig
                     + sealed ModelSpec
                               |
                               v
@@ -274,7 +275,7 @@ In `ptycho/config/config.py`:
 4. validate the new fields and any architecture-specific restrictions.
 
 These are user-facing topology choices, so they belong to `ModelConfig`, not
-`TrainingConfig` or `PyTorchExecutionConfig`.
+`TrainingConfig`, `ExecutionRequest`, or resolved `PyTorchExecutionConfig`.
 
 ### 5.2 Add the resolved Torch configuration
 
@@ -477,16 +478,16 @@ known registered baseline.
 
 For architecture development, the public Python dataclasses are the clearest
 interface. Define one public `ModelConfig`, one public `TrainingConfig`, and a
-separate execution config:
+separate unresolved execution request:
 
 ```python
 from pathlib import Path
 
 from ptycho.config.config import (
     ModelConfig,
-    PyTorchExecutionConfig,
     TrainingConfig,
 )
+from ptycho_torch.execution_request import ExecutionRequest
 
 model_config = ModelConfig(
     N=64,
@@ -514,24 +515,37 @@ training_config = TrainingConfig(
     torch_loss_mode="poisson",
     optimizer="adam",
     scheduler="Default",
+    gradient_clip_val=None,
     subsample_seed=3,
 )
 
-execution_config = PyTorchExecutionConfig(
-    accelerator="cuda",
-    devices=1,
-    strategy="auto",
-    precision="32-true",
-    learning_rate=1e-3,
-    num_workers=0,
-    logger_backend="csv",
-    enable_checkpointing=True,
+torch_training_overrides = {
+    "learning_rate": 1e-3,
+    "accum_steps": 1,
+}
+
+execution_values = {
+    "accelerator": "cuda",
+    "devices": 1,
+    "strategy": "auto",
+    "precision": "32-true",
+    "num_workers": 0,
+    "logger_backend": "csv",
+    "enable_checkpointing": True,
+}
+execution_request = ExecutionRequest(
+    values=execution_values,
+    explicit_fields=frozenset(execution_values),
 )
 ```
 
-Use `TrainingConfig` for the scientific optimization recipe and
-`PyTorchExecutionConfig` for Lightning/runtime mechanics. Do not put network
-width or block count in the execution config.
+Use `TrainingConfig` for the public optimization recipe. Supply Torch-only
+optimization values such as `learning_rate` and `accum_steps` through the
+factory override; scheduler and clipping may enter through the public training
+record shown above. The factory resolves all four into Torch `TrainingConfig`.
+Use `ExecutionRequest` for unresolved Lightning/runtime intent; the factory
+returns `PyTorchExecutionConfig` only after capability resolution. Do not put
+network width, block count, or optimization fields in either execution carrier.
 
 ### Scaling profile
 
@@ -566,21 +580,22 @@ update_legacy_dict(params.cfg, training_config)
 train_data = RawData.from_file(str(training_config.train_data_file))
 test_data = RawData.from_file(str(training_config.test_data_file))
 ci_overrides = resolve_ci_profile()
+factory_overrides = {**ci_overrides, **torch_training_overrides}
 
 _, _, results = run_cdi_example_torch(
     train_data=train_data,
     test_data=test_data,
     config=training_config,
     do_stitching=False,
-    execution_config=execution_config,
-    overrides=ci_overrides,
+    execution_config=execution_request,
+    overrides=factory_overrides,
 )
 ```
 
 This example selects the coherent CI count-intensity profile. For the explicit
-legacy normalized-amplitude contract, replace `ci_overrides` with its paired
-scale fields through the same supported override boundary. Never pass only one
-half of a scale-contract pair.
+legacy normalized-amplitude contract, replace the CI portion of
+`factory_overrides` with its paired scale fields through the same supported
+override boundary. Never pass only one half of a scale-contract pair.
 
 The explicit call above performs the required legacy bridge before data access;
 the scoped workflow enforces the bridge again at its own boundary. It then

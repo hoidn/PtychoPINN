@@ -41,17 +41,24 @@ Key properties:
 
 ## 3. Configuration
 
-### 3.1. The Two Config Layers
+### 3.1. Scientific Configuration and Runtime Resolution
 
-1. **Canonical configs** (`TrainingConfig`, `InferenceConfig`, `ModelConfig`) describe
-   the model and data. They bridge to `params.cfg` and to the torch singletons.
-   `update_legacy_dict(params.cfg, config)` MUST run before any data
-   loading or legacy-module import. The CLIs do this automatically via
-   `ptycho_torch/config_factory.py`; programmatic callers must do it themselves.
-2. **`PyTorchExecutionConfig`** (`ptycho.config.config`) holds runtime-only knobs
-   (accelerator, workers, learning rate, scheduler, checkpointing, logger, structural
-   search fields). Execution config must NEVER populate `params.cfg`.
-   Full field catalog and validation rules: `specs/ptychodus_api_spec.md` §4.9.
+1. **Canonical and Torch scientific configs** describe data, model topology,
+   optimization, and inference. Learning rate, scheduler, gradient clipping,
+   and accumulation resolve into Torch `TrainingConfig`; topology resolves into
+   Torch `ModelConfig`. Compatibility entry points bridge the canonical
+   projection to `params.cfg` before a legacy consumer, while the modern Torch
+   payload resolver leaves global configuration and filesystem state untouched
+   and scopes any surviving legacy leaf separately.
+2. **`ExecutionRequest`** carries unresolved runtime-only intent and explicit
+   presence for accelerator, devices, workers, precision, logging,
+   checkpointing, and Lightning mechanics. Capability resolution returns
+   **`PyTorchExecutionConfig`** as an effective output carrier. Callers do not
+   construct that resolved carrier as a request, and neither form owns topology
+   or optimization.
+
+Full execution field catalog and validation rules:
+`specs/ptychodus_api_spec.md` §4.9.
 
 ```python
 from pathlib import Path
@@ -95,9 +102,8 @@ To implement, configure, train, save, and reload a new architecture, follow the
 generator-package README is a lower-level reference for existing modules.
 Structural search knobs for the hybrid/ResNet family (`hybrid_downsample_steps`,
 `hybrid_downsample_op`, `hybrid_resnet_blocks`, `hybrid_skip_style`,
-`hybrid_encoder_*`, `spectral_bottleneck_*`, `ffno_encoder_blocks`) live on the torch
-`ModelConfig` / `PyTorchExecutionConfig` and are intentionally NOT bridged to the
-canonical dataclasses.
+`hybrid_encoder_*`, `spectral_bottleneck_*`, `ffno_encoder_blocks`) live on
+Torch `ModelConfig` and are intentionally not owned by execution configuration.
 
 **CNN geometry requirement:** use the canonical geometry/scaling matrix in
 `docs/model_baselines.md`. In particular, a grouped `object_big=True` CNN must
@@ -246,6 +252,11 @@ Torch execution flags on the unified scripts: `--torch-accelerator`,
 `--torch-checkpoint-save-top-k`, `--torch-accumulate-grad-batches`. Dispatch happens
 in `ptycho/workflows/backend_selector.py` (see §7).
 
+The `--torch-*` prefix identifies the backend lane, not the configuration
+owner. The CLI builder sends accelerator, workers, logging, and checkpoint
+values to `ExecutionRequest`, while learning rate, scheduler, clipping, and
+accumulation form a separate Torch `TrainingConfig` patch.
+
 ### 4.2. Native CLI
 
 ```bash
@@ -262,29 +273,45 @@ Flags (`python -m ptycho_torch.train --help` is authoritative):
 | Group | Flags |
 |---|---|
 | Data/model | `--train_data_file`, `--test_data_file`, `--output_dir`, `--n_images` (number of groups), `--gridsize`, `--batch_size`, `--max_epochs`, `--config <yaml>` |
-| Execution | `--accelerator {auto,cuda,cpu,tpu,mps}`, `--deterministic/--no-deterministic`, `--num-workers`, `--learning-rate`, `--scheduler {Default,Exponential,MultiStage,Adaptive}`, `--accumulate-grad-batches`, `--quiet` |
+| Execution | `--accelerator {auto,cuda,cpu,tpu,mps}`, `--deterministic/--no-deterministic`, `--num-workers`, `--quiet` |
+| Optimization | `--learning-rate`, `--scheduler {Default,Exponential,MultiStage,Adaptive}`, `--accumulate-grad-batches` |
 | Checkpointing | `--enable-checkpointing/--disable-checkpointing`, `--checkpoint-save-top-k`, `--checkpoint-monitor` (default `val_loss`, auto-aliased to the model's actual metric, e.g. `poisson_val_loss`), `--checkpoint-mode`, `--early-stop-patience` |
 | Loss/probe | `--torch-loss-mode {poisson,mae}`, `--probe-mask/--no-probe-mask`, `--probe-mask-sigma`, `--probe-mask-diameter` |
 | Logging | `--logger {csv,tensorboard,mlflow,none}`, `--log-patch-stats`, `--patch-stats-limit` |
 | Deprecated | `--device` (→ `--accelerator`), `--disable_mlflow` (→ `--logger none` + `--quiet`) |
 
-The CLI builds `PyTorchExecutionConfig` through `ptycho_torch/cli/shared.py`
-(`resolve_accelerator`, `build_execution_config_from_args`, `validate_paths`), which
-also performs the mandatory `params.cfg` bridging via the config factory.
+The CLI builds an `ExecutionRequest` and a separate Torch training patch through
+`ptycho_torch/cli/shared.py`
+(`build_execution_request_from_args`, `build_training_config_patch_from_args`,
+`validate_paths`). The config factory capability-resolves the request to
+`PyTorchExecutionConfig` and performs the required compatibility projection for
+this native entry point.
 
 ### 4.3. Programmatic
 
 ```python
 from ptycho.raw_data import RawData
+from ptycho_torch.execution_request import ExecutionRequest
 from ptycho_torch.workflows.components import run_cdi_example_torch
 
 train_data = RawData.from_file(str(config.train_data_file))
 test_data = RawData.from_file(str(config.test_data_file)) if config.test_data_file else None
+execution_request = ExecutionRequest(
+    values={"accelerator": "cuda", "num_workers": 0},
+    explicit_fields=frozenset({"accelerator", "num_workers"}),
+)
+torch_training_overrides = {
+    "learning_rate": 1e-3,
+    "scheduler": "Default",
+    "gradient_clip_val": None,
+    "accum_steps": 1,
+}
 
 amplitude, phase, results = run_cdi_example_torch(
     train_data, test_data, config,
     do_stitching=True,            # False → (None, None, results) training-only
-    execution_config=exec_cfg,    # optional PyTorchExecutionConfig
+    execution_config=execution_request,
+    overrides=torch_training_overrides,
 )
 ```
 
