@@ -96,7 +96,7 @@ def test_wrapper_routes_spectral_resnet_bottleneck_from_explicit_models(monkeypa
 
     monkeypatch.setattr("scripts.studies.grid_lines_torch_runner.run_grid_lines_torch", fake_torch_run)
     monkeypatch.setattr(
-        "ptycho.evaluation.eval_reconstruction",
+        "ptycho.evaluation.eval_reconstruction_explicit",
         lambda pred, gt, label, **kwargs: _full_pair_metrics(0.02, 0.03),
     )
     monkeypatch.setattr(
@@ -549,7 +549,7 @@ def test_wrapper_emits_row_payloads_for_minimum_subset_execution(monkeypatch, tm
     monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.run_grid_lines_workflow", fake_tf_run)
     monkeypatch.setattr("scripts.studies.grid_lines_torch_runner.run_grid_lines_torch", fake_torch_run)
     monkeypatch.setattr(
-        "ptycho.evaluation.eval_reconstruction",
+        "ptycho.evaluation.eval_reconstruction_explicit",
         lambda pred, gt, label, **kwargs: _full_pair_metrics(0.01, 0.03),
     )
     monkeypatch.setattr(
@@ -685,7 +685,7 @@ def test_wrapper_preserves_distinct_tf_row_logs(monkeypatch, tmp_path):
 
     monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.run_grid_lines_workflow", fake_tf_run)
     monkeypatch.setattr(
-        "ptycho.evaluation.eval_reconstruction",
+        "ptycho.evaluation.eval_reconstruction_explicit",
         lambda pred, gt, label, **kwargs: _full_pair_metrics(0.02, 0.03),
     )
     monkeypatch.setattr(
@@ -760,7 +760,7 @@ def test_wrapper_uses_locked_epoch_budget_for_tf_rows_in_explicit_model_mode(mon
     monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.run_grid_lines_workflow", fake_tf_run)
     monkeypatch.setattr("scripts.studies.grid_lines_torch_runner.run_grid_lines_torch", fake_torch_run)
     monkeypatch.setattr(
-        "ptycho.evaluation.eval_reconstruction",
+        "ptycho.evaluation.eval_reconstruction_explicit",
         lambda pred, gt, label, **kwargs: _full_pair_metrics(0.01, 0.03),
     )
     monkeypatch.setattr(
@@ -837,7 +837,7 @@ def test_wrapper_backfills_tf_row_n_when_payload_emits_none(monkeypatch, tmp_pat
     monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.run_grid_lines_workflow", fake_tf_run)
     monkeypatch.setattr("scripts.studies.grid_lines_torch_runner.run_grid_lines_torch", fake_torch_run)
     monkeypatch.setattr(
-        "ptycho.evaluation.eval_reconstruction",
+        "ptycho.evaluation.eval_reconstruction_explicit",
         lambda pred, gt, label, **kwargs: _full_pair_metrics(0.01, 0.03),
     )
     monkeypatch.setattr(
@@ -953,7 +953,7 @@ def test_wrapper_writes_metrics_table_tex_models_reuse_path(monkeypatch, tmp_pat
         lambda output_dir, order: {},
     )
     monkeypatch.setattr(
-        "ptycho.evaluation.eval_reconstruction",
+        "ptycho.evaluation.eval_reconstruction_explicit",
         lambda pred, gt, label, **kwargs: _full_pair_metrics(0.01, 0.03),
     )
 
@@ -1050,7 +1050,7 @@ def test_wrapper_reuse_path_recovers_row_payloads_from_existing_artifacts(monkey
         lambda output_dir, order: {},
     )
     monkeypatch.setattr(
-        "ptycho.evaluation.eval_reconstruction",
+        "ptycho.evaluation.eval_reconstruction_explicit",
         lambda pred, gt, label, **kwargs: _full_pair_metrics(0.01, 0.03),
     )
 
@@ -1570,7 +1570,7 @@ def test_wrapper_reuse_path_does_not_attribute_tf_runtime_to_wrapper_repair_pass
         lambda output_dir, order: {},
     )
     monkeypatch.setattr(
-        "ptycho.evaluation.eval_reconstruction",
+        "ptycho.evaluation.eval_reconstruction_explicit",
         lambda pred, gt, label, **kwargs: _full_pair_metrics(0.01, 0.03),
     )
 
@@ -1864,7 +1864,7 @@ def test_wrapper_models_mode_honors_tf_model_n(monkeypatch, tmp_path):
     monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.build_grid_lines_datasets_by_n", fake_build_by_n)
     monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.run_grid_lines_workflow", fake_tf_run)
     monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.render_grid_lines_visuals", lambda output_dir, order: {})
-    monkeypatch.setattr("ptycho.evaluation.eval_reconstruction", lambda pred, gt, label, **kwargs: {"mse": float(np.mean(np.abs(pred - gt)))})
+    monkeypatch.setattr("ptycho.evaluation.eval_reconstruction_explicit", lambda pred, gt, label, **kwargs: {"mse": float(np.mean(np.abs(pred - gt)))})
 
     run_grid_lines_compare(
         N=128,
@@ -1943,7 +1943,7 @@ def test_wrapper_writes_metrics_by_model_for_selected_models(monkeypatch, tmp_pa
     monkeypatch.setattr("ptycho.interop.ptychovit.convert.convert_npz_split_to_hdf5_pair", fake_convert)
     monkeypatch.setattr("ptycho.interop.ptychovit.validate.validate_hdf5_pair", lambda dp_path, para_path: None)
     monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.render_grid_lines_visuals", lambda output_dir, order: {})
-    monkeypatch.setattr("ptycho.evaluation.eval_reconstruction", lambda pred, gt, label, **kwargs: {"mse": float(np.mean(np.abs(pred - gt)))})
+    monkeypatch.setattr("ptycho.evaluation.eval_reconstruction_explicit", lambda pred, gt, label, **kwargs: {"mse": float(np.mean(np.abs(pred - gt)))})
 
     run_grid_lines_compare(
         N=128,
@@ -2007,7 +2007,7 @@ def test_wrapper_does_not_reuse_precomputed_recons_by_default(monkeypatch, tmp_p
     monkeypatch.setattr("scripts.studies.grid_lines_torch_runner.run_grid_lines_torch", fake_torch_run)
     monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.render_grid_lines_visuals", lambda output_dir, order: {})
     monkeypatch.setattr(
-        "ptycho.evaluation.eval_reconstruction",
+        "ptycho.evaluation.eval_reconstruction_explicit",
         lambda pred, gt, label, **kwargs: {"mse": float(np.mean(np.abs(pred - gt)))},
     )
 
@@ -2053,7 +2053,7 @@ def test_wrapper_reuses_precomputed_recons_when_opted_in(monkeypatch, tmp_path):
     monkeypatch.setattr("scripts.studies.grid_lines_torch_runner.run_grid_lines_torch", fake_torch_run)
     monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.render_grid_lines_visuals", lambda output_dir, order: {})
     monkeypatch.setattr(
-        "ptycho.evaluation.eval_reconstruction",
+        "ptycho.evaluation.eval_reconstruction_explicit",
         lambda pred, gt, label, **kwargs: {"mse": float(np.mean(np.abs(pred - gt)))},
     )
 
@@ -2086,7 +2086,11 @@ def test_harmonized_metrics_run_on_canonical_gt_grid(tmp_path):
     pred = (np.ones((128, 128)) + 1j * np.ones((128, 128))).astype(np.complex64)
     np.savez(pred_path, YY_pred=pred, amp=np.abs(pred), phase=np.angle(pred))
 
-    out = evaluate_selected_models({"pinn_hybrid": pred_path}, gt_path)
+    out = evaluate_selected_models(
+        {"pinn_hybrid": pred_path},
+        gt_path,
+        trim_offset=4,
+    )
     assert out["pinn_hybrid"]["reference_shape"] == [392, 392]
 
 
@@ -2110,10 +2114,17 @@ def test_evaluate_selected_models_does_not_pass_single_image_frc(monkeypatch, tm
         captured["kwargs"] = dict(kwargs)
         return {"mse": 0.0}
 
-    monkeypatch.setattr("ptycho.evaluation.eval_reconstruction", fake_eval)
+    monkeypatch.setattr(
+        "ptycho.evaluation.eval_reconstruction_explicit",
+        fake_eval,
+    )
 
-    _ = evaluate_selected_models({"pinn_hybrid": pred_path}, gt_path)
-    assert not any(key.startswith("single_image_frc") for key in captured["kwargs"])
+    _ = evaluate_selected_models(
+        {"pinn_hybrid": pred_path},
+        gt_path,
+        trim_offset=4,
+    )
+    assert captured["kwargs"] == {"trim_offset": 4}
 
 
 def test_evaluate_selected_models_omits_binomial_single_image_frc_metrics(monkeypatch, tmp_path):
@@ -2133,9 +2144,16 @@ def test_evaluate_selected_models_omits_binomial_single_image_frc_metrics(monkey
         _ = (pred_obj, gt_obj, label, kwargs)
         return {"mse": 0.0}
 
-    monkeypatch.setattr("ptycho.evaluation.eval_reconstruction", fake_eval)
+    monkeypatch.setattr(
+        "ptycho.evaluation.eval_reconstruction_explicit",
+        fake_eval,
+    )
 
-    out = evaluate_selected_models({"pinn_hybrid": pred_path}, gt_path)
+    out = evaluate_selected_models(
+        {"pinn_hybrid": pred_path},
+        gt_path,
+        trim_offset=4,
+    )
     metrics = out["pinn_hybrid"]["metrics"]
     assert "single_frc50_binomial" not in metrics
     assert "single_frc1over7_binomial" not in metrics
@@ -2658,7 +2676,7 @@ def test_external_raw_mode_uses_shared_builder_not_synthetic_builder(monkeypatch
     monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.build_grid_lines_datasets_by_n", fail_synthetic_builder)
     monkeypatch.setattr("scripts.studies.grid_lines_torch_runner.run_grid_lines_torch", fake_torch_run)
     monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.render_grid_lines_visuals", lambda output_dir, order: {})
-    monkeypatch.setattr("ptycho.evaluation.eval_reconstruction", lambda pred, gt, label, **kwargs: {"mse": 0.0})
+    monkeypatch.setattr("ptycho.evaluation.eval_reconstruction_explicit", lambda pred, gt, label, **kwargs: {"mse": 0.0})
 
     run_grid_lines_compare(
         N=64,
@@ -2700,7 +2718,7 @@ def test_external_raw_mode_sets_torch_reassembly_mode_position(monkeypatch, tmp_
         },
     )
     monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.render_grid_lines_visuals", lambda output_dir, order: {})
-    monkeypatch.setattr("ptycho.evaluation.eval_reconstruction", lambda pred, gt, label, **kwargs: {"mse": 0.0})
+    monkeypatch.setattr("ptycho.evaluation.eval_reconstruction_explicit", lambda pred, gt, label, **kwargs: {"mse": 0.0})
 
     captured = {}
 
@@ -2753,7 +2771,7 @@ def test_external_mode_passes_position_strategy_to_torch_runner(monkeypatch, tmp
         },
     )
     monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.render_grid_lines_visuals", lambda output_dir, order: {})
-    monkeypatch.setattr("ptycho.evaluation.eval_reconstruction", lambda pred, gt, label, **kwargs: {"mse": 0.0})
+    monkeypatch.setattr("ptycho.evaluation.eval_reconstruction_explicit", lambda pred, gt, label, **kwargs: {"mse": 0.0})
 
     captured = {}
 

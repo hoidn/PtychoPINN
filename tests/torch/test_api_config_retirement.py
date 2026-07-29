@@ -1,12 +1,18 @@
 """Focused contracts for retiring loose legacy API configuration loading."""
 
+from copy import deepcopy
 from collections import UserDict
+import json
 from pathlib import Path
 
 import pytest
 
+import ptycho.params as params
+from ptycho.config.config import update_legacy_dict
+from ptycho.config.legacy_state import legacy_params_scope
 from ptycho_torch.api import api_helper
-from ptycho_torch.api.base_api import ConfigManager
+from ptycho_torch.api.base_api import ConfigManager, PtychoModel
+from ptycho_torch.config_bridge import to_model_config, to_training_config
 from ptycho_torch.config_params import (
     DataConfig,
     DatagenConfig,
@@ -102,6 +108,123 @@ def test_loose_configuration_entry_points_are_removed():
         "update_manager_with_json",
     ):
         assert not hasattr(api_helper, name)
+
+
+def test_save_pytorch_projects_resolved_owners_without_reading_legacy_global(
+    tmp_path,
+):
+    data_config = DataConfig(
+        N=128,
+        C=4,
+        K=7,
+        grid_size=(2, 2),
+        nphotons=2.5e6,
+    )
+    model_config = ModelConfig(
+        architecture="fno",
+        fno_modes=9,
+        fno_width=24,
+    )
+    training_config = TrainingConfig(
+        train_data_file=str(tmp_path / "train.npz"),
+        test_data_file=str(tmp_path / "test.npz"),
+        output_dir=str(tmp_path / "training"),
+        n_groups=23,
+        epochs=7,
+        batch_size=3,
+    )
+    records_before = (
+        deepcopy(data_config),
+        deepcopy(model_config),
+        deepcopy(training_config),
+    )
+    model = PtychoModel(
+        data_config=data_config,
+        model_config=model_config,
+        training_config=training_config,
+    )
+    model_records_before = (
+        deepcopy(model.data_config),
+        deepcopy(model.model_config),
+        deepcopy(model.training_config),
+    )
+
+    tf_model_config = to_model_config(data_config, model_config)
+    tf_training_config = to_training_config(
+        tf_model_config,
+        data_config,
+        model_config,
+        training_config,
+        overrides={
+            "train_data_file": training_config.train_data_file,
+            "test_data_file": training_config.test_data_file,
+            "output_dir": training_config.output_dir,
+            "n_groups": training_config.n_groups,
+            "nphotons": data_config.nphotons,
+        },
+    )
+    expected_projection = {}
+    update_legacy_dict(expected_projection, tf_training_config)
+    expected_snapshot = json.loads(
+        json.dumps(expected_projection, default=str)
+    )
+
+    checkpoint = tmp_path / "source" / "best-checkpoint.ckpt"
+    checkpoint.parent.mkdir()
+    checkpoint.write_bytes(b"checkpoint-bytes")
+    bundle = tmp_path / "bundle"
+    poisoned_global = {"N": -999, "ambient_poison": object()}
+
+    with legacy_params_scope():
+        params.cfg.clear()
+        params.cfg.update(poisoned_global)
+        manifest_path = model.save_pytorch(
+            str(bundle),
+            checkpoint_path=str(checkpoint),
+        )
+        assert params.cfg == poisoned_global
+
+    manifest = json.loads(manifest_path.read_text())
+
+    assert list(manifest) == [
+        "backend",
+        "checkpoint",
+        "params_cfg_snapshot",
+        "version",
+        "notes",
+    ]
+    assert manifest == {
+        "backend": "pytorch",
+        "checkpoint": checkpoint.name,
+        "params_cfg_snapshot": expected_snapshot,
+        "version": "1.0",
+        "notes": "Minimal PyTorch persistence shim (Phase R reactivation)",
+    }
+    assert checkpoint.read_bytes() == b"checkpoint-bytes"
+    assert not (bundle / checkpoint.name).exists()
+    assert data_config == records_before[0]
+    assert model_config == records_before[1]
+    assert training_config == records_before[2]
+    assert model.data_config == model_records_before[0]
+    assert model.model_config == model_records_before[1]
+    assert model.training_config == model_records_before[2]
+
+
+def test_save_pytorch_preserves_missing_checkpoint_error(tmp_path):
+    model = PtychoModel()
+    missing_checkpoint = tmp_path / "missing.ckpt"
+
+    with legacy_params_scope():
+        params.cfg.clear()
+        params.cfg["ambient_poison"] = True
+        with pytest.raises(
+            FileNotFoundError,
+            match=f"Checkpoint not found: {missing_checkpoint}",
+        ):
+            model.save_pytorch(
+                str(tmp_path / "bundle"),
+                checkpoint_path=str(missing_checkpoint),
+            )
 
 
 @pytest.mark.parametrize(

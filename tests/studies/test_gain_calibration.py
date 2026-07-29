@@ -835,11 +835,15 @@ def test_run_gain_point_uses_selected_checkpoint_for_derived_evidence(
     selected_checkpoint = tmp_path / "selected.ckpt"
     selected_checkpoint.write_bytes(b"selected checkpoint state")
     observed_models = []
+    observed_trim_offsets = []
 
     point = SimpleNamespace(
         config={"seed": 3, "epochs": 5},
         runner_cfg=object(),
-        dataset=SimpleNamespace(id="lines128_reference"),
+        dataset=SimpleNamespace(
+            id="lines128_reference",
+            recipe=SimpleNamespace(offset=4),
+        ),
     )
     materialized = SimpleNamespace(
         recipe_fingerprint_sha256="recipe-sha",
@@ -876,8 +880,9 @@ def test_run_gain_point_uses_selected_checkpoint_for_derived_evidence(
         classmethod(lambda cls, *a, **k: selected_checkpoint_model),
     )
 
-    def fake_evaluate(model, *args, **kwargs):
+    def fake_evaluate(model, *args, trim_offset, **kwargs):
         observed_models.append(model)
+        observed_trim_offsets.append(trim_offset)
         return {
             "amp_ssim": 0.90,
             "phase_ssim": 0.91,
@@ -906,6 +911,7 @@ def test_run_gain_point_uses_selected_checkpoint_for_derived_evidence(
     )
 
     assert observed_models == [selected_checkpoint_model] * 3
+    assert observed_trim_offsets == [4]
     assert evidence["selected_checkpoint"] == str(selected_checkpoint)
     assert "best_checkpoint" not in evidence
 
@@ -930,7 +936,10 @@ def test_run_evidence_publication_is_atomic_and_no_clobber(
     point = SimpleNamespace(
         config={"seed": 3, "epochs": 0 if mode == "init_stats" else 5},
         runner_cfg=runner_cfg,
-        dataset=SimpleNamespace(id="lines128_reference"),
+        dataset=SimpleNamespace(
+            id="lines128_reference",
+            recipe=SimpleNamespace(offset=4),
+        ),
     )
     materialized = SimpleNamespace(
         recipe_fingerprint_sha256="recipe-sha",

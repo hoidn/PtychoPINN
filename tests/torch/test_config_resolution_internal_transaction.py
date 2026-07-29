@@ -14,8 +14,6 @@ from ptycho import params
 from ptycho_torch.execution_request import (
     ExecutionCapabilities,
     ExecutionRequest,
-    TOPOLOGY_EXECUTION_COMPAT_FIELDS,
-    normalize_execution_input,
 )
 
 
@@ -189,48 +187,17 @@ def test_inference_resolver_does_not_invent_patch_weighting_policy(
     _resolve_inference_patch(tmp_path, {"patch_weighting": "central_mask"})
 
 
-def test_all_execution_topology_compatibility_inputs_identity_map_to_model() -> None:
+def test_execution_compatibility_resolution_surface_is_absent() -> None:
     resolution = importlib.import_module("ptycho_torch.config_resolution")
 
-    assert resolution.DEPRECATED_EXECUTION_MODEL_ALIASES == {
-        name: name for name in TOPOLOGY_EXECUTION_COMPAT_FIELDS
-    }
-
-    request = ExecutionRequest(
-        values={
-            "hybrid_skip_style": "concat",
-            "ffno_encoder_norm": "layer",
-            "spectral_bottleneck_gate_mode": "per_block",
-        },
-        explicit_fields=frozenset(
-            {
-                "hybrid_skip_style",
-                "ffno_encoder_norm",
-                "spectral_bottleneck_gate_mode",
-            }
-        ),
-    )
-    normalized_execution = normalize_execution_input(
-        request,
-        mode="training",
-    )
-    assert normalized_execution is not None
-
-    normalized = resolution.normalize_training_patch(
-        {},
-        normalized_execution=normalized_execution,
-    )
-
-    assert normalized.values["hybrid_skip_style"] == "concat"
-    assert normalized.values["ffno_encoder_norm"] == "layer"
-    assert normalized.values["spectral_bottleneck_gate_mode"] == "per_block"
-    assert normalized.aliases == {
-        "ffno_encoder_norm": ("ffno_encoder_norm",),
-        "hybrid_skip_style": ("hybrid_skip_style",),
-        "spectral_bottleneck_gate_mode": (
-            "spectral_bottleneck_gate_mode",
-        ),
-    }
+    assert not hasattr(resolution, "DEPRECATED_EXECUTION_MODEL_ALIASES")
+    assert not hasattr(resolution, "resolve_optimizer_ownership")
+    assert "normalized_execution" not in inspect.signature(
+        resolution.normalize_training_patch
+    ).parameters
+    assert "normalized_execution" not in inspect.signature(
+        resolution.resolve_training_bundle
+    ).parameters
 
 
 def test_training_and_inference_patches_reject_sorted_unknown_names() -> None:
@@ -402,41 +369,6 @@ def test_inference_resolution_is_return_new_and_phase_aware(
         )
 
 
-@pytest.mark.parametrize(
-    ("field_name", "compatibility_value", "canonical_value"),
-    [
-        ("learning_rate", 2e-3, 3e-3),
-        ("scheduler", "Exponential", "WarmupCosine"),
-        ("gradient_clip_val", 2.0, 3.0),
-        ("gradient_clip_algorithm", "value", "agc"),
-        ("accum_steps", 2, 3),
-    ],
-)
-def test_canonical_training_owner_wins_over_all_optimizer_compatibility_inputs(
-    field_name: str,
-    compatibility_value: object,
-    canonical_value: object,
-) -> None:
-    resolution = importlib.import_module("ptycho_torch.config_resolution")
-    normalized_execution = normalize_execution_input(
-        ExecutionRequest(
-            values={field_name: compatibility_value},
-            explicit_fields=frozenset({field_name}),
-        ),
-        mode="training",
-    )
-    assert normalized_execution is not None
-
-    resolved, provenance = resolution.resolve_optimizer_ownership(
-        training_baseline=None,
-        normalized_execution=normalized_execution,
-        canonical_training_patch={field_name: canonical_value},
-    )
-
-    assert getattr(resolved, field_name) == canonical_value
-    assert provenance[field_name] == "canonical_override"
-
-
 @pytest.fixture
 def training_npz(tmp_path: Path) -> Path:
     path = tmp_path / "train.npz"
@@ -444,7 +376,7 @@ def training_npz(tmp_path: Path) -> Path:
     return path
 
 
-def test_training_factory_resolves_execution_request_and_canonical_precedence(
+def test_training_factory_resolves_runtime_request_and_canonical_owners(
     training_npz: Path,
     tmp_path: Path,
 ) -> None:
@@ -453,97 +385,238 @@ def test_training_factory_resolves_execution_request_and_canonical_precedence(
     execution = ExecutionRequest(
         values={
             "accelerator": "cpu",
-            "learning_rate": 4e-3,
-            "hybrid_skip_style": "concat",
-            "ffno_encoder_modes": 10,
+            "devices": "auto",
         },
         explicit_fields=frozenset(
             {
                 "accelerator",
-                "learning_rate",
-                "hybrid_skip_style",
-                "ffno_encoder_modes",
+                "devices",
             }
-        ),
-    )
-
-    with pytest.warns(DeprecationWarning, match="topology fields"):
-        payload = create_training_payload(
-            train_data_file=training_npz,
-            output_dir=tmp_path / "out",
-            overrides={
-                "n_groups": 4,
-                "gridsize": 1,
-                "learning_rate": 2e-3,
-                "architecture": "hybrid_resnet",
-            },
-            execution_config=execution,
-            execution_capabilities=ExecutionCapabilities(
-                cuda_available=False,
-                cuda_device_count=0,
-            ),
-        )
-
-    assert payload.pt_model_config.hybrid_skip_style == "concat"
-    assert payload.pt_model_config.ffno_encoder_modes == 10
-    assert payload.pt_training_config.learning_rate == 2e-3
-    assert payload.execution_config.accelerator == "cpu"
-    assert payload.overrides_applied["training_config_provenance"][
-        "learning_rate"
-    ] == "canonical_override"
-    assert payload.overrides_applied["topology_compatibility"] == {
-        "ffno_encoder_modes": "ffno_encoder_modes",
-        "hybrid_skip_style": "hybrid_skip_style",
-    }
-
-
-def test_factory_mirrors_effective_optimizer_owner_into_runtime_compatibility(
-    training_npz: Path,
-    tmp_path: Path,
-) -> None:
-    from ptycho_torch.config_factory import create_training_payload
-
-    compatibility_values = {
-        "learning_rate": 2e-3,
-        "scheduler": "Exponential",
-        "gradient_clip_val": 2.0,
-        "gradient_clip_algorithm": "value",
-        "accum_steps": 2,
-    }
-    canonical_values = {
-        "learning_rate": 3e-3,
-        "scheduler": "WarmupCosine",
-        "gradient_clip_val": 3.0,
-        "gradient_clip_algorithm": "agc",
-        "accum_steps": 3,
-    }
-    request = ExecutionRequest(
-        values={"accelerator": "cpu", **compatibility_values},
-        explicit_fields=frozenset(
-            {"accelerator", *compatibility_values}
         ),
     )
 
     payload = create_training_payload(
         train_data_file=training_npz,
         output_dir=tmp_path / "out",
-        overrides={"n_groups": 4, **canonical_values},
-        execution_config=request,
-        execution_capabilities=ExecutionCapabilities(
-            cuda_available=False,
-            cuda_device_count=0,
-        ),
+        overrides={
+            "n_groups": 4,
+            "gridsize": 1,
+            "learning_rate": 2e-3,
+            "scheduler": "WarmupCosine",
+            "gradient_clip_val": 3.0,
+            "gradient_clip_algorithm": "agc",
+            "accum_steps": 3,
+            "architecture": "hybrid_resnet",
+            "hybrid_skip_style": "concat",
+            "ffno_encoder_modes": 10,
+        },
+        execution_config=execution,
     )
 
-    for field_name, expected in canonical_values.items():
-        assert getattr(payload.pt_training_config, field_name) == expected
-        assert getattr(payload.execution_config, field_name) == expected
-        assert payload.overrides_applied["training_config_provenance"][
-            field_name
-        ] == "canonical_override"
+    assert payload.pt_model_config.hybrid_skip_style == "concat"
+    assert payload.pt_model_config.ffno_encoder_modes == 10
+    assert payload.pt_training_config.learning_rate == 2e-3
+    assert payload.pt_training_config.scheduler == "WarmupCosine"
+    assert payload.pt_training_config.gradient_clip_val == 3.0
+    assert payload.pt_training_config.gradient_clip_algorithm == "agc"
+    assert payload.pt_training_config.accum_steps == 3
+    assert payload.execution_config.accelerator == "cpu"
+    assert payload.execution_config.devices == 1
+    for retired_name in (
+        "learning_rate",
+        "scheduler",
+        "gradient_clip_val",
+        "gradient_clip_algorithm",
+        "accum_steps",
+        "hybrid_skip_style",
+        "ffno_encoder_modes",
+    ):
+        assert not hasattr(payload.execution_config, retired_name)
+    assert payload.overrides_applied["training_config_provenance"][
+        "learning_rate"
+    ] == "canonical_override"
+    assert "topology_compatibility" not in payload.overrides_applied
     assert payload.overrides_applied["execution_runtime"][
         "explicit_fields"
-    ] == sorted(request.explicit_fields)
+    ] == sorted(execution.explicit_fields)
+
+
+class _ForbiddenLegacyMapping:
+    """Explode on every mapping operation to prove a path is global-free."""
+
+    def __getattribute__(self, name: str):
+        if name in {"__class__", "__repr__"}:
+            return object.__getattribute__(self, name)
+        raise AssertionError("pure payload resolution accessed params.cfg")
+
+
+def _notice_records(notices) -> tuple[tuple[type[Warning], str], ...]:
+    return tuple((notice.category, notice.message) for notice in notices)
+
+
+def test_resolve_training_payload_is_global_free_and_matches_compatibility_payload(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import ptycho_torch.config_factory as factory
+
+    train_file = tmp_path / "train-with-fallback.npz"
+    np.savez(train_file, diffraction=np.ones((1, 64, 64), dtype=np.float32))
+    original_mapping = params.cfg
+    original_contents = dict(params.cfg)
+    original_sealed = params._sealed
+    emitted: list[tuple[tuple[type[Warning], str], ...]] = []
+    monkeypatch.setattr(
+        factory,
+        "_emit_resolution_notices",
+        lambda notices: emitted.append(_notice_records(notices)),
+    )
+    kwargs = {
+        "train_data_file": train_file,
+        "output_dir": tmp_path / "out",
+        "overrides": {"n_groups": 1, "gridsize": 1},
+        "execution_config": ExecutionRequest(
+            values={"accelerator": "cpu"},
+            explicit_fields=frozenset({"accelerator"}),
+        ),
+    }
+
+    try:
+        with monkeypatch.context() as isolated:
+            isolated.setattr(params, "cfg", _ForbiddenLegacyMapping())
+            pure_payload = factory.resolve_training_payload(**kwargs)
+            assert params.cfg.__class__ is _ForbiddenLegacyMapping
+            assert params._sealed is original_sealed
+        pure_notices = emitted.pop()
+
+        params.unseal()
+        params.cfg.clear()
+        compatibility_payload = factory.create_training_payload(**kwargs)
+        compatibility_notices = emitted.pop()
+
+        assert (
+            pure_payload.tf_training_config
+            == compatibility_payload.tf_training_config
+        )
+        assert pure_payload.pt_data_config == compatibility_payload.pt_data_config
+        assert (
+            pure_payload.pt_training_config
+            == compatibility_payload.pt_training_config
+        )
+        assert (
+            pure_payload.pt_inference_config
+            == compatibility_payload.pt_inference_config
+        )
+        assert pure_payload.execution_config == compatibility_payload.execution_config
+        assert pure_payload.overrides_applied == (
+            compatibility_payload.overrides_applied
+        )
+        assert pure_payload.model_spec.to_payload() == (
+            compatibility_payload.model_spec.to_payload()
+        )
+        assert compatibility_notices[: len(pure_notices)] == pure_notices
+        assert any("fallback N=64" in message for _, message in pure_notices)
+        assert params.cfg["N"] == 64
+        assert params.cfg["gridsize"] == 1
+    finally:
+        assert params.cfg is original_mapping
+        params.unseal()
+        params.cfg.clear()
+        params.cfg.update(original_contents)
+        if original_sealed:
+            params.seal()
+
+
+def test_resolve_inference_payload_is_global_free_and_matches_compatibility_payload(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import ptycho_torch.config_factory as factory
+
+    model_path = tmp_path / "model"
+    model_path.mkdir()
+    (model_path / "wts.h5.zip").touch()
+    test_file = tmp_path / "test-with-fallback.npz"
+    np.savez(test_file, diffraction=np.ones((1, 64, 64), dtype=np.float32))
+    original_mapping = params.cfg
+    original_contents = dict(params.cfg)
+    original_sealed = params._sealed
+    emitted: list[tuple[tuple[type[Warning], str], ...]] = []
+    monkeypatch.setattr(
+        factory,
+        "_emit_resolution_notices",
+        lambda notices: emitted.append(_notice_records(notices)),
+    )
+    kwargs = {
+        "model_path": model_path,
+        "test_data_file": test_file,
+        "output_dir": tmp_path / "out",
+        "overrides": {"n_groups": 1, "gridsize": 1},
+        "execution_config": ExecutionRequest(
+            values={"accelerator": "cpu"},
+            explicit_fields=frozenset({"accelerator"}),
+        ),
+    }
+
+    try:
+        with monkeypatch.context() as isolated:
+            isolated.setattr(params, "cfg", _ForbiddenLegacyMapping())
+            pure_payload = factory.resolve_inference_payload(**kwargs)
+            assert params.cfg.__class__ is _ForbiddenLegacyMapping
+            assert params._sealed is original_sealed
+        pure_notices = emitted.pop()
+
+        params.unseal()
+        params.cfg.clear()
+        compatibility_payload = factory.create_inference_payload(**kwargs)
+        compatibility_notices = emitted.pop()
+
+        assert pure_payload == compatibility_payload
+        assert compatibility_notices[: len(pure_notices)] == pure_notices
+        assert any("fallback N=64" in message for _, message in pure_notices)
+        assert params.cfg["N"] == 64
+        assert params.cfg["gridsize"] == 1
+    finally:
+        assert params.cfg is original_mapping
+        params.unseal()
+        params.cfg.clear()
+        params.cfg.update(original_contents)
+        if original_sealed:
+            params.seal()
+
+
+def test_factory_rejects_bare_resolved_carrier_before_observation_or_effects(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from ptycho.config.config import PyTorchExecutionConfig
+    import ptycho_torch.config_factory as factory
+    import ptycho_torch.execution_request as execution_request
+
+    original_contents = dict(params.cfg)
+    original_sealed = params._sealed
+
+    def fail_if_called(*_args, **_kwargs):
+        raise AssertionError("factory observed resources before rejecting carrier")
+
+    monkeypatch.setattr(
+        execution_request,
+        "observe_execution_capabilities",
+        fail_if_called,
+    )
+    monkeypatch.setattr(factory, "observe_probe_size", fail_if_called)
+    monkeypatch.setattr(factory, "populate_legacy_params", fail_if_called)
+
+    with pytest.raises(TypeError, match="ExecutionRequest"):
+        factory.create_training_payload(
+            train_data_file=tmp_path / "missing.npz",
+            output_dir=tmp_path / "out",
+            overrides={"n_groups": 4},
+            execution_config=PyTorchExecutionConfig(),
+        )
+
+    assert params.cfg == original_contents
+    assert params._sealed is original_sealed
 
 
 def test_factory_classifies_unknown_input_before_resource_observation(
@@ -671,13 +744,8 @@ def test_failed_resolution_defers_warnings_and_filesystem_effects(
 
     output_dir = tmp_path / "must-not-exist"
     execution = ExecutionRequest(
-        values={
-            "accelerator": "cpu",
-            "hybrid_skip_style": "concat",
-        },
-        explicit_fields=frozenset(
-            {"accelerator", "hybrid_skip_style"}
-        ),
+        values={"accelerator": "cpu"},
+        explicit_fields=frozenset({"accelerator"}),
     )
 
     with warnings.catch_warnings(record=True) as caught:

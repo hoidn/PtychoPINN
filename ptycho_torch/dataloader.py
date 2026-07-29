@@ -781,6 +781,9 @@ class PtychoDataset(Dataset):
         #Set basic attributes
         instance.model_config = model_config
         instance.data_config = data_config
+        instance.object_compatibility = resolve_model_object_compatibility(
+            model_config
+        )
         instance.ci_contract_active = _ci_profile_active(
             model_config,
             data_config,

@@ -501,7 +501,16 @@ def _copy_metrics_csv(work: Path, point_dir: Path) -> str | None:
     return target.name
 
 
-def _evaluate_point(model, runner_cfg, config, test_data, test_metadata, rung_label):
+def _evaluate_point(
+    model,
+    runner_cfg,
+    config,
+    test_data,
+    test_metadata,
+    rung_label,
+    *,
+    trim_offset,
+):
     """Ladder-identical evaluation: inference, dual stitch, gated metrics."""
     from dataclasses import replace as dc_replace
 
@@ -533,8 +542,11 @@ def _evaluate_point(model, runner_cfg, config, test_data, test_metadata, rung_la
         )
     from ptycho import evaluation
 
-    metrics = evaluation.eval_reconstruction(
-        gated[..., None], ground_truth[..., None], label=rung_label
+    metrics = evaluation.eval_reconstruction_explicit(
+        gated[..., None],
+        ground_truth[..., None],
+        label=rung_label,
+        trim_offset=trim_offset,
     )
     amp_mae, phase_mae = _metric_pair(metrics, "mae")
     amp_ssim, phase_ssim = _metric_pair(metrics, "ssim")
@@ -719,6 +731,7 @@ def _run_point_common(request: GainPointRequest, *, init_stats: bool) -> dict[st
             test_data,
             test_metadata,
             request.tag,
+            trim_offset=int(point.dataset.recipe.offset),
         )
         evidence["decoder_stats"] = [
             decoder_output_statistics(

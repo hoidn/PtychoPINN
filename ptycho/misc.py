@@ -33,7 +33,14 @@ from ptycho import params
 from datetime import datetime
 
 # TODO multiple creations of this directory
+def get_path_prefix_explicit(*, label, output_prefix, timestamp):
+    """Build an output prefix from caller-owned primitive values."""
+    date_time = timestamp.replace('/', '-').replace(':', '.').replace(', ', '-')
+    return '{}/{}_{}/'.format(output_prefix, date_time, label)
+
+
 def get_path_prefix():
+    """Legacy adapter resolving and caching path inputs through params.cfg."""
     label = params.cfg['label']
     prefix = params.params()['output_prefix']
     now = datetime.now() # current date and time
@@ -42,11 +49,11 @@ def get_path_prefix():
     except KeyError:
         date_time = now.strftime("%m/%d/%Y, %H:%M:%S")
         params.set('timestamp', date_time)
-    date_time = date_time.replace('/', '-').replace(':', '.').replace(', ', '-')
-
-    #print('offset', offset)
-    out_prefix = '{}/{}_{}/'.format(prefix, date_time, label)
-    return out_prefix
+    return get_path_prefix_explicit(
+        label=label,
+        output_prefix=prefix,
+        timestamp=date_time,
+    )
 
 # Convert RGB colormap images to grayscale
 def colormap2arr(arr,cmap):

@@ -401,11 +401,13 @@ def test_cross_dataset_inference_rejects_unknown_backend(tmp_path):
 
 def test_build_model_calls_update_legacy_before_generator_build(monkeypatch, tmp_path):
     from scripts.studies.grid_lines_torch_runner import TorchRunnerConfig
-    from scripts.studies.hybrid_checkpoint_inference import _build_model_for_config
+    import scripts.studies.hybrid_checkpoint_inference as checkpoint_inference
+    from ptycho_torch.execution_request import ExecutionRequest
 
     scan_npz = tmp_path / "scan807_test.npz"
     _write_min_npz(scan_npz)
     events: list[str] = []
+    captured = {}
 
     def fake_update_legacy_dict(cfg_dict, config):
         _ = (cfg_dict, config)
@@ -431,6 +433,17 @@ def test_build_model_calls_update_legacy_before_generator_build(monkeypatch, tmp
         "scripts.studies.hybrid_checkpoint_inference.resolve_generator",
         lambda config: FakeGenerator(),
     )
+    real_create_training_payload = checkpoint_inference.create_training_payload
+
+    def capture_create_training_payload(**kwargs):
+        captured.update(kwargs)
+        return real_create_training_payload(**kwargs)
+
+    monkeypatch.setattr(
+        checkpoint_inference,
+        "create_training_payload",
+        capture_create_training_payload,
+    )
 
     cfg = TorchRunnerConfig(
         train_npz=scan_npz,
@@ -443,6 +456,9 @@ def test_build_model_calls_update_legacy_before_generator_build(monkeypatch, tmp
         position_reassembly_backend="shift_sum",
     )
 
-    _ = _build_model_for_config(cfg)
+    _ = checkpoint_inference._build_model_for_config(cfg)
     assert events[0] == "update_legacy_dict"
     assert "build_model" in events
+    assert isinstance(captured["execution_config"], ExecutionRequest)
+    assert "learning_rate" not in captured["execution_config"].values
+    assert captured["overrides"]["learning_rate"] == cfg.learning_rate

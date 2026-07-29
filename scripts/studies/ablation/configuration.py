@@ -30,6 +30,10 @@ from ptycho_torch.config_params import (
     TensorType,
     TrainingConfig,
 )
+from ptycho_torch.execution_request import (
+    ExecutionRequest,
+    resolve_runtime_execution_request,
+)
 from ptycho_torch.scaling_contract import (
     ResolvedScaleContract,
     resolve_scale_contract,
@@ -388,14 +392,6 @@ REJECTED_PATH_REASONS: dict[str, str] = {
 }
 
 
-TRAINING_TO_EXECUTION_ALIASES: dict[str, str] = {
-    "learning_rate": "learning_rate",
-    "scheduler": "scheduler",
-    "gradient_clip_val": "gradient_clip_val",
-    "gradient_clip_algorithm": "gradient_clip_algorithm",
-    "accum_steps": "accum_steps",
-}
-
 EXECUTION_TO_TRAINING_ALIASES: dict[str, str] = {
     "strategy": "strategy",
     "devices": "n_devices",
@@ -486,6 +482,13 @@ _TYPE_HINTS: dict[str, dict[str, Any]] = {
     for namespace, owner in NAMESPACE_OWNERS.items()
     if isinstance(owner, type)
 }
+# The execution namespace is an unresolved request surface.  Its output owner
+# deliberately excludes unresolved sentinels, so widen only the two
+# environment-resolved inputs before coercion.
+_TYPE_HINTS["execution"].update(
+    accelerator=Literal["auto", "cpu", "gpu", "cuda", "mps"],
+    devices=Union[int, Literal["auto"]],
+)
 
 
 def _architecture_policy(architecture: str) -> ArchitecturePolicy:
@@ -1534,29 +1537,10 @@ def _validate_loss_and_profile(
     return profile, active
 
 
-def _derive_execution_values(
-    execution_values: dict[str, Any],
-    training_config: TrainingConfig,
-    model_config: ModelConfig,
-) -> dict[str, Any]:
-    result = dict(execution_values)
-    for training_name, execution_name in TRAINING_TO_EXECUTION_ALIASES.items():
-        result[execution_name] = getattr(training_config, training_name)
-    return result
-
-
 def _assert_aliases(
-    model_config: ModelConfig,
     training_config: TrainingConfig,
     execution_config: PyTorchExecutionConfig,
 ) -> None:
-    for training_name, execution_name in TRAINING_TO_EXECUTION_ALIASES.items():
-        if getattr(training_config, training_name) != getattr(
-            execution_config, execution_name
-        ):
-            raise ConfigResolutionError(
-                f"training.{training_name} alias does not match execution"
-            )
     if training_config.device != _training_device(execution_config.accelerator):
         raise ConfigResolutionError(
             "training.device alias does not match execution.accelerator"
@@ -1767,10 +1751,14 @@ def _construct_configs(grouped: dict[str, dict[str, Any]]) -> _ConfigObjects:
         preliminary_training = TrainingConfig(**training_values)
         _validate_training(preliminary_training)
         inference_config = InferenceConfig(**grouped["inference"])
-        execution_values = _derive_execution_values(
-            grouped["execution"], preliminary_training, model_config
-        )
-        execution_config = PyTorchExecutionConfig(**execution_values)
+        execution_values = dict(grouped["execution"])
+        execution_config = resolve_runtime_execution_request(
+            ExecutionRequest(
+                values=execution_values,
+                explicit_fields=frozenset(execution_values),
+            ),
+            mode="training",
+        ).config
         _validate_resolved_execution_platform(execution_config)
         training_values.update(
             device=_training_device(execution_config.accelerator),
@@ -1853,7 +1841,7 @@ def resolve_torch_configs(
     _validate_model(model_config, data_config)
     _validate_training(training_config)
     _validate_inference(inference_config, data_config)
-    _assert_aliases(model_config, training_config, execution_config)
+    _assert_aliases(training_config, execution_config)
     profile, active = _validate_loss_and_profile(
         data_config,
         model_config,

@@ -59,16 +59,17 @@ def test_evaluate_cell_wires_historical_stitch_and_declared_metric(
         assert np.iscomplexobj(pred)
         return ground_truth.copy(), None, {}
 
-    def fake_eval(canvas, gt, label):
+    def fake_eval(canvas, gt, label, *, trim_offset):
         calls["metric_shapes"] = (canvas.shape, gt.shape)
         calls["metric_label"] = label
+        calls["metric_trim_offset"] = trim_offset
         return {"mae": (0.1, 0.2), "ssim": (0.9, 0.95)}
 
     monkeypatch.setattr(runner_mod, "run_torch_inference", fake_inference)
     monkeypatch.setattr(
         runner_mod, "_reassemble_predictions_for_metrics", fake_reassemble
     )
-    monkeypatch.setattr(evaluation, "eval_reconstruction", fake_eval)
+    monkeypatch.setattr(evaluation, "eval_reconstruction_explicit", fake_eval)
 
     cfg = replace(
         runner_mod.TorchRunnerConfig(
@@ -81,12 +82,13 @@ def test_evaluate_cell_wires_historical_stitch_and_declared_metric(
     )
     payload = evaluate_cell(
         model=object(), runner_cfg=cfg, test_data=test_data,
-        test_metadata={"m": 1}, label="cell_c",
+        test_metadata={"m": 1}, label="cell_c", trim_offset=4,
     )
 
     assert calls["reassembly_mode"] == "grid_lines"
     assert calls["metric_shapes"] == ((6, 6, 1), (6, 6, 1))
     assert calls["metric_label"] == "cell_c"
+    assert calls["metric_trim_offset"] == 4
     assert calls["inference"]["metadata"] == {"m": 1}
     assert payload["amp_ssim"] == 0.9
     assert payload["phase_ssim"] == 0.95
@@ -120,7 +122,7 @@ def test_evaluate_cell_refuses_resized_canvas(
         evaluate_cell(
             model=object(), runner_cfg=cfg,
             test_data={"YY_ground_truth": ground_truth},
-            test_metadata=None, label="cell",
+            test_metadata=None, label="cell", trim_offset=4,
         )
 
 

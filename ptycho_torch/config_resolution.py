@@ -17,10 +17,7 @@ from ptycho_torch.config_params import (
     TrainingConfig,
 )
 from ptycho_torch.execution_request import (
-    NormalizedExecutionInput,
-    OPTIMIZER_EXECUTION_COMPAT_FIELDS,
     ResolutionNotice,
-    TOPOLOGY_EXECUTION_COMPAT_FIELDS,
 )
 from ptycho_torch.object_compatibility import (
     resolve_torch_model_object_policy,
@@ -39,7 +36,6 @@ InputOwner = Literal[
     "inference",
     "bridge",
     "derived_constraint",
-    "execution_compatibility",
 ]
 
 TRAINING_OWNER_FIELDS = frozenset(
@@ -568,14 +564,6 @@ INFERENCE_INPUT_RULES = _declare_rules(
     _INFERENCE_ALIASES,
 )
 
-# Internal Torch ModelConfig owns every historical execution topology input.
-# They remain boundary aliases only; canonical model fields retain identity.
-DEPRECATED_EXECUTION_MODEL_ALIASES = MappingProxyType(
-    {
-        name: name
-        for name in sorted(TOPOLOGY_EXECUTION_COMPAT_FIELDS)
-    }
-)
 EXECUTION_OWNED_TRAINING_FIELDS = frozenset(
     {"device", "strategy", "n_devices", "num_workers"}
 )
@@ -672,53 +660,14 @@ def _normalize_raw_patch(
 
 def normalize_training_patch(
     patch: Mapping[str, object],
-    *,
-    normalized_execution: NormalizedExecutionInput | None = None,
 ) -> NormalizedPatch:
-    """Normalize one training patch without mutation, warnings, or defaults."""
+    """Normalize one canonical training patch without side effects."""
 
     values, aliases = _normalize_raw_patch(
         patch,
         phase="training",
         rules=TRAINING_INPUT_RULES,
     )
-    notices: tuple[ResolutionNotice, ...] = ()
-
-    if normalized_execution is not None:
-        if not isinstance(normalized_execution, NormalizedExecutionInput):
-            raise TypeError(
-                "normalized_execution must be a NormalizedExecutionInput "
-                "or None"
-            )
-        consumed: list[str] = []
-        for source_name, target_name in (
-            DEPRECATED_EXECUTION_MODEL_ALIASES.items()
-        ):
-            if source_name not in normalized_execution.explicit_fields:
-                continue
-            alias_value = normalized_execution.values[source_name]
-            if target_name in values and values[target_name] != alias_value:
-                raise ValueError(
-                    f"deprecated execution alias {source_name!r} for "
-                    f"canonical ModelConfig field {target_name!r} conflicts "
-                    "with the supplied canonical value"
-                )
-            values[target_name] = alias_value
-            aliases[target_name] = tuple(
-                (*aliases.get(target_name, ()), source_name)
-            )
-            consumed.append(source_name)
-
-        if consumed:
-            notices = (
-                ResolutionNotice(
-                    DeprecationWarning,
-                    "PyTorchExecutionConfig topology fields are deprecated "
-                    "aliases; pass their canonical values through the "
-                    "structural ModelConfig input instead: "
-                    + ", ".join(sorted(consumed)),
-                ),
-            )
 
     ordered_values = dict(sorted(values.items()))
     return NormalizedPatch(
@@ -729,7 +678,7 @@ def normalize_training_patch(
             canonical: aliases[canonical]
             for canonical in sorted(aliases)
         },
-        notices=notices,
+        notices=(),
     )
 
 
@@ -1161,7 +1110,6 @@ def _resolve_training_owner_precedence(
     baseline: TrainingConfig,
     baseline_provenance: Mapping[str, str],
     normalized: NormalizedPatch,
-    normalized_execution: NormalizedExecutionInput | None,
 ) -> tuple[TrainingConfig, dict[str, str]]:
     """Resolve the one TrainingConfig owner before derived/path joins."""
 
@@ -1171,12 +1119,6 @@ def _resolve_training_owner_precedence(
         for name in TRAINING_OWNER_FIELDS
         if hasattr(baseline, name)
     }
-    if normalized_execution is not None:
-        for field_name in OPTIMIZER_EXECUTION_COMPAT_FIELDS:
-            if field_name in normalized_execution.explicit_fields:
-                changes[field_name] = normalized_execution.values[field_name]
-                provenance[field_name] = "execution_compatibility"
-
     canonical_changes = _owned_values(
         normalized,
         TRAINING_INPUT_RULES,
@@ -1190,35 +1132,11 @@ def _resolve_training_owner_precedence(
     return _fresh_config(baseline, changes), provenance
 
 
-def resolve_optimizer_ownership(
-    *,
-    training_baseline: PublicTrainingConfig | TrainingConfig | None,
-    normalized_execution: NormalizedExecutionInput | None,
-    canonical_training_patch: Mapping[str, object],
-) -> tuple[TrainingConfig, dict[str, str]]:
-    """Compatibility facade over the canonical training-owner resolver."""
-
-    baseline = training_factory_baseline(
-        training_baseline=training_baseline,
-    )
-    assert baseline.training is not None
-    normalized = normalize_training_patch(canonical_training_patch)
-    resolved, provenance = _resolve_training_owner_precedence(
-        baseline=baseline.training,
-        baseline_provenance=baseline.training_provenance,
-        normalized=normalized,
-        normalized_execution=normalized_execution,
-    )
-    _validate_training_owner_domains(resolved)
-    return resolved, dict(sorted(provenance.items()))
-
-
 def resolve_training_bundle(
     *,
     baseline: TorchConfigBaseline,
     normalized: NormalizedPatch,
     observations: TrainingObservations,
-    normalized_execution: NormalizedExecutionInput | None = None,
 ) -> ResolvedTrainingBundle:
     """Construct and validate a fresh training candidate without side effects."""
 
@@ -1235,14 +1153,6 @@ def resolve_training_bundle(
         )
     if not isinstance(observations, TrainingObservations):
         raise TypeError("observations must be TrainingObservations")
-    if normalized_execution is not None and not isinstance(
-        normalized_execution,
-        NormalizedExecutionInput,
-    ):
-        raise TypeError(
-            "normalized_execution must be a NormalizedExecutionInput or None"
-        )
-
     _check_path_constraint(
         normalized,
         "train_data_file",
@@ -1305,7 +1215,6 @@ def resolve_training_bundle(
             baseline=baseline.training,
             baseline_provenance=baseline.training_provenance,
             normalized=normalized,
-            normalized_execution=normalized_execution,
         )
     )
 

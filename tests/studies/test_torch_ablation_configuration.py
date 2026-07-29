@@ -43,7 +43,6 @@ from scripts.studies.ablation.configuration import (
     EXECUTION_TO_TRAINING_ALIASES,
     NAMESPACE_OWNERS,
     SIMULATION_PATHS,
-    TRAINING_TO_EXECUTION_ALIASES,
     ConfigResolutionError,
     ResolvedTorchConfigs,
     resolve_torch_configs,
@@ -251,7 +250,7 @@ def test_inert_or_unhonored_controls_are_not_allowlisted(path: str) -> None:
         resolve_torch_configs({path: True})
 
 
-def test_representative_overrides_construct_configs_and_derive_aliases() -> None:
+def test_representative_overrides_construct_configs_with_singular_owners() -> None:
     overrides = _ci_overrides()
     overrides.update(
         {
@@ -278,22 +277,22 @@ def test_representative_overrides_construct_configs_and_derive_aliases() -> None
     assert resolved.training_config.scheduler == "WarmupCosine"
     assert resolved.inference_config.middle_trim == 16
     assert resolved.execution_config.precision == "32-true"
-    assert (
-        resolved.execution_config.learning_rate
-        == resolved.training_config.learning_rate
-    )
-    assert resolved.execution_config.scheduler == resolved.training_config.scheduler
-    assert resolved.execution_config.gradient_clip_val == 0.5
-    assert resolved.execution_config.accum_steps == 2
+    assert resolved.training_config.learning_rate == 2e-4
+    assert resolved.training_config.gradient_clip_val == 0.5
+    assert resolved.training_config.accum_steps == 2
+    for optimizer_field in (
+        "learning_rate",
+        "scheduler",
+        "gradient_clip_val",
+        "gradient_clip_algorithm",
+        "accum_steps",
+    ):
+        assert not hasattr(resolved.execution_config, optimizer_field)
     assert resolved.training_config.device == "cpu"
     assert resolved.training_config.strategy == "auto"
     assert resolved.training_config.n_devices == 1
     assert resolved.training_config.num_workers == 2
     snapshot = resolved.snapshot
-    for training_name, execution_name in TRAINING_TO_EXECUTION_ALIASES.items():
-        assert (
-            snapshot["training"][training_name] == snapshot["execution"][execution_name]
-        )
     for execution_name, training_name in EXECUTION_TO_TRAINING_ALIASES.items():
         assert (
             snapshot["execution"][execution_name] == snapshot["training"][training_name]
@@ -431,10 +430,6 @@ def test_execution_platform_policy_is_closed_and_immutable() -> None:
             r"execution\.strategy='deepspeed'.*unsupported",
         ),
         (
-            {"execution.accelerator": "cpu", "execution.precision": "16-mixed"},
-            r"execution\.precision='16-mixed'.*cpu.*rewrites",
-        ),
-        (
             {"execution.accelerator": "mps", "execution.devices": 2},
             r"execution\.accelerator='mps'.*unsupported.*float64.*reassembly.*count",
         ),
@@ -465,6 +460,15 @@ def test_execution_platform_policy_rejects_unproven_combinations(
 
     with pytest.raises(ConfigResolutionError, match=message):
         resolve_torch_configs(overrides)
+
+
+def test_cpu_mixed_precision_request_resolves_to_supported_bfloat16() -> None:
+    overrides = _ci_overrides()
+    overrides["execution.precision"] = "16-mixed"
+
+    resolved = resolve_torch_configs(overrides)
+
+    assert resolved.execution_config.precision == "bf16-mixed"
 
 
 @pytest.mark.parametrize("accelerator", ["cuda", "gpu"])
@@ -580,7 +584,7 @@ def test_auto_accelerator_is_validated_after_execution_config_resolution(
     )
 
 
-def test_auto_accelerator_rejects_precision_after_resolving_to_cpu(
+def test_auto_accelerator_rewrites_precision_after_resolving_to_cpu(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
@@ -592,11 +596,10 @@ def test_auto_accelerator_rejects_precision_after_resolving_to_cpu(
         }
     )
 
-    with pytest.raises(
-        ConfigResolutionError,
-        match=r"execution\.precision='16-mixed'.*cpu.*rewrites",
-    ):
-        resolve_torch_configs(overrides)
+    resolved = resolve_torch_configs(overrides)
+
+    assert resolved.execution_config.accelerator == "cpu"
+    assert resolved.execution_config.precision == "bf16-mixed"
 
 
 @pytest.mark.parametrize("strategy", ["auto", "ddp"])
@@ -1126,9 +1129,8 @@ def test_snapshot_is_complete_compact_sorted_and_roundtrips() -> None:
         == resolved.canonical_json
     )
     assert " " not in resolved.canonical_json
-    assert (
-        snapshot["execution"]["learning_rate"] == snapshot["training"]["learning_rate"]
-    )
+    assert snapshot["training"]["learning_rate"] == 2e-4
+    assert "learning_rate" not in snapshot["execution"]
     assert snapshot["training"]["num_workers"] == snapshot["execution"]["num_workers"]
 
 
@@ -2055,8 +2057,8 @@ def test_hybrid_structural_fields_have_model_owner_not_execution_owner() -> None
     assert resolved.model_config.hybrid_encoder_layerscale_init == 0.05
     assert resolved.model_config.hybrid_encoder_branch_gate_init == 0.2
     assert resolved.model_config.hybrid_encoder_branch_select == "conv_only"
-    assert resolved.execution_config.hybrid_encoder_fusion_mode == "baseline"
-    assert resolved.execution_config.hybrid_encoder_branch_select == "both"
+    assert not hasattr(resolved.execution_config, "hybrid_encoder_fusion_mode")
+    assert not hasattr(resolved.execution_config, "hybrid_encoder_branch_select")
 
 
 @pytest.mark.parametrize("style", ["add", "concat", "gated_add"])
@@ -2223,10 +2225,8 @@ def test_complete_claim_grade_architecture_fixtures_resolve(
     if architecture != "cnn":
         assert resolved.training_config.epochs_fine_tune == 0
         assert resolved.training_config.fine_tune_gamma == 0.1
-    assert (
-        resolved.execution_config.learning_rate
-        == resolved.training_config.learning_rate
-    )
+    assert resolved.training_config.learning_rate == 2e-4
+    assert not hasattr(resolved.execution_config, "learning_rate")
     assert _canonical_forward_shapes(resolved) == (
         (1, 4, 64, 64),
         (1, 4, 64, 64),

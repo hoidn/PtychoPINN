@@ -14,45 +14,6 @@ from ptycho.config.config import (
 )
 
 
-OPTIMIZER_EXECUTION_COMPAT_FIELDS = frozenset(
-    {
-        "learning_rate",
-        "scheduler",
-        "gradient_clip_val",
-        "gradient_clip_algorithm",
-        "accum_steps",
-    }
-)
-TOPOLOGY_EXECUTION_COMPAT_FIELDS = frozenset(
-    {
-        "hybrid_skip_connections",
-        "hybrid_downsample_steps",
-        "hybrid_downsample_op",
-        "hybrid_encoder_conv_hidden_scale",
-        "hybrid_encoder_spectral_hidden_scale",
-        "hybrid_encoder_conv_hidden_channels",
-        "hybrid_encoder_spectral_hidden_channels",
-        "hybrid_resnet_blocks",
-        "hybrid_skip_style",
-        "hybrid_resnet_bottleneck_layerscale_mode",
-        "hybrid_resnet_bottleneck_layerscale_value",
-        "hybrid_encoder_fusion_mode",
-        "hybrid_encoder_layerscale_init",
-        "hybrid_encoder_branch_gate_init",
-        "hybrid_encoder_branch_select",
-        "ffno_encoder_blocks",
-        "ffno_encoder_modes",
-        "ffno_encoder_share_weights",
-        "ffno_encoder_gate_init",
-        "ffno_encoder_norm",
-        "ffno_encoder_mlp_ratio",
-        "spectral_bottleneck_blocks",
-        "spectral_bottleneck_modes",
-        "spectral_bottleneck_share_weights",
-        "spectral_bottleneck_gate_init",
-        "spectral_bottleneck_gate_mode",
-    }
-)
 ENVIRONMENT_EXECUTION_FIELDS = (
     "accelerator",
     "devices",
@@ -183,13 +144,11 @@ class ExecutionRequest:
 
 @dataclass(frozen=True)
 class NormalizedExecutionInput:
-    """Internal complete primitive candidate used by factory resolution."""
+    """Internal complete unresolved runtime candidate."""
 
     values: Mapping[str, Any]
     explicit_fields: frozenset[str]
     notices: tuple[ResolutionNotice, ...]
-    legacy_config: PyTorchExecutionConfig | None = None
-    accelerator_already_resolved: bool = False
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -207,7 +166,7 @@ class NormalizedExecutionInput:
 
 @dataclass(frozen=True)
 class ResolvedRuntimeExecution:
-    """Resolved compatibility config plus deterministic runtime audit."""
+    """Resolved runtime carrier plus deterministic request audit."""
 
     config: PyTorchExecutionConfig
     environment: EnvironmentResolution
@@ -242,6 +201,8 @@ class ResolvedRuntimeExecution:
 
 
 def _execution_default_values() -> dict[str, Any]:
+    """Return request defaults without constructing the resolved carrier."""
+
     values: dict[str, Any] = {}
     for field_info in fields(PyTorchExecutionConfig):
         if field_info.default is not MISSING:
@@ -252,11 +213,12 @@ def _execution_default_values() -> dict[str, Any]:
             raise TypeError(
                 f"execution field {field_info.name!r} has no primitive default"
             )
+    values["accelerator"] = "auto"
     return values
 
 
 def normalize_execution_input(
-    value: ExecutionRequest | PyTorchExecutionConfig | None,
+    value: ExecutionRequest | None,
     *,
     mode: str,
 ) -> NormalizedExecutionInput | None:
@@ -277,27 +239,9 @@ def normalize_execution_input(
             explicit_fields=value.explicit_fields,
             notices=value.notices,
         )
-    if isinstance(value, PyTorchExecutionConfig):
-        copied = {
-            field_info.name: getattr(value, field_info.name)
-            for field_info in fields(PyTorchExecutionConfig)
-        }
-        explicit_aliases = frozenset(
-            getattr(value, "_explicit_structural_aliases", frozenset())
-        )
-        explicit_fields = explicit_aliases
-        if mode == "training":
-            explicit_fields |= OPTIMIZER_EXECUTION_COMPAT_FIELDS
-        return NormalizedExecutionInput(
-            values=copied,
-            explicit_fields=explicit_fields,
-            notices=(),
-            legacy_config=value,
-            accelerator_already_resolved=True,
-        )
     raise TypeError(
-        "execution_config must be an ExecutionRequest, "
-        "PyTorchExecutionConfig, or None"
+        "execution_config must be an ExecutionRequest or None; "
+        "PyTorchExecutionConfig is a resolved output carrier"
     )
 
 
@@ -326,23 +270,11 @@ def validate_execution_input_phase(
     *,
     mode: str,
 ) -> None:
-    """Reject training-only compatibility inputs in inference requests."""
+    """Validate the phase label for a runtime-only request."""
 
-    if mode == "training":
-        return
-    if mode != "inference":
+    if mode not in {"training", "inference"}:
         raise ValueError(
             f"Invalid mode: {mode}. Expected 'training' or 'inference'."
-        )
-    invalid = normalized.explicit_fields & (
-        OPTIMIZER_EXECUTION_COMPAT_FIELDS
-        | TOPOLOGY_EXECUTION_COMPAT_FIELDS
-    )
-    if invalid:
-        raise ValueError(
-            "inference execution request cannot consume training-only "
-            "optimizer/topology field(s): "
-            + ", ".join(sorted(invalid))
         )
 
 
@@ -359,21 +291,13 @@ def observe_execution_capabilities() -> ExecutionCapabilities:
     )
 
 
-def observe_cuda_device_count() -> int:
-    """Observe CUDA cardinality when accelerator availability is already known."""
-
-    import torch
-
-    return int(torch.cuda.device_count())
-
-
 def execution_capabilities_required(
     normalized: NormalizedExecutionInput,
 ) -> bool:
     """Return whether an unresolved runtime value needs CUDA facts."""
 
     accelerator = normalized.values["accelerator"]
-    if not normalized.accelerator_already_resolved and accelerator == "auto":
+    if accelerator == "auto":
         return True
     return (
         accelerator in {"gpu", "cuda"}
@@ -405,10 +329,7 @@ def resolve_execution_environment(
     resolved = dict(requested)
     notices: list[ResolutionNotice] = []
 
-    if (
-        not normalized.accelerator_already_resolved
-        and resolved["accelerator"] == "auto"
-    ):
+    if resolved["accelerator"] == "auto":
         if capabilities is None:
             raise RuntimeError(
                 "execution capabilities are required to resolve accelerator='auto'"
@@ -463,7 +384,6 @@ def resolve_execution_environment(
 def resolve_runtime_execution_request(
     value: (
         ExecutionRequest
-        | PyTorchExecutionConfig
         | NormalizedExecutionInput
         | None
     ),
@@ -487,15 +407,6 @@ def resolve_runtime_execution_request(
     if execution_capabilities_required(normalized):
         if execution_capabilities is not None:
             capabilities = execution_capabilities
-        elif (
-            normalized.accelerator_already_resolved
-            and normalized.values["accelerator"] in {"gpu", "cuda"}
-            and normalized.values["devices"] == "auto"
-        ):
-            capabilities = ExecutionCapabilities(
-                cuda_available=True,
-                cuda_device_count=observe_cuda_device_count(),
-            )
         else:
             capabilities = observe_execution_capabilities()
 
@@ -506,13 +417,6 @@ def resolve_runtime_execution_request(
     resolved_values = _thaw_execution_values(normalized.values)
     resolved_values.update(environment.resolved)
     config = PyTorchExecutionConfig(**resolved_values)
-    object.__setattr__(
-        config,
-        "_explicit_structural_aliases",
-        frozenset(
-            normalized.explicit_fields & TOPOLOGY_EXECUTION_COMPAT_FIELDS
-        ),
-    )
     notices = normalized.notices + environment.notices
     return ResolvedRuntimeExecution(
         config=config,

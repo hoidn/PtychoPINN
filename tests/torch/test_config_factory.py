@@ -748,20 +748,25 @@ class TestExecutionConfigOverrides:
         assert exec_cfg.num_workers == 0  # CPU-safe default
 
     def test_execution_config_explicit_instance_propagates(self, mock_train_npz, temp_output_dir):
-        """User-provided execution_config instance propagates through payload."""
-        from ptycho.config.config import PyTorchExecutionConfig
+        """User-provided runtime request resolves into the payload carrier."""
+        from ptycho_torch.execution_request import ExecutionRequest
 
-        custom_exec_cfg = PyTorchExecutionConfig(
-            accelerator='gpu',
-            enable_progress_bar=True,
-            deterministic=False,
+        request = ExecutionRequest(
+            values={
+                "accelerator": "gpu",
+                "enable_progress_bar": True,
+                "deterministic": False,
+            },
+            explicit_fields=frozenset(
+                {"accelerator", "enable_progress_bar", "deterministic"}
+            ),
         )
 
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
             overrides={'n_groups': 512},
-            execution_config=custom_exec_cfg,
+            execution_config=request,
         )
         # GREEN phase assertions:
         assert payload.execution_config.accelerator == 'gpu'
@@ -781,23 +786,29 @@ class TestExecutionConfigOverrides:
         assert hasattr(exec_cfg, 'deterministic')
         assert hasattr(exec_cfg, 'num_workers')
         assert hasattr(exec_cfg, 'enable_progress_bar')
-        assert hasattr(exec_cfg, 'gradient_clip_val')
+        assert not hasattr(exec_cfg, 'gradient_clip_val')
+        assert hasattr(payload.pt_training_config, 'gradient_clip_val')
 
     def test_overrides_applied_records_execution_knobs(self, mock_train_npz, temp_output_dir):
         """Factory audit trail includes execution config knobs when applied."""
-        from ptycho.config.config import PyTorchExecutionConfig
+        from ptycho_torch.execution_request import ExecutionRequest
 
-        custom_exec_cfg = PyTorchExecutionConfig(
-            accelerator='cpu',
-            num_workers=4,
-            deterministic=True,
+        request = ExecutionRequest(
+            values={
+                "accelerator": "cpu",
+                "num_workers": 4,
+                "deterministic": True,
+            },
+            explicit_fields=frozenset(
+                {"accelerator", "num_workers", "deterministic"}
+            ),
         )
 
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
             overrides={'n_groups': 512, 'batch_size': 8},
-            execution_config=custom_exec_cfg,
+            execution_config=request,
         )
         # GREEN phase assertions:
         # Execution knobs should be recorded in overrides_applied
@@ -817,21 +828,32 @@ class TestExecutionConfigOverrides:
         - input.md EB1.E (checkpoint controls RED tests)
         - plans/.../phase_e_execution_knobs/plan.md §EB1.C (factory wiring)
         """
-        from ptycho.config.config import PyTorchExecutionConfig
+        from ptycho_torch.execution_request import ExecutionRequest
 
-        custom_exec_cfg = PyTorchExecutionConfig(
-            enable_checkpointing=False,
-            checkpoint_save_top_k=3,
-            checkpoint_monitor_metric='train_loss',
-            checkpoint_mode='max',
-            early_stop_patience=10,
+        request = ExecutionRequest(
+            values={
+                "enable_checkpointing": False,
+                "checkpoint_save_top_k": 3,
+                "checkpoint_monitor_metric": "train_loss",
+                "checkpoint_mode": "max",
+                "early_stop_patience": 10,
+            },
+            explicit_fields=frozenset(
+                {
+                    "enable_checkpointing",
+                    "checkpoint_save_top_k",
+                    "checkpoint_monitor_metric",
+                    "checkpoint_mode",
+                    "early_stop_patience",
+                }
+            ),
         )
 
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
             overrides={'n_groups': 512},
-            execution_config=custom_exec_cfg,
+            execution_config=request,
         )
 
         # GREEN phase assertions:
@@ -871,66 +893,32 @@ class TestExecutionConfigOverrides:
         assert exec_cfg.early_stop_patience == 100  # Default per dataclass
 
     def test_scheduler_override_applied(self, mock_train_npz, temp_output_dir):
-        """
-        Test: --scheduler override propagates to execution_config and overrides_applied.
-
-        Expected Behavior:
-        - execution_config.scheduler matches provided value
-        - overrides_applied['scheduler'] records the applied value
-
-        References:
-        - input.md EB2.B2 (factory override tests)
-        - plans/.../phase_e_execution_knobs/2025-10-23T081500Z/eb2_plan.md §EB2.B (factory wiring)
-        """
-        from ptycho.config.config import PyTorchExecutionConfig
-
-        custom_exec_cfg = PyTorchExecutionConfig(
-            scheduler='Exponential',
-        )
+        """Scheduler overrides resolve only on canonical TrainingConfig."""
 
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 512},
-            execution_config=custom_exec_cfg,
+            overrides={'n_groups': 512, 'scheduler': 'Exponential'},
         )
 
-        # GREEN phase assertions:
-        assert payload.execution_config.scheduler == 'Exponential', \
-            f"Expected scheduler='Exponential', got {payload.execution_config.scheduler}"
+        assert payload.pt_training_config.scheduler == 'Exponential'
+        assert not hasattr(payload.execution_config, 'scheduler')
         assert 'scheduler' in payload.overrides_applied, \
             "scheduler must appear in overrides_applied audit trail"
         assert payload.overrides_applied['scheduler'] == 'Exponential', \
             f"Expected overrides_applied['scheduler']='Exponential', got {payload.overrides_applied['scheduler']}"
 
     def test_accum_steps_override_applied(self, mock_train_npz, temp_output_dir):
-        """
-        Test: --accumulate-grad-batches override propagates to execution_config and overrides_applied.
-
-        Expected Behavior:
-        - execution_config.accum_steps matches provided value
-        - overrides_applied['accum_steps'] records the applied value
-
-        References:
-        - input.md EB2.B2 (factory override tests)
-        - plans/.../phase_e_execution_knobs/2025-10-23T081500Z/eb2_plan.md §EB2.B (factory wiring)
-        """
-        from ptycho.config.config import PyTorchExecutionConfig
-
-        custom_exec_cfg = PyTorchExecutionConfig(
-            accum_steps=4,
-        )
+        """Accumulation overrides resolve only on canonical TrainingConfig."""
 
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 512},
-            execution_config=custom_exec_cfg,
+            overrides={'n_groups': 512, 'accum_steps': 4},
         )
 
-        # GREEN phase assertions:
-        assert payload.execution_config.accum_steps == 4, \
-            f"Expected accum_steps=4, got {payload.execution_config.accum_steps}"
+        assert payload.pt_training_config.accum_steps == 4
+        assert not hasattr(payload.execution_config, 'accum_steps')
         assert 'accum_steps' in payload.overrides_applied, \
             "accum_steps must appear in overrides_applied audit trail"
         assert payload.overrides_applied['accum_steps'] == 4, \
@@ -953,17 +941,18 @@ class TestExecutionConfigOverrides:
         - input.md EB3.B1 (factory logger tests)
         - plans/.../phase_e_execution_knobs/2025-10-23T110500Z/decision/approved.md §Q1
         """
-        from ptycho.config.config import PyTorchExecutionConfig
+        from ptycho_torch.execution_request import ExecutionRequest
 
-        custom_exec_cfg = PyTorchExecutionConfig(
-            logger_backend='csv',
+        request = ExecutionRequest(
+            values={"logger_backend": "csv"},
+            explicit_fields=frozenset({"logger_backend"}),
         )
 
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
             overrides={'n_groups': 512},
-            execution_config=custom_exec_cfg,
+            execution_config=request,
         )
 
         # GREEN phase assertions:
@@ -990,17 +979,18 @@ class TestExecutionConfigOverrides:
         - input.md EB3.B1 (factory logger tests)
         - plans/.../phase_e_execution_knobs/2025-10-23T110500Z/decision/approved.md §Q2
         """
-        from ptycho.config.config import PyTorchExecutionConfig
+        from ptycho_torch.execution_request import ExecutionRequest
 
-        custom_exec_cfg = PyTorchExecutionConfig(
-            logger_backend='tensorboard',
+        request = ExecutionRequest(
+            values={"logger_backend": "tensorboard"},
+            explicit_fields=frozenset({"logger_backend"}),
         )
 
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
             overrides={'n_groups': 512},
-            execution_config=custom_exec_cfg,
+            execution_config=request,
         )
 
         # GREEN phase assertions:
@@ -1118,16 +1108,17 @@ class TestTrainWithLightningVarProProbeWeightingForwarding:
             n_groups=4,
         )
 
-        real_create_training_payload = config_factory_module.create_training_payload
+        real_resolve_training_payload = config_factory_module.resolve_training_payload
         captured = {}
 
-        def spy_create_payload(*args, **kwargs):
-            payload = real_create_training_payload(*args, **kwargs)
+        def spy_resolve_payload(*args, **kwargs):
+            payload = real_resolve_training_payload(*args, **kwargs)
             captured["pt_model_config"] = payload.pt_model_config
             raise RuntimeError("stop-after-capture")
 
         monkeypatch.setattr(
-            "ptycho_torch.config_factory.create_training_payload", spy_create_payload
+            "ptycho_torch.config_factory.resolve_training_payload",
+            spy_resolve_payload,
         )
 
         with pytest.raises(RuntimeError, match="stop-after-capture"):
@@ -1164,16 +1155,17 @@ class TestTrainWithLightningVarProProbeWeightingForwarding:
             n_groups=4,
         )
 
-        real_create_training_payload = config_factory_module.create_training_payload
+        real_resolve_training_payload = config_factory_module.resolve_training_payload
         captured = {}
 
-        def spy_create_payload(*args, **kwargs):
-            payload = real_create_training_payload(*args, **kwargs)
+        def spy_resolve_payload(*args, **kwargs):
+            payload = real_resolve_training_payload(*args, **kwargs)
             captured["pt_model_config"] = payload.pt_model_config
             raise RuntimeError("stop-after-capture")
 
         monkeypatch.setattr(
-            "ptycho_torch.config_factory.create_training_payload", spy_create_payload
+            "ptycho_torch.config_factory.resolve_training_payload",
+            spy_resolve_payload,
         )
 
         with pytest.raises(RuntimeError, match="stop-after-capture"):

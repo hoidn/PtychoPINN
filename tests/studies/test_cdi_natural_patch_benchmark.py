@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+from types import SimpleNamespace
 
 import numpy as np
 
@@ -122,6 +123,72 @@ def _build_dataset_root(tmp_path: Path, *, patch_size: int = 8) -> Path:
     _write_split_npz(dataset_root / "test.npz", count=1, patch_size=patch_size, source_prefix="test")
     np.savez(dataset_root / "probe.npz", probeGuess=probe)
     return dataset_root
+
+
+def test_saved_torch_model_build_reads_training_owner_and_sends_runtime_request(
+    monkeypatch, tmp_path: Path
+):
+    from ptycho_torch.execution_request import ExecutionRequest
+    from scripts.studies import cdi_natural_patch_benchmark as benchmark
+    from scripts.studies import grid_lines_torch_runner
+    from scripts.studies.grid_lines_torch_runner import TorchRunnerConfig
+
+    captured = {}
+
+    def fake_create_training_payload(**kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(
+            pt_model_config=object(),
+            pt_data_config=object(),
+            pt_training_config=object(),
+            execution_config=SimpleNamespace(accelerator="cpu"),
+        )
+
+    class FakeGenerator:
+        def build_model(self, configs):
+            captured["generator_configs"] = configs
+            return object()
+
+    monkeypatch.setattr(
+        "ptycho_torch.config_factory.create_training_payload",
+        fake_create_training_payload,
+    )
+    monkeypatch.setattr(
+        "ptycho_torch.generators.registry.resolve_generator",
+        lambda config: FakeGenerator(),
+    )
+    cfg = TorchRunnerConfig(
+        train_npz=tmp_path / "train.npz",
+        test_npz=tmp_path / "test.npz",
+        output_dir=tmp_path / "output",
+        architecture="hybrid_resnet",
+        learning_rate=2e-4,
+        gradient_clip_val=0.75,
+        scheduler="WarmupCosine",
+        lr_warmup_epochs=2,
+        hybrid_encoder_fusion_mode="branch_gated",
+    )
+    training_config, _ = grid_lines_torch_runner.setup_torch_configs(cfg)
+    expected_request = ExecutionRequest(
+        values={"deterministic": False},
+        explicit_fields=frozenset({"deterministic"}),
+    )
+    monkeypatch.setattr(
+        grid_lines_torch_runner,
+        "setup_torch_configs",
+        lambda _cfg: (training_config, expected_request),
+    )
+
+    benchmark._build_torch_model_from_saved_config(cfg)
+
+    request = captured["execution_config"]
+    assert request is expected_request
+    assert "learning_rate" not in request.values
+    assert captured["overrides"]["learning_rate"] == 2e-4
+    assert captured["overrides"]["gradient_clip_val"] == 0.75
+    assert captured["overrides"]["scheduler"] == "WarmupCosine"
+    assert captured["overrides"]["lr_warmup_epochs"] == 2
+    assert captured["overrides"]["hybrid_encoder_fusion_mode"] == "branch_gated"
 
 
 def test_prepare_natural_patch_inputs_creates_grouped_splits_without_mutating_dataset_root(tmp_path: Path):

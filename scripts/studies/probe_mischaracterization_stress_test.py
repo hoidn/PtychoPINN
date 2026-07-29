@@ -1899,7 +1899,7 @@ def run_condition(
     baseline_model: Any | None = None,
     canonical_data_checksums: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    from ptycho.evaluation import eval_reconstruction
+    from ptycho.evaluation import eval_reconstruction_explicit
     from ptycho.workflows.grid_lines_workflow import (
         configure_legacy_params,
         run_pinn_inference,
@@ -1982,7 +1982,12 @@ def run_condition(
     if history is not None:
         write_json(condition_dir / "train_history.json", _history_payload(history))
 
-    metrics = eval_reconstruction(stitched, sim["test"]["YY_ground_truth"], label=condition.condition_id)
+    metrics = eval_reconstruction_explicit(
+        stitched,
+        sim["test"]["YY_ground_truth"],
+        label=condition.condition_id,
+        trim_offset=int(cfg.offset),
+    )
     flat = flatten_metrics(condition, metrics, status="ok")
     condition_payload = {
         "status": "ok",

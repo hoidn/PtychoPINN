@@ -1,4 +1,6 @@
-"""Slice 3A contracts for Torch structural configuration ownership."""
+"""Contracts for singular Torch structural configuration ownership."""
+
+from __future__ import annotations
 
 from pathlib import Path
 
@@ -13,6 +15,7 @@ from ptycho_torch.config_params import (
     ModelConfig as TorchModelConfig,
     TrainingConfig as TorchTrainingConfig,
 )
+from ptycho_torch.execution_request import ExecutionRequest
 
 
 @pytest.fixture
@@ -22,90 +25,8 @@ def training_npz(tmp_path: Path) -> Path:
     return path
 
 
-def test_deprecated_execution_topology_alias_populates_structural_model(
-    training_npz: Path, tmp_path: Path
-) -> None:
-    execution = PyTorchExecutionConfig(
-        hybrid_resnet_bottleneck_layerscale_mode="fixed",
-        hybrid_resnet_bottleneck_layerscale_value=1.0,
-        hybrid_encoder_fusion_mode="branch_gated",
-    )
-
-    with pytest.warns(DeprecationWarning, match="structural ModelConfig"):
-        payload = create_training_payload(
-            train_data_file=training_npz,
-            output_dir=tmp_path,
-            overrides={
-                "n_groups": 4,
-                "gridsize": 1,
-                "architecture": "hybrid_resnet",
-            },
-            execution_config=execution,
-        )
-
-    assert payload.pt_model_config.hybrid_resnet_bottleneck_layerscale_mode == "fixed"
-    assert payload.pt_model_config.hybrid_resnet_bottleneck_layerscale_value == 1.0
-    assert payload.pt_model_config.hybrid_encoder_fusion_mode == "branch_gated"
-
-
-def test_equal_old_and_new_structural_inputs_are_accepted(
-    training_npz: Path, tmp_path: Path
-) -> None:
-    execution = PyTorchExecutionConfig(hybrid_skip_style="concat")
-
-    with pytest.warns(DeprecationWarning):
-        payload = create_training_payload(
-            train_data_file=training_npz,
-            output_dir=tmp_path,
-            overrides={
-                "n_groups": 4,
-                "gridsize": 1,
-                "hybrid_skip_style": "concat",
-            },
-            execution_config=execution,
-        )
-
-    assert payload.pt_model_config.hybrid_skip_style == "concat"
-
-
-def test_conflicting_old_and_new_structural_inputs_fail_closed(
-    training_npz: Path, tmp_path: Path
-) -> None:
-    execution = PyTorchExecutionConfig(hybrid_skip_style="concat")
-
-    with pytest.raises(ValueError, match="hybrid_skip_style.*conflict"):
-        create_training_payload(
-            train_data_file=training_npz,
-            output_dir=tmp_path,
-            overrides={
-                "n_groups": 4,
-                "gridsize": 1,
-                "hybrid_skip_style": "gated_add",
-            },
-            execution_config=execution,
-        )
-
-
-def test_explicit_old_default_still_conflicts_with_new_structural_value(
-    training_npz: Path, tmp_path: Path
-) -> None:
-    execution = PyTorchExecutionConfig(hybrid_skip_style="add")
-
-    with pytest.raises(ValueError, match="hybrid_skip_style.*conflict"):
-        create_training_payload(
-            train_data_file=training_npz,
-            output_dir=tmp_path,
-            overrides={
-                "n_groups": 4,
-                "gridsize": 1,
-                "hybrid_skip_style": "gated_add",
-            },
-            execution_config=execution,
-        )
-
-
 @pytest.mark.parametrize(
-    ("field_name", "alias_value"),
+    ("field_name", "value"),
     [
         ("hybrid_skip_connections", True),
         ("hybrid_downsample_steps", 1),
@@ -133,44 +54,32 @@ def test_explicit_old_default_still_conflicts_with_new_structural_value(
         ("spectral_bottleneck_gate_mode", "per_block"),
     ],
 )
-def test_each_independent_execution_topology_alias_maps_to_model_owner(
+def test_each_topology_field_enters_through_canonical_model_patch(
     training_npz: Path,
     tmp_path: Path,
     field_name: str,
-    alias_value: object,
-) -> None:
-    execution = PyTorchExecutionConfig(**{field_name: alias_value})
-
-    with pytest.warns(DeprecationWarning):
-        payload = create_training_payload(
-            train_data_file=training_npz,
-            output_dir=tmp_path,
-            overrides={"n_groups": 4, "gridsize": 1},
-            execution_config=execution,
-        )
-
-    assert getattr(payload.pt_model_config, field_name) == alias_value
-
-
-def test_default_execution_alias_does_not_override_explicit_structural_value(
-    training_npz: Path, tmp_path: Path
+    value: object,
 ) -> None:
     payload = create_training_payload(
         train_data_file=training_npz,
         output_dir=tmp_path,
-        overrides={
-            "n_groups": 4,
-            "gridsize": 1,
-            "hybrid_skip_style": "gated_add",
-        },
-        execution_config=PyTorchExecutionConfig(),
+        overrides={"n_groups": 4, "gridsize": 1, field_name: value},
+        execution_config=ExecutionRequest(
+            values={"accelerator": "cpu"},
+            explicit_fields=frozenset({"accelerator"}),
+        ),
     )
 
-    assert payload.pt_model_config.hybrid_skip_style == "gated_add"
+    assert getattr(payload.pt_model_config, field_name) == value
+    assert field_name not in payload.overrides_applied.get(
+        "topology_compatibility",
+        {},
+    )
 
 
-def test_training_factory_rejects_unknown_override(
-    training_npz: Path, tmp_path: Path
+def test_training_factory_rejects_unknown_structural_override(
+    training_npz: Path,
+    tmp_path: Path,
 ) -> None:
     with pytest.raises(
         ValueError,
@@ -183,7 +92,7 @@ def test_training_factory_rejects_unknown_override(
         )
 
 
-def test_generator_topology_reads_model_config_not_execution_side_channel() -> None:
+def test_generator_topology_reads_model_config_only() -> None:
     from ptycho_torch.generators.hybrid_resnet import HybridResnetGenerator
 
     generator = HybridResnetGenerator(
@@ -203,10 +112,7 @@ def test_generator_topology_reads_model_config_not_execution_side_channel() -> N
         "model_config": structural,
         "training_config": TorchTrainingConfig(),
         "inference_config": InferenceConfig(),
-        "execution_config": PyTorchExecutionConfig(
-            hybrid_resnet_bottleneck_layerscale_mode="learned",
-            hybrid_resnet_bottleneck_layerscale_value=None,
-        ),
+        "execution_config": PyTorchExecutionConfig(),
     }
 
     model = generator.build_model(configs)

@@ -11,9 +11,9 @@ from typing import Dict
 import numpy as np
 import torch
 
-from ptycho.config.config import PyTorchExecutionConfig
 from ptycho_torch.config_factory import create_training_payload
 from ptycho_torch.config_params import InferenceConfig as PTInferenceConfig
+from ptycho_torch.execution_request import ExecutionRequest
 from ptycho_torch.generators.registry import resolve_generator
 from scripts.studies.grid_lines_torch_runner import (
     TorchRunnerConfig,
@@ -50,12 +50,21 @@ def _build_model_for_config(cfg: TorchRunnerConfig):
         train_data_file=Path(cfg.train_npz),
         output_dir=Path(cfg.output_dir),
         overrides=overrides,
-        execution_config=PyTorchExecutionConfig(
-            learning_rate=float(cfg.learning_rate),
-            deterministic=True,
-            logger_backend="none",
-            enable_progress_bar=False,
-            enable_checkpointing=False,
+        execution_config=ExecutionRequest(
+            values={
+                "deterministic": True,
+                "logger_backend": None,
+                "enable_progress_bar": False,
+                "enable_checkpointing": False,
+            },
+            explicit_fields=frozenset(
+                {
+                    "deterministic",
+                    "logger_backend",
+                    "enable_progress_bar",
+                    "enable_checkpointing",
+                }
+            ),
         ),
     )
     generator = resolve_generator(payload.tf_training_config)

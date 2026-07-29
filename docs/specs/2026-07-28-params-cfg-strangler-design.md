@@ -16,6 +16,10 @@
   requirements.
 - The repository `AGENTS.md` restrictions continue to govern protected core
   files.
+- The transition parent's "Parallel maintenance: manual-layer drift
+  tripwires" provision governs interim schema-fact integrity of the family
+  resolvers whose resolved owners this migration injects; this design adds
+  no requirement of its own there.
 
 ## 1. Goal
 
@@ -29,6 +33,12 @@ migrated and the specifications that require it have been amended.
 
 This is a strangler migration: explicit modern paths grow around legacy reads;
 the global bridge contracts only as consumers disappear.
+
+The completed migration nets negative production lines, serving the
+transition parent's secondary line-reduction goal (parent §1): interim
+wrappers and scopes are transient by design — Tranche B removes redundant
+containment, and Tranche G requires every surviving adapter to carry an
+owner and removal condition.
 
 ## 2. Terminology and non-equivalence
 

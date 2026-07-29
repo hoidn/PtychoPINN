@@ -42,6 +42,18 @@ an optional implementation mechanism at a complete family boundary, not the
 driver of the migration. A family adopts it only when the existing adoption
 gate proves net simplification.
 
+Net production line reduction is a secondary goal of this transition,
+subordinate to correctness, compatibility, and maintainability. The boundary
+campaign this design follows added roughly 3.3k net production lines of
+resolver, validator, and bridge code (measured at its 2026-07-28 close); the
+retirement stages are expected to recover much of that by deleting the
+surfaces they obsolete. The goal operates as a tie-breaker and a tracking
+obligation, not a threshold: where two compliant shapes exist, prefer the
+smaller; interim adapters and scopes stay transient under their owning
+stage's removal conditions; and density that obscures staged resolution
+logic is not a reduction. Test and documentation lines are outside the
+measure.
+
 ## 2. Target architecture
 
 ```text
@@ -136,6 +148,57 @@ Branch choreography, completed-plan status reconciliation, and stable
 implementation-evidence pointers belong to the implementation roadmap rather
 than this durable architecture. They do not expand the acceptance criteria
 below.
+
+### Parallel maintenance: manual-layer drift tripwires
+
+The retained manual resolvers state some schema facts twice with unequal
+drift protection: field-ownership name sets are assert-tripwired against
+`dataclasses.fields()`, while the closed value domains (`Literal`
+annotations versus module-level frozensets) and the `Path`-field sets are
+unchecked twins that can silently diverge — the frozenset then governs
+runtime while the annotation lies.
+
+At any point during Stages 1–3, the unchecked twins may be converted to
+derived form (`typing.get_args` over the owning `Literal`; type-hint
+derivation for the `Path` sets) or brought under the existing import-time
+assert idiom. This is ordinary maintenance of the accepted manual
+architecture, not schema convergence: it needs no gate, does not pre-empt
+Stage 4, and its deletions are excluded from any later Pydantic deletion
+ledger (see the adoption child's ledger-hygiene decision). Building a
+broader introspection-driven validation framework in the interim remains
+rejected (§7); the per-field validator bodies keep their current form
+until Stage 4 decides their fate.
+
+### Stage-closeout integration evidence
+
+Each stage closeout runs the architecture-integration suites runnable on
+the branch variant being closed and records them green before the stage is
+recorded complete: at minimum the torch FNO-family integration suites
+(`tests/torch/test_fno_*.py` and the FNO/FFNO
+`tests/torch/test_grid_lines_*` integration and quality suites) on every
+variant, together with the multi-architecture grid-lines C4 CI
+integration suite wherever its materialized datasets are present, running
+whichever architecture arms the variant supports. Family-wide suites for
+architecture families outside a variant's supported scope — for the
+current campaign branches, the hybrid-resnet family — create no closeout
+obligation and join the set only on branches where the owning initiative
+declares them supported; an individual arm inside the multi-architecture
+suite follows the suite, not the family exclusion. A suite that skips because its
+materialized dataset fixture is
+absent is recorded as a named skip, not green evidence. Closeout evidence
+complements tranche-local claim-matched evidence; individual tranches and
+reader deletions inside a stage carry no such obligation.
+
+A failure at a closeout is investigated to root cause before the stage is
+recorded complete. If the root cause is a behavior change introduced under
+this transition, the fix addresses that root cause in the production code;
+relaxing thresholds, editing baselines, skipping the suite, or otherwise
+accommodating the regression in test code is not closure. If the same
+failure reproduces at the stage's entry commit, it is a pre-existing
+defect: it is recorded and routed to ordinary maintenance and does not
+block the closeout. Implementation roadmaps and plans executing this
+design schedule these runs at their corresponding stage closeouts and
+carry the same investigate-and-fix obligation.
 
 ### Stage 1: retire the tolerant mutation surface
 
@@ -271,7 +334,7 @@ Only after Stages 1–3 and that milestone, evaluate public and Torch families
 independently under the Pydantic Adoption Gate:
 
 - remeasure the manual structural-validation surface after compatibility
-  deletion;
+  deletion and any interim drift-tripwire hardening;
 - produce a dry-run deletion ledger before production changes;
 - prove constructor, reflection, error, and accepted-value behavior with the
   installed Pydantic version;
@@ -309,11 +372,18 @@ The transition is complete only when:
 - remaining legacy projection and versioned artifact behavior matches its
   current governing specification;
 - each Pydantic candidate records either a gate-backed adoption or a
-  gate-backed retain-manual decision.
+  gate-backed retain-manual decision;
+- each stage closeout has recorded its net production line delta, and a
+  stage that nets positive states why (§1 secondary goal). The delta is a
+  recorded observation with a justification obligation, not a numeric
+  pass/fail threshold;
+- each stage closeout has green (or named-skip) runs of the runnable
+  architecture-integration suites, with any regression root-caused and
+  fixed per §5 "Stage-closeout integration evidence".
 
 Evidence is tranche-local and claim-matched. Raw grep counts, historical task
-checkboxes, and optional broad test sweeps do not independently create
-completion requirements.
+checkboxes, and optional broad test sweeps beyond the named stage-closeout
+suites do not independently create completion requirements.
 
 ## 7. Explicitly rejected
 

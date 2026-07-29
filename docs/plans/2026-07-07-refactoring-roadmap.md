@@ -778,6 +778,26 @@ routing is not Stage F implementation closure. There is no machine-readable
 selector, tranche manifest, or active workflow state for this slice; consistent
 with §2.3, this roadmap remains its sole live status and sequencing surface.
 
+Each Slice 8 stage closeout (A–F) additionally runs the stage-closeout
+architecture-integration suites required by the transition parent's
+"Stage-closeout integration evidence" provision: the torch FNO-family
+integration suites. Hybrid-resnet family suites are outside this
+obligation on `refactor-internal` and its descendants (the tracked
+hybrid-resnet code and tests on this branch preserve the Stage A schema
+contract; they are not a supported closeout gate here). The
+multi-architecture `tests/torch/test_grid_lines_c4_ci_integration.py`
+suite stays in the closeout set — currently a `cnn` quality arm and a
+`hybrid_resnet` full-path smoke arm; it self-skips when its materialized
+`.artifacts/ci_compatibility/datasets_v3` fixtures are absent, and its
+arms follow the suite rather than the family exclusion.
+This is a stage-boundary obligation specific to Slice 8;
+it does not alter §8.7's numbered-slice rule elsewhere. §8.9's attribution
+discipline applies at each such closeout: a failure reproduced at the stage's
+entry commit is recorded as pre-existing and routed to ordinary maintenance;
+a failure attributable to the stage is a regression whose root cause is
+investigated and fixed in production code before the stage closes — relaxing
+thresholds, editing baselines, or skipping the suite is not closure.
+
 ## 6. Dependency and concurrency model
 
 ```text

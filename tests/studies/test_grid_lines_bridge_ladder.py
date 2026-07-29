@@ -2564,7 +2564,7 @@ class _ExecHarness:
         effective_probe_sha256: str | None = None,
         physics_scaling_constant: float | None = None,
     ) -> None:
-        from ptycho import evaluation
+        from ptycho import evaluation, params
         from ptycho_torch import lightning_utils
 
         from scripts.studies import grid_lines_torch_runner as runner_mod
@@ -2588,6 +2588,11 @@ class _ExecHarness:
         self.generic_canvas = self.historical_canvas + np.complex64(0.25)
         self.evaluated_canvases: list[np.ndarray] = []
         harness = self
+        monkeypatch.setattr(
+            params,
+            "cfg",
+            {"offset": 98, "poison": "must-remain-untouched"},
+        )
 
         def train_via_generic_loader(
             runner_cfg: Any,
@@ -2631,7 +2636,13 @@ class _ExecHarness:
         def eval_reconstruction(
             stitched_obj: np.ndarray, ground_truth_obj: np.ndarray, **kwargs: Any
         ) -> dict[str, Any]:
-            harness.calls.append(("eval_reconstruction", kwargs.get("label")))
+            harness.calls.append(
+                (
+                    "eval_reconstruction",
+                    kwargs.get("label"),
+                    kwargs.get("trim_offset"),
+                )
+            )
             harness.evaluated_canvases.append(np.squeeze(stitched_obj))
             return {key: tuple(value) for key, value in harness.metrics.items()}
 
@@ -2647,7 +2658,11 @@ class _ExecHarness:
         monkeypatch.setattr(
             runner_mod, "_reassemble_predictions_for_metrics", reassemble
         )
-        monkeypatch.setattr(evaluation, "eval_reconstruction", eval_reconstruction)
+        monkeypatch.setattr(
+            evaluation,
+            "eval_reconstruction_explicit",
+            eval_reconstruction,
+        )
 
 
 def test_execute_ladder_rung_drives_mmap_flow_and_gates_historical_canvas(
@@ -2681,6 +2696,10 @@ def test_execute_ladder_rung_drives_mmap_flow_and_gates_historical_canvas(
         "reassemble",
         "eval_reconstruction",
     ]
+    assert (
+        harness.calls[-1][2]
+        == spec.dataset(spec.rung("mini_rung1_loader").dataset).recipe.offset
+    )
     assert (
         result.checkpoint_sha256
         == hashlib.sha256(harness.CHECKPOINT_BYTES).hexdigest()

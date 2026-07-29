@@ -69,7 +69,10 @@ should extend the approved simulation cached-`TypeAdapter` pattern demonstrated
 by the public reference implementation. Each family
 adopts only if the measured replacement deletes more structural-validation
 complexity than it adds; otherwise it terminally records retain-manual. Every
-other portfolio row keeps its current treatment.
+other portfolio row keeps its current treatment. The net-deletion gate is
+also this design's instrument for the transition parent's secondary goal of
+net production line reduction (parent §1); a retain-manual outcome that adds
+nothing serves that goal exactly as well as a net-deleting adoption.
 
 In this design, **post-strangler** means
 `modern_isolation_complete`: supported modern paths have zero `params.cfg`
@@ -169,6 +172,34 @@ currently present on `refactor-internal`:
   The semantic remainder (object-policy join, sampling coherence,
   realspace-weight cross-rule, loss-weight relationships) stays manual, as
   do `validate_runnable_training_config` and `validate_inference_resources`.
+- The manual surface states schema facts more than once across
+  `config.py` and `resolution.py`, in four classes with unequal drift
+  protection; the Stage A remeasurement and dry-run ledger must account
+  for each class separately:
+  1. field-ownership name sets (`_MODEL_INPUT_NAMES`,
+     `_TRAINING_INPUT_NAMES`, `_INFERENCE_INPUT_NAMES`) — hand-listed but
+     tripwired by import-time asserts against `dataclasses.fields()`;
+     drift is loud except under `python -O`, which strips asserts;
+  2. closed value domains — each public `Literal[...]` annotation has an
+     unchecked module-level frozenset twin (`_MODEL_ARCHITECTURES`,
+     `_AMP_ACTIVATIONS`, `_PUBLIC_BACKENDS`, `_TORCH_LOSS_MODES`,
+     `_GRADIENT_CLIP_ALGORITHMS`, `_OPTIMIZERS`, `_SCHEDULERS`,
+     `_OBJECT_LAYOUTS`, `_TRAINING_CANVASES`); no `get_args()`
+     cross-check exists, so the frozenset governs runtime while the
+     annotation can silently diverge;
+  3. `Path`-typed field sets (`_TRAINING_PATH_NAMES`,
+     `_INFERENCE_PATH_NAMES`) — unchecked restatements of the
+     annotations;
+  4. per-field `_require_*` bodies — a further statement of each field's
+     name and constraint with no fields-versus-validator coverage
+     tripwire (the gap class that produced the pre-campaign `set_phi`
+     hole).
+  Classes 2–4 are the adapter-deletable duplication the ledger measures;
+  class 1 is the ownership layer that survives adoption (as
+  literals-plus-asserts or in derived form). Where the transition
+  parent's interim drift-tripwire maintenance has already converted
+  classes 2–3 to derived form, the remaining measurable surface is
+  class 4 plus whatever the derivation could not subsume.
 - The pre-campaign validators `validate_model_config` /
   `validate_training_config` / `validate_inference_config` in
   `ptycho/config/config.py` have zero production callers but remain
@@ -198,7 +229,10 @@ currently present on `refactor-internal`:
   remeasured in roadmap Stage A. With loose annotations the adapter validates almost nothing;
   with tightened annotations every tightening is a new rejection and
   therefore a per-field compatibility decision, which is contract expansion
-  rather than deletion.
+  rather than deletion. Whether `ptycho_torch/config_resolution.py` also
+  carries unchecked `Literal`-versus-registry domain twins (the public
+  family's class-2 duplication) is not yet audited; that audit belongs to
+  the Stage A remeasurement.
 - Mutation and bypass inventory (the recorded reason for Hold): the
   public-reference factories use return-new resolution, while the internal
   branch's remaining
@@ -365,7 +399,14 @@ outcome.
 10. **Deletion-ledger hygiene.** Dead code (the orphaned facade validators,
     unreferenced helpers) removed before the family cut never counts toward
     any family's net-deletion gate. Gate evidence is duplication the adapter
-    itself replaces.
+    itself replaces. Interim manual-layer hardening under the transition
+    parent's drift-tripwire provision (deriving domain frozensets from
+    their `Literal` annotations, deriving or asserting the `Path`-field
+    sets) is likewise ordinary maintenance of the retained-manual
+    architecture: excluded from the ledger, and it legitimately shrinks
+    the adapter-deletable surface the ledger later measures. A
+    post-hardening ledger that no longer nets positive is a correct
+    retain-manual signal, not sandbagging.
 11. **CLI Path handling stays primitive** at the CLI (parent invariant 5);
     Path conversion is owned by the adapter boundary only where the manual
     conversion it deletes lives today (F5 pins representation).

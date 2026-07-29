@@ -1,4 +1,4 @@
-"""Focused contracts for pure execution request and environment resolution."""
+"""Focused contracts for unresolved runtime requests and environment resolution."""
 
 from __future__ import annotations
 
@@ -8,49 +8,7 @@ import warnings
 import pytest
 
 
-EXPECTED_TOPOLOGY_ALIASES = frozenset(
-    {
-        "hybrid_skip_connections",
-        "hybrid_downsample_steps",
-        "hybrid_downsample_op",
-        "hybrid_encoder_conv_hidden_scale",
-        "hybrid_encoder_spectral_hidden_scale",
-        "hybrid_encoder_conv_hidden_channels",
-        "hybrid_encoder_spectral_hidden_channels",
-        "hybrid_resnet_blocks",
-        "hybrid_skip_style",
-        "hybrid_resnet_bottleneck_layerscale_mode",
-        "hybrid_resnet_bottleneck_layerscale_value",
-        "hybrid_encoder_fusion_mode",
-        "hybrid_encoder_layerscale_init",
-        "hybrid_encoder_branch_gate_init",
-        "hybrid_encoder_branch_select",
-        "ffno_encoder_blocks",
-        "ffno_encoder_modes",
-        "ffno_encoder_share_weights",
-        "ffno_encoder_gate_init",
-        "ffno_encoder_norm",
-        "ffno_encoder_mlp_ratio",
-        "spectral_bottleneck_blocks",
-        "spectral_bottleneck_modes",
-        "spectral_bottleneck_share_weights",
-        "spectral_bottleneck_gate_init",
-        "spectral_bottleneck_gate_mode",
-    }
-)
-
-EXPECTED_OPTIMIZER_ALIASES = frozenset(
-    {
-        "learning_rate",
-        "scheduler",
-        "gradient_clip_val",
-        "gradient_clip_algorithm",
-        "accum_steps",
-    }
-)
-
-
-def test_execution_request_defensively_copies_values_and_provenance():
+def test_execution_request_defensively_copies_values_and_provenance() -> None:
     from ptycho_torch.execution_request import ExecutionRequest, ResolutionNotice
 
     source = {"accelerator": "auto", "devices": "auto"}
@@ -76,7 +34,37 @@ def test_execution_request_defensively_copies_values_and_provenance():
         request.values["accelerator"] = "cuda"
 
 
-def test_execution_request_freezes_reconstruction_indices_through_resolution():
+def test_execution_request_accepts_only_runtime_carrier_fields() -> None:
+    from ptycho.config.config import PyTorchExecutionConfig
+    from ptycho_torch.execution_request import ExecutionRequest
+
+    runtime_fields = {item.name for item in fields(PyTorchExecutionConfig)}
+    request = ExecutionRequest(
+        values={"accelerator": "auto", "devices": "auto"},
+        explicit_fields=frozenset({"accelerator", "devices"}),
+    )
+
+    assert set(request.values) <= runtime_fields
+    for retired_field in (
+        "learning_rate",
+        "scheduler",
+        "gradient_clip_val",
+        "gradient_clip_algorithm",
+        "accum_steps",
+        "hybrid_skip_style",
+        "ffno_encoder_modes",
+    ):
+        with pytest.raises(
+            ValueError,
+            match="unknown execution request field",
+        ):
+            ExecutionRequest(
+                values={retired_field: object()},
+                explicit_fields=frozenset({retired_field}),
+            )
+
+
+def test_execution_request_freezes_reconstruction_indices_through_resolution() -> None:
     from ptycho_torch.execution_request import (
         ExecutionRequest,
         normalize_execution_input,
@@ -110,52 +98,8 @@ def test_execution_request_freezes_reconstruction_indices_through_resolution():
     )
 
     assert resolved.config.recon_log_fixed_indices == [1, 3]
-    assert isinstance(resolved.config.recon_log_fixed_indices, list)
     resolved.config.recon_log_fixed_indices.append(9)
     assert normalized.values["recon_log_fixed_indices"] == (1, 3)
-
-
-def test_bare_execution_config_normalization_snapshots_reconstruction_indices():
-    from ptycho.config.config import PyTorchExecutionConfig
-    from ptycho_torch.execution_request import (
-        normalize_execution_input,
-        resolve_runtime_execution_request,
-    )
-
-    config = PyTorchExecutionConfig(
-        accelerator="cpu",
-        recon_log_fixed_indices=[2, 4],
-    )
-    normalized = normalize_execution_input(config, mode="training")
-    assert normalized is not None
-
-    config.recon_log_fixed_indices.append(6)
-
-    assert normalized.values["recon_log_fixed_indices"] == (2, 4)
-    resolved = resolve_runtime_execution_request(
-        normalized,
-        mode="training",
-    )
-    assert resolved.config.recon_log_fixed_indices == [2, 4]
-    assert isinstance(resolved.config.recon_log_fixed_indices, list)
-
-
-def test_environment_resolution_snapshots_mutable_execution_values():
-    from ptycho_torch.execution_request import EnvironmentResolution
-
-    requested_indices = [1, 2]
-    resolved_indices = [3, 4]
-    resolution = EnvironmentResolution(
-        requested={"recon_log_fixed_indices": requested_indices},
-        resolved={"recon_log_fixed_indices": resolved_indices},
-        capabilities=None,
-    )
-
-    requested_indices.append(5)
-    resolved_indices.append(6)
-
-    assert resolution.requested["recon_log_fixed_indices"] == (1, 2)
-    assert resolution.resolved["recon_log_fixed_indices"] == (3, 4)
 
 
 @pytest.mark.parametrize(
@@ -178,20 +122,22 @@ def test_execution_request_rejects_invalid_field_provenance(
     values,
     explicit_fields,
     message,
-):
+) -> None:
     from ptycho_torch.execution_request import ExecutionRequest
 
     with pytest.raises(ValueError, match=message):
         ExecutionRequest(values=values, explicit_fields=explicit_fields)
 
 
-def test_execution_request_construction_is_pure(monkeypatch):
+def test_execution_request_construction_is_pure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     import torch
 
     from ptycho.config.config import PyTorchExecutionConfig
     from ptycho_torch.execution_request import ExecutionRequest
 
-    def fail_if_called(*args, **kwargs):
+    def fail_if_called(*_args, **_kwargs):
         raise AssertionError("request construction must remain pure")
 
     monkeypatch.setattr(PyTorchExecutionConfig, "__init__", fail_if_called)
@@ -206,19 +152,9 @@ def test_execution_request_construction_is_pure(monkeypatch):
     assert request.as_dict() == {"accelerator": "auto"}
 
 
-def test_execution_request_compatibility_field_sets_match_internal_carrier():
-    from ptycho.config.config import PyTorchExecutionConfig
-    from ptycho_torch.execution_request import (
-        OPTIMIZER_EXECUTION_COMPAT_FIELDS,
-        TOPOLOGY_EXECUTION_COMPAT_FIELDS,
-    )
-
-    assert len(fields(PyTorchExecutionConfig)) == 55
-    assert TOPOLOGY_EXECUTION_COMPAT_FIELDS == EXPECTED_TOPOLOGY_ALIASES
-    assert OPTIMIZER_EXECUTION_COMPAT_FIELDS == EXPECTED_OPTIMIZER_ALIASES
-
-
-def test_request_structure_fails_before_capability_observation(monkeypatch):
+def test_request_structure_fails_before_capability_observation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     import ptycho_torch.execution_request as execution_request
 
     observed = False
@@ -236,14 +172,15 @@ def test_request_structure_fails_before_capability_observation(monkeypatch):
     request = execution_request.ExecutionRequest(
         values={
             "accelerator": "auto",
-            "hybrid_downsample_steps": 0,
+            "num_workers": 0,
+            "persistent_workers": True,
         },
         explicit_fields=frozenset(
-            {"accelerator", "hybrid_downsample_steps"}
+            {"accelerator", "num_workers", "persistent_workers"}
         ),
     )
 
-    with pytest.raises(ValueError, match="hybrid_downsample_steps"):
+    with pytest.raises(ValueError, match="persistent_workers"):
         execution_request.resolve_runtime_execution_request(
             request,
             mode="training",
@@ -265,7 +202,7 @@ def test_request_structure_fails_before_capability_observation(monkeypatch):
 def test_request_resolution_enforces_selected_runtime_contract(
     values,
     message,
-):
+) -> None:
     from ptycho_torch.execution_request import (
         ExecutionRequest,
         resolve_runtime_execution_request,
@@ -282,31 +219,7 @@ def test_request_resolution_enforces_selected_runtime_contract(
         )
 
 
-@pytest.mark.parametrize(
-    "logger_backend",
-    ["csv", "tensorboard", "mlflow", None],
-)
-def test_request_resolution_accepts_canonical_logger_backends(logger_backend):
-    from ptycho_torch.execution_request import (
-        ExecutionRequest,
-        resolve_runtime_execution_request,
-    )
-
-    result = resolve_runtime_execution_request(
-        ExecutionRequest(
-            values={
-                "accelerator": "cpu",
-                "logger_backend": logger_backend,
-            },
-            explicit_fields=frozenset({"logger_backend"}),
-        ),
-        mode="training",
-    )
-
-    assert result.config.logger_backend == logger_backend
-
-
-def test_cpu_environment_resolution_is_injected_immutable_and_deferred():
+def test_cpu_environment_resolution_is_injected_immutable_and_deferred() -> None:
     from ptycho_torch.execution_request import (
         ExecutionCapabilities,
         ExecutionRequest,
@@ -361,7 +274,7 @@ def test_cpu_environment_resolution_is_injected_immutable_and_deferred():
         result.environment.resolved["devices"] = 2
 
 
-def test_cuda_environment_resolution_uses_injected_device_count():
+def test_cuda_environment_resolution_uses_injected_device_count() -> None:
     from ptycho_torch.execution_request import (
         ExecutionCapabilities,
         ExecutionRequest,
@@ -394,80 +307,9 @@ def test_cuda_environment_resolution_uses_injected_device_count():
     assert result.notices == ()
 
 
-def test_inference_rejects_training_fields_before_capability_observation(
-    monkeypatch,
-):
-    import ptycho_torch.execution_request as execution_request
-
-    def fail_if_observed():
-        raise AssertionError("capabilities observed before phase validation")
-
-    monkeypatch.setattr(
-        execution_request,
-        "observe_execution_capabilities",
-        fail_if_observed,
-    )
-    request = execution_request.ExecutionRequest(
-        values={
-            "accelerator": "auto",
-            "hybrid_skip_connections": True,
-        },
-        explicit_fields=frozenset({"hybrid_skip_connections"}),
-    )
-
-    with pytest.raises(
-        ValueError,
-        match="inference execution request.*hybrid_skip_connections",
-    ):
-        execution_request.resolve_runtime_execution_request(
-            request,
-            mode="inference",
-        )
-
-
-def test_bare_execution_config_preserves_compatibility_provenance():
-    from ptycho.config.config import PyTorchExecutionConfig
-    from ptycho_torch.execution_request import (
-        normalize_execution_input,
-        resolve_runtime_execution_request,
-    )
-
-    config = PyTorchExecutionConfig(
-        accelerator="cpu",
-        hybrid_skip_connections=True,
-        ffno_encoder_modes=8,
-        spectral_bottleneck_modes=10,
-    )
-    normalized = normalize_execution_input(config, mode="training")
-
-    assert normalized is not None
-    assert normalized.legacy_config is config
-    assert normalized.accelerator_already_resolved is True
-    assert normalized.explicit_fields == (
-        EXPECTED_OPTIMIZER_ALIASES
-        | {
-            "hybrid_skip_connections",
-            "ffno_encoder_modes",
-            "spectral_bottleneck_modes",
-        }
-    )
-    assert len(normalized.values) == 55
-
-    result = resolve_runtime_execution_request(
-        normalized,
-        mode="training",
-    )
-
-    assert result.config._explicit_structural_aliases == frozenset(
-        {
-            "hybrid_skip_connections",
-            "ffno_encoder_modes",
-            "spectral_bottleneck_modes",
-        }
-    )
-
-
-def test_explicit_cpu_devices_auto_needs_no_capability_observation(monkeypatch):
+def test_explicit_cpu_devices_auto_needs_no_capability_observation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     import ptycho_torch.execution_request as execution_request
 
     def fail_if_observed():
@@ -488,3 +330,39 @@ def test_explicit_cpu_devices_auto_needs_no_capability_observation(monkeypatch):
 
     assert result.config.accelerator == "cpu"
     assert result.config.devices == 1
+
+
+def test_default_request_resolves_gpu_first_but_default_carrier_is_cpu() -> None:
+    from ptycho.config.config import PyTorchExecutionConfig
+    from ptycho_torch.execution_request import (
+        ExecutionCapabilities,
+        resolve_runtime_execution_request,
+    )
+
+    assert PyTorchExecutionConfig().accelerator == "cpu"
+    result = resolve_runtime_execution_request(
+        None,
+        mode="training",
+        execution_capabilities=ExecutionCapabilities(
+            cuda_available=True,
+            cuda_device_count=2,
+        ),
+    )
+
+    assert result.environment.requested["accelerator"] == "auto"
+    assert result.config.accelerator == "cuda"
+
+
+def test_bare_resolved_carrier_is_not_an_unresolved_request() -> None:
+    from ptycho.config.config import PyTorchExecutionConfig
+    from ptycho_torch.execution_request import (
+        normalize_execution_input,
+        resolve_runtime_execution_request,
+    )
+
+    carrier = PyTorchExecutionConfig()
+
+    with pytest.raises(TypeError, match="ExecutionRequest"):
+        normalize_execution_input(carrier, mode="training")
+    with pytest.raises(TypeError, match="ExecutionRequest"):
+        resolve_runtime_execution_request(carrier, mode="training")

@@ -64,12 +64,11 @@ State Dependencies:
 """
 
 from collections.abc import Mapping
-from dataclasses import dataclass, asdict, field, fields, replace
+from dataclasses import dataclass, asdict, field, replace
 from pathlib import Path
 from typing import Annotated, Dict, Any, List, Optional, Literal, Union
 import json
 import hashlib
-import inspect
 import math
 import tomllib
 from pydantic import (
@@ -677,40 +676,10 @@ class InferenceConfig:
             # Use object.__setattr__ to modify dataclass
             object.__setattr__(self, 'n_groups', self.n_images)
 
-_STRUCTURAL_EXECUTION_ALIAS_NAMES = frozenset({
-    'hybrid_skip_connections',
-    'hybrid_downsample_steps',
-    'hybrid_downsample_op',
-    'hybrid_encoder_conv_hidden_scale',
-    'hybrid_encoder_spectral_hidden_scale',
-    'hybrid_encoder_conv_hidden_channels',
-    'hybrid_encoder_spectral_hidden_channels',
-    'hybrid_resnet_blocks',
-    'hybrid_skip_style',
-    'hybrid_resnet_bottleneck_layerscale_mode',
-    'hybrid_resnet_bottleneck_layerscale_value',
-    'hybrid_encoder_fusion_mode',
-    'hybrid_encoder_layerscale_init',
-    'hybrid_encoder_branch_gate_init',
-    'hybrid_encoder_branch_select',
-    'ffno_encoder_blocks',
-    'ffno_encoder_modes',
-    'ffno_encoder_share_weights',
-    'ffno_encoder_gate_init',
-    'ffno_encoder_norm',
-    'ffno_encoder_mlp_ratio',
-    'spectral_bottleneck_blocks',
-    'spectral_bottleneck_modes',
-    'spectral_bottleneck_share_weights',
-    'spectral_bottleneck_gate_init',
-    'spectral_bottleneck_gate_mode',
-})
-
-
 def _validate_execution_pre_environment_values(
     values: Mapping[str, Any],
 ) -> None:
-    """Validate execution fields whose errors precede accelerator resolution."""
+    """Validate unresolved request fields before capability observation."""
 
     devices = values["devices"]
     if (
@@ -750,9 +719,13 @@ def _validate_execution_pre_environment_values(
 def _validate_execution_post_environment_values(
     values: Mapping[str, Any],
 ) -> None:
-    """Validate execution fields whose errors follow accelerator resolution."""
+    """Validate environment-independent runtime fields."""
 
-    if values["num_workers"] < 0:
+    if (
+        isinstance(values["num_workers"], bool)
+        or not isinstance(values["num_workers"], int)
+        or values["num_workers"] < 0
+    ):
         raise ValueError(
             f"num_workers must be non-negative, got {values['num_workers']}"
         )
@@ -772,32 +745,34 @@ def _validate_execution_post_environment_values(
             "logger_backend must be 'csv', 'tensorboard', 'mlflow', or None"
         )
 
-    if values["learning_rate"] <= 0:
-        raise ValueError(
-            f"learning_rate must be positive, got {values['learning_rate']}"
-        )
-
     if (
-        values["inference_batch_size"] is not None
-        and values["inference_batch_size"] <= 0
+            values["inference_batch_size"] is not None
+            and (
+                isinstance(values["inference_batch_size"], bool)
+                or not isinstance(values["inference_batch_size"], int)
+                or values["inference_batch_size"] <= 0
+            )
     ):
         raise ValueError(
             "inference_batch_size must be positive, "
             f"got {values['inference_batch_size']}"
         )
 
-    if values["accum_steps"] <= 0:
-        raise ValueError(
-            f"accum_steps must be positive, got {values['accum_steps']}"
-        )
-
-    if values["checkpoint_save_top_k"] < 0:
+    if (
+        isinstance(values["checkpoint_save_top_k"], bool)
+        or not isinstance(values["checkpoint_save_top_k"], int)
+        or values["checkpoint_save_top_k"] < 0
+    ):
         raise ValueError(
             "checkpoint_save_top_k must be non-negative, "
             f"got {values['checkpoint_save_top_k']}"
         )
 
-    if values["early_stop_patience"] <= 0:
+    if (
+        isinstance(values["early_stop_patience"], bool)
+        or not isinstance(values["early_stop_patience"], int)
+        or values["early_stop_patience"] <= 0
+    ):
         raise ValueError(
             "early_stop_patience must be positive, "
             f"got {values['early_stop_patience']}"
@@ -810,384 +785,96 @@ def _validate_execution_post_environment_values(
             f"Expected one of {sorted(valid_checkpoint_modes)}."
         )
 
-    if values["hybrid_downsample_steps"] not in {1, 2}:
+
+def _validate_execution_resolved_environment_values(
+    values: Mapping[str, Any],
+) -> None:
+    """Reject request-only environment values on the resolved carrier."""
+
+    accelerator = values["accelerator"]
+    if accelerator == "tpu":
         raise ValueError(
-            "hybrid_downsample_steps must be in [1, 2] "
-            f"(got {values['hybrid_downsample_steps']})."
+            "Torch-XLA TPU execution is unsupported by this PyTorch runtime. "
+            "Use accelerator='cpu', 'gpu'/'cuda', or 'mps'."
+        )
+    valid_accelerators = {"cpu", "gpu", "cuda", "mps"}
+    if accelerator not in valid_accelerators:
+        raise ValueError(
+            f"Invalid resolved accelerator: {accelerator!r}. "
+            f"Expected one of {sorted(valid_accelerators)}."
         )
 
-    valid_downsample_ops = {"stride_conv", "avgpool_conv", "blurpool_conv"}
-    if values["hybrid_downsample_op"] not in valid_downsample_ops:
-        raise ValueError(
-            f"Invalid hybrid_downsample_op '{values['hybrid_downsample_op']}'. "
-            f"Expected one of {sorted(valid_downsample_ops)}."
-        )
-
+    devices = values["devices"]
     if (
-        not math.isfinite(float(values["hybrid_encoder_conv_hidden_scale"]))
-        or float(values["hybrid_encoder_conv_hidden_scale"]) <= 0.0
+        isinstance(devices, bool)
+        or not isinstance(devices, int)
+        or devices <= 0
     ):
         raise ValueError(
-            "hybrid_encoder_conv_hidden_scale must be finite and > 0, "
-            f"got {values['hybrid_encoder_conv_hidden_scale']}."
+            f"resolved devices must be a positive integer, got {devices!r}"
         )
 
-    if (
-        not math.isfinite(
-            float(values["hybrid_encoder_spectral_hidden_scale"])
-        )
-        or float(values["hybrid_encoder_spectral_hidden_scale"]) <= 0.0
-    ):
+    precision = values["precision"]
+    valid_precisions = {"32-true", "16-mixed", "bf16-mixed"}
+    if not isinstance(precision, str) or precision not in valid_precisions:
         raise ValueError(
-            "hybrid_encoder_spectral_hidden_scale must be finite and > 0, "
-            f"got {values['hybrid_encoder_spectral_hidden_scale']}."
-        )
-
-    if (
-        values["hybrid_encoder_conv_hidden_channels"] is not None
-        and values["hybrid_encoder_conv_hidden_channels"] <= 0
-    ):
-        raise ValueError(
-            "hybrid_encoder_conv_hidden_channels must be positive when set, "
-            f"got {values['hybrid_encoder_conv_hidden_channels']}."
-        )
-
-    if (
-        values["hybrid_encoder_spectral_hidden_channels"] is not None
-        and values["hybrid_encoder_spectral_hidden_channels"] <= 0
-    ):
-        raise ValueError(
-            "hybrid_encoder_spectral_hidden_channels must be positive when set, "
-            f"got {values['hybrid_encoder_spectral_hidden_channels']}."
-        )
-
-    if values["hybrid_resnet_blocks"] <= 0:
-        raise ValueError(
-            "hybrid_resnet_blocks must be positive, "
-            f"got {values['hybrid_resnet_blocks']}."
-        )
-
-    if values["spectral_bottleneck_blocks"] <= 0:
-        raise ValueError(
-            "spectral_bottleneck_blocks must be positive, "
-            f"got {values['spectral_bottleneck_blocks']}."
-        )
-
-    if values["spectral_bottleneck_modes"] <= 0:
-        raise ValueError(
-            "spectral_bottleneck_modes must be positive, "
-            f"got {values['spectral_bottleneck_modes']}."
-        )
-
-    if not math.isfinite(float(values["spectral_bottleneck_gate_init"])):
-        raise ValueError(
-            "spectral_bottleneck_gate_init must be finite, "
-            f"got {values['spectral_bottleneck_gate_init']}."
-        )
-
-    valid_gate_modes = {"shared", "per_block"}
-    if values["spectral_bottleneck_gate_mode"] not in valid_gate_modes:
-        raise ValueError(
-            "Invalid spectral_bottleneck_gate_mode "
-            f"'{values['spectral_bottleneck_gate_mode']}'. "
-            f"Expected one of {sorted(valid_gate_modes)}."
-        )
-
-    valid_skip_styles = {"add", "concat", "gated_add"}
-    if values["hybrid_skip_style"] not in valid_skip_styles:
-        raise ValueError(
-            f"Invalid hybrid_skip_style '{values['hybrid_skip_style']}'. "
-            f"Expected one of {sorted(valid_skip_styles)}."
-        )
-
-    valid_layerscale_modes = {"learned", "fixed"}
-    layerscale_mode = values["hybrid_resnet_bottleneck_layerscale_mode"]
-    layerscale_value = values["hybrid_resnet_bottleneck_layerscale_value"]
-    if layerscale_mode not in valid_layerscale_modes:
-        raise ValueError(
-            "Invalid hybrid_resnet_bottleneck_layerscale_mode "
-            f"'{layerscale_mode}'. "
-            f"Expected one of {sorted(valid_layerscale_modes)}."
-        )
-    if layerscale_mode == "learned":
-        if layerscale_value is not None:
-            raise ValueError(
-                "hybrid_resnet_bottleneck_layerscale_value must be omitted when "
-                "hybrid_resnet_bottleneck_layerscale_mode='learned'."
-            )
-    else:
-        if layerscale_value is None:
-            raise ValueError(
-                "hybrid_resnet_bottleneck_layerscale_value must be provided when "
-                "hybrid_resnet_bottleneck_layerscale_mode='fixed'."
-            )
-        if (
-            not math.isfinite(float(layerscale_value))
-            or float(layerscale_value) <= 0.0
-        ):
-            raise ValueError(
-                "hybrid_resnet_bottleneck_layerscale_value must be finite and > 0 "
-                f"(got {layerscale_value})."
-            )
-
-    valid_encoder_fusion_modes = {
-        "baseline",
-        "layerscale",
-        "branch_gated",
-        "branch_gated_layerscale",
-    }
-    if values["hybrid_encoder_fusion_mode"] not in valid_encoder_fusion_modes:
-        raise ValueError(
-            "Invalid hybrid_encoder_fusion_mode "
-            f"'{values['hybrid_encoder_fusion_mode']}'. "
-            f"Expected one of {sorted(valid_encoder_fusion_modes)}."
-        )
-
-    if (
-        not math.isfinite(float(values["hybrid_encoder_layerscale_init"]))
-        or float(values["hybrid_encoder_layerscale_init"]) <= 0.0
-    ):
-        raise ValueError(
-            "hybrid_encoder_layerscale_init must be finite and > 0, "
-            f"got {values['hybrid_encoder_layerscale_init']}."
-        )
-
-    if (
-        not math.isfinite(float(values["hybrid_encoder_branch_gate_init"]))
-        or float(values["hybrid_encoder_branch_gate_init"]) <= 0.0
-    ):
-        raise ValueError(
-            "hybrid_encoder_branch_gate_init must be finite and > 0, "
-            f"got {values['hybrid_encoder_branch_gate_init']}."
-        )
-
-    if values["ffno_encoder_blocks"] <= 0:
-        raise ValueError(
-            "ffno_encoder_blocks must be positive, "
-            f"got {values['ffno_encoder_blocks']}."
-        )
-
-    if values["ffno_encoder_modes"] <= 0:
-        raise ValueError(
-            "ffno_encoder_modes must be positive, "
-            f"got {values['ffno_encoder_modes']}."
-        )
-
-    if (
-        not math.isfinite(float(values["ffno_encoder_gate_init"]))
-        or float(values["ffno_encoder_gate_init"]) <= 0.0
-    ):
-        raise ValueError(
-            "ffno_encoder_gate_init must be finite and > 0, "
-            f"got {values['ffno_encoder_gate_init']}."
-        )
-
-    if (
-        not math.isfinite(float(values["ffno_encoder_mlp_ratio"]))
-        or float(values["ffno_encoder_mlp_ratio"]) <= 0.0
-    ):
-        raise ValueError(
-            "ffno_encoder_mlp_ratio must be finite and > 0, "
-            f"got {values['ffno_encoder_mlp_ratio']}."
+            f"Invalid precision: {precision!r}. "
+            f"Expected one of {sorted(valid_precisions)}."
         )
 
 
 @dataclass
 class PyTorchExecutionConfig:
+    """Resolved PyTorch Trainer and DataLoader runtime carrier.
+
+    User requests, unresolved ``"auto"`` values, and explicit-input provenance
+    belong to :class:`ptycho_torch.execution_request.ExecutionRequest`.
+    Optimizer semantics belong to Torch ``TrainingConfig`` and model topology
+    belongs to Torch ``ModelConfig``.  Constructing this record is pure: it
+    validates already-resolved runtime values and never observes hardware.
     """
-    PyTorch-specific execution configuration for runtime behavior control.
 
-    This configuration controls PyTorch Lightning execution knobs, dataloader settings,
-    and optimization parameters that do NOT exist in TensorFlow canonical configs.
-    These fields are backend-specific and should not be bridged to params.cfg via
-    update_legacy_dict (CONFIG-001 applies only to canonical configs).
-
-    Design Context:
-        - Introduced in ADR-003 Phase C1 to centralize execution-only parameters
-        - Fields sourced from override_matrix.md §5 (PyTorch Execution Configuration)
-        - Priority level 2 in override precedence (between explicit overrides and CLI defaults)
-        - Referenced by: ptycho_torch/config_factory.py (factory payload construction)
-        - Consumed by: ptycho_torch/workflows/components.py (Lightning Trainer + DataLoader)
-
-    Usage:
-        >>> from ptycho.config.config import PyTorchExecutionConfig
-        >>> exec_cfg = PyTorchExecutionConfig(
-        ...     accelerator='cpu',
-        ...     deterministic=True,
-        ...     num_workers=4,
-        ...     enable_progress_bar=False,
-        ... )
-        >>> # Pass to factory:
-        >>> payload = create_training_payload(..., execution_config=exec_cfg)
-
-    Policy Compliance:
-        - POLICY-001: PyTorch >=2.2 required for all ptycho_torch/ code
-        - CONFIG-001: This config is execution-only; does NOT populate params.cfg
-
-    Field Categories:
-        1. Lightning Trainer knobs: accelerator, strategy, deterministic, gradient_clip_val
-        2. DataLoader knobs: num_workers, pin_memory, persistent_workers, prefetch_factor
-        3. Optimization knobs: learning_rate, scheduler, accum_steps
-        4. Checkpoint/logging knobs: enable_progress_bar, enable_checkpointing, checkpoint_save_top_k, checkpoint_monitor_metric, checkpoint_mode, early_stop_patience
-        5. Inference knobs: inference_batch_size, middle_trim, pad_eval
-    """
-    # Lightning Trainer knobs
-    accelerator: str = 'auto'  # Options: 'cpu', 'gpu', 'cuda', 'mps', 'auto' (TPU/Torch-XLA unsupported)
-    devices: Union[int, Literal["auto"]] = 1
-    strategy: str = 'auto'  # Options: 'auto', 'ddp', 'fsdp', 'deepspeed'
-    deterministic: Union[bool, Literal["warn"]] = True  # Enforce reproducibility (seed_everything + deterministic mode); "warn" allows non-deterministic ops with a warning
+    # Lightning Trainer runtime
+    accelerator: Literal["cpu", "gpu", "cuda", "mps"] = "cpu"
+    devices: int = 1
+    strategy: str = "auto"
+    deterministic: Union[bool, Literal["warn"]] = True
     precision: Literal["32-true", "16-mixed", "bf16-mixed"] = "32-true"
-    gradient_clip_val: Optional[float] = None  # Gradient clipping threshold (None = disabled)
-    gradient_clip_algorithm: Literal['norm', 'value', 'agc'] = 'norm'  # Gradient clipping algorithm
-    accum_steps: int = 1  # Gradient accumulation steps (simulate larger batch size)
 
-    # DataLoader knobs
-    num_workers: int = 0  # Number of dataloader worker processes (0 = main process only; CPU-safe)
-    pin_memory: bool = False  # Pin memory for faster CPU→GPU transfer (GPU-only; False for CPU safety)
-    persistent_workers: bool = False  # Keep workers alive between epochs (requires num_workers > 0)
-    prefetch_factor: Optional[int] = None  # Batches to prefetch per worker (None = default 2)
+    # DataLoader runtime
+    num_workers: int = 0
+    pin_memory: bool = False
+    persistent_workers: bool = False
+    prefetch_factor: Optional[int] = None
 
-    # Optimization knobs
-    learning_rate: float = 1e-3  # Optimizer learning rate (hardcoded in legacy code)
-    scheduler: str = 'Default'  # LR scheduler type: 'Default', 'Exponential', 'MultiStage'
+    # Checkpoint, logging, and progress runtime
+    enable_progress_bar: bool = False
+    enable_checkpointing: bool = True
+    checkpoint_save_top_k: int = 1
+    checkpoint_monitor_metric: str = "val_loss"
+    checkpoint_mode: Literal["min", "max"] = "min"
+    early_stop_patience: int = 100
+    logger_backend: Optional[
+        Literal["csv", "tensorboard", "mlflow"]
+    ] = "csv"
 
-    # Checkpoint/logging knobs
-    enable_progress_bar: bool = False  # Show training progress bar (derived from config.debug in legacy code)
-    enable_checkpointing: bool = True  # Enable Lightning automatic checkpointing
-    checkpoint_save_top_k: int = 1  # How many best checkpoints to keep
-    checkpoint_monitor_metric: str = 'val_loss'  # Metric for best checkpoint selection
-    checkpoint_mode: str = 'min'  # Mode for checkpoint monitoring: 'min' (lower is better) or 'max' (higher is better)
-    early_stop_patience: int = 100  # Early stopping patience epochs (hardcoded in legacy code)
+    # Reconstruction logging runtime
+    recon_log_every_n_epochs: Optional[int] = None
+    recon_log_num_patches: int = 4
+    recon_log_fixed_indices: Optional[List[int]] = None
+    recon_log_stitch: bool = False
+    recon_log_max_stitch_samples: Optional[int] = None
 
-    # Logging knobs (Phase EB3.B - ADR-003)
-    logger_backend: Optional[str] = 'csv'  # Experiment tracking backend: 'csv' (default), 'tensorboard', 'mlflow', or None
+    # Inference runtime
+    inference_batch_size: Optional[int] = None
+    middle_trim: int = 0
+    pad_eval: bool = False
 
-    # Reconstruction logging knobs (MLflow only)
-    recon_log_every_n_epochs: Optional[int] = None  # Log intermediate reconstructions every N epochs (None = disabled)
-    recon_log_num_patches: int = 4  # Number of fixed patch indices to log
-    recon_log_fixed_indices: Optional[List[int]] = None  # Explicit patch indices (None = auto-select)
-    recon_log_stitch: bool = False  # Log stitched full-resolution reconstructions (opt-in)
-    recon_log_max_stitch_samples: Optional[int] = None  # Cap stitched samples (None = no limit)
+    def __post_init__(self) -> None:
+        """Validate resolved values without capability observation."""
 
-    # Deprecated Torch topology input aliases. The training factory records
-    # explicit use, maps it one-way into Torch ModelConfig, and rejects conflicts.
-    hybrid_skip_connections: bool = False
-    hybrid_downsample_steps: int = 2
-    hybrid_downsample_op: Literal['stride_conv', 'avgpool_conv', 'blurpool_conv'] = 'stride_conv'
-    hybrid_encoder_conv_hidden_scale: float = 1.0
-    hybrid_encoder_spectral_hidden_scale: float = 1.0
-    # Legacy absolute-width aliases retained for backwards compatibility.
-    hybrid_encoder_conv_hidden_channels: Optional[int] = None
-    hybrid_encoder_spectral_hidden_channels: Optional[int] = None
-    hybrid_resnet_blocks: int = 6
-    hybrid_skip_style: Literal['add', 'concat', 'gated_add'] = 'add'
-    hybrid_resnet_bottleneck_layerscale_mode: Literal['learned', 'fixed'] = 'learned'
-    hybrid_resnet_bottleneck_layerscale_value: Optional[float] = None
-    # Encoder-fusion controls (per-block scalars; Torch-only study plumbing).
-    hybrid_encoder_fusion_mode: Literal[
-        'baseline',
-        'layerscale',
-        'branch_gated',
-        'branch_gated_layerscale',
-    ] = 'baseline'
-    hybrid_encoder_layerscale_init: float = 0.1
-    hybrid_encoder_branch_gate_init: float = 0.1
-    # Orthogonal deterministic encoder-branch ablation control. Values:
-    # 'both' (default), 'conv_only' (drop spectral branch), 'spectral_only' (drop conv branch).
-    hybrid_encoder_branch_select: Literal[
-        'both',
-        'conv_only',
-        'spectral_only',
-    ] = 'both'
-    ffno_encoder_blocks: int = 24
-    ffno_encoder_modes: int = 12
-    ffno_encoder_share_weights: bool = True
-    ffno_encoder_gate_init: float = 0.1
-    ffno_encoder_norm: str = 'instance'
-    ffno_encoder_mlp_ratio: float = 2.0
-    spectral_bottleneck_blocks: int = 6
-    spectral_bottleneck_modes: int = 12
-    spectral_bottleneck_share_weights: bool = True
-    spectral_bottleneck_gate_init: float = 0.1
-    spectral_bottleneck_gate_mode: Literal['shared', 'per_block'] = 'shared'
-
-    # Inference-specific knobs
-    inference_batch_size: Optional[int] = None  # Override batch_size for inference (None = use training batch_size)
-    middle_trim: int = 0  # Inference trimming parameter (not yet implemented)
-    pad_eval: bool = False  # Padding for evaluation (not yet implemented)
-
-    def __new__(cls, *args, **kwargs):
-        instance = super().__new__(cls)
-        positional_names = {
-            field_info.name for field_info in fields(cls)[:len(args)]
-        }
-        instance._explicit_structural_aliases = frozenset(
-            (positional_names | set(kwargs)) & _STRUCTURAL_EXECUTION_ALIAS_NAMES
-        )
-        return instance
-
-    def __post_init__(self):
-        """
-        Validate PyTorchExecutionConfig fields and resolve 'auto' accelerator (ADR-003 Phase D.B).
-
-        Auto-Resolution Logic (POLICY-001 compliance):
-            When accelerator='auto':
-            - Resolves to 'cuda' if torch.cuda.is_available() == True
-            - Falls back to 'cpu' with POLICY-001 warning if no CUDA device found
-            - Ensures GPU-first behavior per docs/workflows/pytorch.md §12
-
-        Raises:
-            ValueError: If validation fails with descriptive message
-
-        Validation Rules (from training_refactor.md §Component 2 + EB1.A):
-            1. accelerator must be in whitelist {'auto', 'cpu', 'gpu', 'cuda', 'mps'}
-            2. num_workers must be non-negative
-            3. learning_rate must be positive
-            4. inference_batch_size (if provided) must be positive
-            5. accum_steps must be positive
-            6. checkpoint_save_top_k must be non-negative
-            7. early_stop_patience must be positive
-            8. checkpoint_mode must be in whitelist {'min', 'max'}
-
-        Notes:
-            - Warnings for deterministic+num_workers handled in CLI helper (build_execution_config_from_args)
-            - Field defaults are safe; validation catches programmatic misuse
-            - Auto-resolution modifies the accelerator field in-place via object.__setattr__
-        """
-        _validate_execution_pre_environment_values(self.__dict__)
-
-        # Auto-resolution: 'auto' → 'cuda' if available, else 'cpu' with POLICY-001 warning
-        if self.accelerator == 'auto':
-            try:
-                import torch
-                if torch.cuda.is_available():
-                    object.__setattr__(self, 'accelerator', 'cuda')
-                else:
-                    object.__setattr__(self, 'accelerator', 'cpu')
-                    warnings.warn(
-                        "POLICY-001: PyTorch backend defaults to GPU execution. "
-                        "No CUDA device detected; falling back to CPU. "
-                        "For production workloads, ensure CUDA is available or explicitly set accelerator='cpu'.",
-                        UserWarning,
-                        stacklevel=3
-                    )
-            except ImportError:
-                # Should not happen given POLICY-001 (torch is mandatory), but handle gracefully
-                object.__setattr__(self, 'accelerator', 'cpu')
-                warnings.warn(
-                    "POLICY-001: PyTorch not available. Falling back to CPU accelerator. "
-                    "Install PyTorch (torch>=2.2) for GPU acceleration.",
-                    UserWarning,
-                    stacklevel=3
-                )
-
+        _validate_execution_resolved_environment_values(self.__dict__)
         _validate_execution_post_environment_values(self.__dict__)
-
-
-_execution_init_signature = inspect.signature(PyTorchExecutionConfig.__init__)
-PyTorchExecutionConfig.__signature__ = _execution_init_signature.replace(
-    parameters=tuple(_execution_init_signature.parameters.values())[1:]
-)
 
 
 def validate_model_config(config: ModelConfig) -> None:

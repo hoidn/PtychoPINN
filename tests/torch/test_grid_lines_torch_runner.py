@@ -9,7 +9,7 @@ import numpy as np
 from pathlib import Path
 from unittest.mock import patch
 
-from ptycho.config.config import TrainingConfig, ModelConfig
+from ptycho.config.config import ModelConfig, SimulationConfig, TrainingConfig
 from ptycho.metadata import MetadataManager
 from ptycho_torch.scaling_contract import (
     CI_SCALE_CONTRACT,
@@ -74,6 +74,7 @@ def synthetic_npz(tmp_path):
         script_name="test_fixture",
         nimgs_test=n_samples,
         outer_offset_test=outer_offset_test,
+        offset=SimulationConfig().scan.offset,
     )
     MetadataManager.save_with_metadata(str(train_path), data, metadata)
     MetadataManager.save_with_metadata(str(test_path), data, metadata)
@@ -389,8 +390,10 @@ class TestSetupTorchConfigs:
         assert training_config.model.object_big is True
         assert training_config.model.probe_big is True
 
-    def test_creates_execution_config(self, tmp_path):
-        """Test config setup creates valid PyTorchExecutionConfig."""
+    def test_creates_unresolved_execution_request(self, tmp_path):
+        """Runtime values remain unresolved until the workflow factory boundary."""
+        from ptycho_torch.execution_request import ExecutionRequest
+
         cfg = TorchRunnerConfig(
             train_npz=tmp_path / "train.npz",
             test_npz=tmp_path / "test.npz",
@@ -399,10 +402,12 @@ class TestSetupTorchConfigs:
             learning_rate=0.001,
         )
 
-        _, execution_config = setup_torch_configs(cfg)
+        training_config, execution_config = setup_torch_configs(cfg)
 
-        assert execution_config.learning_rate == 0.001
-        assert execution_config.deterministic is True
+        assert training_config.learning_rate == 0.001
+        assert isinstance(execution_config, ExecutionRequest)
+        assert "learning_rate" not in execution_config.values
+        assert execution_config.values["deterministic"] is True
 
     def test_setup_configs_threads_seed_into_subsample_seed(self, tmp_path):
         """Study seed should become the effective subsample/lightning seed."""
@@ -506,7 +511,7 @@ class TestSetupTorchConfigs:
         )
         training_config, execution_config = setup_torch_configs(cfg)
         assert training_config.model.architecture == "hybrid_resnet_convnext_bottleneck"
-        assert execution_config.deterministic is True
+        assert execution_config.values["deterministic"] is True
 
     def test_setup_configs_hybrid_resnet_convnext_bottleneck_requires_fno_blocks_ge_3(self, tmp_path):
         """ConvNeXt-bottleneck SRU-Net arch reuses the SRU-Net fno_blocks>=3 guard."""
@@ -900,6 +905,7 @@ class TestRunGridLinesTorchScaffold:
             script_name="test_grid_lines_torch_runner",
             nimgs_test=1,
             outer_offset_test=20,
+            offset=SimulationConfig().scan.offset,
         )
         data = dict(np.load(test_path, allow_pickle=True))
         N = 64
@@ -923,7 +929,10 @@ class TestRunGridLinesTorchScaffold:
             called["ok"] = True
             return {"mse": 0.0}
 
-        monkeypatch.setattr("ptycho.evaluation.eval_reconstruction", fake_eval)
+        monkeypatch.setattr(
+            "ptycho.evaluation.eval_reconstruction_explicit",
+            fake_eval,
+        )
 
         cfg = TorchRunnerConfig(
             train_npz=train_path,
@@ -956,27 +965,99 @@ class TestRunGridLinesTorchScaffold:
         run_grid_lines_torch(cfg)
         assert called["ok"] is True
 
+    def test_stitch_for_metrics_uses_metadata_not_ambient_params(self, monkeypatch, tmp_path):
+        """Torch stitching owns geometry instead of mutating params.cfg."""
+        from ptycho import params
+        from ptycho.workflows.grid_lines_workflow import stitch_predictions_explicit
+        from scripts.studies.grid_lines_torch_runner import _stitch_for_metrics
+
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path,
+            architecture="fno",
+            N=8,
+            gridsize=1,
+        )
+        metadata = {
+            "additional_parameters": {
+                "nimgs_test": 2,
+                "outer_offset_test": 8,
+            }
+        }
+        predictions = np.ones((2, 8, 8, 1), dtype=np.complex64)
+        expected = stitch_predictions_explicit(
+            predictions,
+            norm_Y_I=3.0,
+            N=8,
+            gridsize=1,
+            nimgs_test=2,
+            outer_offset_test=8,
+            part="complex",
+        )
+
+        class _PoisonParams(dict):
+            def __setitem__(self, key, value):
+                raise AssertionError(f"Torch stitching wrote params.cfg[{key!r}]")
+
+            def __getitem__(self, key):
+                raise AssertionError(f"Torch stitching read params.cfg[{key!r}]")
+
+        monkeypatch.setattr(params, "cfg", _PoisonParams())
+        monkeypatch.setattr(
+            params,
+            "get",
+            lambda key: (_ for _ in ()).throw(
+                AssertionError(f"Torch stitching called params.get({key!r})")
+            ),
+        )
+        monkeypatch.setattr(
+            params,
+            "set",
+            lambda key, value: (_ for _ in ()).throw(
+                AssertionError(f"Torch stitching called params.set({key!r}, {value!r})")
+            ),
+        )
+
+        actual = _stitch_for_metrics(predictions, cfg, metadata, norm_Y_I=3.0)
+
+        np.testing.assert_allclose(actual, expected)
+
     def test_compute_metrics_accepts_2d_complex_inputs(self, monkeypatch):
         """compute_metrics should normalize 2D complex arrays to (H,W,1)."""
+        from ptycho import params
+
         captured = {}
 
-        def fake_eval(pred, gt, label="", **kwargs):
-            _ = kwargs
+        def fake_eval(pred, gt, label="", *, trim_offset):
             captured["pred_shape"] = tuple(np.asarray(pred).shape)
             captured["gt_shape"] = tuple(np.asarray(gt).shape)
             captured["label"] = label
+            captured["trim_offset"] = trim_offset
             return {"mse": 0.0}
 
-        monkeypatch.setattr("ptycho.evaluation.eval_reconstruction", fake_eval)
+        monkeypatch.setattr(
+            "ptycho.evaluation.eval_reconstruction_explicit",
+            fake_eval,
+        )
+        poisoned_cfg = {"offset": 98, "poison": "must-remain-untouched"}
+        monkeypatch.setattr(params, "cfg", poisoned_cfg)
 
         pred = np.ones((64, 64), dtype=np.complex64)
         gt = np.ones((64, 64), dtype=np.complex64)
-        out = compute_metrics(pred, gt, label="pinn_hybrid_resnet")
+        out = compute_metrics(
+            pred,
+            gt,
+            label="pinn_hybrid_resnet",
+            trim_offset=4,
+        )
 
         assert out["mse"] == 0.0
         assert captured["pred_shape"] == (64, 64, 1)
         assert captured["gt_shape"] == (64, 64, 1)
         assert captured["label"] == "pinn_hybrid_resnet"
+        assert captured["trim_offset"] == 4
+        assert params.cfg == poisoned_cfg
 
     def test_compute_metrics_does_not_pass_single_image_frc_kwargs(self, monkeypatch):
         captured = {}
@@ -988,16 +1069,24 @@ class TestRunGridLinesTorchScaffold:
             captured["kwargs"] = dict(kwargs)
             return {"mse": 0.0}
 
-        monkeypatch.setattr("ptycho.evaluation.eval_reconstruction", fake_eval)
+        monkeypatch.setattr(
+            "ptycho.evaluation.eval_reconstruction_explicit",
+            fake_eval,
+        )
 
         pred = np.ones((64, 64), dtype=np.complex64)
         gt = np.ones((64, 64), dtype=np.complex64)
-        out = compute_metrics(pred, gt, label="pinn_hybrid_resnet")
+        out = compute_metrics(
+            pred,
+            gt,
+            label="pinn_hybrid_resnet",
+            trim_offset=4,
+        )
 
         assert out["mse"] == 0.0
         assert captured["pred_shape"] == (64, 64, 1)
         assert captured["gt_shape"] == (64, 64, 1)
-        assert not any(key.startswith("single_image_frc") for key in captured["kwargs"])
+        assert captured["kwargs"] == {"trim_offset": 4}
 
     def test_compute_metrics_normalizes_channel_first_real_imag_ground_truth(self, monkeypatch):
         captured = {}
@@ -1010,7 +1099,10 @@ class TestRunGridLinesTorchScaffold:
             captured["label"] = label
             return {"mse": 0.0}
 
-        monkeypatch.setattr("ptycho.evaluation.eval_reconstruction", fake_eval)
+        monkeypatch.setattr(
+            "ptycho.evaluation.eval_reconstruction_explicit",
+            fake_eval,
+        )
 
         pred = np.ones((48, 50), dtype=np.complex64)
         gt = np.stack(
@@ -1020,7 +1112,12 @@ class TestRunGridLinesTorchScaffold:
             ],
             axis=0,
         )
-        out = compute_metrics(pred, gt, label="pinn_hybrid_resnet")
+        out = compute_metrics(
+            pred,
+            gt,
+            label="pinn_hybrid_resnet",
+            trim_offset=4,
+        )
 
         assert out["mse"] == 0.0
         assert captured["pred_shape"] == (48, 50, 1)
@@ -1038,7 +1135,10 @@ class TestRunGridLinesTorchScaffold:
             captured["label"] = label
             return {"mse": 0.0}
 
-        monkeypatch.setattr("ptycho.evaluation.eval_reconstruction", fake_eval)
+        monkeypatch.setattr(
+            "ptycho.evaluation.eval_reconstruction_explicit",
+            fake_eval,
+        )
 
         pred = np.ones((32, 34), dtype=np.complex64)
         gt = np.stack(
@@ -1048,7 +1148,12 @@ class TestRunGridLinesTorchScaffold:
             ],
             axis=0,
         )
-        out = compute_metrics(pred, gt, label="pinn_hybrid_resnet")
+        out = compute_metrics(
+            pred,
+            gt,
+            label="pinn_hybrid_resnet",
+            trim_offset=4,
+        )
 
         assert out["mse"] == 0.0
         assert captured["pred_shape"] == (32, 34, 1)
@@ -1086,7 +1191,7 @@ class TestRunGridLinesTorchScaffold:
                 "coords_offsets": np.zeros((4, 1, 2, 1), dtype=np.float32),
                 "YY_full": np.ones((64, 64), dtype=np.complex64),
             }
-            return data, {"additional_parameters": {}}
+            return data, {"additional_parameters": {"offset": 4}}
 
         monkeypatch.setattr("ptycho.tf_helper.reassemble_position", fake_reassemble)
         monkeypatch.setattr(
@@ -1140,7 +1245,7 @@ class TestRunGridLinesTorchScaffold:
                 "YY_full": np.ones((462, 461), dtype=np.complex64),
                 "YY_ground_truth": np.ones((462, 461), dtype=np.complex64),
             }
-            return data, {"additional_parameters": {}}
+            return data, {"additional_parameters": {"offset": 4}}
 
         def fake_compute_metrics(predictions, ground_truth, label, **kwargs):
             captured["pred_shape"] = tuple(np.asarray(predictions).shape)
@@ -2278,27 +2383,25 @@ class TestChannelGridsizeAlignment:
         assert payload.pt_model_config.learned_input_channels == 3
         assert payload.tf_training_config.model.learned_input_channels == 3
 
-    def test_create_training_payload_moves_hybrid_residual_fixed_knobs_into_pt_model_config(
+    def test_create_training_payload_places_hybrid_residual_fixed_knobs_in_pt_model_config(
         self, synthetic_ptycho_npz, tmp_path
     ):
-        from ptycho.config.config import PyTorchExecutionConfig
         from ptycho_torch.config_factory import create_training_payload
 
         train_npz, _ = synthetic_ptycho_npz
-        execution_config = PyTorchExecutionConfig(
-            hybrid_resnet_bottleneck_layerscale_mode="fixed",
-            hybrid_resnet_bottleneck_layerscale_value=1.0,
-        )
 
         payload = create_training_payload(
             train_data_file=train_npz,
             output_dir=tmp_path,
-            overrides={"n_groups": 4, "gridsize": 1, "architecture": "hybrid_resnet"},
-            execution_config=execution_config,
+            overrides={
+                "n_groups": 4,
+                "gridsize": 1,
+                "architecture": "hybrid_resnet",
+                "hybrid_resnet_bottleneck_layerscale_mode": "fixed",
+                "hybrid_resnet_bottleneck_layerscale_value": 1.0,
+            },
         )
 
-        assert payload.execution_config.hybrid_resnet_bottleneck_layerscale_mode == "fixed"
-        assert payload.execution_config.hybrid_resnet_bottleneck_layerscale_value == 1.0
         assert payload.pt_model_config.hybrid_resnet_bottleneck_layerscale_mode == "fixed"
         assert payload.pt_model_config.hybrid_resnet_bottleneck_layerscale_value == 1.0
 
@@ -2422,7 +2525,7 @@ class TestArchitecturePropagation:
     def test_workflow_forwards_downsample_steps_and_downsample_op_to_factory(self, monkeypatch, tmp_path):
         from pathlib import Path
         from ptycho_torch.workflows import components
-        from ptycho.config.config import TrainingConfig, ModelConfig, PyTorchExecutionConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig
 
         cfg = TrainingConfig(
             model=ModelConfig(N=64, gridsize=1, architecture="hybrid_resnet"),
@@ -2431,10 +2534,10 @@ class TestArchitecturePropagation:
             backend="pytorch",
             n_groups=4,
         )
-        exec_cfg = PyTorchExecutionConfig(
-            hybrid_downsample_steps=1,
-            hybrid_downsample_op="avgpool_conv",
-        )
+        topology = {
+            "hybrid_downsample_steps": 1,
+            "hybrid_downsample_op": "avgpool_conv",
+        }
         captured = {}
 
         def spy_create_payload(*args, **kwargs):
@@ -2448,11 +2551,11 @@ class TestArchitecturePropagation:
                 train_container=object(),
                 test_container=None,
                 config=cfg,
-                execution_config=exec_cfg,
+                overrides=topology,
             )
-        assert "hybrid_downsample_steps" not in captured["overrides"]
-        assert captured["execution_config"].hybrid_downsample_steps == 1
-        assert captured["execution_config"].hybrid_downsample_op == "avgpool_conv"
+        assert captured["overrides"]["hybrid_downsample_steps"] == 1
+        assert captured["overrides"]["hybrid_downsample_op"] == "avgpool_conv"
+        assert captured["execution_config"] is None
 
     def test_workflow_forwards_learned_input_channels_to_factory(self, monkeypatch, tmp_path):
         from pathlib import Path
@@ -2492,7 +2595,7 @@ class TestArchitecturePropagation:
     ):
         from pathlib import Path
         from ptycho_torch.workflows import components
-        from ptycho.config.config import TrainingConfig, ModelConfig, PyTorchExecutionConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig
 
         cfg = TrainingConfig(
             model=ModelConfig(N=64, gridsize=1, architecture="hybrid_resnet"),
@@ -2501,11 +2604,11 @@ class TestArchitecturePropagation:
             backend="pytorch",
             n_groups=4,
         )
-        exec_cfg = PyTorchExecutionConfig(
-            hybrid_encoder_conv_hidden_scale=0.5,
-            hybrid_encoder_spectral_hidden_scale=2.0,
-            hybrid_resnet_blocks=8,
-        )
+        topology = {
+            "hybrid_encoder_conv_hidden_scale": 0.5,
+            "hybrid_encoder_spectral_hidden_scale": 2.0,
+            "hybrid_resnet_blocks": 8,
+        }
         captured = {}
 
         def spy_create_payload(*args, **kwargs):
@@ -2519,17 +2622,17 @@ class TestArchitecturePropagation:
                 train_container=object(),
                 test_container=None,
                 config=cfg,
-                execution_config=exec_cfg,
+                overrides=topology,
             )
-        assert "hybrid_encoder_conv_hidden_scale" not in captured["overrides"]
-        assert captured["execution_config"].hybrid_encoder_conv_hidden_scale == 0.5
-        assert captured["execution_config"].hybrid_encoder_spectral_hidden_scale == 2.0
-        assert captured["execution_config"].hybrid_resnet_blocks == 8
+        assert captured["overrides"]["hybrid_encoder_conv_hidden_scale"] == 0.5
+        assert captured["overrides"]["hybrid_encoder_spectral_hidden_scale"] == 2.0
+        assert captured["overrides"]["hybrid_resnet_blocks"] == 8
+        assert captured["execution_config"] is None
 
     def test_workflow_forwards_hybrid_encoder_fusion_mode_to_factory(self, monkeypatch, tmp_path):
         from pathlib import Path
         from ptycho_torch.workflows import components
-        from ptycho.config.config import TrainingConfig, ModelConfig, PyTorchExecutionConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig
 
         cfg = TrainingConfig(
             model=ModelConfig(N=64, gridsize=1, architecture="hybrid_resnet"),
@@ -2538,11 +2641,11 @@ class TestArchitecturePropagation:
             backend="pytorch",
             n_groups=4,
         )
-        exec_cfg = PyTorchExecutionConfig(
-            hybrid_encoder_fusion_mode="branch_gated_layerscale",
-            hybrid_encoder_layerscale_init=0.05,
-            hybrid_encoder_branch_gate_init=0.2,
-        )
+        topology = {
+            "hybrid_encoder_fusion_mode": "branch_gated_layerscale",
+            "hybrid_encoder_layerscale_init": 0.05,
+            "hybrid_encoder_branch_gate_init": 0.2,
+        }
         captured = {}
 
         def spy_create_payload(*args, **kwargs):
@@ -2556,17 +2659,17 @@ class TestArchitecturePropagation:
                 train_container=object(),
                 test_container=None,
                 config=cfg,
-                execution_config=exec_cfg,
+                overrides=topology,
             )
-        assert "hybrid_encoder_fusion_mode" not in captured["overrides"]
-        assert captured["execution_config"].hybrid_encoder_fusion_mode == "branch_gated_layerscale"
-        assert captured["execution_config"].hybrid_encoder_layerscale_init == 0.05
-        assert captured["execution_config"].hybrid_encoder_branch_gate_init == 0.2
+        assert captured["overrides"]["hybrid_encoder_fusion_mode"] == "branch_gated_layerscale"
+        assert captured["overrides"]["hybrid_encoder_layerscale_init"] == 0.05
+        assert captured["overrides"]["hybrid_encoder_branch_gate_init"] == 0.2
+        assert captured["execution_config"] is None
 
     def test_workflow_forwards_skip_style_to_factory(self, monkeypatch, tmp_path):
         from pathlib import Path
         from ptycho_torch.workflows import components
-        from ptycho.config.config import TrainingConfig, ModelConfig, PyTorchExecutionConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig
 
         cfg = TrainingConfig(
             model=ModelConfig(N=64, gridsize=1, architecture="hybrid_resnet"),
@@ -2575,7 +2678,6 @@ class TestArchitecturePropagation:
             backend="pytorch",
             n_groups=4,
         )
-        exec_cfg = PyTorchExecutionConfig(hybrid_skip_style="gated_add")
         captured = {}
 
         def spy_create_payload(*args, **kwargs):
@@ -2589,15 +2691,15 @@ class TestArchitecturePropagation:
                 train_container=object(),
                 test_container=None,
                 config=cfg,
-                execution_config=exec_cfg,
+                overrides={"hybrid_skip_style": "gated_add"},
             )
-        assert "hybrid_skip_style" not in captured["overrides"]
-        assert captured["execution_config"].hybrid_skip_style == "gated_add"
+        assert captured["overrides"]["hybrid_skip_style"] == "gated_add"
+        assert captured["execution_config"] is None
 
     def test_workflow_forwards_hybrid_skip_residual_fixed_knobs_to_factory(self, monkeypatch, tmp_path):
         from pathlib import Path
         from ptycho_torch.workflows import components
-        from ptycho.config.config import TrainingConfig, ModelConfig, PyTorchExecutionConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig
 
         cfg = TrainingConfig(
             model=ModelConfig(N=64, gridsize=1, architecture="hybrid_resnet"),
@@ -2606,10 +2708,10 @@ class TestArchitecturePropagation:
             backend="pytorch",
             n_groups=4,
         )
-        exec_cfg = PyTorchExecutionConfig(
-            hybrid_resnet_bottleneck_layerscale_mode="fixed",
-            hybrid_resnet_bottleneck_layerscale_value=1.0,
-        )
+        topology = {
+            "hybrid_resnet_bottleneck_layerscale_mode": "fixed",
+            "hybrid_resnet_bottleneck_layerscale_value": 1.0,
+        }
         captured = {}
 
         def spy_create_payload(*args, **kwargs):
@@ -2623,11 +2725,11 @@ class TestArchitecturePropagation:
                 train_container=object(),
                 test_container=None,
                 config=cfg,
-                execution_config=exec_cfg,
+                overrides=topology,
             )
-        assert "hybrid_resnet_bottleneck_layerscale_mode" not in captured["overrides"]
-        assert captured["execution_config"].hybrid_resnet_bottleneck_layerscale_mode == "fixed"
-        assert captured["execution_config"].hybrid_resnet_bottleneck_layerscale_value == 1.0
+        assert captured["overrides"]["hybrid_resnet_bottleneck_layerscale_mode"] == "fixed"
+        assert captured["overrides"]["hybrid_resnet_bottleneck_layerscale_value"] == 1.0
+        assert captured["execution_config"] is None
 
 
 class TestForwardSignatureEnforcement:
@@ -3256,6 +3358,7 @@ class TestTorchTrainingPath:
         monkeypatch,
     ):
         from ptycho_torch.config_factory import create_training_payload
+        from ptycho_torch.execution_request import ExecutionRequest
 
         train_path, test_path = synthetic_npz
         cfg = TorchRunnerConfig(
@@ -3278,6 +3381,7 @@ class TestTorchTrainingPath:
             execution_config=None,
             overrides=None,
         ):
+            assert isinstance(execution_config, ExecutionRequest)
             factory_overrides = {
                 "n_groups": training_config.n_groups,
                 "gridsize": training_config.model.gridsize,
@@ -4112,7 +4216,7 @@ def test_setup_torch_configs_uses_warn_only_determinism_for_neuralop_uno(tmp_pat
         generator_output_mode="real_imag",
     )
     _, execution_config = setup_torch_configs(cfg)
-    assert execution_config.deterministic == "warn"
+    assert execution_config.values["deterministic"] == "warn"
 
 
 def test_setup_torch_configs_keeps_strict_determinism_for_other_architectures(tmp_path):
@@ -4134,4 +4238,4 @@ def test_setup_torch_configs_keeps_strict_determinism_for_other_architectures(tm
         fno_blocks=4,
     )
     _, execution_config = setup_torch_configs(cfg)
-    assert execution_config.deterministic is True
+    assert execution_config.values["deterministic"] is True

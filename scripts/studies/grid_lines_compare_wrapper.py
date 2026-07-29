@@ -1086,9 +1086,11 @@ def _load_recon_complex(path: Path) -> np.ndarray:
 def evaluate_selected_models(
     recon_paths: Dict[str, Path],
     gt_path: Path,
+    *,
+    trim_offset: int,
 ) -> Dict[str, Dict[str, object]]:
     """Evaluate selected model reconstructions on canonical GT object grid."""
-    from ptycho.evaluation import eval_reconstruction
+    from ptycho.evaluation import eval_reconstruction_explicit
 
     gt_ref = _load_recon_complex(Path(gt_path))
     target_hw = (int(gt_ref.shape[0]), int(gt_ref.shape[1]))
@@ -1096,10 +1098,11 @@ def evaluate_selected_models(
     for model_id, recon_path in recon_paths.items():
         pred = _load_recon_complex(Path(recon_path))
         pred_ref = resize_complex_to_shape(pred, target_hw)
-        metrics = eval_reconstruction(
+        metrics = eval_reconstruction_explicit(
             pred_ref[..., None],
             gt_ref[..., None],
             label=model_id,
+            trim_offset=trim_offset,
         )
         out[model_id] = {
             "reference_shape": [target_hw[0], target_hw[1]],
@@ -1571,6 +1574,26 @@ def run_grid_lines_compare(
             run_grid_lines_ptychovit,
         )
 
+        tf_cfg = GridLinesConfig(
+            N=N,
+            gridsize=gridsize,
+            output_dir=output_dir,
+            probe_npz=probe_npz,
+            seed=seed,
+            nimgs_train=nimgs_train,
+            nimgs_test=nimgs_test,
+            nphotons=nphotons,
+            nepochs=nepochs,
+            batch_size=batch_size,
+            nll_weight=nll_weight,
+            mae_weight=mae_weight,
+            realspace_weight=realspace_weight,
+            probe_smoothing_sigma=probe_smoothing_sigma,
+            probe_mask_diameter=probe_mask_diameter,
+            probe_source=probe_source,
+            probe_scale_mode=probe_scale_mode,
+            set_phi=set_phi,
+        )
         precomputed_gt = output_dir / "recons" / "gt" / "recon.npz"
         precomputed_recons = {
             model_id: output_dir / "recons" / model_id / "recon.npz"
@@ -1582,6 +1605,7 @@ def run_grid_lines_compare(
             metrics_by_model = evaluate_selected_models(
                 precomputed_recons,
                 precomputed_gt,
+                trim_offset=int(tf_cfg.offset),
             )
             metrics_by_model_path = output_dir / "metrics_by_model.json"
             metrics_by_model_path.write_text(json.dumps(metrics_by_model, indent=2, default=_json_default))
@@ -1666,26 +1690,6 @@ def run_grid_lines_compare(
                 "row_payloads": row_payloads,
             }
 
-        tf_cfg = GridLinesConfig(
-            N=N,
-            gridsize=gridsize,
-            output_dir=output_dir,
-            probe_npz=probe_npz,
-            seed=seed,
-            nimgs_train=nimgs_train,
-            nimgs_test=nimgs_test,
-            nphotons=nphotons,
-            nepochs=nepochs,
-            batch_size=batch_size,
-            nll_weight=nll_weight,
-            mae_weight=mae_weight,
-            realspace_weight=realspace_weight,
-            probe_smoothing_sigma=probe_smoothing_sigma,
-            probe_mask_diameter=probe_mask_diameter,
-            probe_source=probe_source,
-            probe_scale_mode=probe_scale_mode,
-            set_phi=set_phi,
-        )
         bundles_by_n = build_datasets(
             dataset_source=dataset_source,
             cfg=tf_cfg,
@@ -1949,6 +1953,7 @@ def run_grid_lines_compare(
         metrics_by_model = evaluate_selected_models(
             recon_paths,
             gt_path,
+            trim_offset=int(tf_cfg.offset),
         )
         metrics_by_model_path = output_dir / "metrics_by_model.json"
         metrics_by_model_path.write_text(json.dumps(metrics_by_model, indent=2, default=_json_default))

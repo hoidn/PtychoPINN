@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import hashlib
 from dataclasses import fields
-from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 import time
@@ -535,7 +534,7 @@ def _build_torch_model_from_saved_config(cfg: Any, *, n_groups: int = 1):
     from ptycho_torch.generators.registry import resolve_generator
     from scripts.studies import grid_lines_torch_runner as torch_runner
 
-    config, execution_config = torch_runner.setup_torch_configs(cfg)
+    config, execution_request = torch_runner.setup_torch_configs(cfg)
     config.n_groups = int(n_groups)
     mode_map = {"pinn": "Unsupervised", "supervised": "Supervised"}
     factory_overrides = {
@@ -562,12 +561,14 @@ def _build_torch_model_from_saved_config(cfg: Any, *, n_groups: int = 1):
         "grad_norm_log_freq": getattr(config, "grad_norm_log_freq", 1),
         "test_data_file": config.test_data_file,
     }
-    if execution_config.learning_rate is not None:
-        factory_overrides["learning_rate"] = execution_config.learning_rate
-    if execution_config.gradient_clip_val is not None:
-        factory_overrides["gradient_clip_val"] = execution_config.gradient_clip_val
     for opt_field in (
+        "learning_rate",
         "scheduler",
+        "lr_warmup_epochs",
+        "lr_min_ratio",
+        "gradient_clip_val",
+        "gradient_clip_algorithm",
+        "accum_steps",
         "optimizer",
         "weight_decay",
         "momentum",
@@ -588,35 +589,11 @@ def _build_torch_model_from_saved_config(cfg: Any, *, n_groups: int = 1):
     generator_output_mode = getattr(config.model, "generator_output_mode", None)
     if generator_output_mode is not None:
         factory_overrides["generator_output_mode"] = generator_output_mode
-    for field_name in (
-        "hybrid_skip_connections",
-        "hybrid_downsample_steps",
-        "hybrid_downsample_op",
-        "hybrid_encoder_conv_hidden_scale",
-        "hybrid_encoder_spectral_hidden_scale",
-        "hybrid_encoder_conv_hidden_channels",
-        "hybrid_encoder_spectral_hidden_channels",
-        "hybrid_resnet_blocks",
-        "hybrid_skip_style",
-        "hybrid_resnet_bottleneck_layerscale_mode",
-        "hybrid_resnet_bottleneck_layerscale_value",
-        "hybrid_encoder_fusion_mode",
-        "hybrid_encoder_layerscale_init",
-        "hybrid_encoder_branch_gate_init",
-        "hybrid_encoder_branch_select",
-        "spectral_bottleneck_blocks",
-        "spectral_bottleneck_modes",
-        "spectral_bottleneck_share_weights",
-        "spectral_bottleneck_gate_init",
-        "spectral_bottleneck_gate_mode",
-    ):
-        field_value = getattr(execution_config, field_name, None)
-        if field_value is not None:
-            factory_overrides[field_name] = field_value
+    factory_overrides.update(torch_runner._torch_structural_model_overrides(cfg))
     payload = create_training_payload(
         train_data_file=Path(config.train_data_file),
         output_dir=Path(config.output_dir),
-        execution_config=execution_config,
+        execution_config=execution_request,
         overrides=factory_overrides,
     )
     pt_configs = {
@@ -624,7 +601,7 @@ def _build_torch_model_from_saved_config(cfg: Any, *, n_groups: int = 1):
         "data_config": payload.pt_data_config,
         "training_config": payload.pt_training_config,
         "inference_config": PTInferenceConfig(),
-        "execution_config": execution_config,
+        "execution_config": payload.execution_config,
     }
     return resolve_generator(config).build_model(pt_configs)
 

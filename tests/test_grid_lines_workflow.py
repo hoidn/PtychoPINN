@@ -19,6 +19,7 @@ from ptycho.workflows.grid_lines_workflow import (
     save_split_npz,
     dataset_out_dir,
     stitch_predictions,
+    stitch_predictions_explicit,
     save_recon_artifact,
     save_comparison_png_dynamic,
     _should_share_colorbar,
@@ -1507,6 +1508,55 @@ class TestDatasetPersistence:
 
 class TestStitching:
     """Tests for stitching helper (Task 4)."""
+
+    def test_explicit_stitching_matches_legacy_without_reading_params(
+        self,
+        monkeypatch,
+    ):
+        """The explicit core preserves stitching while ignoring ambient globals."""
+        N = 8
+        gridsize = 1
+        nimgs_test = 2
+        outer_offset_test = 8
+        predictions = (
+            np.arange(nimgs_test * N * N).reshape(nimgs_test, N, N, 1)
+            + 1j
+        )
+
+        p.set("N", N)
+        p.set("gridsize", gridsize)
+        p.set("nimgs_test", nimgs_test)
+        p.set("outer_offset_test", outer_offset_test)
+        expected = stitch_predictions(
+            predictions,
+            norm_Y_I=2.5,
+            part="complex",
+        )
+
+        class _PoisonParams(dict):
+            def __getitem__(self, key):
+                raise AssertionError(f"explicit stitching read params.cfg[{key!r}]")
+
+        monkeypatch.setattr(p, "cfg", _PoisonParams())
+        monkeypatch.setattr(
+            p,
+            "get",
+            lambda key: (_ for _ in ()).throw(
+                AssertionError(f"explicit stitching called params.get({key!r})")
+            ),
+        )
+
+        actual = stitch_predictions_explicit(
+            predictions,
+            norm_Y_I=2.5,
+            N=N,
+            gridsize=gridsize,
+            nimgs_test=nimgs_test,
+            outer_offset_test=outer_offset_test,
+            part="complex",
+        )
+
+        np.testing.assert_allclose(actual, expected)
 
     def test_stitch_predictions_gridsize1(self):
         """stitch_predictions should handle gridsize=1."""

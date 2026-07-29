@@ -400,8 +400,11 @@ def execute_ladder_rung(
     with _stage("metrics"):
         from ptycho import evaluation
 
-        metrics = evaluation.eval_reconstruction(
-            gated[..., None], ground_truth[..., None], label=rung.id
+        metrics = evaluation.eval_reconstruction_explicit(
+            gated[..., None],
+            ground_truth[..., None],
+            label=rung.id,
+            trim_offset=int(dataset.recipe.offset),
         )
         amp_mae, phase_mae = _metric_pair(metrics, "mae")
         amp_ssim, phase_ssim = _metric_pair(metrics, "ssim")

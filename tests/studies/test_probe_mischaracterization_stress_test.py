@@ -1326,6 +1326,80 @@ def test_run_condition_failure_payload_preserves_preflight(monkeypatch, tmp_path
     assert persisted["preflight"]["condition_probe_policy"] == "assumed_probe_replaces_container_probe"
 
 
+def test_run_condition_uses_cfg_owned_evaluation_offset(monkeypatch, tmp_path):
+    from ptycho import evaluation, params
+    from ptycho.workflows import grid_lines_workflow
+    from scripts.studies import probe_mischaracterization_stress_test as study
+
+    true_probe = _toy_probe()
+    assumed_probe = true_probe * np.exp(0.1j)
+    sim = _toy_sim(true_probe)
+    observed_offsets = []
+
+    def clone_for_test(container, assumed):
+        return _ToyContainer(
+            X=container._X_np,
+            coords_nominal=container._coords_nominal_np,
+            coords_true=container._coords_true_np,
+            probe=assumed,
+        )
+
+    def fake_eval(*_args, **kwargs):
+        observed_offsets.append(kwargs["trim_offset"])
+        return {
+            name: (0.1, 0.2)
+            for name in ("ssim", "psnr", "mse", "mae")
+        }
+
+    monkeypatch.setattr(
+        params,
+        "cfg",
+        {"offset": 98, "poison": "must-remain-untouched"},
+    )
+    monkeypatch.setattr(study, "reset_tf_state", lambda clear_model_cache=True: None)
+    monkeypatch.setattr(study, "clone_container_with_probe", clone_for_test)
+    monkeypatch.setattr(
+        grid_lines_workflow,
+        "configure_legacy_params",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        grid_lines_workflow,
+        "train_pinn_model",
+        lambda *_args, **_kwargs: (object(), {"loss": [1.0]}),
+    )
+    monkeypatch.setattr(
+        grid_lines_workflow,
+        "run_pinn_inference",
+        lambda *_args, **_kwargs: np.ones((1, 4, 4, 1), dtype=np.complex64),
+    )
+    monkeypatch.setattr(
+        study,
+        "_stitch_prediction",
+        lambda *_args, **_kwargs: np.ones((1, 4, 4, 1), dtype=np.complex64),
+    )
+    monkeypatch.setattr(evaluation, "eval_reconstruction_explicit", fake_eval)
+
+    result = study.run_condition(
+        condition=study.PerturbationCondition(
+            "phase_test",
+            "phase_curvature_scale",
+            value=0.75,
+        ),
+        sim=sim,
+        true_probe=true_probe,
+        assumed_probe=assumed_probe,
+        branch_decision="fixed_wrong_probe_training",
+        cfg=types.SimpleNamespace(offset=4),
+        output_root=tmp_path,
+        canonical_data_checksums=study.build_canonical_data_checksums(sim),
+    )
+
+    assert result["status"] == "ok"
+    assert observed_offsets == [4]
+    assert params.cfg == {"offset": 98, "poison": "must-remain-untouched"}
+
+
 def test_script_path_execution_uses_repo_import_root(tmp_path):
     repo_root = Path(__file__).resolve().parents[2]
     probe_npz = tmp_path / "probe.npz"

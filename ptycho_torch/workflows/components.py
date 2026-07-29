@@ -14,7 +14,7 @@ layer and providing identical entry point signatures. The key differences are:
 4. Implements PyTorch-specific persistence via ModelManager or TorchModelManager
 
 Critical Requirements (CONFIG-001 + spec §4.5):
-- Entry points MUST call update_legacy_dict(params.cfg, config) before delegating
+- Modern Torch entry points pass resolved configuration explicitly
 - Module MUST be torch-optional (importable when PyTorch unavailable)
 - Signatures MUST match TensorFlow equivalents for transparent backend selection
 
@@ -64,7 +64,6 @@ from typing import Union, Optional, Tuple, Dict, Any
 from ptycho import params
 from ptycho.acquisition import AcquisitionRecord
 from ptycho.config.config import TrainingConfig, InferenceConfig, PyTorchExecutionConfig
-from ptycho.config import config as ptycho_config  # For update_legacy_dict
 from ptycho.config.legacy_state import (
     scoped_legacy_params,
     transactional_legacy_params,
@@ -91,7 +90,7 @@ try:
     from ptycho_torch.data_container_bridge import PtychoDataContainerTorch
     from ptycho_torch.model_manager import (
         _read_torch_bundle_manifest_and_params,
-        load_torch_bundle,
+        _reconstruct_torch_bundle_explicit,
         save_torch_bundle,
     )
     from ptycho_torch.dataloader import (
@@ -115,6 +114,24 @@ except ImportError as e:
 logger = logging.getLogger(__name__)
 
 _BUNDLE_SCALING_METADATA = "torch_scaling_metadata.pt"
+
+
+def _validate_training_execution_input(
+    execution_config: Optional[Any],
+    resolved_payload: Optional[TrainingPayload],
+) -> None:
+    """Validate unresolved workflow input before any legacy-state mutation."""
+    if resolved_payload is not None:
+        if execution_config is not None:
+            raise TypeError(
+                "execution_config must be omitted when resolved_payload owns "
+                "the resolved PyTorchExecutionConfig"
+            )
+        return
+
+    from ptycho_torch.execution_request import normalize_execution_input
+
+    normalize_execution_input(execution_config, mode="training")
 
 
 class _ResolvedPrebuiltPtychoDataModule(PrebuiltPtychoDataModule):
@@ -342,6 +359,73 @@ def _strictly_reconstruct_bundle_model(archive_path: Path, identity, model_name:
     return model
 
 
+def _reconstruct_inference_bundle_explicit(
+    archive_path: Path,
+    zip_path: Path,
+    *,
+    manifest: dict,
+    params_dict: dict,
+    identity: Optional[Any],
+    explicit_profile: Optional[Tuple[str, str]],
+    model_name: str,
+) -> Tuple[Dict[str, Any], dict, Optional[Any]]:
+    """Reconstruct a decoded bundle without consulting or mutating params.cfg."""
+    decoded_params = dict(params_dict)
+    available_models = manifest["models"]
+
+    if identity is None:
+        required_profile = (
+            LEGACY_SCALE_CONTRACT,
+            NORMALIZED_AMPLITUDE,
+        )
+        if explicit_profile != required_profile:
+            raise ValueError(
+                "This metadata-free bundle is provenance-known legacy. Supply both "
+                "scale_contract_version='legacy_v1' and "
+                "measurement_domain='normalized_amplitude'."
+            )
+        models_dict, _ = _reconstruct_torch_bundle_explicit(
+            str(archive_path),
+            manifest=manifest,
+            params_dict=params_dict,
+            model_name=model_name,
+        )
+        for loaded_model in models_dict.values():
+            loaded_model.data_config.scale_contract_version = (
+                LEGACY_SCALE_CONTRACT
+            )
+            loaded_model.data_config.measurement_domain = NORMALIZED_AMPLITUDE
+        decoded_params["scale_contract_version"] = LEGACY_SCALE_CONTRACT
+        decoded_params["measurement_domain"] = NORMALIZED_AMPLITUDE
+        return models_dict, decoded_params, None
+
+    persisted_profile = resolve_scale_contract(
+        identity.data_config.scale_contract_version,
+        identity.data_config.measurement_domain,
+    )
+    if explicit_profile is not None and explicit_profile != (
+        persisted_profile.version,
+        persisted_profile.measurement_domain,
+    ):
+        raise ValueError(
+            "Explicit bundle profile overrides contradict persisted metadata."
+        )
+    models_dict = {
+        archived_model_name: _strictly_reconstruct_bundle_model(
+            zip_path,
+            identity,
+            archived_model_name,
+        )
+        for archived_model_name in available_models
+    }
+    decoded_params["scale_contract_version"] = persisted_profile.version
+    decoded_params["measurement_domain"] = (
+        persisted_profile.measurement_domain
+    )
+    decoded_params["ci_statistics"] = identity.ci_statistics
+    return models_dict, decoded_params, identity
+
+
 def _canonicalize_ci_probe_modes(probe, N: int):
     """Validate CI probe layouts and move a trailing singleton to mode-first."""
     expected_spatial_shape = (N, N)
@@ -541,7 +625,6 @@ class NormalizedAmplitudeCIDictAdapter:
         return statistics
 
 
-@scoped_legacy_params
 def run_cdi_example_torch(
     train_data: Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch'],
     test_data: Optional[Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch']],
@@ -562,9 +645,9 @@ def run_cdi_example_torch(
     This function provides API parity with ptycho.workflows.components.run_cdi_example,
     enabling transparent backend selection from Ptychodus per specs/ptychodus_api_spec.md §4.5.
 
-    CRITICAL: This function MUST call update_legacy_dict(params.cfg, config) before
-    delegating to core modules to prevent CONFIG-001 violations (empty params.cfg
-    causing silent shape mismatches downstream).
+    Resolved configuration is passed to descendants explicitly. The workflow
+    does not project the complete config into ``params.cfg``; any surviving
+    legacy leaf owns its own narrow compatibility scope.
 
     Args:
         train_data: Training data (RawData, RawDataTorch, or PtychoDataContainerTorch)
@@ -575,9 +658,8 @@ def run_cdi_example_torch(
         transpose: Whether to transpose the image by swapping dimensions
         M: Parameter for reassemble_position function (default: 20)
         do_stitching: Whether to perform image stitching after training
-        execution_config: Optional PyTorchExecutionConfig for runtime control (accelerator,
-                         num_workers, learning_rate, scheduler, logger, checkpointing).
-                         See CONFIG-002, CONFIG-LOGGER-001.
+        execution_config: Optional unresolved ExecutionRequest for runtime
+                         control. The factory resolves it exactly once.
         overrides: Optional torch-only factory overrides forwarded unchanged to
             the Lightning training boundary.
 
@@ -614,10 +696,7 @@ def run_cdi_example_torch(
 
     Contract: docs/architecture_torch.md §Component Contracts.
     """
-    # CRITICAL: Update params.cfg before delegating (CONFIG-001 compliance)
-    # This ensures legacy modules invoked downstream observe correct configuration state
-    ptycho_config.update_legacy_dict(params.cfg, config)
-    logger.info("PyTorch workflow: params.cfg synchronized with TrainingConfig")
+    _validate_training_execution_input(execution_config, resolved_payload)
 
     # Step 1: Train the model (Phase D2.B — delegates to Lightning trainer stub)
     logger.info("Invoking PyTorch training orchestration via train_cdi_model_torch")
@@ -734,7 +813,7 @@ def _ensure_container(
         metadata = getattr(data, 'metadata', None)
         torch_raw_data = RawDataTorch.from_acquisition(
             AcquisitionRecord.from_raw_data(data),
-            config=config,  # Pass config for update_legacy_dict call
+            config=config,
         )
         if sample_indices is not None:
             setattr(torch_raw_data, 'sample_indices', sample_indices)
@@ -1478,7 +1557,7 @@ def _train_with_lightning(
     train_container: Union['PtychoDataContainerTorch','PtychoDataset'],
     test_container: Optional['PtychoDataContainerTorch'],
     config: TrainingConfig,
-    execution_config: Optional['PyTorchExecutionConfig'] = None,
+    execution_config: Optional[Any] = None,
     overrides: Optional[dict] = None,
     *,
     resolved_payload: Optional[TrainingPayload] = None,
@@ -1498,8 +1577,10 @@ def _train_with_lightning(
         train_container: Normalized training data container
         test_container: Optional normalized test data container
         config: TrainingConfig with training hyperparameters
-        execution_config: Optional PyTorchExecutionConfig with runtime knobs (Phase C3.A2)
-        overrides: Optional dict of torch-only ``create_training_payload`` overrides
+        execution_config: Optional unresolved ExecutionRequest. Ignored only
+            when absent because ``resolved_payload`` already owns the resolved
+            runtime carrier.
+        overrides: Optional dict of torch-only ``resolve_training_payload`` overrides
             (highest precedence, applied last). This is the forwarding channel for
             ModelConfig knobs that exist only on the torch-side
             ptycho_torch.config_params.ModelConfig (e.g. training_patch_weighting,
@@ -1524,6 +1605,8 @@ def _train_with_lightning(
         - Findings: POLICY-001 (PyTorch mandatory), CONFIG-001 (params.cfg already populated by caller)
         - ADR-003 Phase C3: execution_config controls Trainer kwargs (accelerator, deterministic, gradient_clip_val)
     """
+    _validate_training_execution_input(execution_config, resolved_payload)
+
     # B2.2: torch-optional imports with POLICY-001 compliant error messaging
     try:
         import torch
@@ -1546,11 +1629,13 @@ def _train_with_lightning(
     logger.info("_train_with_lightning orchestrating Lightning training")
     logger.info(f"Training config: nepochs={config.nepochs}, n_groups={config.n_groups}")
 
-    # B2.1: Use config_factory to derive PyTorch configs with correct channel propagation
+    # B2.1: Use the pure config resolver to derive PyTorch configs with correct
+    # channel propagation. The compatibility factory remains for declared
+    # CONFIG-001 callers.
     # CRITICAL (Phase C4.D B2): Factory ensures C = gridsize**2 is propagated to
     # pt_model_config.C_model and pt_model_config.C_forward, preventing channel mismatch
     # when gridsize > 1 (see docs/findings.md#BUG-TF-001).
-    from ptycho_torch.config_factory import create_training_payload
+    from ptycho_torch.config_factory import resolve_training_payload
 
     # Build factory overrides from TrainingConfig fields
     # Factory requires n_groups in overrides dict; train_data_file and output_dir as positional
@@ -1611,17 +1696,17 @@ def _train_with_lightning(
     # Caller-supplied torch-only overrides take highest precedence. This is how
     # ModelConfig knobs that live exclusively on the torch-side config_params.ModelConfig
     # (training_patch_weighting, physics_forward_mode, cnn_output_mode,
-    # rect_s1s2_trainable) reach create_training_payload despite ptycho/config/config.py
+    # rect_s1s2_trainable) reach resolve_training_payload despite ptycho/config/config.py
     # (TF-side TrainingConfig/ModelConfig/PyTorchExecutionConfig) being read-only.
     if overrides:
         factory_overrides.update(overrides)
 
-    # Supported CLI callers pass their already-resolved payload. Direct
-    # compatibility callers resolve once here, preserving public config as the
-    # baseline and leaving bare execution optimizer aliases at priority two.
+    # Supported CLI callers pass their already-resolved payload. Direct workflow
+    # callers provide an unresolved request, which the factory resolves once.
+    # Optimizer settings come only from the canonical training baseline/overrides.
     payload = resolved_payload
     if payload is None:
-        payload = create_training_payload(
+        payload = resolve_training_payload(
             train_data_file=Path(config.train_data_file),
             output_dir=Path(getattr(config, 'output_dir', './outputs')),
             execution_config=execution_config,
@@ -2166,7 +2251,12 @@ def _reassemble_cdi_image_torch(
             and global_offsets_np.shape[3] == 1):
         global_offsets_np = np.swapaxes(global_offsets_np, 2, 3)
 
-    obj_image = hh.reassemble_position(obj_tensor_np, global_offsets_np, M=M)
+    obj_image = _reassemble_position_with_legacy_geometry(
+        obj_tensor_np,
+        global_offsets_np,
+        M=M,
+        config=config,
+    )
 
     # Squeeze trailing channel dimension if present (reassembly may return (H, W, 1))
     if obj_image.ndim == 3 and obj_image.shape[-1] == 1:
@@ -2190,6 +2280,36 @@ def _reassemble_cdi_image_torch(
     return recon_amp, recon_phase, results
 
 
+def _reassemble_position_with_legacy_geometry(
+    obj_tensor,
+    global_offsets,
+    *,
+    M: int,
+    config: TrainingConfig,
+):
+    """Contain the protected TensorFlow helper's remaining global geometry read.
+
+    Remove this adapter once ``tf_helper.reassemble_position`` accepts its
+    detector size explicitly.
+    """
+    from ptycho import params as legacy_params
+    from ptycho import tf_helper
+    from ptycho.config.config import update_legacy_dict
+    from ptycho.config.legacy_state import (
+        configured_params_scope,
+        legacy_params_scope,
+    )
+
+    with legacy_params_scope():
+        with configured_params_scope():
+            update_legacy_dict(legacy_params.cfg, config)
+            return tf_helper.reassemble_position(
+                obj_tensor,
+                global_offsets,
+                M=M,
+            )
+
+
 @scoped_legacy_params
 def train_cdi_model_torch(
     train_data: Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch', 'PtychoDataset'],
@@ -2210,7 +2330,7 @@ def train_cdi_model_torch(
         train_data: Training data (RawData, RawDataTorch, or PtychoDataContainerTorch)
         test_data: Optional test data for validation
         config: TrainingConfig instance (TensorFlow dataclass)
-        execution_config: Optional PyTorchExecutionConfig for runtime control
+        execution_config: Optional unresolved ExecutionRequest for runtime control
         overrides: Optional torch-only factory overrides.
 
     Returns:
@@ -2235,6 +2355,8 @@ def train_cdi_model_torch(
         >>> results = train_cdi_model_torch(train_data, test_data, config)
         >>> print(results['history']['train_loss'][-1])
     """
+    _validate_training_execution_input(execution_config, resolved_payload)
+
     # Step 1: Normalize train_data to PtychoDataContainerTorch
     logger.info("Normalizing training data via _ensure_container")
     train_container = _ensure_container(train_data, config)
@@ -2287,8 +2409,9 @@ def load_inference_bundle_torch(
     This function provides API parity with ptycho.workflows.components.load_inference_bundle,
     enabling transparent backend selection for model loading.
 
-    Bundles restore params.cfg before model reconstruction and commit it only
-    after every declared model role has loaded successfully.
+    Decoding and model reconstruction are explicit and global-free. This
+    legacy/API wrapper commits the validated archive projection only after
+    every declared model role has loaded successfully.
 
     Args:
         bundle_dir: Path to the directory containing the wts.h5.zip archive.
@@ -2346,30 +2469,12 @@ def load_inference_bundle_torch(
             and "scale_contract_version" not in params_dict
             and "measurement_domain" not in params_dict
         )
-        if known_legacy and explicit_profile != (
-            LEGACY_SCALE_CONTRACT,
-            NORMALIZED_AMPLITUDE,
-        ):
-            raise ValueError(
-                "This metadata-free bundle is provenance-known legacy. Supply both "
-                "scale_contract_version='legacy_v1' and "
-                "measurement_domain='normalized_amplitude'."
-            )
-        if known_legacy:
-            models_dict, params_dict = load_torch_bundle(
-                str(archive_path), model_name=model_name
-            )
-            for loaded_model in models_dict.values():
-                loaded_model.data_config.scale_contract_version = LEGACY_SCALE_CONTRACT
-                loaded_model.data_config.measurement_domain = NORMALIZED_AMPLITUDE
-            params_dict["scale_contract_version"] = LEGACY_SCALE_CONTRACT
-            params_dict["measurement_domain"] = NORMALIZED_AMPLITUDE
-            params.cfg.update(params_dict)
-        else:
+        if not known_legacy:
             raise ValueError(
                 "wts.h5.zip has no versioned Torch metadata and is not the "
                 "declared metadata-free legacy_v1 era"
             )
+        identity = None
     else:
         metadata_schema = metadata.get("schema_version")
         if (
@@ -2393,31 +2498,20 @@ def load_inference_bundle_torch(
                 f"ci-entrypoints-v1 metadata, found {metadata_schema!r}"
             )
         identity = _decode_bundle_metadata(metadata)
-        available_models = manifest["models"]
-        params.cfg.update(params_dict)
-        persisted_profile = resolve_scale_contract(
-            identity.data_config.scale_contract_version,
-            identity.data_config.measurement_domain,
-        )
-        if explicit_profile is not None and explicit_profile != (
-            persisted_profile.version,
-            persisted_profile.measurement_domain,
-        ):
-            raise ValueError(
-                "Explicit bundle profile overrides contradict persisted metadata."
-            )
-        models_dict = {
-            archived_model_name: _strictly_reconstruct_bundle_model(
-                zip_path,
-                identity,
-                archived_model_name,
-            )
-            for archived_model_name in available_models
-        }
-        params_dict["scale_contract_version"] = persisted_profile.version
-        params_dict["measurement_domain"] = persisted_profile.measurement_domain
-        params_dict["ci_statistics"] = identity.ci_statistics
-        params.cfg.update(params_dict)
+
+    models_dict, params_dict, _ = _reconstruct_inference_bundle_explicit(
+        archive_path,
+        zip_path,
+        manifest=manifest,
+        params_dict=params_dict,
+        identity=identity,
+        explicit_profile=explicit_profile,
+        model_name=model_name,
+    )
+
+    # Sole compatibility mutation: the transactional decorator commits only
+    # after every decode, profile, construction, and strict weight check passed.
+    params.cfg.update(params_dict)
 
     logger.info(f"Inference bundle loaded successfully. Models: {list(models_dict.keys())}, Params keys: {list(params_dict.keys())[:5]}...")
 

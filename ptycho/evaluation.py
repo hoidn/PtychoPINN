@@ -310,10 +310,15 @@ def plt_metrics(history, loss_type = 'MAE', metric2 = 'padded_obj_loss'):
 import scipy.fftpack as fftpack
 fp = fftpack
 
-def trim(arr2d):
-    offset = params.get('offset')
+def trim_with_offset(arr2d, *, offset):
+    """Trim a stitched image using caller-owned evaluation geometry."""
     assert not (offset % 2)
     return arr2d[offset // 2:-offset // 2, offset // 2:-offset // 2]
+
+
+def trim(arr2d):
+    """Legacy adapter that resolves evaluation geometry from params.cfg."""
+    return trim_with_offset(arr2d, offset=params.get('offset'))
 
 def mae(target, pred, normalize = True):
     """
@@ -518,8 +523,18 @@ def frc50(target, pred, frc_sigma = 0, debug_save_images=False, debug_dir=None, 
     return shellcorr, frc50_value
 
 
-def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
-        label = '', phase_align_method='plane', frc_sigma=0, debug_save_images=False, ms_ssim_sigma=1.0):
+def eval_reconstruction_explicit(
+    stitched_obj,
+    ground_truth_obj,
+    lowpass_n=1,
+    label='',
+    phase_align_method='plane',
+    frc_sigma=0,
+    debug_save_images=False,
+    ms_ssim_sigma=1.0,
+    *,
+    trim_offset,
+):
     """
     Evaluate reconstruction quality against ground truth using multiple metrics.
     
@@ -559,8 +574,14 @@ def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
     YY_phi_ground_truth = np.angle(ground_truth_obj)
 
     # Extract raw phase data
-    phi_pred_raw = trim(np.squeeze(np.angle(stitched_obj)))
-    phi_target_raw = trim(np.squeeze(YY_phi_ground_truth))
+    phi_pred_raw = trim_with_offset(
+        np.squeeze(np.angle(stitched_obj)),
+        offset=trim_offset,
+    )
+    phi_target_raw = trim_with_offset(
+        np.squeeze(YY_phi_ground_truth),
+        offset=trim_offset,
+    )
     
     # Apply configurable phase alignment
     if phase_align_method == 'plane':
@@ -573,8 +594,14 @@ def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
         phi_target = phi_target_raw - np.mean(phi_target_raw)
     else:
         raise ValueError(f"Unknown phase_align_method: {phase_align_method}. Use 'plane' or 'mean'.")
-    amp_target = tf.cast(trim(YY_ground_truth), tf.float32)
-    amp_pred = trim(np.absolute(stitched_obj))
+    amp_target = tf.cast(
+        trim_with_offset(YY_ground_truth, offset=trim_offset),
+        tf.float32,
+    )
+    amp_pred = trim_with_offset(
+        np.absolute(stitched_obj),
+        offset=trim_offset,
+    )
 
     # Convert to numpy for consistent processing
     amp_target_np = np.array(amp_target[:, :, 0])
@@ -668,23 +695,71 @@ def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
     return out
 
 
+def eval_reconstruction(
+    stitched_obj,
+    ground_truth_obj,
+    lowpass_n=1,
+    label='',
+    phase_align_method='plane',
+    frc_sigma=0,
+    debug_save_images=False,
+    ms_ssim_sigma=1.0,
+):
+    """Legacy adapter using the process-global evaluation offset."""
+    return eval_reconstruction_explicit(
+        stitched_obj,
+        ground_truth_obj,
+        lowpass_n=lowpass_n,
+        label=label,
+        phase_align_method=phase_align_method,
+        frc_sigma=frc_sigma,
+        debug_save_images=debug_save_images,
+        ms_ssim_sigma=ms_ssim_sigma,
+        trim_offset=params.get('offset'),
+    )
+
+
 import pandas as pd
-import os
 import dill
-def save_metrics(stitched_obj, YY_ground_truth,  label = ''):
-    """
-    evaluate reconstruction and save the result to disk.
-    """
-    out_prefix = misc.get_path_prefix()
-    os.makedirs(out_prefix, exist_ok=True)
-    metrics = eval_reconstruction(stitched_obj, YY_ground_truth, label = label)
+
+
+def save_metrics_explicit(
+    stitched_obj,
+    YY_ground_truth,
+    label='',
+    *,
+    trim_offset,
+    output_dir,
+    config_snapshot,
+):
+    """Evaluate and persist metrics from caller-owned runtime inputs."""
+    out_prefix = Path(output_dir)
+    out_prefix.mkdir(parents=True, exist_ok=True)
+    metrics = eval_reconstruction_explicit(
+        stitched_obj,
+        YY_ground_truth,
+        label=label,
+        trim_offset=trim_offset,
+    )
     metrics['label'] = label
-    d = {**params.cfg, **metrics}
-    with open(out_prefix + '/params.dill', 'wb') as f:
+    d = {**config_snapshot, **metrics}
+    with (out_prefix / 'params.dill').open('wb') as f:
         dill.dump(d, f)
     df = pd.DataFrame({k: d[k] for k in ['mae', 'mse', 'psnr', 'frc50', 'frc1over7']})
-    df.to_csv(out_prefix + '/metrics.csv')
+    df.to_csv(out_prefix / 'metrics.csv')
     return {k: metrics[k] for k in ['mae', 'mse', 'psnr', 'frc50', 'frc1over7', 'frc']}
+
+
+def save_metrics(stitched_obj, YY_ground_truth, label=''):
+    """Legacy adapter persisting the process-global configuration snapshot."""
+    return save_metrics_explicit(
+        stitched_obj,
+        YY_ground_truth,
+        label=label,
+        trim_offset=params.get('offset'),
+        output_dir=misc.get_path_prefix(),
+        config_snapshot=params.cfg,
+    )
 
 
 # Unit Tests for Phase 1 Enhancements

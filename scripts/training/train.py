@@ -42,67 +42,6 @@ from ptycho import model_manager, params
 import argparse
 
 
-_PUBLIC_OPTIMIZER_OPTION_DESTINATIONS = {
-    "--gradient_clip_val": "gradient_clip_val",
-    "--gradient_clip_algorithm": "gradient_clip_algorithm",
-    "--optimizer": "optimizer",
-    "--momentum": "momentum",
-    "--weight_decay": "weight_decay",
-    "--adam_beta1": "adam_beta1",
-    "--adam_beta2": "adam_beta2",
-    "--scheduler": "scheduler",
-    "--lr_warmup_epochs": "lr_warmup_epochs",
-    "--lr_min_ratio": "lr_min_ratio",
-    "--plateau_factor": "plateau_factor",
-    "--plateau_patience": "plateau_patience",
-    "--plateau_min_lr": "plateau_min_lr",
-    "--plateau_threshold": "plateau_threshold",
-}
-
-_TORCH_PLATEAU_ALIAS_DESTINATIONS = {
-    "--torch-plateau-factor": ("torch_plateau_factor", "plateau_factor"),
-    "--torch-plateau-patience": (
-        "torch_plateau_patience",
-        "plateau_patience",
-    ),
-    "--torch-plateau-min-lr": ("torch_plateau_min_lr", "plateau_min_lr"),
-    "--torch-plateau-threshold": (
-        "torch_plateau_threshold",
-        "plateau_threshold",
-    ),
-}
-
-
-def _raw_option_names(argv) -> set[str]:
-    """Return supplied long-option names without ``=value`` suffixes."""
-    return {
-        token.split("=", 1)[0]
-        for token in argv
-        if isinstance(token, str) and token.startswith("--")
-    }
-
-
-def _explicit_public_optimizer_overrides(args, argv) -> dict:
-    """Return only explicitly supplied values owned by Torch TrainingConfig."""
-    supplied_options = _raw_option_names(argv)
-    overrides = {
-        destination: getattr(args, destination)
-        for option, destination in _PUBLIC_OPTIMIZER_OPTION_DESTINATIONS.items()
-        if option in supplied_options and hasattr(args, destination)
-    }
-    for alias, (_alias_destination, destination) in (
-        _TORCH_PLATEAU_ALIAS_DESTINATIONS.items()
-    ):
-        canonical_option = f"--{destination}"
-        if (
-            alias in supplied_options
-            and canonical_option not in supplied_options
-            and hasattr(args, destination)
-        ):
-            overrides[destination] = getattr(args, destination)
-    return overrides
-
-
 def interpret_n_images_parameter(n_images: int, gridsize: int) -> tuple[int, str]:
     """
     Interpret --n-images parameter based on gridsize.
@@ -183,10 +122,10 @@ def interpret_sampling_parameters(config: TrainingConfig):
 
 def parse_arguments():
     """
-    Custom parse_arguments extending base with PyTorch execution config flags.
+    Extend the public parser with Torch runtime and optimizer flags.
 
-    This wrapper adds PyTorch-specific execution flags on top of the standard
-    TrainingConfig fields, following the pattern from scripts/inference/inference.py.
+    Runtime flags form an ExecutionRequest. Explicit optimizer flags form a
+    canonical Torch TrainingConfig patch.
     See docs/workflows/pytorch.md §12 for flag descriptions.
     """
     from ptycho.cli_args import add_logging_arguments
@@ -200,7 +139,7 @@ def parse_arguments():
     add_logging_arguments(parser)
     add_public_training_config_arguments(parser)
 
-    # PyTorch-only execution flags (see docs/workflows/pytorch.md §12)
+    # PyTorch-only runtime and optimizer flags (see docs/workflows/pytorch.md §12)
     parser.add_argument("--torch-accelerator", type=str,
                        choices=['auto', 'cpu', 'cuda', 'gpu', 'mps', 'tpu'],
                        default='cuda',
@@ -262,25 +201,6 @@ def parse_arguments():
     return parser.parse_args()
 
 
-def apply_torch_plateau_overrides(args, argv=None) -> None:
-    """Map torch-specific plateau flags onto TrainingConfig fields."""
-    option_names = _raw_option_names(
-        tuple(sys.argv[1:]) if argv is None else argv
-    )
-    for alias, (
-        alias_destination,
-        canonical_destination,
-    ) in _TORCH_PLATEAU_ALIAS_DESTINATIONS.items():
-        canonical_option = f"--{canonical_destination}"
-        value = getattr(args, alias_destination, None)
-        if (
-            alias in option_names
-            and canonical_option not in option_names
-            and value is not None
-        ):
-            setattr(args, canonical_destination, value)
-
-
 @scoped_legacy_params
 def main() -> None:
     """Main function to orchestrate the CDI example script execution."""
@@ -291,8 +211,6 @@ def main() -> None:
     if hasattr(args, 'train_data_file_path'):
         args.train_data_file = args.train_data_file_path
         delattr(args, 'train_data_file_path')
-
-    apply_torch_plateau_overrides(args, raw_argv)
 
     config = setup_configuration(args, args.config)
 
@@ -373,7 +291,10 @@ def main() -> None:
         torch_execution_request = None
         torch_factory_overrides = None
         if config.backend == 'pytorch':
-            from ptycho_torch.cli.shared import build_execution_request_from_args
+            from ptycho_torch.cli.shared import (
+                build_execution_request_from_args,
+                build_training_config_patch_from_args,
+            )
 
             torch_execution_request = build_execution_request_from_args(
                 args,
@@ -381,9 +302,10 @@ def main() -> None:
                 explicit_options=raw_argv,
                 lane='unified-training',
             )
-            torch_factory_overrides = _explicit_public_optimizer_overrides(
+            torch_factory_overrides = build_training_config_patch_from_args(
                 args,
-                raw_argv,
+                explicit_options=raw_argv,
+                lane='unified-training',
             )
             if not torch_execution_request.explicit_fields:
                 logger.info("POLICY-001: No --torch-* execution flags provided. "

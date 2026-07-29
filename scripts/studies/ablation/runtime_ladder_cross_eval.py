@@ -127,6 +127,7 @@ def evaluate_cell(
     test_data: Mapping[str, Any],
     test_metadata: Mapping[str, Any] | None,
     label: str,
+    trim_offset: int,
 ) -> dict[str, Any]:
     """Inference -> historical grid-lines stitch -> eval_reconstruction.
 
@@ -159,8 +160,11 @@ def evaluate_cell(
             f"{ground_truth.shape}; resizing is prohibited and would "
             "invalidate the cross-eval comparison",
         )
-    metrics = evaluation.eval_reconstruction(
-        canvas[..., None], ground_truth[..., None], label=label
+    metrics = evaluation.eval_reconstruction_explicit(
+        canvas[..., None],
+        ground_truth[..., None],
+        label=label,
+        trim_offset=trim_offset,
     )
     amp_mae, phase_mae = _metric_pair(metrics, "mae")
     amp_ssim, phase_ssim = _metric_pair(metrics, "ssim")
@@ -239,7 +243,7 @@ def assemble_matrix(
 
 def _default_eval_contexts(
     spec: Any, rung: Any, args: Any
-) -> dict[str, tuple[Any, Any, Any]]:
+) -> dict[str, tuple[Any, Any, Any, int]]:
     """The two sealed evaluation contexts, import-linked (see module doc)."""
     from scripts.studies import grid_lines_torch_runner as runner_mod
 
@@ -268,8 +272,12 @@ def _default_eval_contexts(
     recipe = spec.dataset(rung.dataset).recipe
     mmap_data = load_generic_test_dict(Path(args.generic_test), recipe)
     return {
-        "reference_dictionary": (reference_cfg, *reference_data),
-        "mmap_generic": (mmap_cfg, *mmap_data),
+        "reference_dictionary": (
+            reference_cfg,
+            *reference_data,
+            int(reference_spec.recipe.offset),
+        ),
+        "mmap_generic": (mmap_cfg, *mmap_data, int(recipe.offset)),
     }
 
 
@@ -343,12 +351,13 @@ def main(argv: list[str] | None = None) -> int:
     def run_cell(request: CellRequest) -> dict[str, Any]:
         from scripts.studies import grid_lines_torch_runner as runner_mod
 
-        cfg, test_data, test_metadata = contexts[request.eval_path]
+        cfg, test_data, test_metadata, trim_offset = contexts[request.eval_path]
         runner_mod.setup_torch_configs(cfg)
         payload = evaluate_cell(
             model=models[request.checkpoint_id], runner_cfg=cfg,
             test_data=test_data, test_metadata=test_metadata,
             label=f"cross_eval_{request.cell_id}",
+            trim_offset=trim_offset,
         )
         print(
             f"cell {request.cell_id} [{request.checkpoint_id} x "

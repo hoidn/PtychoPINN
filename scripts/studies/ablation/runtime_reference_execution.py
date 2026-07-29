@@ -363,10 +363,11 @@ def execute_reference_run(
         from ptycho import evaluation
 
         ground_truth_sha256 = canonical_array_sha256(ground_truth)
-        metrics = evaluation.eval_reconstruction(
+        metrics = evaluation.eval_reconstruction_explicit(
             historical_canvas[..., None],
             ground_truth[..., None],
             label=arm.id,
+            trim_offset=int(spec.recipe.offset),
         )
         amp_mae, phase_mae = _metric_pair(metrics, "mae")
         amp_ssim, phase_ssim = _metric_pair(metrics, "ssim")

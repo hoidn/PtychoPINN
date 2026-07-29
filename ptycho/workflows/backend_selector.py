@@ -87,6 +87,15 @@ from ptycho.loader import PtychoDataContainer
 logger = logging.getLogger(__name__)
 
 
+def _validate_execution_request(execution_request: Optional[Any]) -> None:
+    """Reject resolved runtime carriers without observing the environment."""
+    if execution_request is None:
+        return
+    from ptycho_torch.execution_request import normalize_execution_input
+
+    normalize_execution_input(execution_request, mode="training")
+
+
 @scoped_legacy_params
 def run_cdi_example_with_backend(
     train_data: Union[RawData, PtychoDataContainer],
@@ -117,8 +126,8 @@ def run_cdi_example_with_backend(
         transpose: Whether to transpose the image by swapping dimensions
         M: Parameter for reassemble_position function (default: 20)
         do_stitching: Whether to perform image stitching after training
-        torch_execution_config: Optional PyTorchExecutionConfig for PyTorch backend only
-                               (ignored for TensorFlow). See CONFIG-002, CONFIG-LOGGER-001.
+        torch_execution_config: Optional unresolved ExecutionRequest for the
+                               PyTorch backend (ignored for TensorFlow).
         torch_factory_overrides: Explicit canonical Torch factory overrides.
                                 Ignored for TensorFlow.
 
@@ -140,16 +149,17 @@ def run_cdi_example_with_backend(
     validate_training_config_structure(config)
     validate_runnable_training_config(config)
 
-    # CRITICAL: Update params.cfg BEFORE backend dispatch (CONFIG-001 compliance)
-    update_legacy_dict(params.cfg, config)
-    logger.info(f"Backend dispatcher: params.cfg synchronized with TrainingConfig (backend={config.backend})")
-
     # Validate backend field
     if config.backend not in ('tensorflow', 'pytorch'):
         raise ValueError(
             f"Invalid backend: {config.backend!r}. "
             f"TrainingConfig.backend must be 'tensorflow' or 'pytorch'."
         )
+    _validate_execution_request(torch_execution_config)
+
+    # CRITICAL: Update params.cfg only after all request/config validation.
+    update_legacy_dict(params.cfg, config)
+    logger.info(f"Backend dispatcher: params.cfg synchronized with TrainingConfig (backend={config.backend})")
 
     # Route to backend-specific workflow implementation
     if config.backend == 'tensorflow':
@@ -195,7 +205,9 @@ def run_cdi_example_with_backend(
 def train_cdi_model_with_backend(
     train_data: Union[RawData, PtychoDataContainer],
     test_data: Optional[Union[RawData, PtychoDataContainer]],
-    config: TrainingConfig
+    config: TrainingConfig,
+    torch_execution_config: Optional[Any] = None,
+    torch_factory_overrides: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Train the CDI model with automatic backend selection.
@@ -223,16 +235,17 @@ def train_cdi_model_with_backend(
     validate_training_config_structure(config)
     validate_runnable_training_config(config)
 
-    # CRITICAL: Update params.cfg BEFORE backend dispatch (CONFIG-001 compliance)
-    update_legacy_dict(params.cfg, config)
-    logger.info(f"Backend dispatcher: params.cfg synchronized for training (backend={config.backend})")
-
     # Validate backend field
     if config.backend not in ('tensorflow', 'pytorch'):
         raise ValueError(
             f"Invalid backend: {config.backend!r}. "
             f"TrainingConfig.backend must be 'tensorflow' or 'pytorch'."
         )
+    _validate_execution_request(torch_execution_config)
+
+    # CRITICAL: Update params.cfg only after all request/config validation.
+    update_legacy_dict(params.cfg, config)
+    logger.info(f"Backend dispatcher: params.cfg synchronized for training (backend={config.backend})")
 
     # Route to backend-specific training implementation
     if config.backend == 'tensorflow':
@@ -257,7 +270,13 @@ def train_cdi_model_with_backend(
                 f"Original error: {e}"
             ) from e
 
-        results = torch_components.train_cdi_model_torch(train_data, test_data, config)
+        results = torch_components.train_cdi_model_torch(
+            train_data,
+            test_data,
+            config,
+            execution_config=torch_execution_config,
+            overrides=torch_factory_overrides,
+        )
 
     # Inject backend metadata
     results['backend'] = config.backend

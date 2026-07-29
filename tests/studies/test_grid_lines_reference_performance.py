@@ -370,7 +370,7 @@ class _Harness:
         restored_overrides: dict[str, Any] | None = None,
     ) -> None:
         from scripts.studies import grid_lines_torch_runner as runner_mod
-        from ptycho import evaluation
+        from ptycho import evaluation, params
 
         self.calls: list[tuple[Any, ...]] = []
         self.identity = identity
@@ -416,6 +416,11 @@ class _Harness:
             generic_canvas_delta
         )
         harness = self
+        monkeypatch.setattr(
+            params,
+            "cfg",
+            {"offset": 98, "poison": "must-remain-untouched"},
+        )
 
         def load_cached_dataset_with_metadata(npz_path: Path) -> tuple[dict, dict]:
             harness.calls.append(("load_dictionary", Path(npz_path).name))
@@ -481,6 +486,7 @@ class _Harness:
                     stitched_obj.shape,
                     ground_truth_obj.shape,
                     kwargs.get("label"),
+                    kwargs.get("trim_offset"),
                 )
             )
             return {key: tuple(value) for key, value in harness.metrics.items()}
@@ -495,7 +501,11 @@ class _Harness:
         monkeypatch.setattr(
             runner_mod, "_reassemble_predictions_for_metrics", reassemble
         )
-        monkeypatch.setattr(evaluation, "eval_reconstruction", eval_reconstruction)
+        monkeypatch.setattr(
+            evaluation,
+            "eval_reconstruction_explicit",
+            eval_reconstruction,
+        )
         monkeypatch.setattr(
             "scripts.studies.ablation.runtime_reference_execution.restore_checkpoint_from_hparams",
             lambda checkpoint, **kwargs: harness.selected_model,
@@ -917,6 +927,7 @@ def test_reference_run_drives_dictionary_flow_in_order(
         "grid_lines",
         "position",
     ]
+    assert harness.calls[-1][4] == spec.recipe.offset
     assert (
         result.checkpoint_sha256 == hashlib.sha256(harness.CHECKPOINT_BYTES).hexdigest()
     )
