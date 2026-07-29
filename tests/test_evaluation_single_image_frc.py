@@ -78,6 +78,34 @@ def test_eval_reconstruction_default_keeps_reference_metrics_only():
     assert "single_frc1over7" not in out
 
 
+def test_explicit_evaluation_matches_legacy_offset_and_ignores_poisoned_global(
+    monkeypatch,
+):
+    from ptycho import evaluation
+
+    gt = _as_hw1(_make_complex_object(seed=31, size=128))
+    pred = _as_hw1(_make_complex_object(seed=32, size=128))
+    monkeypatch.setattr(params, "cfg", {"offset": 4})
+    expected = evaluation.eval_reconstruction(pred, gt, label="legacy")
+
+    poisoned_cfg = {"offset": 22, "poison": "must-remain-untouched"}
+    monkeypatch.setattr(params, "cfg", poisoned_cfg)
+    actual = evaluation.eval_reconstruction_explicit(
+        pred,
+        gt,
+        label="explicit",
+        trim_offset=4,
+    )
+
+    for metric_name in expected:
+        for expected_value, actual_value in zip(
+            expected[metric_name],
+            actual[metric_name],
+        ):
+            np.testing.assert_allclose(actual_value, expected_value)
+    assert params.cfg == poisoned_cfg
+
+
 def test_frc_package_no_longer_exports_single_image_frc_helpers():
     import frc
 

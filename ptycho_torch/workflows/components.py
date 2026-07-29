@@ -117,6 +117,24 @@ logger = logging.getLogger(__name__)
 _BUNDLE_SCALING_METADATA = "torch_scaling_metadata.pt"
 
 
+def _validate_training_execution_input(
+    execution_config: Optional[Any],
+    resolved_payload: Optional[TrainingPayload],
+) -> None:
+    """Validate unresolved workflow input before any legacy-state mutation."""
+    if resolved_payload is not None:
+        if execution_config is not None:
+            raise TypeError(
+                "execution_config must be omitted when resolved_payload owns "
+                "the resolved PyTorchExecutionConfig"
+            )
+        return
+
+    from ptycho_torch.execution_request import normalize_execution_input
+
+    normalize_execution_input(execution_config, mode="training")
+
+
 class _ResolvedPrebuiltPtychoDataModule(PrebuiltPtychoDataModule):
     """Prebuilt mmap datamodule projected from resolved execution settings."""
 
@@ -575,9 +593,8 @@ def run_cdi_example_torch(
         transpose: Whether to transpose the image by swapping dimensions
         M: Parameter for reassemble_position function (default: 20)
         do_stitching: Whether to perform image stitching after training
-        execution_config: Optional PyTorchExecutionConfig for runtime control (accelerator,
-                         num_workers, learning_rate, scheduler, logger, checkpointing).
-                         See CONFIG-002, CONFIG-LOGGER-001.
+        execution_config: Optional unresolved ExecutionRequest for runtime
+                         control. The factory resolves it exactly once.
         overrides: Optional torch-only factory overrides forwarded unchanged to
             the Lightning training boundary.
 
@@ -614,6 +631,8 @@ def run_cdi_example_torch(
 
     Contract: docs/architecture_torch.md §Component Contracts.
     """
+    _validate_training_execution_input(execution_config, resolved_payload)
+
     # CRITICAL: Update params.cfg before delegating (CONFIG-001 compliance)
     # This ensures legacy modules invoked downstream observe correct configuration state
     ptycho_config.update_legacy_dict(params.cfg, config)
@@ -1488,7 +1507,7 @@ def _train_with_lightning(
     train_container: Union['PtychoDataContainerTorch','PtychoDataset'],
     test_container: Optional['PtychoDataContainerTorch'],
     config: TrainingConfig,
-    execution_config: Optional['PyTorchExecutionConfig'] = None,
+    execution_config: Optional[Any] = None,
     overrides: Optional[dict] = None,
     *,
     resolved_payload: Optional[TrainingPayload] = None,
@@ -1508,7 +1527,9 @@ def _train_with_lightning(
         train_container: Normalized training data container
         test_container: Optional normalized test data container
         config: TrainingConfig with training hyperparameters
-        execution_config: Optional PyTorchExecutionConfig with runtime knobs (Phase C3.A2)
+        execution_config: Optional unresolved ExecutionRequest. Ignored only
+            when absent because ``resolved_payload`` already owns the resolved
+            runtime carrier.
         overrides: Optional dict of torch-only ``create_training_payload`` overrides
             (highest precedence, applied last). This is the forwarding channel for
             ModelConfig knobs that exist only on the torch-side
@@ -1534,6 +1555,8 @@ def _train_with_lightning(
         - Findings: POLICY-001 (PyTorch mandatory), CONFIG-001 (params.cfg already populated by caller)
         - ADR-003 Phase C3: execution_config controls Trainer kwargs (accelerator, deterministic, gradient_clip_val)
     """
+    _validate_training_execution_input(execution_config, resolved_payload)
+
     # B2.2: torch-optional imports with POLICY-001 compliant error messaging
     try:
         import torch
@@ -1620,9 +1643,9 @@ def _train_with_lightning(
     if overrides:
         factory_overrides.update(overrides)
 
-    # Create the payload once for direct workflow callers. Supported CLI
-    # callers may pass the payload they already resolved so ownership and
-    # environment resolution are not repeated.
+    # Supported CLI callers pass their already-resolved payload. Direct workflow
+    # callers provide an unresolved request, which the factory resolves once.
+    # Optimizer settings come only from the canonical training baseline/overrides.
     payload = resolved_payload
     if payload is None:
         payload = create_training_payload(
@@ -2199,7 +2222,7 @@ def train_cdi_model_torch(
         train_data: Training data (RawData, RawDataTorch, or PtychoDataContainerTorch)
         test_data: Optional test data for validation
         config: TrainingConfig instance (TensorFlow dataclass)
-        execution_config: Optional PyTorchExecutionConfig for runtime control
+        execution_config: Optional unresolved ExecutionRequest for runtime control
         overrides: Optional torch-only factory overrides.
 
     Returns:
@@ -2224,6 +2247,8 @@ def train_cdi_model_torch(
         >>> results = train_cdi_model_torch(train_data, test_data, config)
         >>> print(results['history']['train_loss'][-1])
     """
+    _validate_training_execution_input(execution_config, resolved_payload)
+
     # Step 1: Normalize train_data to PtychoDataContainerTorch
     logger.info("Normalizing training data via _ensure_container")
     train_container = _ensure_container(train_data, config)

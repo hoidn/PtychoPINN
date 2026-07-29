@@ -183,7 +183,7 @@ class TestExecutionConfigCLI:
 
     def test_learning_rate_flag_roundtrip(self, minimal_train_args, monkeypatch):
         """
-        RED Test: --learning-rate flag maps to execution_config.learning_rate.
+        --learning-rate maps to the explicit canonical TrainingConfig patch.
 
         Expected RED Failure:
         - argparse.ArgumentError: unrecognized arguments: --learning-rate 5e-4
@@ -209,8 +209,8 @@ class TestExecutionConfigCLI:
 
         assert mock_factory.called
         call_kwargs = mock_factory.call_args.kwargs
-        assert 'execution_config' in call_kwargs
-        assert call_kwargs['execution_config'].values['learning_rate'] == pytest.approx(5e-4)
+        assert call_kwargs['overrides']['learning_rate'] == pytest.approx(5e-4)
+        assert 'learning_rate' not in call_kwargs['execution_config'].values
 
     def test_multiple_execution_config_flags(self, minimal_train_args, monkeypatch):
         """
@@ -255,7 +255,8 @@ class TestExecutionConfigCLI:
         assert request.values['accelerator'] == 'gpu'
         assert request.values['deterministic'] is False
         assert request.values['num_workers'] == 8
-        assert request.values['learning_rate'] == pytest.approx(1e-3)
+        assert 'learning_rate' not in request.values
+        assert call_kwargs['overrides']['learning_rate'] == pytest.approx(1e-3)
 
     def test_native_training_execution_request_preserves_explicit_options(
         self,
@@ -312,9 +313,6 @@ class TestExecutionConfigCLI:
                 'accelerator',
                 'deterministic',
                 'num_workers',
-                'learning_rate',
-                'scheduler',
-                'accum_steps',
                 'logger_backend',
                 'enable_progress_bar',
                 'enable_checkpointing',
@@ -327,9 +325,9 @@ class TestExecutionConfigCLI:
         assert request.values['accelerator'] == 'cpu'
         assert request.values['deterministic'] is False
         assert request.values['num_workers'] == 2
-        assert request.values['learning_rate'] == pytest.approx(0.002)
-        assert request.values['scheduler'] == 'Adaptive'
-        assert request.values['accum_steps'] == 3
+        assert set(request.values).isdisjoint(
+            {'learning_rate', 'scheduler', 'accum_steps'}
+        )
         assert request.values['logger_backend'] is None
         assert request.values['enable_progress_bar'] is False
         assert request.values['enable_checkpointing'] is False
@@ -337,6 +335,15 @@ class TestExecutionConfigCLI:
         assert request.values['checkpoint_monitor_metric'] == 'train_loss'
         assert request.values['checkpoint_mode'] == 'max'
         assert request.values['early_stop_patience'] == 9
+        overrides = factory.call_args.kwargs['overrides']
+        assert {
+            key: overrides[key]
+            for key in ('learning_rate', 'scheduler', 'accum_steps')
+        } == {
+            'learning_rate': 0.002,
+            'scheduler': 'Adaptive',
+            'accum_steps': 3,
+        }
 
     def test_native_training_execution_explicit_checkpoint_help_is_current(
         self,
@@ -665,7 +672,7 @@ class TestExecutionConfigCLI:
         scheduler,
     ):
         """
-        RED Test: --scheduler flag maps to execution_config.scheduler.
+        --scheduler maps to the explicit canonical TrainingConfig patch.
 
         Expected RED Failure:
         - argparse.ArgumentError: unrecognized arguments: --scheduler Exponential
@@ -695,12 +702,12 @@ class TestExecutionConfigCLI:
 
         assert mock_factory.called
         call_kwargs = mock_factory.call_args.kwargs
-        assert 'execution_config' in call_kwargs
-        assert call_kwargs['execution_config'].values['scheduler'] == scheduler
+        assert call_kwargs['overrides']['scheduler'] == scheduler
+        assert 'scheduler' not in call_kwargs['execution_config'].values
 
     def test_accumulate_grad_batches_roundtrip(self, minimal_train_args, monkeypatch):
         """
-        RED Test: --accumulate-grad-batches flag maps to execution_config.accum_steps.
+        --accumulate-grad-batches maps to the canonical TrainingConfig patch.
 
         Expected RED Failure:
         - argparse.ArgumentError: unrecognized arguments: --accumulate-grad-batches 4
@@ -730,8 +737,8 @@ class TestExecutionConfigCLI:
 
         assert mock_factory.called
         call_kwargs = mock_factory.call_args.kwargs
-        assert 'execution_config' in call_kwargs
-        assert call_kwargs['execution_config'].values['accum_steps'] == 4
+        assert call_kwargs['overrides']['accum_steps'] == 4
+        assert 'accum_steps' not in call_kwargs['execution_config'].values
 
     def test_logger_backend_csv_default(self, minimal_train_args, monkeypatch):
         """

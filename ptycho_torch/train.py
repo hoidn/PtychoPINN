@@ -388,7 +388,10 @@ Examples:
             sys.exit(1)
 
         # Preserve raw-option suppliedness until the factory resolves runtime.
-        from ptycho_torch.cli.shared import build_execution_request_from_args
+        from ptycho_torch.cli.shared import (
+            build_execution_request_from_args,
+            build_training_config_patch_from_args,
+        )
         try:
             execution_request = build_execution_request_from_args(
                 args,
@@ -396,8 +399,13 @@ Examples:
                 explicit_options=raw_argv,
                 lane='native-training',
             )
+            training_patch = build_training_config_patch_from_args(
+                args,
+                explicit_options=raw_argv,
+                lane='native-training',
+            )
         except ValueError as e:
-            print(f"ERROR: Invalid execution config: {e}")
+            print(f"ERROR: Invalid CLI configuration: {e}")
             sys.exit(1)
 
         # Phase C4.C2: Use config factory instead of manual config construction
@@ -424,6 +432,7 @@ Examples:
             overrides['measurement_domain'] = args.measurement_domain
         if test_data_file:
             overrides['test_data_file'] = test_data_file
+        overrides.update(training_patch)
 
         try:
             # Call factory to create all configs and populate params.cfg
@@ -486,7 +495,6 @@ Examples:
                 test_data=test_data,
                 config=payload.tf_training_config,
                 do_stitching=False,  # CLI only needs training, not reconstruction
-                execution_config=payload.execution_config,
                 overrides=profile_overrides,
                 resolved_payload=payload,
             )

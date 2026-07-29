@@ -31,7 +31,6 @@ if str(REPO_ROOT) not in sys.path:
 
 from ptycho.image.cropping import align_for_evaluation
 from ptycho.image.registration import apply_shift_and_crop, find_translation_offset
-import ptycho.params as legacy_params
 
 APPROVED_DESIGN_PATH = (
     ".artifacts/revision_studies/"
@@ -1080,7 +1079,9 @@ def describe_frc_field_of_view(post_eval_metric_shape: tuple[int, int] | list[in
 
 
 def eval_reconstruction(*args, **kwargs):
-    from ptycho.evaluation import eval_reconstruction as _eval_reconstruction
+    from ptycho.evaluation import (
+        eval_reconstruction_explicit as _eval_reconstruction,
+    )
 
     return _eval_reconstruction(*args, **kwargs)
 
@@ -1176,22 +1177,15 @@ def compute_row_metrics(
     stitched_obj_eval = recon_registered[None, :, :, None]
     ground_truth_obj_eval = gt_registered[:, :, None]
 
-    previous_offset = legacy_params.cfg.get("offset")
-    legacy_params.cfg["offset"] = int(args.eval_offset)
-    try:
-        metrics = eval_reconstruction(
-            stitched_obj_eval,
-            ground_truth_obj_eval,
-            label=row.row_id,
-            phase_align_method=args.phase_align_method,
-            frc_sigma=args.frc_sigma,
-            ms_ssim_sigma=args.ms_ssim_sigma,
-        )
-    finally:
-        if previous_offset is None:
-            legacy_params.cfg.pop("offset", None)
-        else:
-            legacy_params.cfg["offset"] = previous_offset
+    metrics = eval_reconstruction(
+        stitched_obj_eval,
+        ground_truth_obj_eval,
+        label=row.row_id,
+        phase_align_method=args.phase_align_method,
+        frc_sigma=args.frc_sigma,
+        ms_ssim_sigma=args.ms_ssim_sigma,
+        trim_offset=int(args.eval_offset),
+    )
 
     mae_amp, mae_phase = _metric_pair(metrics, "mae")
     mse_amp, mse_phase = _metric_pair(metrics, "mse")

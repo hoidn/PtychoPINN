@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError, replace
+import inspect
 import math
 from pathlib import Path
 from types import MappingProxyType
@@ -35,115 +36,14 @@ from ptycho_torch.config_params import (
     InferenceConfig,
     ModelConfig,
     TrainingConfig,
-    update_existing_config,
 )
 from ptycho_torch.execution_request import (
     EnvironmentResolution,
     ExecutionRequest,
-    NormalizedExecutionInput,
     ResolutionNotice,
     normalize_execution_input,
     resolve_runtime_execution_request,
 )
-
-
-def test_legacy_updater_mutates_supplied_config_and_applies_known_partial_values() -> None:
-    config = TrainingConfig(learning_rate=1e-3, epochs=50)
-    supplied = config
-
-    update_existing_config(config, {"learning_rate": 2e-3})
-
-    assert config is supplied
-    assert config.learning_rate == 2e-3
-    assert config.epochs == 50
-
-
-def test_legacy_updater_silently_ignores_unknown_names_by_default(
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    config = TrainingConfig()
-
-    update_existing_config(config, {"legacy_typo": 7})
-
-    assert not hasattr(config, "legacy_typo")
-    assert capsys.readouterr().out == ""
-
-
-def test_legacy_updater_reports_exact_unknown_name_warning_when_verbose(
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    config = TrainingConfig()
-
-    update_existing_config(config, {"legacy_typo": 7}, verbose=True)
-
-    assert not hasattr(config, "legacy_typo")
-    assert capsys.readouterr().out == (
-        "Warning: Attribute 'legacy_typo' not found in TrainingConfig\n"
-    )
-
-
-def test_legacy_updater_docstring_marks_unsupported_tolerant_boundary() -> None:
-    docstring = update_existing_config.__doc__
-
-    assert docstring is not None
-    assert "legacy compatibility only" in docstring.lower()
-    assert "return-new resolver" in docstring.lower()
-    assert "unknown-key behavior" in docstring.lower()
-    assert "not a supported resolver contract" in docstring.lower()
-
-
-@pytest.mark.parametrize("phase", ["training", "inference"])
-def test_supported_factories_do_not_call_legacy_updater(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    phase: str,
-) -> None:
-    import numpy as np
-    import ptycho.params
-    import ptycho_torch.config_factory as factory
-    import ptycho_torch.config_params as config_params
-
-    def reject_legacy_update(*_args, **_kwargs) -> None:
-        raise AssertionError("supported factory called legacy updater")
-
-    monkeypatch.setattr(
-        config_params,
-        "update_existing_config",
-        reject_legacy_update,
-    )
-    monkeypatch.setattr(
-        factory,
-        "update_existing_config",
-        reject_legacy_update,
-        raising=False,
-    )
-    monkeypatch.setattr(ptycho.params, "cfg", {})
-    monkeypatch.setattr(ptycho.params, "_sealed", False)
-
-    data_path = tmp_path / "data.npz"
-    np.savez(
-        data_path,
-        probeGuess=np.ones((8, 8), dtype=np.complex64),
-    )
-    if phase == "training":
-        factory.create_training_payload(
-            train_data_file=data_path,
-            output_dir=tmp_path / "out",
-            overrides={
-                "n_groups": 1,
-                "test_data_file": data_path,
-            },
-        )
-    else:
-        model_path = tmp_path / "model"
-        model_path.mkdir()
-        (model_path / "wts.h5.zip").touch()
-        factory.create_inference_payload(
-            model_path=model_path,
-            test_data_file=data_path,
-            output_dir=tmp_path / "out",
-            overrides={"n_groups": 1},
-        )
 
 
 TRAINING_INPUTS_BY_OWNER = {
@@ -342,32 +242,6 @@ INFERENCE_ALIASES = {
     "model_type": "mode",
 }
 
-REPRESENTABLE_EXECUTION_TOPOLOGY_ALIASES = {
-    "ffno_encoder_blocks": ("fno_blocks", 7),
-    "ffno_encoder_modes": ("fno_modes", 9),
-    "spectral_bottleneck_blocks": ("spectral_bottleneck_blocks", 8),
-    "spectral_bottleneck_modes": ("spectral_bottleneck_modes", 10),
-    "spectral_bottleneck_share_weights": (
-        "spectral_bottleneck_share_weights",
-        False,
-    ),
-    "spectral_bottleneck_gate_init": (
-        "spectral_bottleneck_gate_init",
-        0.25,
-    ),
-    "spectral_bottleneck_gate_mode": (
-        "spectral_bottleneck_gate_mode",
-        "per_block",
-    ),
-}
-UNOWNED_EXECUTION_TOPOLOGY_ALIASES = {
-    "ffno_encoder_share_weights": False,
-    "ffno_encoder_gate_init": 0.25,
-    "ffno_encoder_norm": "batch",
-    "ffno_encoder_mlp_ratio": 3.0,
-}
-
-
 def _rules_by_owner(rules):
     by_owner: dict[str, set[str]] = {}
     for rule in rules:
@@ -381,33 +255,6 @@ def _aliases_from_rules(rules):
         for rule in rules
         for alias in rule.aliases
     }
-
-
-def _normalized_execution(
-    values: dict[str, object],
-    explicit_fields: frozenset[str],
-) -> NormalizedExecutionInput:
-    normalized = normalize_execution_input(
-        ExecutionRequest(
-            values=values,
-            explicit_fields=explicit_fields,
-        ),
-        mode="training",
-    )
-    assert normalized is not None
-    return normalized
-
-
-def _different(value: object) -> object:
-    if isinstance(value, bool):
-        return not value
-    if isinstance(value, int):
-        return value + 1
-    if isinstance(value, float):
-        return value + 1.0
-    if value == "per_block":
-        return "shared"
-    raise AssertionError(f"no distinct test value for {value!r}")
 
 
 def test_training_registry_matches_literal_phase_inventory() -> None:
@@ -596,163 +443,17 @@ def test_normalized_patch_is_an_immutable_snapshot() -> None:
         normalized.notices = ()
 
 
-@pytest.mark.parametrize(
-    ("source_name", "target_name", "value"),
-    [
-        (source, target, value)
-        for source, (target, value) in (
-            REPRESENTABLE_EXECUTION_TOPOLOGY_ALIASES.items()
-        )
-    ],
-)
-def test_explicit_execution_topology_alias_is_deferred_and_model_owned(
-    source_name: str,
-    target_name: str,
-    value: object,
-) -> None:
-    execution = _normalized_execution(
-        {source_name: value},
-        frozenset({source_name}),
-    )
+def test_execution_compatibility_resolution_surface_is_absent() -> None:
+    import ptycho_torch.config_resolution as resolution
 
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        normalized = normalize_training_patch(
-            {},
-            normalized_execution=execution,
-        )
-
-    assert normalized.values == {target_name: value}
-    assert normalized.audit == {target_name: value}
-    assert normalized.aliases == {target_name: (source_name,)}
-    assert len(normalized.notices) == 1
-    assert normalized.notices[0].category is DeprecationWarning
-    assert source_name in normalized.notices[0].message
-    assert caught == []
-    rule = next(
-        rule
-        for rule in TRAINING_INPUT_RULES
-        if rule.canonical == target_name
-    )
-    assert rule.owner == "model"
-
-
-@pytest.mark.parametrize(
-    ("source_name", "target_name", "value"),
-    [
-        (source, target, value)
-        for source, (target, value) in (
-            REPRESENTABLE_EXECUTION_TOPOLOGY_ALIASES.items()
-        )
-    ],
-)
-def test_equal_execution_alias_and_canonical_are_consumed_once(
-    source_name: str,
-    target_name: str,
-    value: object,
-) -> None:
-    execution = _normalized_execution(
-        {source_name: value},
-        frozenset({source_name}),
-    )
-
-    normalized = normalize_training_patch(
-        {target_name: value},
-        normalized_execution=execution,
-    )
-
-    assert normalized.values == {target_name: value}
-    assert normalized.audit == {target_name: value}
-    assert normalized.aliases == {target_name: (source_name,)}
-
-
-@pytest.mark.parametrize(
-    ("source_name", "target_name", "value"),
-    [
-        (source, target, value)
-        for source, (target, value) in (
-            REPRESENTABLE_EXECUTION_TOPOLOGY_ALIASES.items()
-        )
-    ],
-)
-def test_conflicting_execution_alias_and_canonical_fail_without_effects(
-    source_name: str,
-    target_name: str,
-    value: object,
-) -> None:
-    patch = {target_name: _different(value)}
-    execution = _normalized_execution(
-        {source_name: value},
-        frozenset({source_name}),
-    )
-
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        with pytest.raises(
-            ValueError,
-            match=rf"alias.*{source_name}.*{target_name}.*conflict",
-        ):
-            normalize_training_patch(
-                patch,
-                normalized_execution=execution,
-            )
-
-    assert patch == {target_name: _different(value)}
-    assert caught == []
-
-
-@pytest.mark.parametrize(
-    ("field_name", "value"),
-    UNOWNED_EXECUTION_TOPOLOGY_ALIASES.items(),
-)
-def test_unowned_execution_topology_alias_fails_closed(
-    field_name: str,
-    value: object,
-) -> None:
-    execution = _normalized_execution(
-        {field_name: value},
-        frozenset({field_name}),
-    )
-
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        with pytest.raises(
-            ValueError,
-            match=rf"{field_name}.*no ModelConfig owner",
-        ):
-            normalize_training_patch(
-                {},
-                normalized_execution=execution,
-            )
-
-    assert caught == []
-
-
-def test_omitted_execution_topology_defaults_are_not_factory_inputs() -> None:
-    supplied_but_omitted = {
-        source: value
-        for source, (_, value) in (
-            REPRESENTABLE_EXECUTION_TOPOLOGY_ALIASES.items()
-        )
-    }
-    supplied_but_omitted.update(UNOWNED_EXECUTION_TOPOLOGY_ALIASES)
-    execution = _normalized_execution(
-        supplied_but_omitted,
-        frozenset(),
-    )
-
-    normalized = normalize_training_patch(
-        {},
-        normalized_execution=execution,
-    )
-
-    assert normalized == NormalizedPatch(
-        phase="training",
-        values={},
-        audit={},
-        aliases={},
-        notices=(),
-    )
+    assert not hasattr(resolution, "DEPRECATED_EXECUTION_MODEL_ALIASES")
+    assert not hasattr(resolution, "resolve_optimizer_ownership")
+    assert "normalized_execution" not in inspect.signature(
+        resolution.normalize_training_patch
+    ).parameters
+    assert "normalized_execution" not in inspect.signature(
+        resolution.resolve_training_bundle
+    ).parameters
 
 
 def _training_observations(
@@ -969,25 +670,16 @@ def test_execution_request_freezes_reconstruction_indices_through_resolution() -
     assert normalized.values["recon_log_fixed_indices"] == (1, 3)
 
 
-def test_bare_execution_config_snapshots_reconstruction_indices() -> None:
+def test_bare_resolved_execution_config_is_not_an_unresolved_input() -> None:
     from ptycho.config.config import PyTorchExecutionConfig
 
     config = PyTorchExecutionConfig(
         accelerator="cpu",
         recon_log_fixed_indices=[2, 4],
     )
-    normalized = normalize_execution_input(config, mode="training")
-    assert normalized is not None
 
-    config.recon_log_fixed_indices.append(6)
-
-    assert normalized.values["recon_log_fixed_indices"] == (2, 4)
-    resolved = resolve_runtime_execution_request(
-        normalized,
-        mode="training",
-    )
-    assert resolved.config.recon_log_fixed_indices == [2, 4]
-    assert isinstance(resolved.config.recon_log_fixed_indices, list)
+    with pytest.raises(TypeError, match="resolved output carrier"):
+        normalize_execution_input(config, mode="training")
 
 
 def test_environment_resolution_snapshots_mutable_execution_values() -> None:
@@ -1075,61 +767,6 @@ def test_training_N_and_nphotons_have_declared_precedence(
     assert resolved.data.nphotons == expected_nphotons
     assert resolved.audit["N_source"] == n_source
     assert resolved.audit["nphotons_source"] == p_source
-
-
-def test_canonical_optimizer_input_wins_over_execution_compatibility() -> None:
-    execution = _normalized_execution(
-        {"learning_rate": 0.02},
-        frozenset({"learning_rate"}),
-    )
-
-    resolved = resolve_training_bundle(
-        baseline=training_factory_baseline(
-            training_baseline=TrainingConfig(learning_rate=0.01)
-        ),
-        normalized=normalize_training_patch(
-            {"learning_rate": 0.03, "n_groups": 1}
-        ),
-        observations=_training_observations(),
-        normalized_execution=execution,
-    )
-
-    assert resolved.training.learning_rate == 0.03
-    assert (
-        resolved.audit["training_config_provenance"]["learning_rate"]
-        == "canonical_override"
-    )
-
-    compatibility = resolve_training_bundle(
-        baseline=training_factory_baseline(
-            training_baseline=TrainingConfig(learning_rate=0.01)
-        ),
-        normalized=normalize_training_patch({"n_groups": 1}),
-        observations=_training_observations(),
-        normalized_execution=execution,
-    )
-    omitted = resolve_training_bundle(
-        baseline=training_factory_baseline(
-            training_baseline=TrainingConfig(learning_rate=0.01)
-        ),
-        normalized=normalize_training_patch({"n_groups": 1}),
-        observations=_training_observations(),
-        normalized_execution=_normalized_execution(
-            {"learning_rate": 0.02},
-            frozenset(),
-        ),
-    )
-
-    assert compatibility.training.learning_rate == 0.02
-    assert (
-        compatibility.audit["training_config_provenance"]["learning_rate"]
-        == "execution_compatibility"
-    )
-    assert omitted.training.learning_rate == 0.01
-    assert (
-        omitted.audit["training_config_provenance"]["learning_rate"]
-        == "training_baseline"
-    )
 
 
 @pytest.mark.parametrize(
@@ -1717,29 +1354,23 @@ def test_partial_legacy_commit_failure_restores_mapping_object_and_seal_state(
     (
         "field_name",
         "baseline_value",
-        "compatibility_value",
         "canonical_value",
     ),
     [
-        ("learning_rate", 0.01, 0.02, 0.03),
-        ("scheduler", "Default", "Exponential", "WarmupCosine"),
-        ("gradient_clip_val", 1.0, 2.0, 3.0),
-        ("gradient_clip_algorithm", "norm", "value", "agc"),
-        ("accum_steps", 1, 2, 3),
+        ("learning_rate", 0.01, 0.03),
+        ("scheduler", "Default", "WarmupCosine"),
+        ("gradient_clip_val", 1.0, 3.0),
+        ("gradient_clip_algorithm", "norm", "agc"),
+        ("accum_steps", 1, 3),
     ],
 )
 def test_training_owner_precedence_matrix_is_resolved_once(
     field_name: str,
     baseline_value: object,
-    compatibility_value: object,
     canonical_value: object,
 ) -> None:
     baseline = training_factory_baseline(
         training_baseline=TrainingConfig(**{field_name: baseline_value})
-    )
-    execution = _normalized_execution(
-        {field_name: compatibility_value},
-        frozenset({field_name}),
     )
 
     canonical = resolve_training_bundle(
@@ -1748,13 +1379,6 @@ def test_training_owner_precedence_matrix_is_resolved_once(
             {"n_groups": 1, field_name: canonical_value}
         ),
         observations=_training_observations(),
-        normalized_execution=execution,
-    )
-    compatibility = resolve_training_bundle(
-        baseline=baseline,
-        normalized=normalize_training_patch({"n_groups": 1}),
-        observations=_training_observations(),
-        normalized_execution=execution,
     )
     baseline_only = resolve_training_bundle(
         baseline=baseline,
@@ -1768,16 +1392,12 @@ def test_training_owner_precedence_matrix_is_resolved_once(
     )
 
     assert getattr(canonical.training, field_name) == canonical_value
-    assert getattr(compatibility.training, field_name) == compatibility_value
     assert getattr(baseline_only.training, field_name) == baseline_value
     assert getattr(declared_default.training, field_name) == getattr(
         TrainingConfig(), field_name
     )
     assert canonical.audit["training_config_provenance"][field_name] == (
         "canonical_override"
-    )
-    assert compatibility.audit["training_config_provenance"][field_name] == (
-        "execution_compatibility"
     )
     assert baseline_only.audit["training_config_provenance"][field_name] == (
         "training_baseline"
@@ -1811,8 +1431,8 @@ def test_factory_audit_records_canonical_effective_values_and_alias_provenance(
             "learning_rate": 0.03,
         },
         execution_config=ExecutionRequest(
-            values={"accelerator": "cpu", "learning_rate": 0.02},
-            explicit_fields=frozenset({"accelerator", "learning_rate"}),
+            values={"accelerator": "cpu"},
+            explicit_fields=frozenset({"accelerator"}),
         ),
     )
 
@@ -1823,7 +1443,6 @@ def test_factory_audit_records_canonical_effective_values_and_alias_provenance(
     }
     assert "topology_compatibility" not in payload.overrides_applied
     assert payload.overrides_applied["learning_rate"] == 0.03
-    assert 0.02 not in payload.overrides_applied.values()
 
 
 def test_inference_factory_audit_keeps_aliases_provenance_only(

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import tempfile
+from collections.abc import Mapping
 from pathlib import Path
 from typing import List, Optional
 
@@ -405,43 +406,57 @@ class PtychoReconLoggingCallback(L.Callback):
     def _build_stitch_config(self, val_dl) -> Optional[dict]:
         """Build a stitch config dict from dataset metadata.
 
-        Attempts to extract N, gridsize, offset from the dataset's metadata
-        or from params.cfg as a fallback. Returns None if insufficient metadata.
+        Returns None when the dataset does not carry sufficient geometry.
         """
         dataset = getattr(val_dl, 'dataset', None)
         if dataset is None:
             return None
 
-        # Try to get metadata from the dataset (PtychoDataset stores it)
         metadata = getattr(dataset, 'metadata', None)
+        if not isinstance(metadata, Mapping):
+            container = getattr(dataset, 'container', None)
+            metadata = getattr(container, 'metadata', None)
+        metadata = metadata if isinstance(metadata, Mapping) else {}
+        physics_metadata = metadata.get('physics_parameters', {})
+        physics_metadata = (
+            physics_metadata if isinstance(physics_metadata, Mapping) else {}
+        )
+        additional_metadata = metadata.get('additional_parameters', {})
+        additional_metadata = (
+            additional_metadata
+            if isinstance(additional_metadata, Mapping)
+            else {}
+        )
+        data_config = getattr(dataset, 'data_config', None)
+        model_config = getattr(dataset, 'model_config', None)
 
-        # Try params.cfg as fallback
-        if metadata is None:
-            try:
-                from ptycho import params as p
-                cfg = getattr(p, 'cfg', {})
-                N = cfg.get('N')
-                gridsize = cfg.get('gridsize')
-                offset = cfg.get('offset', 0)
-                outer_offset_test = cfg.get('outer_offset_test', offset)
-                if N is None or gridsize is None:
-                    return None
-                return {
-                    'N': N,
-                    'gridsize': gridsize,
-                    'offset': offset,
-                    'outer_offset_test': outer_offset_test,
-                    'nimgs_test': len(dataset),
-                }
-            except ImportError:
-                return None
-
-        # Extract from dataset metadata dict
         N = metadata.get('N')
+        if N is None:
+            N = physics_metadata.get('N', getattr(data_config, 'N', None))
         gridsize = metadata.get('gridsize')
-        offset = metadata.get('offset', 0)
-        outer_offset_test = metadata.get('outer_offset_test', offset)
-        if N is None or gridsize is None:
+        if gridsize is None:
+            gridsize = physics_metadata.get('gridsize')
+        if gridsize is None:
+            grid_size = getattr(data_config, 'grid_size', None)
+            if (
+                isinstance(grid_size, (list, tuple))
+                and len(grid_size) == 2
+                and grid_size[0] == grid_size[1]
+            ):
+                gridsize = grid_size[0]
+        offset = metadata.get('offset')
+        if offset is None:
+            offset = additional_metadata.get(
+                'offset',
+                getattr(model_config, 'offset', None),
+            )
+        outer_offset_test = metadata.get('outer_offset_test')
+        if outer_offset_test is None:
+            outer_offset_test = additional_metadata.get(
+                'outer_offset_test',
+                offset,
+            )
+        if N is None or gridsize is None or offset is None:
             return None
 
         return {

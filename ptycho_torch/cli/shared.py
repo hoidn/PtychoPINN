@@ -7,8 +7,8 @@ to be stateless with clear contracts, raising exceptions for validation errors
 rather than exiting directly (allowing callers to format user-friendly messages).
 
 Component Responsibilities:
-- resolve_accelerator(): Handle --device → --accelerator backward compatibility
-- build_execution_config_from_args(): Construct PyTorchExecutionConfig with validation
+- build_execution_request_from_args(): Preserve explicit runtime intent
+- build_training_config_patch_from_args(): Preserve explicit optimizer intent
 - validate_paths(): Check file existence and create output directory
 
 References:
@@ -18,7 +18,6 @@ References:
 """
 
 import argparse
-import warnings
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -107,42 +106,6 @@ _EXECUTION_OPTION_BINDINGS = (
         "num_workers",
         "torch_num_workers",
         frozenset({_UNIFIED_TRAINING, _UNIFIED_INFERENCE}),
-    ),
-    _binding(
-        "--learning-rate",
-        "learning_rate",
-        "learning_rate",
-        frozenset({_NATIVE_TRAINING}),
-    ),
-    _binding(
-        "--torch-learning-rate",
-        "learning_rate",
-        "torch_learning_rate",
-        frozenset({_UNIFIED_TRAINING}),
-    ),
-    _binding(
-        "--scheduler",
-        "scheduler",
-        "scheduler",
-        frozenset({_NATIVE_TRAINING}),
-    ),
-    _binding(
-        "--torch-scheduler",
-        "scheduler",
-        "torch_scheduler",
-        frozenset({_UNIFIED_TRAINING}),
-    ),
-    _binding(
-        "--accumulate-grad-batches",
-        "accum_steps",
-        "accumulate_grad_batches",
-        frozenset({_NATIVE_TRAINING}),
-    ),
-    _binding(
-        "--torch-accumulate-grad-batches",
-        "accum_steps",
-        "torch_accumulate_grad_batches",
-        frozenset({_UNIFIED_TRAINING}),
     ),
     _binding(
         "--logger",
@@ -269,19 +232,133 @@ _EXECUTION_OPTION_BY_NAME = {
     binding.option: binding for binding in _EXECUTION_OPTION_BINDINGS
 }
 
+
+@dataclass(frozen=True)
+class _TrainingOptionBinding:
+    """An explicitly supplied optimizer option and its canonical owner."""
+
+    option: str
+    field: str
+    destination: str
+    lanes: frozenset[str]
+
+
+def _training_binding(
+    option: str,
+    field: str,
+    destination: str | None = None,
+    *,
+    lanes: frozenset[str],
+) -> _TrainingOptionBinding:
+    return _TrainingOptionBinding(
+        option=option,
+        field=field,
+        destination=destination or field,
+        lanes=lanes,
+    )
+
+
+# Canonical public spellings precede Torch aliases so one owner has an
+# unambiguous value when both spellings are supplied.
+_TRAINING_OPTION_BINDINGS = (
+    _training_binding(
+        "--learning-rate",
+        "learning_rate",
+        lanes=frozenset({_NATIVE_TRAINING}),
+    ),
+    _training_binding(
+        "--scheduler",
+        "scheduler",
+        lanes=_TRAINING_LANES,
+    ),
+    _training_binding(
+        "--accumulate-grad-batches",
+        "accum_steps",
+        "accumulate_grad_batches",
+        lanes=frozenset({_NATIVE_TRAINING}),
+    ),
+    *(
+        _training_binding(
+            f"--{field}",
+            field,
+            lanes=frozenset({_UNIFIED_TRAINING}),
+        )
+        for field in (
+            "gradient_clip_val",
+            "gradient_clip_algorithm",
+            "optimizer",
+            "momentum",
+            "weight_decay",
+            "adam_beta1",
+            "adam_beta2",
+            "lr_warmup_epochs",
+            "lr_min_ratio",
+            "plateau_factor",
+            "plateau_patience",
+            "plateau_min_lr",
+            "plateau_threshold",
+        )
+    ),
+    _training_binding(
+        "--torch-learning-rate",
+        "learning_rate",
+        "torch_learning_rate",
+        lanes=frozenset({_UNIFIED_TRAINING}),
+    ),
+    _training_binding(
+        "--torch-accumulate-grad-batches",
+        "accum_steps",
+        "torch_accumulate_grad_batches",
+        lanes=frozenset({_UNIFIED_TRAINING}),
+    ),
+    _training_binding(
+        "--torch-scheduler",
+        "scheduler",
+        "torch_scheduler",
+        lanes=frozenset({_UNIFIED_TRAINING}),
+    ),
+    *(
+        _training_binding(
+            option,
+            field,
+            destination,
+            lanes=frozenset({_UNIFIED_TRAINING}),
+        )
+        for option, field, destination in (
+            (
+                "--torch-plateau-factor",
+                "plateau_factor",
+                "torch_plateau_factor",
+            ),
+            (
+                "--torch-plateau-patience",
+                "plateau_patience",
+                "torch_plateau_patience",
+            ),
+            (
+                "--torch-plateau-min-lr",
+                "plateau_min_lr",
+                "torch_plateau_min_lr",
+            ),
+            (
+                "--torch-plateau-threshold",
+                "plateau_threshold",
+                "torch_plateau_threshold",
+            ),
+        )
+    ),
+)
+
 _TRAINING_EXECUTION_DEFAULTS: Mapping[str, Any] = {
     "accelerator": "auto",
     "deterministic": True,
     "num_workers": 0,
-    "learning_rate": 1e-3,
     "enable_progress_bar": True,
     "enable_checkpointing": True,
     "checkpoint_save_top_k": 1,
     "checkpoint_monitor_metric": "val_loss",
     "checkpoint_mode": "min",
     "early_stop_patience": 100,
-    "scheduler": "Default",
-    "accum_steps": 1,
     "logger_backend": "csv",
     "recon_log_every_n_epochs": None,
     "recon_log_num_patches": 4,
@@ -546,223 +623,35 @@ def build_execution_request_from_args(
     )
 
 
-def resolve_accelerator(accelerator: str = 'auto', device: Optional[str] = None) -> str:
-    """
-    Resolve accelerator from CLI args, handling --device deprecation and auto-detection.
-
-    Args:
-        accelerator: Value from --accelerator flag (default: 'auto')
-        device: Value from --device flag (deprecated, optional)
-
-    Returns:
-        Resolved accelerator string ('cpu', 'gpu', 'cuda', 'mps')
-
-    Raises:
-        ValueError: If TPU is requested. This runtime has no Torch-XLA contract.
-
-    Emits:
-        DeprecationWarning if device is specified
-        UserWarning if 'auto' resolves to CPU due to unavailable CUDA (POLICY-001)
-
-    Examples:
-        >>> resolve_accelerator('cpu', None)
-        'cpu'
-        >>> resolve_accelerator('auto', 'cuda')  # Legacy --device usage
-        'gpu'
-        >>> resolve_accelerator('cpu', 'cuda')  # Conflict: accelerator wins
-        'cpu'
-        >>> resolve_accelerator('auto', None)  # Auto-detection: CUDA if available, else CPU with warning
-        'cuda'
-
-    Notes:
-        - 'auto' now auto-detects: prefers CUDA if available, falls back to CPU with POLICY-001 warning
-        - Legacy --device='cuda' maps to accelerator='gpu' (Lightning convention)
-        - If both flags specified, --accelerator takes precedence
-        - Emits DeprecationWarning for --device usage
-        - POLICY-001 enforcement: GPU baseline is required; CPU fallback emits actionable warning
-        - TPU execution is rejected because this runtime does not support Torch-XLA
-    """
-    resolved = accelerator
-
-    if device and accelerator == 'auto':
-        # Map legacy --device to --accelerator
-        warnings.warn(
-            "--device is deprecated. Use --accelerator instead.",
-            DeprecationWarning,
-            stacklevel=2
-        )
-        resolved = 'cpu' if device == 'cpu' else 'gpu'
-
-    elif device and accelerator != 'auto':
-        # Conflict: accelerator takes precedence
-        warnings.warn(
-            "--device is deprecated. Use --accelerator instead. Ignoring --device value.",
-            DeprecationWarning,
-            stacklevel=2
-        )
-        # resolved = accelerator (no change)
-
-    if resolved == 'tpu':
-        raise ValueError(
-            "Torch-XLA TPU execution is unsupported by this PyTorch runtime. "
-            "Use --accelerator cpu, gpu/cuda, or mps."
-        )
-
-    # Auto-detection: prefer CUDA, fallback to CPU with POLICY-001 warning
-    if resolved == 'auto':
-        try:
-            import torch
-            if torch.cuda.is_available():
-                resolved = 'cuda'
-            else:
-                resolved = 'cpu'
-                warnings.warn(
-                    "POLICY-001: PyTorch GPU baseline is recommended. "
-                    "CUDA is not available; falling back to CPU. "
-                    "Install CUDA-enabled PyTorch for optimal performance: "
-                    "see https://pytorch.org/get-started/locally/",
-                    UserWarning,
-                    stacklevel=2
-                )
-        except ImportError:
-            # torch not available (should not happen with POLICY-001, but handle gracefully)
-            resolved = 'cpu'
-            warnings.warn(
-                "POLICY-001: PyTorch is not available. Falling back to CPU accelerator. "
-                "Install PyTorch with CUDA support: see https://pytorch.org/get-started/locally/",
-                UserWarning,
-                stacklevel=2
-            )
-
-    return resolved
-
-
-def build_execution_config_from_args(
-    args: argparse.Namespace,
-    mode: str = 'training'
-):
-    """
-    Build PyTorchExecutionConfig from CLI args with validation and warnings.
-
-    Args:
-        args: Parsed argparse.Namespace containing execution config flags
-        mode: 'training' or 'inference' (controls field availability)
-
-    Returns:
-        PyTorchExecutionConfig instance
-
-    Raises:
-        ValueError: If mode is invalid or validation fails (caught in dataclass __post_init__)
-
-    Emits:
-        UserWarning if deterministic=True and num_workers > 0 (training mode only)
-
-    Examples:
-        >>> args = argparse.Namespace(accelerator='cpu', deterministic=True, num_workers=0, learning_rate=1e-3, disable_mlflow=False, quiet=False)
-        >>> config = build_execution_config_from_args(args, mode='training')
-        >>> config.accelerator
-        'cpu'
-
-    Notes:
-        - Calls resolve_accelerator() to handle --device deprecation
-        - Maps --quiet OR --disable_mlflow to enable_progress_bar field
-        - Emits UserWarning for deterministic+num_workers performance caveat
-        - Validation (accelerator whitelist, non-negative workers, etc.) handled in PyTorchExecutionConfig.__post_init__()
-    """
-    from ptycho.config.config import PyTorchExecutionConfig
-
-    values = _normalize_compatibility_namespace_with_immediate_notices(
-        args,
-        mode=mode,
-    )
-    return PyTorchExecutionConfig(**values)
-
-
-def _emit_notice(notice: ResolutionNotice) -> None:
-    warnings.warn(
-        notice.message,
-        notice.category,
-        stacklevel=3,
-    )
-
-
-def _normalize_compatibility_namespace_with_immediate_notices(
+def build_training_config_patch_from_args(
     args: argparse.Namespace,
     *,
-    mode: str,
+    explicit_options: Iterable[str] = (),
+    lane: str,
 ) -> dict[str, Any]:
-    """Preserve the config helper's historical effects before construction."""
+    """Return explicitly supplied optimizer values under canonical ownership."""
 
-    if mode not in {"training", "inference"}:
-        resolve_accelerator(
-            args.accelerator,
-            getattr(args, "device", None),
-        )
-        if getattr(args, "disable_mlflow", False):
-            _emit_notice(_disable_mlflow_notice())
+    normalized_lane = _normalize_lane(lane)
+    if normalized_lane not in _TRAINING_LANES:
         raise ValueError(
-            f"Invalid mode: {mode}. Expected 'training' or 'inference'."
+            "Training config patches require a training CLI lane."
         )
-
-    lane = _NATIVE_TRAINING if mode == "training" else _NATIVE_INFERENCE
-    compatibility_sources = {
-        binding.option
-        for binding in _EXECUTION_OPTION_BINDINGS
-        if lane in binding.lanes
+    supplied_options = {
+        _normalize_option_spelling(option)
+        for option in explicit_options
+        if isinstance(option, str) and option.startswith("--")
     }
-    resolved_accelerator = resolve_accelerator(
-        args.accelerator,
-        getattr(args, "device", None),
-    )
-    values, notices = _normalize_execution_namespace(
-        args,
-        mode=mode,
-        explicit_sources=compatibility_sources,
-        none_means_default=False,
-    )
-    if mode == "training":
-        for field in (
-            "recon_log_every_n_epochs",
-            "recon_log_num_patches",
-            "recon_log_fixed_indices",
-            "recon_log_stitch",
-            "recon_log_max_stitch_samples",
+    patch: dict[str, Any] = {}
+    for binding in _TRAINING_OPTION_BINDINGS:
+        if (
+            normalized_lane not in binding.lanes
+            or binding.option not in supplied_options
+            or binding.field in patch
+            or not hasattr(args, binding.destination)
         ):
-            values[field] = getattr(
-                args,
-                field,
-                _TRAINING_EXECUTION_DEFAULTS[field],
-            )
-
-    device_notices = tuple(
-        notice
-        for notice in notices
-        if notice.message.startswith("--device is deprecated")
-    )
-    later_notices = tuple(
-        notice for notice in notices if notice not in device_notices
-    )
-
-    # Pure normalization deliberately stops before hardware observation. The
-    # compatibility helper retains its historical immediate resolution.
-    values["accelerator"] = resolved_accelerator
-
-    if mode == "inference" and getattr(args, "disable_mlflow", False):
-        values["enable_progress_bar"] = False
-        later_notices = (_disable_mlflow_notice(), *later_notices)
-
-    for notice in later_notices:
-        _emit_notice(notice)
-
-    # Preserve direct access to the historically required Namespace fields.
-    if mode == "training":
-        values["deterministic"] = args.deterministic
-        values["num_workers"] = args.num_workers
-        values["learning_rate"] = args.learning_rate
-    else:
-        values["num_workers"] = args.num_workers
-
-    return values
+            continue
+        patch[binding.field] = getattr(args, binding.destination)
+    return patch
 
 
 def validate_paths(

@@ -8,8 +8,8 @@ torch-optional behavior for testing and fallback scenarios.
 Architecture Role:
 -----------------
 This adapter sits at the boundary between PyTorch-specific code and the legacy TensorFlow
-data pipeline. It ensures configuration state is correctly initialized via the config bridge
-before delegating to TensorFlow's RawData implementation.
+data pipeline. It supplies explicit configuration values when delegating to TensorFlow's
+RawData implementation, without projecting them into legacy global state.
 
 Key Design Decisions:
 ---------------------
@@ -19,11 +19,17 @@ Key Design Decisions:
 2. **Torch-Optional**: Module is importable without PyTorch installed; only imports torch
    for future tensor conversion utilities (currently not used).
 
-3. **Configuration Bridge Enforcement**: Constructor accepts dataclass configs and calls
-   `update_legacy_dict()` internally, preventing CONFIG-001 shape mismatch bugs.
+3. **Explicit Configuration Ownership**: Constructor retains the caller's config record,
+   and grouping uses either its model gridsize or an explicit method argument.
 
 4. **NumPy-First Output**: Returns NumPy arrays (matching TensorFlow RawData behavior)
    to maintain compatibility with existing test fixtures and downstream code.
+
+Remaining legacy seam:
+----------------------
+When no precomputed ``Y`` exists and ``objectGuess`` is supplied, the delegated
+TensorFlow ground-truth patch fallback still owns a legacy translation-policy lookup.
+That shared-data seam is separate from this adapter's explicit grouping geometry.
 
 Public Interface:
 -----------------
@@ -53,7 +59,7 @@ Usage Example:
         nphotons=1e9
     )
 
-    # Create adapter (auto-initializes params.cfg)
+    # Create adapter (does not mutate params.cfg)
     raw_data = RawDataTorch(
         xcoords=coords_x,
         ycoords=coords_y,
@@ -81,21 +87,18 @@ Contract Compliance:
 Source References:
 ------------------
 - TensorFlow RawData: ptycho/raw_data.py:126-363
-- Config Bridge: ptycho_torch/config_bridge.py (Phase B.B3 implementation)
 - Data Contract: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T070200Z/data_contract.md
 - Test Blueprint: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T070200Z/test_blueprint.md
 
 Findings Applied:
 -----------------
-- CONFIG-001: Mandatory `update_legacy_dict()` before data operations
+- CONFIG-001: Supply grouping geometry explicitly instead of reading global state
 - DATA-001: Preserve complex64 dtype for Y patches
 - NORMALIZATION-001: Do not apply photon scaling to data (handled by config)
 """
 
 import numpy as np
 from typing import Optional, Dict, Any
-from pathlib import Path
-
 from ptycho.acquisition import AcquisitionRecord
 
 # Torch-optional import guard (per test_blueprint.md §1.C and CLAUDE.md:57-59)
@@ -115,13 +118,10 @@ class RawDataTorch:
 
     Attributes:
         _tf_raw_data: Underlying TensorFlow RawData instance (delegation target)
-        _config: Optional TrainingConfig/InferenceConfig for params initialization
+        _config: Optional TrainingConfig/InferenceConfig owning grouping defaults
 
-    Critical Gotchas (per CLAUDE.md:76-93):
-    ----------------------------------------
-    1. MUST call update_legacy_dict() before generate_grouped_data()
-    2. Failure causes shape mismatches (e.g., (*, 64, 64, 1) instead of (*, 64, 64, 4))
-    3. This adapter handles initialization automatically in constructor
+    Grouping geometry must come from either ``generate_grouped_data(gridsize=...)``
+    or ``config.model.gridsize``. The adapter never falls back to ``params.cfg``.
     """
 
     def __init__(
@@ -144,16 +144,15 @@ class RawDataTorch:
             probeGuess: Probe function, shape (N, N), dtype complex64
             scan_index: Scan point indices, shape (n_images,), dtype int
             objectGuess: Full object (optional), shape (M, M), dtype complex64
-            config: Optional TrainingConfig/InferenceConfig for params initialization
+            config: Optional TrainingConfig/InferenceConfig owning grouping defaults
 
         Raises:
             ImportError: If ptycho module unavailable (installation issue)
             ValueError: If data arrays have incompatible shapes
 
         Note:
-            If config is provided, this constructor calls update_legacy_dict(params.cfg, config)
-            automatically, preventing CONFIG-001 shape mismatch bugs. If config is None,
-            assumes params.cfg is already initialized (e.g., from loaded model).
+            Construction does not mutate legacy configuration state. Callers that omit
+            ``gridsize`` during grouping must provide a config with ``model.gridsize``.
         """
         record = AcquisitionRecord(
             xcoords=xcoords,
@@ -186,12 +185,6 @@ class RawDataTorch:
     ) -> None:
         # Import TensorFlow dependencies only at the operational adapter boundary.
         from ptycho.raw_data import RawData
-        from ptycho.config.config import update_legacy_dict
-        from ptycho import params as p
-
-        # Initialize params.cfg if config provided (CRITICAL per CONFIG-001)
-        if config is not None:
-            update_legacy_dict(p.cfg, config)
 
         self._tf_raw_data = RawData(
             xcoords=record.xcoords,
@@ -239,7 +232,8 @@ class RawDataTorch:
             nsamples: Number of groups to generate (default 1)
             seed: Optional random seed for reproducibility
             sequential_sampling: If True, use first N points instead of random (default False)
-            gridsize: Explicit gridsize override (if None, uses params.cfg['gridsize'])
+            gridsize: Explicit gridsize override. If omitted, uses
+                ``config.model.gridsize``.
             dataset_path: Optional path for caching (forwarded to TensorFlow, currently ignored for caching)
 
         Returns:
@@ -255,7 +249,7 @@ class RawDataTorch:
 
         Raises:
             ValueError: If dataset too small for requested parameters
-            RuntimeError: If params.cfg not initialized (CONFIG-001)
+            ValueError: If gridsize is omitted and no config-owned value exists.
 
         Example:
             grouped = raw_data.generate_grouped_data(
@@ -268,7 +262,15 @@ class RawDataTorch:
         Source: ptycho/raw_data.py:365-486 (TensorFlow implementation)
         Contract: specs/data_contracts.md:58-176 (grouped data structure)
         """
-        # Direct delegation to TensorFlow RawData (maintaining parity)
+        if gridsize is None:
+            model_config = getattr(self._config, "model", None)
+            gridsize = getattr(model_config, "gridsize", None)
+            if gridsize is None:
+                raise ValueError(
+                    "gridsize must be provided explicitly or via config.model.gridsize"
+                )
+
+        # Direct delegation to TensorFlow RawData with explicit grouping geometry.
         return self._tf_raw_data.generate_grouped_data(
             N=N,
             K=K,
