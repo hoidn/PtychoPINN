@@ -462,7 +462,7 @@ class TestInferenceCliBackendDispatch:
         with patch.object(
             inference,
             'load_inference_bundle_with_backend',
-            return_value=(MagicMock(), {}),
+            return_value=(MagicMock(), {'gridsize': 1}),
         ), patch.object(
             inference,
             'load_data',
@@ -530,7 +530,7 @@ class TestInferenceCliBackendDispatch:
         with patch.object(
             inference,
             'load_inference_bundle_with_backend',
-            return_value=(MagicMock(), {}),
+            return_value=(MagicMock(), {'gridsize': 1}),
         ), patch.object(
             inference,
             'load_data',
@@ -627,7 +627,7 @@ class TestInferenceCliBackendDispatch:
 
         def load_bundle(*_args):
             events.append('bundle')
-            return model, {}
+            return model, {'gridsize': 1}
 
         def resolve(request, *, mode):
             events.append('resolve')
@@ -752,7 +752,7 @@ class TestInferenceCliBackendDispatch:
 
         def load_bundle(*_args):
             events.append('bundle validated')
-            return model, {}
+            return model, {'gridsize': 1}
 
         def resolve(*_args, **_kwargs):
             events.append('runtime resolved')
@@ -826,7 +826,10 @@ class TestInferenceCliBackendDispatch:
             n_groups=3,
         )
 
-        n_subsample, n_groups, message = interpret_sampling_parameters(config)
+        n_subsample, n_groups, message = interpret_sampling_parameters(
+            config,
+            gridsize=2,
+        )
 
         assert n_subsample is None
         assert n_groups == 3
@@ -1208,3 +1211,71 @@ class TestInferenceCliBackendDispatch:
 
         finally:
             sys.argv = original_argv
+def test_inference_sampling_uses_authoritative_archive_gridsize(
+    tmp_path: Path,
+    monkeypatch,
+):
+    import numpy as np
+
+    from ptycho import params
+    from scripts.inference import inference
+
+    config_path = tmp_path / 'inference.yaml'
+    config_path.write_text(
+        '\n'.join(
+            [
+                f'model_path: {tmp_path / "model"}',
+                f'test_data_file: {tmp_path / "test.npz"}',
+                'n_subsample: 8',
+                f'output_dir: {tmp_path / "output"}',
+                'backend: tensorflow',
+            ]
+        )
+        + '\n',
+        encoding='utf-8',
+    )
+    raw_data = MagicMock()
+    raw_data.xcoords = np.arange(8)
+    load_data = MagicMock(return_value=raw_data)
+    perform_inference = MagicMock(
+        return_value=(
+            np.ones((2, 2)),
+            np.zeros((2, 2)),
+            None,
+            None,
+        )
+    )
+
+    def load_archive(_model_path, _config):
+        params.cfg['gridsize'] = 2
+        return MagicMock(), {'gridsize': 2}
+
+    monkeypatch.setattr(params, 'cfg', {'gridsize': 1})
+    monkeypatch.setattr(
+        sys,
+        'argv',
+        ['inference.py', '--config', str(config_path)],
+    )
+
+    with patch.object(
+        inference,
+        'load_inference_bundle_with_backend',
+        side_effect=load_archive,
+    ), patch.object(
+        inference,
+        'load_data',
+        load_data,
+    ), patch.object(
+        inference,
+        'perform_inference',
+        perform_inference,
+    ), patch.object(
+        inference,
+        'save_reconstruction_images',
+    ), pytest.raises(SystemExit) as exit_info:
+        inference.main()
+
+    assert exit_info.value.code == 0
+    assert load_data.call_args.kwargs['n_subsample'] == 8
+    assert load_data.call_args.kwargs['n_images'] is None
+    assert perform_inference.call_args.kwargs['nsamples'] == 2

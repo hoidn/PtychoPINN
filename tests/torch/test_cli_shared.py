@@ -937,6 +937,44 @@ def test_build_execution_request_from_args_normalizes_logger_backend(
     assert ("logger_backend" in request.explicit_fields) is bool(explicit_options)
 
 
+@pytest.mark.parametrize(
+    ("lane", "mode"),
+    [
+        ("native-training", "training"),
+        ("native-inference", "inference"),
+        ("unified-training", "training"),
+    ],
+)
+def test_execution_request_omitted_quiet_preserves_cli_default(
+    lane,
+    mode,
+):
+    from ptycho_torch.execution_request import normalize_execution_input
+    from ptycho_torch.cli.shared import build_execution_request_from_args
+
+    omitted = build_execution_request_from_args(
+        argparse.Namespace(quiet=True),
+        mode=mode,
+        explicit_options=set(),
+        lane=lane,
+    )
+    explicit = build_execution_request_from_args(
+        argparse.Namespace(quiet=True),
+        mode=mode,
+        explicit_options={"--quiet"},
+        lane=lane,
+    )
+    normalized_omitted = normalize_execution_input(omitted, mode=mode)
+    normalized_explicit = normalize_execution_input(explicit, mode=mode)
+
+    assert normalized_omitted is not None
+    assert normalized_explicit is not None
+    assert normalized_omitted.values["enable_progress_bar"] is True
+    assert "enable_progress_bar" not in omitted.explicit_fields
+    assert normalized_explicit.values["enable_progress_bar"] is False
+    assert explicit.explicit_fields == frozenset({"enable_progress_bar"})
+
+
 def test_build_execution_request_from_args_is_pure_for_auto_accelerator(
     monkeypatch,
 ):
@@ -958,6 +996,20 @@ def test_build_execution_request_from_args_is_pure_for_auto_accelerator(
     )
 
     assert request.values["accelerator"] == "auto"
+
+
+def test_unified_inference_does_not_bind_unexposed_quiet_option():
+    from ptycho_torch.cli.shared import build_execution_request_from_args
+
+    request = build_execution_request_from_args(
+        argparse.Namespace(quiet=True),
+        mode="inference",
+        explicit_options={"--quiet"},
+        lane="unified-inference",
+    )
+
+    assert request.values["enable_progress_bar"] is True
+    assert "enable_progress_bar" not in request.explicit_fields
 
 
 @pytest.mark.parametrize(

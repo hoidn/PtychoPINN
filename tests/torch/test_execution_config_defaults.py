@@ -189,6 +189,38 @@ def test_execution_config_rejects_negative_checkpoint_count():
         PyTorchExecutionConfig(accelerator="cpu", checkpoint_save_top_k=-1)
 
 
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        (
+            {"num_workers": 0, "persistent_workers": True},
+            "persistent_workers",
+        ),
+        ({"logger_backend": "none"}, "logger_backend"),
+    ],
+)
+def test_execution_config_enforces_selected_runtime_contract(kwargs, message):
+    from ptycho.config.config import PyTorchExecutionConfig
+
+    with pytest.raises(ValueError, match=message):
+        PyTorchExecutionConfig(accelerator="cpu", **kwargs)
+
+
+@pytest.mark.parametrize(
+    "logger_backend",
+    ["csv", "tensorboard", "mlflow", None],
+)
+def test_execution_config_accepts_canonical_logger_backends(logger_backend):
+    from ptycho.config.config import PyTorchExecutionConfig
+
+    config = PyTorchExecutionConfig(
+        accelerator="cpu",
+        logger_backend=logger_backend,
+    )
+
+    assert config.logger_backend == logger_backend
+
+
 class TestPyTorchExecutionConfigDefaults:
     """Test suite for PyTorchExecutionConfig auto-resolution behavior."""
 

@@ -647,7 +647,23 @@ class TestExecutionConfigCLI:
         assert 'execution_config' in call_kwargs
         assert call_kwargs['execution_config'].values['early_stop_patience'] == 10
 
-    def test_scheduler_flag_roundtrip(self, minimal_train_args, monkeypatch):
+    @pytest.mark.parametrize(
+        "scheduler",
+        [
+            "Default",
+            "Exponential",
+            "MultiStage",
+            "Adaptive",
+            "WarmupCosine",
+            "ReduceLROnPlateau",
+        ],
+    )
+    def test_scheduler_flag_roundtrip(
+        self,
+        minimal_train_args,
+        monkeypatch,
+        scheduler,
+    ):
         """
         RED Test: --scheduler flag maps to execution_config.scheduler.
 
@@ -663,11 +679,11 @@ class TestExecutionConfigCLI:
         mock_factory = MagicMock()
         mock_factory.return_value = MagicMock(
             tf_training_config=MagicMock(),
-            execution_config=MagicMock(scheduler='Exponential'),
+            execution_config=MagicMock(scheduler=scheduler),
         )
 
         with patch('ptycho_torch.config_factory.create_training_payload', mock_factory):
-            test_args = minimal_train_args + ['--scheduler', 'Exponential']
+            test_args = minimal_train_args + ['--scheduler', scheduler]
 
             from ptycho_torch.train import cli_main
             monkeypatch.setattr('sys.argv', ['train.py'] + test_args)
@@ -680,7 +696,7 @@ class TestExecutionConfigCLI:
         assert mock_factory.called
         call_kwargs = mock_factory.call_args.kwargs
         assert 'execution_config' in call_kwargs
-        assert call_kwargs['execution_config'].values['scheduler'] == 'Exponential'
+        assert call_kwargs['execution_config'].values['scheduler'] == scheduler
 
     def test_accumulate_grad_batches_roundtrip(self, minimal_train_args, monkeypatch):
         """

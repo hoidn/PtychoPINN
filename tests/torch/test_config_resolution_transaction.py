@@ -38,10 +38,12 @@ from ptycho_torch.config_params import (
     update_existing_config,
 )
 from ptycho_torch.execution_request import (
+    EnvironmentResolution,
     ExecutionRequest,
     NormalizedExecutionInput,
     ResolutionNotice,
     normalize_execution_input,
+    resolve_runtime_execution_request,
 )
 
 
@@ -932,6 +934,76 @@ def test_mutable_patch_values_are_independent_snapshots() -> None:
 
     assert bridge_value == ["source", "caller"]
     assert bridge_bundle.bridge["mutable"] == ["source", "bundle"]
+
+
+def test_execution_request_freezes_reconstruction_indices_through_resolution() -> None:
+    source_indices = [1, 3]
+    request = ExecutionRequest(
+        values={
+            "accelerator": "cpu",
+            "recon_log_fixed_indices": source_indices,
+        },
+        explicit_fields=frozenset(
+            {"accelerator", "recon_log_fixed_indices"}
+        ),
+    )
+
+    source_indices.append(5)
+    returned = request.as_dict()
+    returned["recon_log_fixed_indices"].append(7)
+    normalized = normalize_execution_input(request, mode="training")
+
+    assert request.values["recon_log_fixed_indices"] == (1, 3)
+    assert returned["recon_log_fixed_indices"] == [1, 3, 7]
+    assert normalized is not None
+    assert normalized.values["recon_log_fixed_indices"] == (1, 3)
+
+    resolved = resolve_runtime_execution_request(
+        normalized,
+        mode="training",
+    )
+
+    assert resolved.config.recon_log_fixed_indices == [1, 3]
+    assert isinstance(resolved.config.recon_log_fixed_indices, list)
+    resolved.config.recon_log_fixed_indices.append(9)
+    assert normalized.values["recon_log_fixed_indices"] == (1, 3)
+
+
+def test_bare_execution_config_snapshots_reconstruction_indices() -> None:
+    from ptycho.config.config import PyTorchExecutionConfig
+
+    config = PyTorchExecutionConfig(
+        accelerator="cpu",
+        recon_log_fixed_indices=[2, 4],
+    )
+    normalized = normalize_execution_input(config, mode="training")
+    assert normalized is not None
+
+    config.recon_log_fixed_indices.append(6)
+
+    assert normalized.values["recon_log_fixed_indices"] == (2, 4)
+    resolved = resolve_runtime_execution_request(
+        normalized,
+        mode="training",
+    )
+    assert resolved.config.recon_log_fixed_indices == [2, 4]
+    assert isinstance(resolved.config.recon_log_fixed_indices, list)
+
+
+def test_environment_resolution_snapshots_mutable_execution_values() -> None:
+    requested_indices = [1, 2]
+    resolved_indices = [3, 4]
+    resolution = EnvironmentResolution(
+        requested={"recon_log_fixed_indices": requested_indices},
+        resolved={"recon_log_fixed_indices": resolved_indices},
+        capabilities=None,
+    )
+
+    requested_indices.append(5)
+    resolved_indices.append(6)
+
+    assert resolution.requested["recon_log_fixed_indices"] == (1, 2)
+    assert resolution.resolved["recon_log_fixed_indices"] == (3, 4)
 
 
 def test_training_resolver_rejects_inference_normalized_patch() -> None:

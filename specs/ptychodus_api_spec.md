@@ -183,9 +183,11 @@ following behavioural contract in addition to the configuration bridge.
 - `reconstruct()` and `train()` assemble `ModelConfig`, `InferenceConfig`, and `TrainingConfig` instances from
   live settings (`ptychodus.model.ptychopinn.reconstructor`). Every field in
   these dataclasses must be respected because they directly feed downstream modules.
-- `update_legacy_dict(ptycho.params.cfg, config)` is called immediately after instantiation. The backend must
-  continue to populate `ptycho.params.cfg` so that legacy consumers (`ptycho.raw_data`, `ptycho.loader`,
-  `ptycho.model`) observe consistent values.
+- After source resolution and structural, runnable, and resource validation,
+  `update_legacy_dict(ptycho.params.cfg, validated_config)` is called immediately
+  before backend dispatch or another legacy consumer. The backend must continue
+  to populate `ptycho.params.cfg` so that legacy consumers (`ptycho.raw_data`,
+  `ptycho.loader`, `ptycho.model`) observe consistent validated values.
 - Loaded models overwrite `params.cfg` via `load_inference_bundle`, so a backend must either replicate that side
   effect or provide an alternative hook (`ptycho.workflows.components.load_inference_bundle`).
 - **PyTorch Import Requirement (Phase F)**: The PyTorch backend (`ptycho_torch/`) **must** raise an actionable `RuntimeError` with installation guidance if `torch` cannot be imported. Silent fallbacks or optional import guards are prohibited per <doc-ref type="findings">docs/findings.md#policy-001</doc-ref>. All modules in `ptycho_torch/` assume PyTorch availability and will fail fast with clear error messages directing users to install `torch>=2.2`. Test suites automatically skip `tests/torch/` in TensorFlow-only CI environments via directory-based pytest collection rules (`tests/conftest.py`), but local development expects PyTorch to be present.
@@ -324,13 +326,15 @@ Archive identification and backend tagging
 - CLI entrypoints (`ptycho_torch/train.py`, `ptycho_torch/inference.py`) MUST delegate to shared helper functions (`ptycho_torch/cli/shared.py`) for path validation, accelerator resolution, and execution config construction. Helpers SHALL emit deprecation warnings for legacy flags (`--device`, `--disable_mlflow`) and map them to modern equivalents (`--accelerator`, `--quiet`).
 - Execution config objects (`PyTorchExecutionConfig`, see §4.9) MUST NOT populate `params.cfg` via `update_legacy_dict`; they control runtime behavior only. Canonical configs (`TrainingConfig`, `InferenceConfig`) continue to bridge via CONFIG-001.
 - Runtime failures SHALL raise actionable errors: `RuntimeError` if PyTorch >=2.2 unavailable (POLICY-001), `ValueError` for invalid execution config fields, `FileNotFoundError` for missing data/checkpoint paths (Phase C2 evidence: `ptycho_torch/cli/shared.py:validate_paths`).
- - Experiment logging via MLflow is OPTIONAL. The default logger backend is `'csv'` (`logger_backend='csv'`), and `'none'` disables logging.
+ - Experiment logging via MLflow is OPTIONAL. The default logger backend is
+   `'csv'` (`logger_backend='csv'`). The resolved configuration uses `None` to
+   disable logging; the CLI accepts `'none'` and canonicalizes it to `None`.
    Implementations MUST NOT require MLflow in environments where it is not installed.
 
 #### 4.8. Backend Selection & Dispatch
 
 - **Configuration Field**: `TrainingConfig.backend` and `InferenceConfig.backend` MUST accept the literals `'tensorflow'` or `'pytorch'` and SHALL default to `'tensorflow'` to maintain backward compatibility. Callers MAY override this field when invoking PtychoPINN through Ptychodus.
-- **CONFIG-001 Compliance**: Implementations MUST call `update_legacy_dict(ptycho.params.cfg, config)` before inspecting `config.backend` or importing backend-specific modules. This guarantees legacy subsystems observe synchronized parameters regardless of backend.
+- **CONFIG-001 Compliance**: Source resolution and structural, runnable, or resource validation MAY inspect `config.backend` and MUST complete before mutating legacy state. Implementations MUST then call `update_legacy_dict(ptycho.params.cfg, validated_config)` immediately before importing or dispatching either backend, or before invoking any other legacy consumer. During inference loading, the validated bootstrap projection occurs first and the archive-restored configuration remains authoritative afterward.
 - **Execution Config Merge**: For PyTorch paths, dispatchers MUST accept optional `PyTorchExecutionConfig` objects (programmatic) or build them via `build_execution_config_from_args(args, mode)` (CLI). Factories SHALL apply execution config overrides at priority level 2 (between explicit overrides and dataclass defaults) and log applied values. See §4.9 for execution config contract.
 - **Routing Guarantees**:
   - When `config.backend == 'tensorflow'`, the dispatcher SHALL delegate to `ptycho.workflows.components` entry points without attempting PyTorch imports.

@@ -1296,9 +1296,9 @@ def _build_dataloaders_from_ptycho_dataset(
     Datamodule already does its own validation set split, so do not need additional input
     """
     training_config = payload.pt_training_config
+    execution_config = payload.execution_config
     data_config = payload.pt_data_config
     model_config = payload.pt_model_config
-    execution_config = payload.execution_config
     from dataclasses import replace
 
     runtime_training_config = replace(

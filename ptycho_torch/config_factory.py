@@ -42,7 +42,7 @@ Override Precedence (highest to lowest):
     5. TensorFlow config defaults (TrainingConfig, ModelConfig, InferenceConfig)
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Dict, Any, Optional, Union
 import warnings
@@ -77,6 +77,7 @@ from ptycho_torch.model_spec import ModelSpec, derive_model_spec
 from ptycho_torch.execution_request import (
     ExecutionCapabilities,
     ExecutionRequest,
+    OPTIMIZER_EXECUTION_COMPAT_FIELDS,
     ResolutionNotice,
     normalize_execution_input,
     resolve_runtime_execution_request,
@@ -236,6 +237,32 @@ class InferencePayload:
     pt_inference_config: PTInferenceConfig  # PyTorch singleton
     execution_config: PyTorchExecutionConfig  # Execution knobs (Phase C2)
     overrides_applied: Dict[str, Any] = field(default_factory=dict)  # Audit trail
+
+
+def _mirror_effective_optimizer_owner(
+    runtime_config: PyTorchExecutionConfig,
+    training_config: PTTrainingConfig,
+) -> PyTorchExecutionConfig:
+    """Return the runtime carrier with its optimizer compatibility view synced."""
+
+    explicit_structural_aliases = getattr(
+        runtime_config,
+        "_explicit_structural_aliases",
+        frozenset(),
+    )
+    mirrored = replace(
+        runtime_config,
+        **{
+            field_name: getattr(training_config, field_name)
+            for field_name in OPTIMIZER_EXECUTION_COMPAT_FIELDS
+        },
+    )
+    object.__setattr__(
+        mirrored,
+        "_explicit_structural_aliases",
+        explicit_structural_aliases,
+    )
+    return mirrored
 
 
 def _load_nphotons_from_metadata(data_file: Path) -> Optional[float]:
@@ -415,6 +442,10 @@ def create_training_payload(
         mode="training",
         execution_capabilities=execution_capabilities,
     )
+    runtime_config = _mirror_effective_optimizer_owner(
+        runtime.config,
+        resolved.training,
+    )
     overrides_applied = dict(resolved.audit)
     if resolved.aliases:
         overrides_applied["input_aliases"] = {
@@ -441,7 +472,7 @@ def create_training_payload(
         "enable_progress_bar",
         "logger_backend",
     ):
-        overrides_applied[name] = getattr(runtime.config, name)
+        overrides_applied[name] = getattr(runtime_config, name)
 
     model_spec = derive_model_spec(
         tf_model_config,
@@ -455,7 +486,7 @@ def create_training_payload(
         pt_training_config=resolved.training,
         pt_inference_config=resolved.inference,
         model_spec=model_spec,
-        execution_config=runtime.config,
+        execution_config=runtime_config,
         overrides_applied=overrides_applied,
     )
     params.unseal()
