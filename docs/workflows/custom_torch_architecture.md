@@ -50,12 +50,13 @@ to the package and must remain importable anywhere its artifacts are loaded.
 The learned module is only one component of the application:
 
 ```text
-public ModelConfig + TrainingConfig + PyTorchExecutionConfig
+public ModelConfig + TrainingConfig + unresolved ExecutionRequest
                               |
                               v
-                    configuration factory
+            owner validation + configuration factory
                               |
           Torch data/model/training/inference configs
+            + runtime-only PyTorchExecutionConfig
                     + sealed ModelSpec
                               |
                               v
@@ -274,7 +275,8 @@ In `ptycho/config/config.py`:
 4. validate the new fields and any architecture-specific restrictions.
 
 These are user-facing topology choices, so they belong to `ModelConfig`, not
-`TrainingConfig` or `PyTorchExecutionConfig`.
+`TrainingConfig`, `ExecutionRequest`, or the resolved
+`PyTorchExecutionConfig`.
 
 ### 5.2 Add the resolved Torch configuration
 
@@ -474,16 +476,16 @@ known registered baseline.
 
 For architecture development, the public Python dataclasses are the clearest
 interface. Define one public `ModelConfig`, one public `TrainingConfig`, and a
-separate execution config:
+separate unresolved runtime request:
 
 ```python
 from pathlib import Path
 
 from ptycho.config.config import (
     ModelConfig,
-    PyTorchExecutionConfig,
     TrainingConfig,
 )
+from ptycho_torch.execution_request import ExecutionRequest
 
 model_config = ModelConfig(
     N=64,
@@ -511,24 +513,32 @@ training_config = TrainingConfig(
     torch_loss_mode="poisson",
     optimizer="adam",
     scheduler="Default",
+    gradient_clip_val=None,
+    gradient_clip_algorithm="norm",
     subsample_seed=3,
 )
 
-execution_config = PyTorchExecutionConfig(
-    accelerator="cuda",
-    devices=1,
-    strategy="auto",
-    precision="32-true",
-    learning_rate=1e-3,
-    num_workers=0,
-    logger_backend="csv",
-    enable_checkpointing=True,
+runtime_values = {
+    "accelerator": "cuda",
+    "devices": 1,
+    "strategy": "auto",
+    "precision": "32-true",
+    "num_workers": 0,
+    "logger_backend": "csv",
+    "enable_checkpointing": True,
+}
+execution_request = ExecutionRequest(
+    values=runtime_values,
+    explicit_fields=frozenset(runtime_values),
 )
 ```
 
 Use `TrainingConfig` for the scientific optimization recipe and
-`PyTorchExecutionConfig` for Lightning/runtime mechanics. Do not put network
-width or block count in the execution config.
+an `ExecutionRequest` for unresolved Lightning/DataLoader runtime intent. The
+factory returns `PyTorchExecutionConfig`; do not construct that resolved
+carrier as input. Learning rate, scheduler, clipping, and accumulation belong
+to Torch `TrainingConfig` or its explicit factory patch. Do not put network
+width or block count in either execution record.
 
 ### Scaling profile
 
@@ -563,13 +573,19 @@ update_legacy_dict(params.cfg, training_config)
 train_data = RawData.from_file(str(training_config.train_data_file))
 test_data = RawData.from_file(str(training_config.test_data_file))
 ci_overrides = resolve_ci_profile()
+ci_overrides.update(
+    {
+        "learning_rate": 1e-3,
+        "accum_steps": 1,
+    }
+)
 
 _, _, results = run_cdi_example_torch(
     train_data=train_data,
     test_data=test_data,
     config=training_config,
     do_stitching=False,
-    execution_config=execution_config,
+    execution_config=execution_request,
     overrides=ci_overrides,
 )
 ```
@@ -580,7 +596,9 @@ scale fields through the same supported override boundary. Never pass only one
 half of a scale-contract pair.
 
 The explicit call above performs the required legacy bridge before data access;
-the scoped workflow enforces the bridge again at its own boundary. It then
+the scoped workflow enforces the bridge again at its own boundary. The factory
+resolves `execution_request` to the runtime-only carrier and applies the
+learning-rate and accumulation values to Torch `TrainingConfig`. It then
 derives and seals the Torch configs, trains with Lightning, writes checkpoints,
 and persists `outputs/tiny_residual_run_001/wts.h5.zip`.
 
