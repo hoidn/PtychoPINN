@@ -3,6 +3,22 @@ import pytest
 import torch
 
 
+def _build_lightning_module(training_config):
+    """Build the real Lightning module with a supplied Torch training config."""
+    from ptycho import params
+    from ptycho.config.config import update_legacy_dict
+    from ptycho_torch.config_params import DataConfig, InferenceConfig, ModelConfig
+    from ptycho_torch.model import PtychoPINN_Lightning
+
+    update_legacy_dict(params.cfg, training_config)
+    return PtychoPINN_Lightning(
+        model_config=ModelConfig(),
+        data_config=DataConfig(N=64, C=1, grid_size=(1, 1)),
+        training_config=training_config,
+        inference_config=InferenceConfig(),
+    )
+
+
 def test_configure_optimizers_scheduler_plateau_uses_resolved_learning_rate():
     """Test that ReduceLROnPlateau uses TrainingConfig params and monitor."""
     from ptycho import params
@@ -44,6 +60,43 @@ def test_configure_optimizers_scheduler_plateau_uses_resolved_learning_rate():
     assert scheduler.patience == 5
     assert scheduler.min_lrs == [1e-5]
     assert scheduler.threshold == 1e-3
+
+
+def test_configure_optimizers_uses_sgd_training_config_values():
+    """The module must not reinterpret a flat Torch optimizer string."""
+    from ptycho_torch.config_params import TrainingConfig
+
+    training_config = TrainingConfig(
+        optimizer="sgd",
+        momentum=0.37,
+        weight_decay=0.0123,
+    )
+
+    result = _build_lightning_module(training_config).configure_optimizers()
+    optimizer = result["optimizer"]
+
+    assert isinstance(optimizer, torch.optim.SGD)
+    assert optimizer.defaults["momentum"] == pytest.approx(0.37)
+    assert optimizer.defaults["weight_decay"] == pytest.approx(0.0123)
+
+
+def test_configure_optimizers_uses_adamw_training_config_values():
+    """AdamW selection and non-default hyperparameters must reach PyTorch."""
+    from ptycho_torch.config_params import TrainingConfig
+
+    training_config = TrainingConfig(
+        optimizer="adamw",
+        weight_decay=0.045,
+        adam_beta1=0.81,
+        adam_beta2=0.93,
+    )
+
+    result = _build_lightning_module(training_config).configure_optimizers()
+    optimizer = result["optimizer"]
+
+    assert isinstance(optimizer, torch.optim.AdamW)
+    assert optimizer.defaults["weight_decay"] == pytest.approx(0.045)
+    assert optimizer.defaults["betas"] == pytest.approx((0.81, 0.93))
 
 
 @pytest.mark.parametrize("clip_algorithm", ["norm", "value", "agc"])
@@ -121,19 +174,22 @@ def test_manual_gradient_clip_uses_resolved_training_config(
 
 
 def test_configure_optimizers_selects_warmup_scheduler():
-    """Test that configure_optimizers returns SequentialLR for WarmupCosine."""
-    from ptycho_torch.config_params import TrainingConfig as PTTrainingConfig
+    """The configured scheduler must survive the TrainingConfig-to-model path."""
+    from ptycho_torch.config_params import TrainingConfig
 
-    # We need to test configure_optimizers on PtychoPINN_Lightning
-    # But constructing it is complex. Let's test at a lighter level:
-    # just verify the scheduler import and build work
-    from ptycho_torch.schedulers import build_warmup_cosine_scheduler
-    import torch
+    training_config = TrainingConfig(
+        epochs=12,
+        scheduler="WarmupCosine",
+        lr_warmup_epochs=3,
+        lr_min_ratio=0.07,
+    )
 
-    model = torch.nn.Linear(4, 4)
-    opt = torch.optim.Adam(model.parameters(), lr=1e-3)
-    sched = build_warmup_cosine_scheduler(opt, total_epochs=50, warmup_epochs=5, min_lr_ratio=0.05)
-    assert sched.__class__.__name__ == 'SequentialLR'
+    result = _build_lightning_module(training_config).configure_optimizers()
+    scheduler = result["lr_scheduler"]["scheduler"]
+
+    assert isinstance(scheduler, torch.optim.lr_scheduler.SequentialLR)
+    assert scheduler._milestones == [3]
+    assert scheduler._schedulers[1].eta_min == pytest.approx(7e-5)
 
 
 class TestOptimizerSelection:

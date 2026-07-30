@@ -30,7 +30,6 @@ tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_
 # pre-existing on main: config dataclass lacks field the test passes
 tests/torch/test_loss_modes.py::test_mae_loss_mode_logs_mae_metrics_only
 tests/torch/test_loss_modes.py::test_poisson_loss_mode_logs_poisson_metrics
-tests/torch/test_model_training.py::test_configure_optimizers_supports_plateau
 tests/torch/test_physics_scale_loss.py::test_poisson_loss_uses_physics_scale
 # pre-existing on main: generator-adapter API absent from model.py
 tests/torch/test_generator_adapter.py::test_ptychopinn_predict_complex_real_imag
@@ -53,8 +52,3 @@ tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_
 tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_lightning_poisson_count_contract
 # pre-existing on main: helper.normalize_probe_like_tf absent
 tests/torch/test_parity_probe_normalization.py::test_probe_normalization_parity
-# pre-existing on main: model._build_optimizer absent
-tests/torch/test_model_training.py::TestOptimizerSelection::test_configures_adam
-tests/torch/test_model_training.py::TestOptimizerSelection::test_configures_adamw
-tests/torch/test_model_training.py::TestOptimizerSelection::test_configures_sgd
-tests/torch/test_model_training.py::TestOptimizerSelection::test_invalid_optimizer_raises
