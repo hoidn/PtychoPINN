@@ -26,15 +26,23 @@ amplitude mode (the default; no ``physics_forward_mode`` override) with
     the amplitude-mode ``compute_loss``; the 82da7796 scaling collapse
     remains rectangular_scaled-only).
 """
+from types import SimpleNamespace
+
 import pytest
 import torch
 
 from ptycho.config.config import (
     ModelConfig as TFModelConfig,
+    PyTorchExecutionConfig,
     TrainingConfig as TFTrainingConfig,
     update_legacy_dict,
 )
 from ptycho import params
+from ptycho_torch.config_params import (
+    DataConfig as PTDataConfig,
+    ModelConfig as PTModelConfig,
+    TrainingConfig as PTTrainingConfig,
+)
 from ptycho_torch.workflows import components as torch_components
 from scripts.studies.grid_lines_torch_runner import TorchRunnerConfig, run_torch_training
 
@@ -65,6 +73,29 @@ def _build_container(n_samples: int, N: int) -> dict:
     }
 
 
+def _training_payload(N: int, batch_size: int) -> SimpleNamespace:
+    return SimpleNamespace(
+        pt_data_config=PTDataConfig(
+            N=N,
+            C=1,
+            grid_size=(1, 1),
+            scale_contract_version="legacy_v1",
+            measurement_domain="normalized_amplitude",
+        ),
+        pt_model_config=PTModelConfig(
+            C_model=1,
+            C_forward=1,
+            physics_forward_mode="amplitude",
+            loss_function="MAE",
+        ),
+        pt_training_config=PTTrainingConfig(
+            batch_size=batch_size,
+            torch_loss_mode="mae",
+        ),
+        execution_config=PyTorchExecutionConfig(),
+    )
+
+
 @pytest.mark.torch
 def test_inline_dataset_amplitude_mode_documented_probe_raw_scaling(
     tmp_path, params_cfg_snapshot
@@ -92,7 +123,7 @@ def test_inline_dataset_amplitude_mode_documented_probe_raw_scaling(
         train_container=train_container,
         test_container=None,
         config=tf_training_cfg,
-        payload=None,
+        payload=_training_payload(N, batch_size),
     )
 
     tensor_dict, probe, scaling = next(iter(train_loader))
