@@ -242,7 +242,7 @@ def npz_headers(npz):
 
 def _validate_writer_inputs(npz_file, tensor_shape, model_config, data_config):
     """Reject writer-required NPZ inputs before memory-map allocation."""
-    required_keys = ["probeGuess", "objectGuess"]
+    required_keys = ["probeGuess"]
     if model_config.mode == "Supervised":
         required_keys.append("label")
 
@@ -254,10 +254,16 @@ def _validate_writer_inputs(npz_file, tensor_shape, model_config, data_config):
             )
 
         probe_shape = data["probeGuess"].shape
-        object_shape = data["objectGuess"].shape
-        label_shape = data["label"].shape if model_config.mode == "Supervised" else None
+        object_shape = (
+            data["objectGuess"].shape if "objectGuess" in data else None
+        )
+        label_shape = (
+            data["label"].shape
+            if model_config.mode == "Supervised"
+            else None
+        )
 
-    if len(object_shape) != 2:
+    if object_shape is not None and len(object_shape) != 2:
         raise ValueError(
             f"{npz_file}: objectGuess must be 2D; got shape {object_shape}."
         )
@@ -393,12 +399,18 @@ class PtychoDataset(Dataset):
     data_config: DataConfig instance, expected to have attributes like x_bounds, y_bounds, C, N, etc.
     data_dir: Directory for memory map files.
     remake_map: Boolean, if True, recreate the memory map.
+    exact_npz_files: Optional non-empty iterable that bypasses directory
+        discovery and preserves the supplied file order.
+    data_prefix_dir: Optional descriptor-safe alias for ``data_dir``'s parent,
+        used internally when state and manifest writes must be inode-anchored.
 
     """
     def __init__(self, ptycho_dir: str, model_config: 'ModelConfig', data_config: 'DataConfig',
                  training_config: 'TrainingConfig' = None,
                  data_dir: str = 'data/memmap', remake_map: bool = False,
-                 defer_ci_statistics: bool = False):
+                 defer_ci_statistics: bool = False, group_limit: int | None = None,
+                 sequential_sampling: bool = False, *, exact_npz_files=None,
+                 data_prefix_dir=None):
         
         # --- Initial loading ---
         self.model_config = model_config
@@ -406,6 +418,19 @@ class PtychoDataset(Dataset):
         self.object_compatibility = resolve_model_object_compatibility(model_config)
         self.ci_contract_active = _ci_profile_active(model_config, data_config)
         self.defer_ci_statistics = defer_ci_statistics
+        if group_limit is not None and (
+            isinstance(group_limit, bool)
+            or not isinstance(group_limit, int)
+            or group_limit <= 0
+        ):
+            raise ValueError("group_limit must be a positive integer or None.")
+        self.group_limit = group_limit
+        self.sequential_sampling = bool(sequential_sampling)
+        self.group_selection_seed = (
+            42
+            if data_config.subsample_seed is None
+            else int(data_config.subsample_seed)
+        )
         self.is_ddp_active = is_ddp_initialized_and_active()
         self.current_rank = get_current_rank()
         self.data_dict = {} #Includes important tensors that don't need to be memory mapped
@@ -416,13 +441,62 @@ class PtychoDataset(Dataset):
             os.makedirs(data_dir, exist_ok = True)
         self.data_dir = data_dir # Storing the string if needed, otherwise data_dir_path is primary
         self.data_dir_path = Path(data_dir)
-        data_prefix_path = self.data_dir_path.parent
+        if data_prefix_dir is None:
+            data_prefix_path = self.data_dir_path.parent
+        else:
+            data_prefix_path = Path(data_prefix_dir)
+            try:
+                resolved_data_parent = self.data_dir_path.resolve(
+                    strict=True
+                ).parent
+                resolved_prefix = data_prefix_path.resolve(strict=True)
+            except FileNotFoundError as exc:
+                raise ValueError(
+                    "data_prefix_dir must be an existing descriptor-safe "
+                    "alias for the data_dir parent."
+                ) from exc
+            if resolved_prefix != resolved_data_parent:
+                raise ValueError(
+                    "data_prefix_dir must identify the data_dir parent."
+                )
         self.state_path = data_prefix_path / 'state_files.npz' # State files contain data_dict from Rank 0 (see below)
         self.manifest_path = data_prefix_path / "mmap_manifest.json"
-        
+
+        exact_file_list = None
+        if exact_npz_files is not None:
+            if isinstance(exact_npz_files, (str, bytes, os.PathLike)):
+                raise ValueError(
+                    "exact_npz_files must be a non-empty iterable of paths."
+                )
+            try:
+                exact_file_list = [
+                    Path(path) for path in exact_npz_files
+                ]
+            except TypeError as exc:
+                raise ValueError(
+                    "exact_npz_files must be a non-empty iterable of paths."
+                ) from exc
+            if not exact_file_list:
+                raise ValueError(
+                    "exact_npz_files must be a non-empty iterable of paths."
+                )
+            missing_files = [
+                path for path in exact_file_list if not path.is_file()
+            ]
+            if missing_files:
+                raise FileNotFoundError(
+                    "Exact NPZ paths must identify existing files: "
+                    f"{missing_files}."
+                )
+
         # Find npz files, try except because of distributed data parallel hang-up
         try:
-            self.file_list = sorted(list(Path(self.ptycho_dir).glob('*.npz')))
+            if exact_file_list is None:
+                self.file_list = sorted(
+                    list(Path(self.ptycho_dir).glob('*.npz'))
+                )
+            else:
+                self.file_list = exact_file_list
             self.n_files = len(self.file_list)
             if self.n_files == 0 and self.current_rank == 0:
                 raise FileNotFoundError(f"[Rank 0] No NPZ files found in directory: {self.ptycho_dir}. Cannot proceed.")
@@ -433,7 +507,15 @@ class PtychoDataset(Dataset):
 
         # Calculate length of total memory map, with try/except for ddp
         try:
-            length_result = self.calculate_length()
+            rng_state = None
+            if self.group_limit is not None:
+                rng_state = np.random.get_state()
+                np.random.seed(self.group_selection_seed)
+            try:
+                length_result = self.calculate_length()
+            finally:
+                if rng_state is not None:
+                    np.random.set_state(rng_state)
             if len(length_result) == 5:
                 (self.length, self.im_shape, self.cum_length,
                  self.valid_indices_per_file,
@@ -689,8 +771,87 @@ class PtychoDataset(Dataset):
         if first_im_shape is None:
              raise ValueError("Could not determine image shape from any NPZ file.")
 
+        (total_length, cumulative_length, valid_indices_per_file,
+         grouping_per_file) = self._apply_group_limit(
+             total_length,
+             cumulative_length,
+             valid_indices_per_file,
+             grouping_per_file,
+         )
+
         return (total_length, first_im_shape, cumulative_length,
                 valid_indices_per_file, source_indices_per_file, grouping_per_file)
+
+    def _apply_group_limit(self, total_length, cumulative_length,
+                           valid_indices_per_file, grouping_per_file):
+        """Select capped cached records before memory-map allocation.
+
+        Candidate records span each source file in file-list order. Grouped
+        records retain their aligned metadata tuple; ungrouped records retain
+        their selected source scan indices. The source-index metadata itself
+        intentionally remains a complete per-file source mapping.
+        """
+        if self.group_limit is None:
+            return (
+                total_length,
+                cumulative_length,
+                valid_indices_per_file,
+                grouping_per_file,
+            )
+
+        candidate_counts = [
+            len(grouping[0]) if grouping is not None else len(valid)
+            for valid, grouping in zip(valid_indices_per_file, grouping_per_file)
+        ]
+        available = sum(candidate_counts)
+        requested = self.group_limit
+        if requested > available:
+            raise ValueError(
+                f"Group limit requested {requested} groups, "
+                f"but available {available} groups is insufficient."
+            )
+        if requested == available:
+            selected = np.arange(available, dtype=np.int64)
+        elif self.sequential_sampling:
+            selected = np.arange(requested, dtype=np.int64)
+        else:
+            selected = np.sort(
+                np.random.default_rng(self.group_selection_seed).choice(
+                    available,
+                    size=requested,
+                    replace=False,
+                )
+            )
+
+        capped_valid_indices_per_file = []
+        capped_grouping_per_file = []
+        capped_cumulative_length = [0]
+        offset = 0
+        for valid, grouping, candidate_count in zip(
+            valid_indices_per_file, grouping_per_file, candidate_counts
+        ):
+            local_indices = selected[
+                (selected >= offset) & (selected < offset + candidate_count)
+            ] - offset
+            if grouping is None:
+                capped_valid_indices_per_file.append(valid[local_indices])
+                capped_grouping_per_file.append(None)
+            else:
+                capped_valid_indices_per_file.append(valid)
+                capped_grouping_per_file.append(
+                    tuple(record[local_indices] for record in grouping)
+                )
+            capped_cumulative_length.append(
+                capped_cumulative_length[-1] + len(local_indices)
+            )
+            offset += candidate_count
+
+        return (
+            capped_cumulative_length[-1],
+            capped_cumulative_length,
+            capped_valid_indices_per_file,
+            capped_grouping_per_file,
+        )
 
     def group_coords_enabled(self):
         """Whether memory_map_data groups coordinates into solution regions.
@@ -995,6 +1156,11 @@ class PtychoDataset(Dataset):
             with np.load(npz_file) as npz_data:
                 xcoords_full = npz_data['xcoords']
                 ycoords_full = npz_data['ycoords']
+                object_guess = (
+                    np.array(npz_data['objectGuess'], copy=True)
+                    if 'objectGuess' in npz_data
+                    else None
+                )
             with warnings.catch_warnings():
                 # calculate_length already warned about this file via npz_headers
                 warnings.simplefilter("ignore", RuntimeWarning)
@@ -1055,10 +1221,13 @@ class PtychoDataset(Dataset):
                     valid_labels = np.load(npz_file)['label'][nn_indices][:,None,:,:] # Channel dimension added for consistency, size = 1
                     
                     #Do phase correction based on prior PtychoNN conventions
-                    objectGuess = np.load(npz_file)['objectGuess']
-                    obj_phase = np.angle(objectGuess)
-                    phase_corr_factor = obj_phase[int(obj_phase.shape[0] / 3.):int(obj_phase.shape[0] * 2 / 3.),
-                                                  int(obj_phase.shape[1] / 3.):int(obj_phase.shape[1] * 2 / 3.)].mean()
+                    phase_corr_factor = 0.0
+                    if object_guess is not None:
+                        obj_phase = np.angle(object_guess)
+                        phase_corr_factor = obj_phase[
+                            int(obj_phase.shape[0] / 3):int(obj_phase.shape[0] * 2 / 3),
+                            int(obj_phase.shape[1] / 3):int(obj_phase.shape[1] * 2 / 3),
+                        ].mean()
                     self.data_dict['phase_correction'].append(phase_corr_factor)
                     valid_label_phase, valid_label_amp = np.angle(valid_labels), np.abs(valid_labels)
                     if self.data_config.phase_subtraction:
@@ -1104,9 +1273,10 @@ class PtychoDataset(Dataset):
                 ).to(torch.complex64)
 
             #Object
-            objectGuess = np.load(npz_file)['objectGuess']
-            if int(objectGuess.sum().real) != (objectGuess.shape[0] * objectGuess.shape[1]): #Check if matrix of ones
-                self.data_dict['objectGuess'].append(objectGuess)
+            if object_guess is not None:
+                area = object_guess.shape[0] * object_guess.shape[1]
+                if int(object_guess.sum().real) != area:  # Check if matrix of ones
+                    self.data_dict['objectGuess'].append(object_guess)
             
             non_diff_time = time.time() - non_diff_timer_start
             print("Non-diffraction memory map write time: {}".format(non_diff_time))
@@ -1287,10 +1457,48 @@ class PtychoDataset(Dataset):
         rms_values = rms_input_scale.to(dtype=measured_dtype)
         mean_values = mean_measured_intensity.to(dtype=measured_dtype)
 
-        self.data_dict["ci_statistics"] = {
-            "rms_input_scale": rms_values,
-            "mean_measured_intensity": mean_values,
-        }
+        return self.set_ci_statistics(
+            {
+                "rms_input_scale": rms_values,
+                "mean_measured_intensity": mean_values,
+            }
+        )
+
+    def set_ci_statistics(self, statistics):
+        """Attach validated per-experiment CI statistics to this dataset."""
+        if not self.ci_contract_active:
+            raise ValueError(
+                "CI statistics can only be attached to an active CI dataset."
+            )
+        required = {"rms_input_scale", "mean_measured_intensity"}
+        if set(statistics) != required:
+            raise ValueError(
+                "CI statistics must contain exactly rms_input_scale and "
+                "mean_measured_intensity."
+            )
+        measured = torch.as_tensor(
+            self.mmap_ptycho["measured_intensity"][torch.tensor([0])]
+        )
+        resolved = {}
+        for name in sorted(required):
+            value = torch.as_tensor(statistics[name]).detach().reshape(-1).clone()
+            if value.dtype == torch.bool or torch.is_complex(value):
+                raise ValueError(
+                    f"{name} must contain real numeric values; boolean and "
+                    "complex values are unsupported."
+                )
+            if value.numel() != self.n_files:
+                raise ValueError(
+                    f"{name} has {value.numel()} value(s), expected {self.n_files}."
+                )
+            value = value.to(
+                dtype=measured.dtype,
+                device=measured.device,
+            )
+            if not bool(torch.isfinite(value).all()) or not bool((value > 0).all()):
+                raise ValueError(f"{name} must be positive and finite.")
+            resolved[name] = value
+        self.data_dict["ci_statistics"] = resolved
         return self.get_ci_statistics()
 
     def get_ci_statistics(self):

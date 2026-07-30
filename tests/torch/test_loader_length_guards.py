@@ -17,6 +17,8 @@ reuses it, so the allocation, ``cum_length``, and the written tensors agree by
 construction. These tests pin that, plus the coordinate-alignment contract.
 """
 import json
+import os
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -50,11 +52,12 @@ def _write_npz(path, n_diff, xcoords, ycoords, *, pattern_size=N_PIX,
              probeGuess=probe, objectGuess=obj)
 
 
-def _build(tmp_path, data_config, model_config):
+def _build(tmp_path, data_config, model_config, **dataset_kwargs):
     return PtychoDataset(
         ptycho_dir=str(tmp_path / "npz"), model_config=model_config,
         data_config=data_config, training_config=TrainingConfig(batch_size=8),
         data_dir=str(tmp_path / "mm"), remake_map=True,
+        **dataset_kwargs,
     )
 
 
@@ -67,6 +70,134 @@ def _raster(side, spacing=1.5):
     g = np.arange(side) * spacing
     xx, yy = np.meshgrid(g, g, indexing="ij")
     return xx.ravel().astype(np.float64), yy.ravel().astype(np.float64)
+
+
+# ---------------------------------------------------------------------------
+# Exact-file and mmap-prefix construction boundaries
+# ---------------------------------------------------------------------------
+
+def test_dataset_exact_npz_files_bypasses_directory_glob(tmp_path):
+    npz_dir = tmp_path / "npz"
+    npz_dir.mkdir()
+    selected = npz_dir / "selected.npz"
+    unrelated = npz_dir / "unrelated.npz"
+    selected_x, selected_y = _line_scan(3)
+    unrelated_x, unrelated_y = _line_scan(5)
+    _write_npz(selected, 3, selected_x, selected_y)
+    _write_npz(unrelated, 5, unrelated_x, unrelated_y)
+    data_config = DataConfig(
+        N=N_PIX,
+        grid_size=(1, 1),
+        C=1,
+        K=4,
+        n_subsample=1,
+        x_bounds=(0.0, 1.0),
+        y_bounds=(0.0, 1.0),
+    )
+    model_config = ModelConfig(C_model=1, C_forward=1, object_big=False)
+
+    dataset = _build(
+        tmp_path,
+        data_config,
+        model_config,
+        exact_npz_files=[selected],
+    )
+
+    assert dataset.file_list == [selected]
+    assert dataset.n_files == 1
+    assert len(dataset) == 3
+
+
+def test_dataset_exact_npz_files_rejects_empty_list(tmp_path):
+    data_config = DataConfig(N=N_PIX, grid_size=(1, 1), C=1)
+    model_config = ModelConfig(C_model=1, C_forward=1, object_big=False)
+
+    with pytest.raises(ValueError, match="non-empty"):
+        _build(
+            tmp_path,
+            data_config,
+            model_config,
+            exact_npz_files=[],
+        )
+
+
+def test_dataset_explicit_data_prefix_owns_state_and_manifest(tmp_path):
+    npz_dir = tmp_path / "npz"
+    npz_dir.mkdir()
+    source = npz_dir / "selected.npz"
+    xcoords, ycoords = _line_scan(3)
+    _write_npz(source, 3, xcoords, ycoords)
+    data_config = DataConfig(
+        N=N_PIX,
+        grid_size=(1, 1),
+        C=1,
+        K=4,
+        n_subsample=1,
+        x_bounds=(0.0, 1.0),
+        y_bounds=(0.0, 1.0),
+    )
+    model_config = ModelConfig(C_model=1, C_forward=1, object_big=False)
+    canonical_prefix = tmp_path / "map-storage"
+    canonical_data_dir = canonical_prefix / "memmap"
+    canonical_data_dir.mkdir(parents=True)
+    directory_flags = os.O_RDONLY | os.O_DIRECTORY
+    prefix_fd = os.open(canonical_prefix, directory_flags)
+    data_fd = os.open(canonical_data_dir, directory_flags)
+    descriptor_prefix = Path("/proc/self/fd") / str(prefix_fd)
+    descriptor_data_dir = Path("/proc/self/fd") / str(data_fd)
+    try:
+        dataset = PtychoDataset(
+            ptycho_dir=str(npz_dir),
+            model_config=model_config,
+            data_config=data_config,
+            training_config=TrainingConfig(batch_size=8),
+            data_dir=str(descriptor_data_dir),
+            data_prefix_dir=str(descriptor_prefix),
+            remake_map=True,
+        )
+
+        assert dataset.data_dir_path == descriptor_data_dir
+        assert dataset.state_path == descriptor_prefix / "state_files.npz"
+        assert (
+            dataset.manifest_path
+            == descriptor_prefix / "mmap_manifest.json"
+        )
+        assert dataset.state_path.is_file()
+        assert dataset.manifest_path.is_file()
+        assert (canonical_prefix / "state_files.npz").is_file()
+        assert (canonical_prefix / "mmap_manifest.json").is_file()
+    finally:
+        os.close(data_fd)
+        os.close(prefix_fd)
+
+
+def test_dataset_data_prefix_rejects_unrelated_directory(tmp_path):
+    npz_dir = tmp_path / "npz"
+    npz_dir.mkdir()
+    source = npz_dir / "selected.npz"
+    xcoords, ycoords = _line_scan(3)
+    _write_npz(source, 3, xcoords, ycoords)
+    data_config = DataConfig(
+        N=N_PIX,
+        grid_size=(1, 1),
+        C=1,
+        K=4,
+        n_subsample=1,
+        x_bounds=(0.0, 1.0),
+        y_bounds=(0.0, 1.0),
+    )
+    model_config = ModelConfig(C_model=1, C_forward=1, object_big=False)
+
+    with pytest.raises(ValueError, match="data_prefix_dir.*parent"):
+        PtychoDataset(
+            ptycho_dir=str(npz_dir),
+            model_config=model_config,
+            data_config=data_config,
+            training_config=TrainingConfig(batch_size=8),
+            data_dir=str(tmp_path / "map-storage" / "memmap"),
+            data_prefix_dir=str(tmp_path / "unrelated-metadata"),
+            remake_map=True,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -279,6 +410,79 @@ def test_supervised_dataset_rejects_malformed_label_before_allocation(tmp_path):
 
     mm_path = tmp_path / "mm"
     assert not mm_path.exists() or not any(mm_path.iterdir())
+
+
+def test_unsupervised_dataset_accepts_missing_object_guess(tmp_path):
+    (tmp_path / "npz").mkdir()
+    x, y = _line_scan(20)
+    rng = np.random.default_rng(7)
+    raw = rng.random((20, N_PIX, N_PIX)).astype(np.float32)
+    np.savez(
+        tmp_path / "npz" / "no_object.npz",
+        xcoords=x,
+        ycoords=y,
+        diff3d=raw / np.sqrt((raw ** 2).sum(axis=(-2, -1), keepdims=True)),
+        probeGuess=np.ones((N_PIX, N_PIX), dtype=np.complex64),
+    )
+    dataset = _build(
+        tmp_path,
+        DataConfig(
+            N=N_PIX,
+            C=1,
+            grid_size=(1, 1),
+            n_subsample=1,
+            x_bounds=(0.0, 1.0),
+            y_bounds=(0.0, 1.0),
+        ),
+        ModelConfig(C_model=1, C_forward=1, object_big=False),
+    )
+
+    assert len(dataset) == 20
+    assert dataset.data_dict["objectGuess"] == []
+
+
+def test_supervised_dataset_without_object_guess_uses_zero_phase_correction(tmp_path):
+    (tmp_path / "npz").mkdir()
+    x, y = _line_scan(20)
+    rng = np.random.default_rng(8)
+    raw = rng.random((20, N_PIX, N_PIX)).astype(np.float32)
+    label = (
+        rng.random((20, N_PIX, N_PIX))
+        + 1j * rng.random((20, N_PIX, N_PIX))
+    ).astype(np.complex64)
+    np.savez(
+        tmp_path / "npz" / "no_object_label.npz",
+        xcoords=x,
+        ycoords=y,
+        diff3d=raw / np.sqrt((raw ** 2).sum(axis=(-2, -1), keepdims=True)),
+        probeGuess=np.ones((N_PIX, N_PIX), dtype=np.complex64),
+        label=label,
+    )
+    dataset = _build(
+        tmp_path,
+        DataConfig(
+            N=N_PIX,
+            C=1,
+            grid_size=(1, 1),
+            n_subsample=1,
+            x_bounds=(0.0, 1.0),
+            y_bounds=(0.0, 1.0),
+        ),
+        ModelConfig(
+            C_model=1,
+            C_forward=1,
+            mode="Supervised",
+            object_big=False,
+        ),
+    )
+
+    assert dataset.data_dict["phase_correction"] == [0.0]
+    np.testing.assert_allclose(
+        dataset.mmap_ptycho["label_phase"].cpu().numpy(),
+        np.angle(label)[:, None],
+        atol=1e-6,
+    )
+    assert dataset.data_dict["objectGuess"] == []
 
 
 def test_dataset_rejects_non_2d_object_guess_before_allocation(tmp_path):
@@ -731,6 +935,138 @@ def test_nearest_gs1_length_unchanged(tmp_path):
     dataset = _build(tmp_path, data_config, ModelConfig(C_model=1, C_forward=1))
 
     assert len(dataset) == 40 * 7
+
+
+def test_group_limit_caps_grouped_mmap_before_allocation(tmp_path):
+    """The requested cap bounds grouped mmap allocation, not sampler iteration."""
+    (tmp_path / "npz").mkdir()
+    x, y = _raster(8)
+    _write_npz(tmp_path / "npz" / "groups.npz", len(x), x, y)
+
+    dataset = _build(
+        tmp_path,
+        *_quadrant_configs(3),
+        group_limit=17,
+        sequential_sampling=True,
+    )
+
+    assert len(dataset) == 17
+    assert dataset.cum_length == [0, 17]
+    for key in ("images", "coords_relative", "coords_center", "nn_indices"):
+        assert dataset.mmap_ptycho[key].shape[0] == 17
+
+
+def test_group_limit_sequentially_selects_first_ungrouped_source_records(tmp_path):
+    (tmp_path / "npz").mkdir()
+    x, y = _line_scan(20)
+    _write_npz(tmp_path / "npz" / "sequential.npz", len(x), x, y)
+
+    dataset = _build(
+        tmp_path,
+        DataConfig(
+            N=N_PIX, C=1, grid_size=(1, 1), n_subsample=1,
+            x_bounds=(0.0, 1.0), y_bounds=(0.0, 1.0),
+        ),
+        ModelConfig(C_model=1, C_forward=1, object_big=False),
+        group_limit=6,
+        sequential_sampling=True,
+    )
+
+    assert dataset.mmap_ptycho["center_scan_id"].tolist() == list(range(6))
+
+
+def _build_limited_line_dataset(tmp_path, *, subsample_seed, group_limit=6):
+    (tmp_path / "npz").mkdir(parents=True)
+    x, y = _line_scan(20)
+    _write_npz(tmp_path / "npz" / "limited.npz", len(x), x, y)
+    return _build(
+        tmp_path,
+        DataConfig(
+            N=N_PIX, C=1, grid_size=(1, 1), n_subsample=1,
+            subsample_seed=subsample_seed,
+            x_bounds=(0.0, 1.0), y_bounds=(0.0, 1.0),
+        ),
+        ModelConfig(C_model=1, C_forward=1, object_big=False),
+        group_limit=group_limit,
+    )
+
+
+@pytest.mark.parametrize("subsample_seed", [17, 0])
+def test_group_limit_random_ungrouped_selection_is_seeded(tmp_path, subsample_seed):
+    np.random.seed(1)
+    dataset_a = _build_limited_line_dataset(
+        tmp_path / "a", subsample_seed=subsample_seed
+    )
+    np.random.seed(999)
+    dataset_b = _build_limited_line_dataset(
+        tmp_path / "b", subsample_seed=subsample_seed
+    )
+
+    selected_a = dataset_a.mmap_ptycho["center_scan_id"]
+    selected_b = dataset_b.mmap_ptycho["center_scan_id"]
+    assert selected_a.tolist() == selected_b.tolist()
+    assert len(set(selected_a.tolist())) == 6
+
+
+def test_group_limit_random_ungrouped_missing_seed_defaults_to_42(tmp_path):
+    implicit = _build_limited_line_dataset(tmp_path / "implicit", subsample_seed=None)
+    explicit = _build_limited_line_dataset(tmp_path / "explicit", subsample_seed=42)
+
+    selected_implicit = implicit.mmap_ptycho["center_scan_id"]
+    selected_explicit = explicit.mmap_ptycho["center_scan_id"]
+    assert selected_implicit.tolist() == selected_explicit.tolist()
+    assert len(set(selected_implicit.tolist())) == 6
+
+
+def test_group_limit_random_grouped_selection_reuses_seeded_candidates(tmp_path):
+    group_limit = 17
+
+    def build_grouped(root):
+        (root / "npz").mkdir(parents=True)
+        x, y = _raster(8)
+        _write_npz(root / "npz" / "groups.npz", len(x), x, y)
+        return _build(
+            root,
+            DataConfig(
+                N=N_PIX, grid_size=(2, 2), C=4, K=6, n_subsample=1,
+                subsample_seed=17, neighbor_function="4_quadrant",
+                scan_pattern="Isotropic", x_bounds=(0.0, 1.0),
+                y_bounds=(0.0, 1.0),
+            ),
+            ModelConfig(C_model=4, C_forward=4),
+            group_limit=group_limit,
+        )
+
+    np.random.seed(1)
+    dataset_a = build_grouped(tmp_path / "a")
+    np.random.seed(999)
+    dataset_b = build_grouped(tmp_path / "b")
+
+    selected_a = dataset_a.mmap_ptycho["nn_indices"]
+    selected_b = dataset_b.mmap_ptycho["nn_indices"]
+    assert selected_a.tolist() == selected_b.tolist()
+    assert len({tuple(row) for row in selected_a.tolist()}) == group_limit
+
+
+def test_group_limit_rejects_insufficient_candidates_before_mmap_creation(tmp_path):
+    (tmp_path / "npz").mkdir()
+    x, y = _line_scan(20)
+    _write_npz(tmp_path / "npz" / "limited.npz", 20, x, y)
+
+    with pytest.raises(ValueError, match=r"requested 21.*available 20"):
+        _build(
+            tmp_path,
+            DataConfig(
+                N=N_PIX, C=1, grid_size=(1, 1), n_subsample=1,
+                x_bounds=(0.0, 1.0), y_bounds=(0.0, 1.0),
+            ),
+            ModelConfig(C_model=1, C_forward=1, object_big=False),
+            group_limit=21,
+        )
+
+    assert not (tmp_path / "mmap_manifest.json").exists()
+    assert not (tmp_path / "state_files.npz").exists()
+    assert not any((tmp_path / "mm").iterdir())
 
 
 def test_supervised_object_big_sizes_without_subsampling(tmp_path):
