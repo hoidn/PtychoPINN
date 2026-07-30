@@ -4,12 +4,18 @@ This module provides a central registry for generator architectures used in PyTo
 
 ## Overview
 
-The generator registry enables architecture selection via the `config.model.architecture` field. The registry (`ptycho_torch.generators.registry._REGISTRY`, 14 entries) and its authoritative enumeration in `docs/specs/spec-ptycho-config-bridge.md` §3 are the source of truth for the full architecture list; the table below is illustrative only.
+The generator registry enables architecture selection via the
+`config.model.architecture` field. The registry, both public and Torch
+`ModelConfig` architecture literals, and public validation must enumerate the
+same set. The current registered architectures are:
 
 | Architecture | Description | Status |
 |--------------|-------------|--------|
 | `cnn` (default) | U-Net based CNN generator | ✅ Integrated |
+| `ffno` | Constant-resolution factorized Fourier operator | ✅ Integrated |
 | `fno` | Cascaded FNO + CNN refiner (Arch A) | ✅ Integrated |
+| `fno_vanilla` | Constant-resolution FNO baseline | ✅ Integrated |
+| `neuralop_uno` | Locked Lines128 adapter for `neuraloperator` U-NO | ✅ Integrated |
 
 All registered generator architectures in this package train through `PtychoPINN_Lightning` with the same physics loss and stitching behavior. Study-specific supervised adapters that reuse generator components live outside this registry and define their own `model(x) -> y` channel contract.
 
@@ -69,7 +75,7 @@ The FFNO architecture (`architecture='ffno'`) keeps the constant-resolution CDI 
 
 ## Integration Contract
 
-All FNO generators integrate with `PtychoPINN_Lightning` via:
+The registered non-CNN generators integrate with `PtychoPINN_Lightning` via:
 
 1. **Output format**: Generators output `(B, H, W, C, 2)` real/imag tensor
 2. **Adapter function**: `_real_imag_to_complex_channel_first()` converts to `(B, C, H, W)` complex
@@ -79,93 +85,21 @@ All FNO generators integrate with `PtychoPINN_Lightning` via:
 The CNN generator's opt-in `cnn_output_mode='real_imag'` path (see "CNN (default)" above)
 uses the **same** `generator_output="real_imag"` contract name inside
 `_predict_complex_patches()`, but a **different input shape**: a `(real, imag)` tuple of
-`(B, C, H, W)` tensors, not the FNO `(B, H, W, C, 2)` single tensor. Both branches
+`(B, C, H, W)` tensors, not the non-CNN `(B, H, W, C, 2)` single tensor. Both branches
 combine to `torch.complex` and share everything downstream (physics pipeline, stitching);
 only the adapter's tuple-vs-tensor dispatch differs (`ptycho_torch.model._predict_complex_patches`).
 
 ## Adding a New Generator
 
-1. **Create the generator module** in `ptycho_torch/generators/`:
+Adding a registry key is not sufficient for a reproducible architecture. The
+public config, resolved Torch config, core-module builder, sealed `ModelSpec`,
+checkpoint reload, training, and inference paths must all agree.
 
-```python
-# ptycho_torch/generators/my_arch.py
-class MyArchGenerator:
-    """My new architecture generator."""
-    name = 'my_arch'
-
-    def __init__(self, config):
-        """
-        Initialize the generator.
-
-        Args:
-            config: TrainingConfig or InferenceConfig with model settings
-        """
-        self.config = config
-
-    def build_model(self, pt_configs):
-        """
-        Build the Lightning module for training.
-
-        Args:
-            pt_configs: Dict containing PyTorch config objects:
-                - model_config: PTModelConfig
-                - data_config: PTDataConfig
-                - training_config: PTTrainingConfig
-                - inference_config: PTInferenceConfig
-
-        Returns:
-            PtychoPINN_Lightning or compatible Lightning module
-        """
-        from ptycho_torch.model import PtychoPINN_Lightning
-
-        # Build your core generator module
-        core = MyArchModule(...)
-
-        # Wrap in Lightning with physics pipeline
-        return PtychoPINN_Lightning(
-            model_config=pt_configs['model_config'],
-            data_config=pt_configs['data_config'],
-            training_config=pt_configs['training_config'],
-            inference_config=pt_configs['inference_config'],
-            generator_module=core,
-            generator_output="real_imag",  # or "amp_phase"
-        )
-```
-
-2. **Register the generator** in `ptycho_torch/generators/registry.py`:
-
-```python
-from ptycho_torch.generators.my_arch import MyArchGenerator
-
-_REGISTRY = {
-    'cnn': CnnGenerator,
-    'fno': FnoGenerator,
-    'my_arch': MyArchGenerator,  # Add your generator
-}
-```
-
-3. **Add validation** in `ptycho/config/config.py`:
-
-Update the `ModelConfig.architecture` type hint and `validate_model_config()`:
-
-```python
-architecture: Literal['cnn', 'fno', 'my_arch'] = 'cnn'
-```
-
-4. **Add tests** in `tests/torch/test_generator_registry.py`:
-
-```python
-def test_resolve_generator_my_arch():
-    cfg = TrainingConfig(model=ModelConfig(architecture='my_arch'))
-    gen = resolve_generator(cfg)
-    assert gen.name == 'my_arch'
-```
-
-5. **Update documentation**:
-
-- Add entry to this README
-- Document architecture-specific parameters in `docs/CONFIGURATION.md`
-- Update `docs/workflows/pytorch.md`
+Follow the end-to-end [Custom PyTorch CDI Architecture
+Guide](../../docs/workflows/custom_torch_architecture.md). It includes a minimal
+module, the exact output layouts, configuration and schema-version wiring,
+training and inference examples, and the focused reload tests that prevent a
+fresh-run-only integration.
 
 ## API Contract
 
@@ -183,7 +117,7 @@ Generators can use these output formats:
 | Format | Shape | Description |
 |--------|-------|-------------|
 | `amp_phase` | Two tensors: `(B, C, H, W)` each | Amplitude and phase channels (CNN default; also the only Supervised-mode contract) |
-| `real_imag` (tensor) | Single tensor: `(B, H, W, C, 2)` | Real and imaginary parts in last dimension (FNO) |
+| `real_imag` (tensor) | Single tensor: `(B, H, W, C, 2)` | Real and imaginary parts in the last dimension (non-CNN path) |
 | `real_imag` (tuple) | Two tensors: `(B, C, H, W)` each, `(real, imag)` | CNN opt-in (`cnn_output_mode='real_imag'`, Unsupervised-only, Task 2.3 / backlog B1) |
 
 The `generator_output` parameter in `PtychoPINN_Lightning` controls which adapter path is
@@ -200,7 +134,9 @@ based on the generator's actual return type (`isinstance(patches, (tuple, list))
 ## See Also
 
 - `ptycho/config/config.py`: ModelConfig with architecture field
-- `ptycho_torch/workflows/components.py`: Workflow integration via `resolve_generator`
+- `ptycho_torch/application_factory.py`: single application-construction boundary
+- `ptycho_torch/workflows/components.py`: training, persistence, and reconstruction workflow
 - `ptycho_torch/model.py`: PtychoPINN_Lightning implementation
 - `ptycho_torch/generators/fno.py`: FNO implementation
+- `docs/workflows/custom_torch_architecture.md`: end-to-end custom architecture guide
 - `docs/workflows/pytorch.md`: PyTorch workflow documentation

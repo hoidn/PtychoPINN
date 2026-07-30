@@ -7,6 +7,7 @@ module under test."""
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -14,6 +15,7 @@ import pytest
 from scripts.studies.aligned_ablation_variant_grid import (
     apply_norm_y_i_bridge,
     bridge_coords,
+    build_model,
     build_bridge_arrays,
     crop_border,
     squeeze_singleton_dims,
@@ -131,3 +133,51 @@ def test_apply_norm_y_i_bridge_applies_only_when_not_varpro_scaling():
     np.testing.assert_allclose(novarpro_canvas, canvas * norm_y_i)
     assert varpro_applied is False
     np.testing.assert_array_equal(varpro_canvas, canvas)
+
+
+def test_build_model_separates_training_values_from_runtime_request(
+    monkeypatch, tmp_path: Path
+):
+    from ptycho_torch.execution_request import ExecutionRequest
+    from scripts.studies.grid_lines_torch_runner import TorchRunnerConfig
+
+    captured = {}
+    payload = SimpleNamespace(
+        tf_training_config=object(),
+        pt_model_config=object(),
+        pt_data_config=object(),
+        pt_training_config=object(),
+    )
+
+    def fake_create_training_payload(**kwargs):
+        captured.update(kwargs)
+        return payload
+
+    class FakeGenerator:
+        def build_model(self, configs):
+            captured["generator_configs"] = configs
+            return object()
+
+    monkeypatch.setattr(
+        "ptycho_torch.config_factory.create_training_payload",
+        fake_create_training_payload,
+    )
+    monkeypatch.setattr(
+        "ptycho_torch.generators.registry.resolve_generator",
+        lambda config: FakeGenerator(),
+    )
+    cfg = TorchRunnerConfig(
+        train_npz=tmp_path / "train.npz",
+        test_npz=tmp_path / "test.npz",
+        output_dir=tmp_path / "output",
+        architecture="fno",
+        learning_rate=2e-4,
+    )
+
+    build_model(cfg, cfg.train_npz, tmp_path / "scratch")
+
+    request = captured["execution_config"]
+    assert isinstance(request, ExecutionRequest)
+    assert "learning_rate" not in request.values
+    assert request.values["logger_backend"] is None
+    assert captured["overrides"]["learning_rate"] == 2e-4

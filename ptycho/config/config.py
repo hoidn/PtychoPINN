@@ -63,12 +63,38 @@ State Dependencies:
     legacy module initialization. Over 23 modules depend on this translation.
 """
 
-from dataclasses import dataclass, asdict
+from collections.abc import Mapping
+from dataclasses import dataclass, asdict, field, replace
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Literal, Union
+from typing import Annotated, Dict, Any, List, Optional, Literal, Union
+import json
+import hashlib
 import math
+import tomllib
+from pydantic import (
+    BeforeValidator,
+    ConfigDict,
+    TypeAdapter,
+    ValidationError,
+    ValidationInfo,
+    with_config,
+)
 import yaml
 import warnings
+
+from .strict_types import (
+    _require_exact_int,
+    _require_exact_str,
+    _StrictBool,
+    _StrictClosedUnitNumber,
+    _StrictFiniteNonNegativeNumber,
+    _StrictFinitePositiveNumber,
+    _StrictHalfOpenUnitNumber,
+    _StrictNonNegativeInt,
+    _StrictOpenUnitNumber,
+    _StrictOptionalInt,
+    _StrictPositiveInt,
+)
 
 # Export list for public API (ADR-003 Phase C3.A1)
 # Restores exports removed during Phase C2; ensures PyTorchExecutionConfig is discoverable
@@ -78,89 +104,489 @@ __all__ = [
     'TrainingConfig',
     'InferenceConfig',
     'PyTorchExecutionConfig',
+    'ProbeSimulationConfig',
+    'SyntheticObjectConfig',
+    'ScanSimulationConfig',
+    'DetectorSimulationConfig',
+    'SimulationConfig',
+    'resolve_model_object_policy',
     # Core compatibility bridge
     'update_legacy_dict',
     # Validation functions
     'validate_model_config',
     'validate_training_config',
     'validate_inference_config',
+    'validate_simulation_config',
+    'validate_simulation_compatibility',
+    'simulation_config_from_mapping',
+    'simulation_config_to_dict',
+    'simulation_config_sha256',
+    'load_simulation_config',
     # YAML loading
     'load_yaml_config',
     # Internal translation (exposed for advanced use)
     'dataclass_to_legacy_dict',
 ]
 
+
+def _require_pair_container(value: Any) -> Any:
+    if type(value) not in {list, tuple}:
+        raise ValueError("must be a list or tuple")
+    return value
+
+
+def _materialize_public_path(value: Any, info: ValidationInfo) -> Path:
+    if (info.context or {}).get("strict_instance", False):
+        if not isinstance(value, Path):
+            raise ValueError("must be a pathlib.Path")
+        return value
+    try:
+        return Path(value)
+    except (TypeError, ValueError) as error:
+        raise ValueError(f"must be path-like, got {value!r}") from error
+
+
+_PublicPath = Annotated[Path, BeforeValidator(_materialize_public_path)]
+_StrictPositivePair = Annotated[
+    tuple[_StrictPositiveInt, _StrictPositiveInt],
+    BeforeValidator(_require_pair_container),
+]
+_ProbeSource = Annotated[
+    Literal["custom", "ideal"],
+    BeforeValidator(_require_exact_str),
+]
+_SyntheticObjectKind = Annotated[
+    Literal["lines", "dead_leaves", "natural_patch"],
+    BeforeValidator(_require_exact_str),
+]
+_ScanKind = Annotated[
+    Literal["grid", "nongrid"],
+    BeforeValidator(_require_exact_str),
+]
+
+_DATACLASS_ADAPTER_CONFIG = ConfigDict(
+    extra="forbid",
+    revalidate_instances="always",
+    validate_default=True,
+)
+
+
+@with_config(_DATACLASS_ADAPTER_CONFIG)
+@dataclass(frozen=True)
+class ProbeSimulationConfig:
+    """Probe source and transforms that are baked into generated data.
+
+    ``source_path=None`` is retained for direct APIs that supply an in-memory
+    custom probe. File-based generation entry points require a path before
+    invoking the simulator.
+    """
+
+    source: _ProbeSource = "custom"
+    source_path: Path | None = None
+    transform_pipeline: Annotated[
+        str,
+        BeforeValidator(_require_exact_str),
+    ] = "pad_preserve:64"
+    mask_diameter: _StrictFinitePositiveNumber | None = None
+
+
+@with_config(_DATACLASS_ADAPTER_CONFIG)
+@dataclass(frozen=True)
+class SyntheticObjectConfig:
+    """Synthetic object family and generation counts."""
+
+    kind: _SyntheticObjectKind = "lines"
+    image_size: _StrictPositivePair = (392, 392)
+    objects_per_probe: _StrictPositiveInt = 4
+    diffractions_per_object: _StrictPositiveInt = 7000
+    set_phi: _StrictBool = False
+
+
+@with_config(_DATACLASS_ADAPTER_CONFIG)
+@dataclass(frozen=True)
+class ScanSimulationConfig:
+    """Scan layout and train/test geometry for generated data."""
+
+    kind: _ScanKind = "grid"
+    grid_size: _StrictPositivePair = (1, 1)
+    offset: _StrictNonNegativeInt = 4
+    outer_offset_train: _StrictNonNegativeInt = 8
+    outer_offset_test: _StrictNonNegativeInt = 20
+    train_groups: _StrictPositiveInt = 2
+    test_groups: _StrictPositiveInt = 2
+    buffer: _StrictNonNegativeInt = 0
+
+
+@with_config(_DATACLASS_ADAPTER_CONFIG)
+@dataclass(frozen=True)
+class DetectorSimulationConfig:
+    """Detector/noise properties baked into generated diffraction data."""
+
+    photons_per_pattern: _StrictFinitePositiveNumber = 1e9
+    beamstop_diameter: _StrictFinitePositiveNumber | None = None
+
+
+@with_config(_DATACLASS_ADAPTER_CONFIG)
+@dataclass(frozen=True)
+class SimulationConfig:
+    """Canonical top-level recipe for generated ptychography data."""
+
+    N: _StrictPositiveInt = 64
+    probe: ProbeSimulationConfig = field(default_factory=ProbeSimulationConfig)
+    object: SyntheticObjectConfig = field(default_factory=SyntheticObjectConfig)
+    scan: ScanSimulationConfig = field(default_factory=ScanSimulationConfig)
+    detector: DetectorSimulationConfig = field(default_factory=DetectorSimulationConfig)
+    seed: _StrictOptionalInt = None
+
+
+_SIMULATION_CONFIG_ADAPTER = TypeAdapter(SimulationConfig)
+
+
+def _raise_simulation_validation_error(error: ValidationError) -> None:
+    messages = []
+    for detail in error.errors(
+        include_url=False,
+        include_context=False,
+        include_input=False,
+    ):
+        location = ".".join(str(part) for part in detail["loc"])
+        path = f"simulation.{location}" if location else "simulation"
+        messages.append(f"{path}: {detail['msg']}")
+    raise ValueError("; ".join(messages)) from error
+
+
+def _materialize_simulation_mappings(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {
+            key: _materialize_simulation_mappings(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_materialize_simulation_mappings(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_materialize_simulation_mappings(item) for item in value)
+    return value
+
+
+def simulation_config_from_mapping(values: Mapping[str, Any]) -> SimulationConfig:
+    """Build and validate ``SimulationConfig`` from YAML/TOML-shaped values.
+
+    Unknown keys are errors at every level. This prevents training fields from
+    being silently accepted under the simulation namespace.
+    """
+
+    if not isinstance(values, Mapping):
+        raise ValueError("simulation must be a mapping")
+    materialized = _materialize_simulation_mappings(values)
+    try:
+        validated = _SIMULATION_CONFIG_ADAPTER.validate_python(materialized)
+    except ValidationError as error:
+        _raise_simulation_validation_error(error)
+    validate_simulation_config(validated)
+    return validated
+
+
+def simulation_config_to_dict(config: SimulationConfig) -> Dict[str, Any]:
+    """Return the stable JSON-compatible canonical simulation recipe."""
+
+    validate_simulation_config(config)
+    return {
+        "N": int(config.N),
+        "seed": int(config.seed) if config.seed is not None else None,
+        "probe": {
+            "source": config.probe.source,
+            "source_path": (
+                str(config.probe.source_path)
+                if config.probe.source_path is not None
+                else None
+            ),
+            "transform_pipeline": config.probe.transform_pipeline,
+            "mask_diameter": config.probe.mask_diameter,
+        },
+        "object": {
+            "kind": config.object.kind,
+            "image_size": list(config.object.image_size),
+            "objects_per_probe": int(config.object.objects_per_probe),
+            "diffractions_per_object": int(config.object.diffractions_per_object),
+            "set_phi": bool(config.object.set_phi),
+        },
+        "scan": {
+            "kind": config.scan.kind,
+            "grid_size": list(config.scan.grid_size),
+            "offset": int(config.scan.offset),
+            "outer_offset_train": int(config.scan.outer_offset_train),
+            "outer_offset_test": int(config.scan.outer_offset_test),
+            "train_groups": int(config.scan.train_groups),
+            "test_groups": int(config.scan.test_groups),
+            "buffer": int(config.scan.buffer),
+        },
+        "detector": {
+            "photons_per_pattern": float(config.detector.photons_per_pattern),
+            "beamstop_diameter": config.detector.beamstop_diameter,
+        },
+    }
+
+
+def simulation_config_sha256(config: SimulationConfig) -> str:
+    """Return the canonical SHA-256 identity of one resolved simulation recipe."""
+
+    encoded = json.dumps(
+        simulation_config_to_dict(config),
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def load_simulation_config(path: str | Path) -> SimulationConfig:
+    """Load a closed nested simulation recipe from TOML, YAML, or JSON."""
+    source = Path(path)
+    suffix = source.suffix.lower()
+    try:
+        if suffix == ".toml":
+            raw = tomllib.loads(source.read_text(encoding="utf-8"))
+        elif suffix in {".yaml", ".yml"}:
+            raw = yaml.safe_load(source.read_text(encoding="utf-8"))
+        elif suffix == ".json":
+            raw = json.loads(source.read_text(encoding="utf-8"))
+        else:
+            raise ValueError(
+                "simulation config path must end in .toml, .yaml, .yml, or .json"
+            )
+    except (OSError, UnicodeError, tomllib.TOMLDecodeError, yaml.YAMLError, json.JSONDecodeError) as exc:
+        raise ValueError(f"could not load simulation config {source}: {exc}") from exc
+    if not isinstance(raw, Mapping):
+        raise ValueError("simulation config document must contain a mapping")
+    values = raw.get("simulation", raw)
+    if not isinstance(values, Mapping):
+        raise ValueError("simulation config document's simulation value must be a mapping")
+    unexpected_top_level = set(raw) - {"simulation"} if "simulation" in raw else set()
+    if unexpected_top_level:
+        raise ValueError(
+            "simulation config document has unexpected top-level keys "
+            f"{sorted(unexpected_top_level)}"
+        )
+    return simulation_config_from_mapping(values)
+
+
+def _pipeline_final_size(pipeline: str) -> int:
+    if not pipeline.strip():
+        raise ValueError("simulation.probe.transform_pipeline must be non-empty")
+    current_size: int | None = None
+    boundary_index: int | None = None
+    segments = pipeline.split("|")
+    for index, raw_segment in enumerate(segments):
+        if boundary_index is not None:
+            raise ValueError(
+                "pad_extrapolate_boundary_matched must be the final operation in "
+                "simulation.probe.transform_pipeline"
+            )
+        segment = raw_segment.strip()
+        if not segment:
+            raise ValueError(
+                "simulation.probe.transform_pipeline contains an empty operation"
+            )
+        op, separator, raw_parameters = segment.partition(":")
+        op = op.strip()
+        if op == "smooth":
+            if boundary_index is not None:
+                raise ValueError(
+                    "simulation.probe.transform_pipeline cannot smooth after "
+                    "pad_extrapolate_boundary_matched"
+                )
+            if not separator:
+                raise ValueError("smooth requires a sigma")
+            sigma = float(raw_parameters)
+            if not math.isfinite(sigma) or sigma < 0:
+                raise ValueError("smooth sigma must be finite and non-negative")
+            continue
+        if op not in {
+            "pad",
+            "pad_preserve",
+            "interp",
+            "pad_extrapolate",
+            "pad_extrapolate_boundary_matched",
+        }:
+            raise ValueError(
+                f"Unknown simulation.probe.transform_pipeline operation {op!r}"
+            )
+        if not separator or not raw_parameters.strip():
+            raise ValueError(f"{op} requires a target size")
+        target_text = raw_parameters.split(",", 1)[0].strip()
+        current_size = int(target_text)
+        if current_size <= 0:
+            raise ValueError(f"{op} target size must be positive")
+        if op == "pad_extrapolate_boundary_matched":
+            boundary_index = index
+    if current_size is None:
+        raise ValueError(
+            "simulation.probe.transform_pipeline must resolve an explicit final size"
+        )
+    return current_size
+
+
+def _validate_square_pair(value: tuple[int, int], path: str) -> None:
+    if value[0] != value[1]:
+        raise ValueError(f"{path} must be square, got {value}")
+
+
+def validate_simulation_config(config: SimulationConfig) -> None:
+    """Validate one complete generated-data recipe."""
+
+    if not isinstance(config, SimulationConfig):
+        raise TypeError("config must be a SimulationConfig")
+    try:
+        _SIMULATION_CONFIG_ADAPTER.validate_python(config, strict=True)
+    except ValidationError as error:
+        _raise_simulation_validation_error(error)
+    if config.probe.source == "ideal" and config.probe.source_path is not None:
+        raise ValueError(
+            "simulation.probe.source_path must be omitted when "
+            "simulation.probe.source='ideal'"
+        )
+    final_size = _pipeline_final_size(config.probe.transform_pipeline)
+    if final_size != config.N:
+        raise ValueError(
+            "simulation.probe.transform_pipeline final size "
+            f"{final_size} does not match simulation.N {config.N}"
+        )
+
+    _validate_square_pair(config.object.image_size, "simulation.object.image_size")
+    _validate_square_pair(config.scan.grid_size, "simulation.scan.grid_size")
+
+
+def validate_simulation_compatibility(
+    simulation: SimulationConfig,
+    model: "ModelConfig",
+) -> None:
+    """Reject duplicated model/simulation shape fields that disagree."""
+
+    validate_simulation_config(simulation)
+    if simulation.N != model.N:
+        raise ValueError(
+            f"simulation.N={simulation.N} conflicts with model.N={model.N}"
+        )
+    expected_grid = (model.gridsize, model.gridsize)
+    if simulation.scan.grid_size != expected_grid:
+        raise ValueError(
+            "simulation.scan.grid_size="
+            f"{simulation.scan.grid_size} conflicts with model.gridsize={model.gridsize}"
+        )
+
+@with_config(_DATACLASS_ADAPTER_CONFIG)
 @dataclass(frozen=True)
 class ModelConfig:
     """Core model architecture parameters."""
-    N: Literal[64, 128, 256] = 64
-    gridsize: int = 1
-    n_filters_scale: int = 2
-    model_type: Literal['pinn', 'supervised'] = 'pinn'
-    architecture: Literal[
-        'cnn', 'ffno', 'fno', 'fno_vanilla', 'neuralop_uno'
+    N: Annotated[
+        Literal[64, 128, 256],
+        BeforeValidator(_require_exact_int),
+    ] = 64
+    gridsize: _StrictPositiveInt = 1
+    n_filters_scale: _StrictPositiveInt = 2
+    model_type: Annotated[
+        Literal['pinn', 'supervised'],
+        BeforeValidator(_require_exact_str),
+    ] = 'pinn'
+    architecture: Annotated[
+        Literal['cnn', 'ffno', 'fno', 'fno_vanilla', 'neuralop_uno'],
+        BeforeValidator(_require_exact_str),
     ] = 'cnn'
-    fno_modes: int = 12
-    fno_width: int = 32
-    fno_blocks: int = 4
-    fno_cnn_blocks: int = 2
-    learned_input_channels: int = 1
-    max_hidden_channels: Optional[int] = None
-    resnet_width: Optional[int] = None
-    fno_input_transform: Literal['none', 'sqrt', 'log1p', 'instancenorm'] = 'none'
-    generator_output_mode: Literal['real_imag', 'amp_phase_logits', 'amp_phase'] = 'real_imag'
-    amp_activation: Literal['sigmoid', 'swish', 'softplus', 'relu'] = 'sigmoid'
-    object_big: bool = True
-    probe_big: bool = True  # Changed default
-    probe_mask: bool = False  # Changed default
-    probe_mask_sigma: float = 1.0
-    probe_mask_diameter: Optional[float] = None
-    pad_object: bool = True
-    probe_scale: float = 4.
-    gaussian_smoothing_sigma: float = 0.0
+    fno_modes: _StrictPositiveInt = 12
+    fno_width: _StrictPositiveInt = 32
+    fno_blocks: _StrictPositiveInt = 4
+    fno_cnn_blocks: _StrictNonNegativeInt = 2
+    learned_input_channels: _StrictPositiveInt = 1
+    max_hidden_channels: _StrictPositiveInt | None = None
+    resnet_width: _StrictPositiveInt | None = None
+    fno_input_transform: Annotated[Literal['none', 'sqrt', 'log1p', 'instancenorm'], BeforeValidator(_require_exact_str)] = 'none'
+    generator_output_mode: Annotated[Literal['real_imag', 'amp_phase_logits', 'amp_phase'], BeforeValidator(_require_exact_str)] = 'real_imag'
+    amp_activation: Annotated[Literal['sigmoid', 'swish', 'softplus', 'relu'], BeforeValidator(_require_exact_str)] = 'sigmoid'
+    object_big: _StrictBool | None = None
+    object_layout: Annotated[Literal['single_patch', 'grouped_patches'], BeforeValidator(_require_exact_str)] | None = None
+    training_canvas: Annotated[Literal['independent', 'relative_overlap'], BeforeValidator(_require_exact_str)] | None = None
+    training_patch_weighting: Annotated[Literal['central_mask', 'uniform', 'probe'], BeforeValidator(_require_exact_str)] | None = None
+    probe_big: _StrictBool = True  # Changed default
+    probe_mask: _StrictBool = False  # Changed default
+    probe_mask_sigma: _StrictFiniteNonNegativeNumber = 1.0
+    probe_mask_diameter: _StrictFinitePositiveNumber | None = None
+    pad_object: _StrictBool = True
+    probe_scale: _StrictFinitePositiveNumber = 4.
+    gaussian_smoothing_sigma: _StrictFiniteNonNegativeNumber = 0.0
 
+
+def resolve_model_object_policy(
+    config: ModelConfig,
+    *,
+    backend: Optional[Literal['tensorflow', 'torch']] = None,
+    warn_deprecated: bool = True,
+) -> ModelConfig:
+    """Return a fully materialized immutable public object policy."""
+    if not isinstance(config, ModelConfig):
+        raise TypeError("config must be ModelConfig")
+    from ptycho.object_compatibility import resolve_public_object_policy
+
+    policy = resolve_public_object_policy(
+        object_big=config.object_big,
+        object_layout=config.object_layout,
+        training_canvas=config.training_canvas,
+        training_patch_weighting=config.training_patch_weighting,
+        pad_object=config.pad_object,
+        probe_big=config.probe_big,
+        backend=backend,
+        warn_deprecated=warn_deprecated,
+    )
+    return replace(
+        config,
+        object_big=policy.object_big,
+        object_layout=policy.object_layout,
+        training_canvas=policy.training_canvas,
+        training_patch_weighting=policy.training_patch_weighting,
+    )
+
+@with_config(_DATACLASS_ADAPTER_CONFIG)
 @dataclass
 class TrainingConfig:
     """Training specific configuration."""
     model: ModelConfig
-    train_data_file: Optional[Path] = None  # Made optional for simulation scripts
-    test_data_file: Optional[Path] = None  # Added
-    batch_size: int = 16
-    nepochs: int = 50
-    mae_weight: float = 0.0
-    nll_weight: float = 1.0
-    realspace_mae_weight: float = 0.0
-    realspace_weight: float = 0.0
-    nphotons: float = 1e9
-    n_groups: Optional[int] = None  # Number of groups to generate (always means groups, regardless of gridsize)
-    n_images: Optional[int] = None  # DEPRECATED: Use n_groups instead (kept for backward compatibility)
-    n_subsample: Optional[int] = None  # Number of images to subsample before grouping (independent control)
-    subsample_seed: Optional[int] = None  # Random seed for reproducible subsampling
-    neighbor_count: int = 4  # K value: number of nearest neighbors for grouping (use higher values like 7 for K choose C oversampling)
-    enable_oversampling: bool = False  # Explicit opt-in for K choose C oversampling (requires gridsize>1 and neighbor_pool_size>=C)
-    neighbor_pool_size: Optional[int] = None  # Pool size for K choose C oversampling (if None, defaults to neighbor_count)
-    positions_provided: bool = True
-    probe_trainable: bool = False
-    intensity_scale_trainable: bool = True  # Changed default
-    output_dir: Path = Path("training_outputs")
-    sequential_sampling: bool = False  # Use sequential sampling instead of random
-    backend: Literal['tensorflow', 'pytorch'] = 'tensorflow'  # Backend selection: defaults to TensorFlow for backward compatibility
-    torch_loss_mode: Literal['poisson', 'mae'] = 'poisson'  # Backend-specific loss mode selector
-    torch_mae_pred_l2_match_target: bool = False  # Optional Torch MAE prediction scaling mode
-    gradient_clip_val: Optional[float] = None  # Gradient clipping threshold (None = disabled)
-    gradient_clip_algorithm: Literal['norm', 'value', 'agc'] = 'norm'  # Gradient clipping algorithm: norm, value, or agc
-    optimizer: Literal['adam', 'adamw', 'sgd'] = 'adam'  # Optimizer algorithm
-    momentum: float = 0.9  # SGD momentum (ignored for Adam/AdamW)
-    weight_decay: float = 0.0  # Weight decay (L2 penalty)
-    adam_beta1: float = 0.9  # Adam/AdamW beta1
-    adam_beta2: float = 0.999  # Adam/AdamW beta2
-    scheduler: Literal['Default', 'Exponential', 'WarmupCosine', 'ReduceLROnPlateau'] = 'Default'  # LR scheduler type
-    lr_warmup_epochs: int = 0  # Number of warmup epochs for WarmupCosine scheduler
-    lr_min_ratio: float = 0.1  # Minimum LR ratio for WarmupCosine scheduler (eta_min = base_lr * ratio)
-    plateau_factor: float = 0.5
-    plateau_patience: int = 2
-    plateau_min_lr: float = 5e-5
-    plateau_threshold: float = 0.0
+    train_data_file: _PublicPath | None = None  # Made optional for simulation scripts
+    test_data_file: _PublicPath | None = None  # Added
+    batch_size: _StrictNonNegativeInt = 16
+    nepochs: _StrictNonNegativeInt = 50
+    mae_weight: _StrictClosedUnitNumber = 0.0
+    nll_weight: _StrictClosedUnitNumber = 1.0
+    realspace_mae_weight: _StrictClosedUnitNumber = 0.0
+    realspace_weight: _StrictClosedUnitNumber = 0.0
+    nphotons: _StrictFiniteNonNegativeNumber = 1e9
+    n_groups: _StrictNonNegativeInt | None = None  # Number of groups to generate (always means groups, regardless of gridsize)
+    n_images: _StrictNonNegativeInt | None = None  # DEPRECATED: Use n_groups instead (kept for backward compatibility)
+    n_subsample: _StrictNonNegativeInt | None = None  # Number of images to subsample before grouping (independent control)
+    subsample_seed: _StrictNonNegativeInt | None = None  # Random seed for reproducible subsampling
+    neighbor_count: _StrictPositiveInt = 4  # K value: number of nearest neighbors for grouping (use higher values like 7 for K choose C oversampling)
+    enable_oversampling: _StrictBool = False  # Explicit opt-in for K choose C oversampling (requires gridsize>1 and neighbor_pool_size>=C)
+    neighbor_pool_size: _StrictPositiveInt | None = None  # Pool size for K choose C oversampling (if None, defaults to neighbor_count)
+    positions_provided: _StrictBool = True
+    probe_trainable: _StrictBool = False
+    intensity_scale_trainable: _StrictBool = True  # Changed default
+    output_dir: _PublicPath = Path("training_outputs")
+    sequential_sampling: _StrictBool = False  # Use sequential sampling instead of random
+    backend: Annotated[Literal['tensorflow', 'pytorch'], BeforeValidator(_require_exact_str)] = 'tensorflow'  # Backend selection: defaults to TensorFlow for backward compatibility
+    torch_loss_mode: Annotated[Literal['poisson', 'mae'], BeforeValidator(_require_exact_str)] = 'poisson'  # Backend-specific loss mode selector
+    torch_mae_pred_l2_match_target: _StrictBool = False  # Optional Torch MAE prediction scaling mode
+    gradient_clip_val: _StrictFiniteNonNegativeNumber | None = None  # Gradient clipping threshold (None = disabled)
+    gradient_clip_algorithm: Annotated[Literal['norm', 'value', 'agc'], BeforeValidator(_require_exact_str)] = 'norm'  # Gradient clipping algorithm: norm, value, or agc
+    optimizer: Annotated[Literal['adam', 'adamw', 'sgd'], BeforeValidator(_require_exact_str)] = 'adam'  # Optimizer algorithm
+    momentum: _StrictClosedUnitNumber = 0.9  # SGD momentum (ignored for Adam/AdamW)
+    weight_decay: _StrictFiniteNonNegativeNumber = 0.0  # Weight decay (L2 penalty)
+    adam_beta1: _StrictHalfOpenUnitNumber = 0.9  # Adam/AdamW beta1
+    adam_beta2: _StrictHalfOpenUnitNumber = 0.999  # Adam/AdamW beta2
+    scheduler: Annotated[Literal['Default', 'Exponential', 'WarmupCosine', 'ReduceLROnPlateau'], BeforeValidator(_require_exact_str)] = 'Default'  # LR scheduler type
+    lr_warmup_epochs: _StrictNonNegativeInt = 0  # Number of warmup epochs for WarmupCosine scheduler
+    lr_min_ratio: _StrictClosedUnitNumber = 0.1  # Minimum LR ratio for WarmupCosine scheduler (eta_min = base_lr * ratio)
+    plateau_factor: _StrictOpenUnitNumber = 0.5
+    plateau_patience: _StrictNonNegativeInt = 2
+    plateau_min_lr: _StrictFiniteNonNegativeNumber = 5e-5
+    plateau_threshold: _StrictFiniteNonNegativeNumber = 0.0
 
     def __post_init__(self):
         """Handle backward compatibility for n_images → n_groups migration."""
@@ -179,22 +605,23 @@ class TrainingConfig:
         if self.n_groups is None:
             object.__setattr__(self, 'n_groups', 512)
 
+@with_config(_DATACLASS_ADAPTER_CONFIG)
 @dataclass
 class InferenceConfig:
     """Inference specific configuration."""
     model: ModelConfig
-    model_path: Path
-    test_data_file: Path
-    n_groups: Optional[int] = None  # Number of groups to use (None = use all)
-    n_images: Optional[int] = None  # DEPRECATED: Use n_groups instead (kept for backward compatibility)
-    n_subsample: Optional[int] = None  # Number of images to subsample for inference (independent control)
-    subsample_seed: Optional[int] = None  # Random seed for reproducible subsampling
-    neighbor_count: int = 4  # K value: number of nearest neighbors for grouping (use higher values like 7 for K choose C oversampling)
-    enable_oversampling: bool = False  # Explicit opt-in for K choose C oversampling (requires gridsize>1 and neighbor_pool_size>=C)
-    neighbor_pool_size: Optional[int] = None  # Pool size for K choose C oversampling (if None, defaults to neighbor_count)
-    debug: bool = False
-    output_dir: Path = Path("inference_outputs")
-    backend: Literal['tensorflow', 'pytorch'] = 'tensorflow'  # Backend selection: defaults to TensorFlow for backward compatibility
+    model_path: _PublicPath
+    test_data_file: _PublicPath
+    n_groups: _StrictNonNegativeInt | None = None  # Number of groups to use (None = use all)
+    n_images: _StrictNonNegativeInt | None = None  # DEPRECATED: Use n_groups instead (kept for backward compatibility)
+    n_subsample: _StrictNonNegativeInt | None = None  # Number of images to subsample for inference (independent control)
+    subsample_seed: _StrictNonNegativeInt | None = None  # Random seed for reproducible subsampling
+    neighbor_count: _StrictPositiveInt = 4  # K value: number of nearest neighbors for grouping (use higher values like 7 for K choose C oversampling)
+    enable_oversampling: _StrictBool = False  # Explicit opt-in for K choose C oversampling (requires gridsize>1 and neighbor_pool_size>=C)
+    neighbor_pool_size: _StrictPositiveInt | None = None  # Pool size for K choose C oversampling (if None, defaults to neighbor_count)
+    debug: _StrictBool = False
+    output_dir: _PublicPath = Path("inference_outputs")
+    backend: Annotated[Literal['tensorflow', 'pytorch'], BeforeValidator(_require_exact_str)] = 'tensorflow'  # Backend selection: defaults to TensorFlow for backward compatibility
     
     def __post_init__(self):
         """Handle backward compatibility for n_images → n_groups migration."""
@@ -209,278 +636,197 @@ class InferenceConfig:
             # Use object.__setattr__ to modify dataclass
             object.__setattr__(self, 'n_groups', self.n_images)
 
+def _validate_execution_pre_environment_values(
+    values: Mapping[str, Any],
+) -> None:
+    """Validate unresolved request fields before capability observation."""
+
+    devices = values["devices"]
+    if (
+        isinstance(devices, bool)
+        or not (
+            (isinstance(devices, int) and devices > 0)
+            or devices == "auto"
+        )
+    ):
+        raise ValueError(
+            f"devices must be a positive integer or 'auto', got {devices!r}"
+        )
+
+    precision = values["precision"]
+    valid_precisions = {"32-true", "16-mixed", "bf16-mixed"}
+    if not isinstance(precision, str) or precision not in valid_precisions:
+        raise ValueError(
+            f"Invalid precision: {precision!r}. "
+            f"Expected one of {sorted(valid_precisions)}."
+        )
+
+    accelerator = values["accelerator"]
+    if accelerator == "tpu":
+        raise ValueError(
+            "Torch-XLA TPU execution is unsupported by this PyTorch runtime. "
+            "Use accelerator='cpu', 'gpu'/'cuda', or 'mps'."
+        )
+    valid_accelerators = {"auto", "cpu", "gpu", "cuda", "mps"}
+    if accelerator not in valid_accelerators:
+        raise ValueError(
+            f"Invalid accelerator: '{accelerator}'. "
+            f"Expected one of {sorted(valid_accelerators)}."
+        )
+
+
+def _validate_execution_post_environment_values(
+    values: Mapping[str, Any],
+) -> None:
+    """Validate environment-independent runtime fields."""
+
+    if (
+        isinstance(values["num_workers"], bool)
+        or not isinstance(values["num_workers"], int)
+        or values["num_workers"] < 0
+    ):
+        raise ValueError(
+            f"num_workers must be non-negative, got {values['num_workers']}"
+        )
+    if values["persistent_workers"] and values["num_workers"] <= 0:
+        raise ValueError(
+            "persistent_workers=True requires num_workers > 0"
+        )
+    if values["logger_backend"] not in {"csv", "tensorboard", "mlflow", None}:
+        raise ValueError(
+            "logger_backend must be 'csv', 'tensorboard', 'mlflow', or None"
+        )
+    if (
+            values["inference_batch_size"] is not None
+            and (
+                isinstance(values["inference_batch_size"], bool)
+                or not isinstance(values["inference_batch_size"], int)
+                or values["inference_batch_size"] <= 0
+            )
+    ):
+        raise ValueError(
+            "inference_batch_size must be positive, "
+            f"got {values['inference_batch_size']}"
+        )
+    if (
+        isinstance(values["checkpoint_save_top_k"], bool)
+        or not isinstance(values["checkpoint_save_top_k"], int)
+        or values["checkpoint_save_top_k"] < 0
+    ):
+        raise ValueError(
+            "checkpoint_save_top_k must be non-negative, "
+            f"got {values['checkpoint_save_top_k']}"
+        )
+    if (
+        isinstance(values["early_stop_patience"], bool)
+        or not isinstance(values["early_stop_patience"], int)
+        or values["early_stop_patience"] <= 0
+    ):
+        raise ValueError(
+            "early_stop_patience must be positive, "
+            f"got {values['early_stop_patience']}"
+        )
+    valid_checkpoint_modes = {"min", "max"}
+    if values["checkpoint_mode"] not in valid_checkpoint_modes:
+        raise ValueError(
+            f"Invalid checkpoint_mode: '{values['checkpoint_mode']}'. "
+            f"Expected one of {sorted(valid_checkpoint_modes)}."
+        )
+
+def _validate_execution_resolved_environment_values(
+    values: Mapping[str, Any],
+) -> None:
+    """Reject request-only environment values on the resolved carrier."""
+
+    accelerator = values["accelerator"]
+    if accelerator == "tpu":
+        raise ValueError(
+            "Torch-XLA TPU execution is unsupported by this PyTorch runtime. "
+            "Use accelerator='cpu', 'gpu'/'cuda', or 'mps'."
+        )
+    valid_accelerators = {"cpu", "gpu", "cuda", "mps"}
+    if accelerator not in valid_accelerators:
+        raise ValueError(
+            f"Invalid resolved accelerator: {accelerator!r}. "
+            f"Expected one of {sorted(valid_accelerators)}."
+        )
+
+    devices = values["devices"]
+    if (
+        isinstance(devices, bool)
+        or not isinstance(devices, int)
+        or devices <= 0
+    ):
+        raise ValueError(
+            f"resolved devices must be a positive integer, got {devices!r}"
+        )
+
+    precision = values["precision"]
+    valid_precisions = {"32-true", "16-mixed", "bf16-mixed"}
+    if not isinstance(precision, str) or precision not in valid_precisions:
+        raise ValueError(
+            f"Invalid precision: {precision!r}. "
+            f"Expected one of {sorted(valid_precisions)}."
+        )
+
+
 @dataclass
 class PyTorchExecutionConfig:
+    """Resolved PyTorch Trainer and DataLoader runtime carrier.
+
+    User requests, unresolved ``"auto"`` values, and explicit-input provenance
+    belong to :class:`ptycho_torch.execution_request.ExecutionRequest`.
+    Optimizer semantics belong to Torch ``TrainingConfig`` and model topology
+    belongs to Torch ``ModelConfig``.  Constructing this record is pure: it
+    validates already-resolved runtime values and never observes hardware.
     """
-    PyTorch-specific execution configuration for runtime behavior control.
 
-    This configuration controls PyTorch Lightning execution knobs, dataloader settings,
-    and optimization parameters that do NOT exist in TensorFlow canonical configs.
-    These fields are backend-specific and should not be bridged to params.cfg via
-    update_legacy_dict (CONFIG-001 applies only to canonical configs).
-
-    Design Context:
-        - Introduced in ADR-003 Phase C1 to centralize execution-only parameters
-        - Fields sourced from override_matrix.md §5 (PyTorch Execution Configuration)
-        - Priority level 2 in override precedence (between explicit overrides and CLI defaults)
-        - Referenced by: ptycho_torch/config_factory.py (factory payload construction)
-        - Consumed by: ptycho_torch/workflows/components.py (Lightning Trainer + DataLoader)
-
-    Usage:
-        >>> from ptycho.config.config import PyTorchExecutionConfig
-        >>> exec_cfg = PyTorchExecutionConfig(
-        ...     accelerator='cpu',
-        ...     deterministic=True,
-        ...     num_workers=4,
-        ...     enable_progress_bar=False,
-        ... )
-        >>> # Pass to factory:
-        >>> payload = create_training_payload(..., execution_config=exec_cfg)
-
-    Policy Compliance:
-        - POLICY-001: PyTorch >=2.2 required for all ptycho_torch/ code
-        - CONFIG-001: This config is execution-only; does NOT populate params.cfg
-
-    Field Categories:
-        1. Lightning Trainer knobs: accelerator, strategy, deterministic, gradient_clip_val
-        2. DataLoader knobs: num_workers, pin_memory, persistent_workers, prefetch_factor
-        3. Optimization knobs: learning_rate, scheduler, accum_steps
-        4. Checkpoint/logging knobs: enable_progress_bar, enable_checkpointing, checkpoint_save_top_k, checkpoint_monitor_metric, checkpoint_mode, early_stop_patience
-        5. Inference knobs: inference_batch_size, middle_trim, pad_eval
-    """
-    # Lightning Trainer knobs
-    accelerator: str = 'auto'  # Options: 'cpu', 'gpu', 'cuda', 'mps', 'auto' (TPU/Torch-XLA unsupported)
-    devices: Union[int, Literal["auto"]] = 1
-    strategy: str = 'auto'  # Options: 'auto', 'ddp', 'fsdp', 'deepspeed'
-    deterministic: Union[bool, Literal["warn"]] = True  # Enforce reproducibility (seed_everything + deterministic mode); "warn" allows non-deterministic ops with a warning
+    # Lightning Trainer runtime
+    accelerator: Literal["cpu", "gpu", "cuda", "mps"] = "cpu"
+    devices: int = 1
+    strategy: str = "auto"
+    deterministic: Union[bool, Literal["warn"]] = True
     precision: Literal["32-true", "16-mixed", "bf16-mixed"] = "32-true"
-    gradient_clip_val: Optional[float] = None  # Gradient clipping threshold (None = disabled)
-    gradient_clip_algorithm: Literal['norm', 'value', 'agc'] = 'norm'  # Gradient clipping algorithm
-    accum_steps: int = 1  # Gradient accumulation steps (simulate larger batch size)
 
-    # DataLoader knobs
-    num_workers: int = 0  # Number of dataloader worker processes (0 = main process only; CPU-safe)
-    pin_memory: bool = False  # Pin memory for faster CPU→GPU transfer (GPU-only; False for CPU safety)
-    persistent_workers: bool = False  # Keep workers alive between epochs (requires num_workers > 0)
-    prefetch_factor: Optional[int] = None  # Batches to prefetch per worker (None = default 2)
+    # DataLoader runtime
+    num_workers: int = 0
+    pin_memory: bool = False
+    persistent_workers: bool = False
+    prefetch_factor: Optional[int] = None
 
-    # Optimization knobs
-    learning_rate: float = 1e-3  # Optimizer learning rate (hardcoded in legacy code)
-    scheduler: str = 'Default'  # LR scheduler type: 'Default', 'Exponential', 'MultiStage'
+    # Checkpoint, logging, and progress runtime
+    enable_progress_bar: bool = False
+    enable_checkpointing: bool = True
+    checkpoint_save_top_k: int = 1
+    checkpoint_monitor_metric: str = "val_loss"
+    checkpoint_mode: Literal["min", "max"] = "min"
+    early_stop_patience: int = 100
+    logger_backend: Optional[
+        Literal["csv", "tensorboard", "mlflow"]
+    ] = "csv"
 
-    # Checkpoint/logging knobs
-    enable_progress_bar: bool = False  # Show training progress bar (derived from config.debug in legacy code)
-    enable_checkpointing: bool = True  # Enable Lightning automatic checkpointing
-    checkpoint_save_top_k: int = 1  # How many best checkpoints to keep
-    checkpoint_monitor_metric: str = 'val_loss'  # Metric for best checkpoint selection
-    checkpoint_mode: str = 'min'  # Mode for checkpoint monitoring: 'min' (lower is better) or 'max' (higher is better)
-    early_stop_patience: int = 100  # Early stopping patience epochs (hardcoded in legacy code)
+    # Reconstruction logging runtime
+    recon_log_every_n_epochs: Optional[int] = None
+    recon_log_num_patches: int = 4
+    recon_log_fixed_indices: Optional[List[int]] = None
+    recon_log_stitch: bool = False
+    recon_log_max_stitch_samples: Optional[int] = None
 
-    # Logging knobs (Phase EB3.B - ADR-003)
-    logger_backend: Optional[str] = 'csv'  # Experiment tracking backend: 'csv' (default), 'tensorboard', 'mlflow', or None
+    # Inference runtime
+    inference_batch_size: Optional[int] = None
+    middle_trim: int = 0
+    pad_eval: bool = False
 
-    # Reconstruction logging knobs (MLflow only)
-    recon_log_every_n_epochs: Optional[int] = None  # Log intermediate reconstructions every N epochs (None = disabled)
-    recon_log_num_patches: int = 4  # Number of fixed patch indices to log
-    recon_log_fixed_indices: Optional[List[int]] = None  # Explicit patch indices (None = auto-select)
-    recon_log_stitch: bool = False  # Log stitched full-resolution reconstructions (opt-in)
-    recon_log_max_stitch_samples: Optional[int] = None  # Cap stitched samples (None = no limit)
+    def __post_init__(self) -> None:
+        """Validate resolved values without capability observation."""
 
-    # Torch-only encoder/bottleneck structural-search knobs (not bridged to canonical ModelConfig)
-    ffno_encoder_blocks: int = 24
-    ffno_encoder_modes: int = 12
-    ffno_encoder_share_weights: bool = True
-    ffno_encoder_gate_init: float = 0.1
-    ffno_encoder_norm: str = 'instance'
-    ffno_encoder_mlp_ratio: float = 2.0
-    spectral_bottleneck_blocks: int = 6
-    spectral_bottleneck_modes: int = 12
-    spectral_bottleneck_share_weights: bool = True
-    spectral_bottleneck_gate_init: float = 0.1
-    spectral_bottleneck_gate_mode: Literal['shared', 'per_block'] = 'shared'
-
-    # Inference-specific knobs
-    inference_batch_size: Optional[int] = None  # Override batch_size for inference (None = use training batch_size)
-    middle_trim: int = 0  # Inference trimming parameter (not yet implemented)
-    pad_eval: bool = False  # Padding for evaluation (not yet implemented)
-
-    def __post_init__(self):
-        """
-        Validate PyTorchExecutionConfig fields and resolve 'auto' accelerator (ADR-003 Phase D.B).
-
-        Auto-Resolution Logic (POLICY-001 compliance):
-            When accelerator='auto':
-            - Resolves to 'cuda' if torch.cuda.is_available() == True
-            - Falls back to 'cpu' with POLICY-001 warning if no CUDA device found
-            - Ensures GPU-first behavior per docs/workflows/pytorch.md §12
-
-        Raises:
-            ValueError: If validation fails with descriptive message
-
-        Validation Rules (from training_refactor.md §Component 2 + EB1.A):
-            1. accelerator must be in whitelist {'auto', 'cpu', 'gpu', 'cuda', 'mps'}
-            2. num_workers must be non-negative
-            3. learning_rate must be positive
-            4. inference_batch_size (if provided) must be positive
-            5. accum_steps must be positive
-            6. checkpoint_save_top_k must be non-negative
-            7. early_stop_patience must be positive
-            8. checkpoint_mode must be in whitelist {'min', 'max'}
-
-        Notes:
-            - Warnings for deterministic+num_workers handled in CLI helper (build_execution_config_from_args)
-            - Field defaults are safe; validation catches programmatic misuse
-            - Auto-resolution modifies the accelerator field in-place via object.__setattr__
-        """
-        if (
-            isinstance(self.devices, bool)
-            or not (
-                (isinstance(self.devices, int) and self.devices > 0)
-                or self.devices == "auto"
-            )
-        ):
-            raise ValueError(
-                f"devices must be a positive integer or 'auto', got {self.devices!r}"
-            )
-
-        valid_precisions = {"32-true", "16-mixed", "bf16-mixed"}
-        if not isinstance(self.precision, str) or self.precision not in valid_precisions:
-            raise ValueError(
-                f"Invalid precision: {self.precision!r}. "
-                f"Expected one of {sorted(valid_precisions)}."
-            )
-
-        if self.accelerator == 'tpu':
-            raise ValueError(
-                "Torch-XLA TPU execution is unsupported by this PyTorch runtime. "
-                "Use accelerator='cpu', 'gpu'/'cuda', or 'mps'."
-            )
-
-        # Accelerator whitelist supported by this runtime.
-        valid_accelerators = {'auto', 'cpu', 'gpu', 'cuda', 'mps'}
-        if self.accelerator not in valid_accelerators:
-            raise ValueError(
-                f"Invalid accelerator: '{self.accelerator}'. "
-                f"Expected one of {sorted(valid_accelerators)}."
-            )
-
-        # Auto-resolution: 'auto' → 'cuda' if available, else 'cpu' with POLICY-001 warning
-        if self.accelerator == 'auto':
-            try:
-                import torch
-                if torch.cuda.is_available():
-                    object.__setattr__(self, 'accelerator', 'cuda')
-                else:
-                    object.__setattr__(self, 'accelerator', 'cpu')
-                    warnings.warn(
-                        "POLICY-001: PyTorch backend defaults to GPU execution. "
-                        "No CUDA device detected; falling back to CPU. "
-                        "For production workloads, ensure CUDA is available or explicitly set accelerator='cpu'.",
-                        UserWarning,
-                        stacklevel=3
-                    )
-            except ImportError:
-                # Should not happen given POLICY-001 (torch is mandatory), but handle gracefully
-                object.__setattr__(self, 'accelerator', 'cpu')
-                warnings.warn(
-                    "POLICY-001: PyTorch not available. Falling back to CPU accelerator. "
-                    "Install PyTorch (torch>=2.2) for GPU acceleration.",
-                    UserWarning,
-                    stacklevel=3
-                )
-
-        # Non-negative workers
-        if self.num_workers < 0:
-            raise ValueError(
-                f"num_workers must be non-negative, got {self.num_workers}"
-            )
-
-        # Positive learning rate
-        if self.learning_rate <= 0:
-            raise ValueError(
-                f"learning_rate must be positive, got {self.learning_rate}"
-            )
-
-        # Positive inference batch size (if provided)
-        if self.inference_batch_size is not None and self.inference_batch_size <= 0:
-            raise ValueError(
-                f"inference_batch_size must be positive, got {self.inference_batch_size}"
-            )
-
-        # Positive accumulation steps
-        if self.accum_steps <= 0:
-            raise ValueError(
-                f"accum_steps must be positive, got {self.accum_steps}"
-            )
-
-        # Non-negative checkpoint save count
-        if self.checkpoint_save_top_k < 0:
-            raise ValueError(
-                f"checkpoint_save_top_k must be non-negative, got {self.checkpoint_save_top_k}"
-            )
-
-        # Positive early stopping patience
-        if self.early_stop_patience <= 0:
-            raise ValueError(
-                f"early_stop_patience must be positive, got {self.early_stop_patience}"
-            )
-
-        # Checkpoint mode whitelist
-        valid_checkpoint_modes = {'min', 'max'}
-        if self.checkpoint_mode not in valid_checkpoint_modes:
-            raise ValueError(
-                f"Invalid checkpoint_mode: '{self.checkpoint_mode}'. "
-                f"Expected one of {sorted(valid_checkpoint_modes)}."
-            )
-
-        if self.spectral_bottleneck_blocks <= 0:
-            raise ValueError(
-                f"spectral_bottleneck_blocks must be positive, got {self.spectral_bottleneck_blocks}."
-            )
-        if self.spectral_bottleneck_modes <= 0:
-            raise ValueError(
-                f"spectral_bottleneck_modes must be positive, got {self.spectral_bottleneck_modes}."
-            )
-        if not math.isfinite(float(self.spectral_bottleneck_gate_init)):
-            raise ValueError(
-                "spectral_bottleneck_gate_init must be finite, "
-                f"got {self.spectral_bottleneck_gate_init}."
-            )
-        valid_gate_modes = {'shared', 'per_block'}
-        if self.spectral_bottleneck_gate_mode not in valid_gate_modes:
-            raise ValueError(
-                f"Invalid spectral_bottleneck_gate_mode '{self.spectral_bottleneck_gate_mode}'. "
-                f"Expected one of {sorted(valid_gate_modes)}."
-            )
-
-        if self.ffno_encoder_blocks <= 0:
-            raise ValueError(
-                f"ffno_encoder_blocks must be positive, got {self.ffno_encoder_blocks}."
-            )
-        if self.ffno_encoder_modes <= 0:
-            raise ValueError(
-                f"ffno_encoder_modes must be positive, got {self.ffno_encoder_modes}."
-            )
-        if (
-            not math.isfinite(float(self.ffno_encoder_gate_init))
-            or float(self.ffno_encoder_gate_init) <= 0.0
-        ):
-            raise ValueError(
-                "ffno_encoder_gate_init must be finite and > 0, "
-                f"got {self.ffno_encoder_gate_init}."
-            )
-        if (
-            not math.isfinite(float(self.ffno_encoder_mlp_ratio))
-            or float(self.ffno_encoder_mlp_ratio) <= 0.0
-        ):
-            raise ValueError(
-                "ffno_encoder_mlp_ratio must be finite and > 0, "
-                f"got {self.ffno_encoder_mlp_ratio}."
-            )
+        _validate_execution_resolved_environment_values(self.__dict__)
+        _validate_execution_post_environment_values(self.__dict__)
 
 
 def validate_model_config(config: ModelConfig) -> None:
     """Validate model configuration."""
+    resolve_model_object_policy(config)
     valid_arches = {
         'cnn',
         'ffno',
@@ -566,6 +912,44 @@ def dataclass_to_legacy_dict(obj: Any) -> Dict[str, Any]:
     Returns:
         Dictionary with legacy parameter names and values
     """
+    if isinstance(obj, SimulationConfig):
+        validate_simulation_config(obj)
+        return {
+            "N": obj.N,
+            "probe_source": (
+                "ideal_disk" if obj.probe.source == "ideal" else obj.probe.source
+            ),
+            "probe_npz": (
+                str(obj.probe.source_path)
+                if obj.probe.source_path is not None
+                else None
+            ),
+            "probe_transform_pipeline": obj.probe.transform_pipeline,
+            "probe_mask_diameter": obj.probe.mask_diameter,
+            "data_source": obj.object.kind,
+            "object_class": obj.object.kind,
+            "size": obj.object.image_size[0],
+            "objects_per_probe": obj.object.objects_per_probe,
+            "diff_per_object": obj.object.diffractions_per_object,
+            "set_phi": obj.object.set_phi,
+            "scan_kind": obj.scan.kind,
+            "gridsize": obj.scan.grid_size[0],
+            "offset": obj.scan.offset,
+            "outer_offset_train": obj.scan.outer_offset_train,
+            "outer_offset_test": obj.scan.outer_offset_test,
+            "nimgs_train": obj.scan.train_groups,
+            "nimgs_test": obj.scan.test_groups,
+            "max_position_jitter": obj.scan.buffer,
+            "nphotons": obj.detector.photons_per_pattern,
+            "beamstop_diameter": obj.detector.beamstop_diameter,
+            "npseed": obj.seed,
+        }
+
+    if isinstance(obj, ModelConfig):
+        obj = resolve_model_object_policy(obj)
+    elif hasattr(obj, "model") and isinstance(obj.model, ModelConfig):
+        obj = replace(obj, model=resolve_model_object_policy(obj.model))
+
     # Key mappings from dataclass field names to legacy param names
     KEY_MAPPINGS = {
         'object_big': 'object.big',

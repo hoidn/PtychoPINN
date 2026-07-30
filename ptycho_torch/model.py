@@ -13,7 +13,8 @@ import math
 from typing import Any, Dict, Optional
 
 #Helper
-from ptycho_torch.config_params import ModelConfig, TrainingConfig, DataConfig, InferenceConfig, update_existing_config
+from ptycho_torch.config_params import ModelConfig, TrainingConfig, DataConfig, InferenceConfig
+from ptycho_torch.object_compatibility import resolve_model_object_compatibility
 from ptycho_torch.scaling_contract import (
     CI_SCALE_CONTRACT,
     normalize_ci_poisson_per_sample,
@@ -166,12 +167,15 @@ def _effective_cnn_output_mode(model_config: ModelConfig) -> str:
 
 
 def _semantic_component_channels(model_config: ModelConfig) -> int:
-    return int(model_config.C_model) if model_config.object_big else 1
-
+    compatibility = resolve_model_object_compatibility(model_config)
+    if compatibility.layout == "grouped_patch_components_v1":
+        return int(model_config.C_model)
+    return 1
 
 def _decoder_component_channels(model_config: ModelConfig) -> int:
+    compatibility = resolve_model_object_compatibility(model_config)
     semantic_channels = _semantic_component_channels(model_config)
-    if not model_config.object_big or not getattr(
+    if compatibility.layout == "single_patch_components_v1" or not getattr(
         model_config,
         "use_legacy_decoder_channel_override",
         False,
@@ -466,7 +470,8 @@ class Encoder(nn.Module):
 
         self.N = self.data_config.N
         starting_coeff = 64 / (self.N / 32)
-        self.filters = [model_config.C_model if model_config.object_big else 1]
+        self.object_compatibility = resolve_model_object_compatibility(model_config)
+        self.filters = [_semantic_component_channels(model_config)]
 
         #Starting output channels is 64. Last output size will always be n_filters_scale * 128.
         if self.N == 64:
@@ -1360,7 +1365,13 @@ class ForwardModel(nn.Module):
         self.N = self.data_config.N
         self.gridsize = self.data_config.grid_size
         self.offset = self.model_config.offset
-        self.object_big = self.model_config.object_big
+        self.object_compatibility = resolve_model_object_compatibility(
+            self.model_config
+        )
+        self.object_big = (
+            self.object_compatibility.layout == "grouped_patch_components_v1"
+        )
+        self.training_assembly_spec = self.object_compatibility.training_assembly
 
         #Patch operations
         #Lambdalayer here doesn't work for lightning module
@@ -1391,6 +1402,35 @@ class ForwardModel(nn.Module):
         # physics_forward_mode == 'rectangular_scaled'.
         self.rect_scaler = RectangularScaledDiffraction(model_config)
 
+    def _assemble_training_patches(self, x, positions, probe):
+        """Apply the sealed differentiable training assembly specification."""
+
+        spec = self.training_assembly_spec
+        if spec.mode == "pass_through_v1":
+            return x
+        if spec.mode == "central_mask_overlap_v1":
+            reassembled_obj, _, _ = hh.reassemble_patches_position_real(
+                x,
+                positions,
+                data_config=self.data_config,
+                model_config=self.model_config,
+            )
+        else:
+            reassembled_obj, _, _ = hh.reassemble_patches_position_real_probe(
+                x,
+                positions,
+                data_config=self.data_config,
+                model_config=self.model_config,
+                probe=probe,
+                use_probe_weights=(spec.configured_weighting == "probe"),
+            )
+        return hh.extract_channels_from_region(
+            reassembled_obj[:, None, :, :],
+            positions,
+            data_config=self.data_config,
+            model_config=self.model_config,
+        )
+
     def forward(self, x, I_measured, positions, probe, output_scale_factor, experiment_ids = None):
         # ``I_measured`` is only consumed by RectangularScaledDiffraction's
         # variable-projection (autograd=False) branch, which the training path
@@ -1402,32 +1442,7 @@ class ForwardModel(nn.Module):
         # validator in ProbeIllumination.forward as protection for direct use.
         self.probe_illumination._require_documented_probe_layout(x, probe)
 
-        #Reassemble patches
-
-        if self.object_big:
-            # B3 (Task 2.5): dispatch reassembly weighting on training_patch_weighting.
-            # 'central_mask' preserves the original binary-center-mask helper
-            # (default, bit-stable); 'probe'/'uniform' route through the merged
-            # probe helper, using |Probe|^2 weights only for 'probe'.
-            mode = self.model_config.training_patch_weighting
-            if mode == 'central_mask':
-                reassembled_obj, _, _ = hh.reassemble_patches_position_real(x, positions,
-                                                                      data_config=self.data_config,
-                                                                      model_config=self.model_config)
-            else:  # 'probe' or 'uniform'
-                reassembled_obj, _, _ = hh.reassemble_patches_position_real_probe(x, positions,
-                                                                      data_config=self.data_config,
-                                                                      model_config=self.model_config,
-                                                                      probe=probe,
-                                                                      use_probe_weights=(mode == 'probe'))
-
-            #Extract patches - Pass config objects to helper function
-            extracted_patch_objs = hh.extract_channels_from_region(reassembled_obj[:,None,:,:], positions,
-                                                                   data_config=self.data_config,
-                                                                   model_config=self.model_config)
-
-        else:
-            extracted_patch_objs = x
+        extracted_patch_objs = self._assemble_training_patches(x, positions, probe)
 
         # B5 (Task 2.6): rectangular_scaled REPLACES the amplitude chain
         # (ProbeIllumination -> pad_and_diffract -> inv_scale -> alpha/beta) with
@@ -1924,11 +1939,42 @@ class PtychoPINN_Lightning(L.LightningModule):
         parity_scale_mode: str = "off",
         parity_fixed_delta: float = 0.0,
         parity_init_scheme: str = "default",
+        model_spec: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
 
         # Handle checkpoint loading: convert dict kwargs back to dataclass instances
         # (Lightning passes saved hyperparameters as dicts during load_from_checkpoint)
+        if model_spec is not None:
+            from dataclasses import fields
+            from ptycho_torch.model_spec import (
+                MODEL_SPEC_V1_MODEL_FIELDS,
+                MODEL_SPEC_V1_VERSION,
+            )
+
+            for section_name, value, config_type in (
+                ("model_config", model_config, ModelConfig),
+                ("data_config", data_config, DataConfig),
+                ("training_config", training_config, TrainingConfig),
+                ("inference_config", inference_config, InferenceConfig),
+            ):
+                if not isinstance(value, dict):
+                    continue
+                if (
+                    section_name == "model_config"
+                    and isinstance(model_spec, dict)
+                    and model_spec.get("schema_version") == MODEL_SPEC_V1_VERSION
+                ):
+                    expected = set(MODEL_SPEC_V1_MODEL_FIELDS)
+                else:
+                    expected = {item.name for item in fields(config_type)}
+                received = set(value)
+                if received != expected:
+                    raise ValueError(
+                        f"current checkpoint {section_name} field set is not exact; "
+                        f"missing={sorted(expected - received)}, "
+                        f"unknown={sorted(received - expected)}"
+                    )
         if isinstance(model_config, dict):
             model_config = ModelConfig(**model_config)
         if isinstance(data_config, dict):
@@ -1937,6 +1983,52 @@ class PtychoPINN_Lightning(L.LightningModule):
             training_config = TrainingConfig(**training_config)
         if isinstance(inference_config, dict):
             inference_config = InferenceConfig(**inference_config)
+        from ptycho_torch.object_compatibility import (
+            resolve_torch_model_object_policy,
+        )
+        model_config = resolve_torch_model_object_policy(model_config)
+
+        decoded_model_spec = None
+        if model_spec is not None:
+            from dataclasses import fields
+            from ptycho_torch.model_spec import ModelSpec
+
+            decoded_model_spec = (
+                model_spec
+                if isinstance(model_spec, ModelSpec)
+                else ModelSpec.from_payload(model_spec)
+            )
+            sealed_model_config = decoded_model_spec.to_model_config()
+            model_config = resolve_torch_model_object_policy(model_config)
+            mismatches = []
+            for item in fields(ModelConfig):
+                supplied = getattr(model_config, item.name)
+                sealed = getattr(sealed_model_config, item.name)
+                if isinstance(supplied, torch.Tensor) or isinstance(sealed, torch.Tensor):
+                    equal = (
+                        isinstance(supplied, torch.Tensor)
+                        and isinstance(sealed, torch.Tensor)
+                        and torch.equal(supplied, sealed)
+                    )
+                else:
+                    equal = supplied == sealed
+                if not equal:
+                    mismatches.append(item.name)
+            if mismatches:
+                raise ValueError(
+                    "checkpoint ModelSpec conflicts with dual-written model_config "
+                    f"field(s): {sorted(mismatches)}"
+                )
+            if (
+                parity_scale_mode != decoded_model_spec.parity_scale_mode
+                or float(parity_fixed_delta) != decoded_model_spec.parity_fixed_delta
+                or parity_init_scheme != decoded_model_spec.parity_init_scheme
+            ):
+                raise ValueError(
+                    "checkpoint ModelSpec parity identity conflicts with dual-written "
+                    "Lightning parity hyperparameters"
+                )
+            model_config = sealed_model_config
 
         resolved_scale_contract = validate_scale_contract(
             data_config,
@@ -1956,7 +2048,7 @@ class PtychoPINN_Lightning(L.LightningModule):
         # Convert dataclass instances to dicts to ensure serializability
         # Note: generator_module is not saved (reconstructed at load time)
         from dataclasses import asdict
-        self.save_hyperparameters({
+        serialized_hparams = {
             'model_config': asdict(model_config),
             'data_config': asdict(data_config),
             'training_config': asdict(training_config),
@@ -1966,7 +2058,11 @@ class PtychoPINN_Lightning(L.LightningModule):
             'parity_scale_mode': parity_scale_mode,
             'parity_fixed_delta': float(parity_fixed_delta),
             'parity_init_scheme': parity_init_scheme,
-        })
+        }
+        if decoded_model_spec is not None:
+            serialized_hparams["model_spec"] = decoded_model_spec.to_payload()
+        self.save_hyperparameters(serialized_hparams)
+        self._model_spec = decoded_model_spec
 
         # TF-parity global intensity-scale offset (default "off"; see
         # docs/plans/2026-07-08-cnn-n128-tf-parity.md Task 1 and
@@ -2249,6 +2345,16 @@ class PtychoPINN_Lightning(L.LightningModule):
         }
 
     def on_save_checkpoint(self, checkpoint):
+        if self._model_spec is not None:
+            from ptycho_torch.artifact_schema import (
+                CURRENT_ARTIFACT_SCHEMA_VERSION,
+                TORCH_ARTIFACT_BACKEND,
+            )
+
+            checkpoint["ptychopinn_artifact"] = {
+                "backend": TORCH_ARTIFACT_BACKEND,
+                "schema_version": CURRENT_ARTIFACT_SCHEMA_VERSION,
+            }
         statistics = self.get_ci_statistics()
         if statistics is not None:
             checkpoint["ci_statistics"] = statistics

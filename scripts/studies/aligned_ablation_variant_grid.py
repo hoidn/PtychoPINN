@@ -222,10 +222,10 @@ def torch_runner_config_from_json(config_json_path: Path) -> Any:
 
 def build_model_overrides(cfg: Any) -> Dict[str, Any]:
     """Superset overrides dict: every ``TorchRunnerConfig`` field (passed
-    through ``update_existing_config``'s ``hasattr``-gated setattr, so any
-    field name matching a ``ModelConfig``/``DataConfig``/``TrainingConfig``
-    attribute is honored) plus the fields ``create_training_payload`` requires
-    but ``TorchRunnerConfig`` does not carry.
+    through the Torch configuration resolver, so any field name owned by a
+    ``ModelConfig``/``DataConfig``/``TrainingConfig`` record is honored) plus
+    the fields ``create_training_payload`` requires but ``TorchRunnerConfig``
+    does not carry.
 
     Fixes the bug ``hybrid_checkpoint_inference.py._build_model_for_config``'s
     narrow, hand-picked overrides dict has: it omits every ``hybrid_*``
@@ -252,21 +252,30 @@ def build_model(cfg: Any, train_npz: Path, scratch_output_dir: Path) -> Tuple[An
     ``hybrid_checkpoint_inference.py._build_model_for_config`` with the
     superset overrides fix. Returns ``(model, model_config, data_config,
     training_config)``."""
-    from ptycho.config.config import PyTorchExecutionConfig
     from ptycho_torch.config_factory import create_training_payload
     from ptycho_torch.config_params import InferenceConfig as PTInferenceConfig
+    from ptycho_torch.execution_request import ExecutionRequest
     from ptycho_torch.generators.registry import resolve_generator
 
     payload = create_training_payload(
         train_data_file=train_npz,
         output_dir=scratch_output_dir,
         overrides=build_model_overrides(cfg),
-        execution_config=PyTorchExecutionConfig(
-            learning_rate=float(cfg.learning_rate),
-            deterministic=True,
-            logger_backend="none",
-            enable_progress_bar=False,
-            enable_checkpointing=False,
+        execution_config=ExecutionRequest(
+            values={
+                "deterministic": True,
+                "logger_backend": None,
+                "enable_progress_bar": False,
+                "enable_checkpointing": False,
+            },
+            explicit_fields=frozenset(
+                {
+                    "deterministic",
+                    "logger_backend",
+                    "enable_progress_bar",
+                    "enable_checkpointing",
+                }
+            ),
         ),
     )
     generator = resolve_generator(payload.tf_training_config)

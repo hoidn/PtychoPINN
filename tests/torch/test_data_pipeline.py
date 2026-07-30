@@ -30,14 +30,19 @@ def params_cfg_snapshot():
     Save/restore params.cfg state (CRITICAL per CONFIG-001 finding).
 
     Source: tests/torch/test_config_bridge.py:151-160
-    Why Critical: RawData.generate_grouped_data() reads params.cfg['gridsize'].
-    Failure to restore causes test pollution.
+    Why Critical: the legacy ground-truth patch fallback still reads translation
+    policy from params.cfg. Failure to restore causes test pollution.
     """
     import ptycho.params as params
     snapshot = dict(params.cfg)
+    sealed = params._sealed
     yield
     params.cfg.clear()
     params.cfg.update(snapshot)
+    if sealed:
+        params.seal()
+    else:
+        params.unseal()
 
 
 @pytest.fixture
@@ -97,6 +102,226 @@ class TestRawDataTorchAdapter:
     Source contract: data_contract.md §2 (RawData.generate_grouped_data())
     """
 
+    def test_construction_does_not_mutate_legacy_params(
+        self,
+        params_cfg_snapshot,
+        minimal_raw_data,
+    ):
+        """The maintained Torch adapter must not project config into params.cfg."""
+        from ptycho import params
+        from ptycho.config.config import ModelConfig, TrainingConfig
+        from ptycho_torch.raw_data_bridge import RawDataTorch
+
+        config = TrainingConfig(
+            model=ModelConfig(N=64, gridsize=2),
+            n_groups=10,
+            neighbor_count=4,
+            nphotons=1e9,
+        )
+        params.cfg.clear()
+        params.cfg.update({"poisoned": "legacy-state", "gridsize": 99})
+        expected_params = dict(params.cfg)
+
+        adapter = RawDataTorch(
+            xcoords=minimal_raw_data.xcoords,
+            ycoords=minimal_raw_data.ycoords,
+            diff3d=minimal_raw_data.diff3d,
+            probeGuess=minimal_raw_data.probeGuess,
+            scan_index=np.arange(len(minimal_raw_data.xcoords), dtype=np.int32),
+            objectGuess=minimal_raw_data.objectGuess,
+            config=config,
+        )
+
+        assert params.cfg == expected_params
+        assert adapter._config is config
+
+    def test_config_derived_gridsize_ignores_params_and_preserves_grouping_parity(
+        self,
+        monkeypatch,
+        params_cfg_snapshot,
+        minimal_raw_data,
+    ):
+        """Config-owned grouping must work while legacy parameter access is denied."""
+        from ptycho import params
+        from ptycho.config.config import ModelConfig, TrainingConfig
+        from ptycho import tf_helper
+        from ptycho_torch.raw_data_bridge import RawDataTorch
+
+        config = TrainingConfig(
+            model=ModelConfig(N=64, gridsize=2),
+            n_groups=10,
+            neighbor_count=4,
+            nphotons=1e9,
+        )
+        params.cfg.clear()
+        params.cfg.update({"poisoned": "legacy-state", "gridsize": 99})
+        expected_params = dict(params.cfg)
+
+        def deny_legacy_params(*args, **kwargs):
+            raise AssertionError("RawDataTorch accessed params.cfg")
+
+        monkeypatch.setattr(params, "get", deny_legacy_params)
+        adapter = RawDataTorch(
+            xcoords=minimal_raw_data.xcoords,
+            ycoords=minimal_raw_data.ycoords,
+            diff3d=minimal_raw_data.diff3d,
+            probeGuess=minimal_raw_data.probeGuess,
+            scan_index=np.arange(len(minimal_raw_data.xcoords), dtype=np.int32),
+            objectGuess=None,
+            config=config,
+        )
+        monkeypatch.setattr(tf_helper, "get", deny_legacy_params)
+        expected = adapter._tf_raw_data.generate_grouped_data(
+            N=64,
+            K=4,
+            nsamples=10,
+            gridsize=2,
+            seed=42,
+        )
+        actual = adapter.generate_grouped_data(
+            N=64,
+            K=4,
+            nsamples=10,
+            seed=42,
+        )
+
+        assert params.cfg == expected_params
+        assert actual.keys() == expected.keys()
+        for key in expected:
+            if expected[key] is None:
+                assert actual[key] is None
+            else:
+                np.testing.assert_array_equal(actual[key], expected[key])
+
+    def test_object_guess_fallback_is_leaf_scoped_and_preserves_exact_parity(
+        self,
+        monkeypatch,
+        params_cfg_snapshot,
+        minimal_raw_data,
+    ):
+        """Only object-patch translation may observe a temporary config projection."""
+        from ptycho import params, raw_data
+        from ptycho.config.config import ModelConfig, TrainingConfig, update_legacy_dict
+        from ptycho_torch.raw_data_bridge import RawDataTorch
+
+        config = TrainingConfig(
+            model=ModelConfig(N=64, gridsize=2),
+            n_groups=10,
+            neighbor_count=4,
+            nphotons=1e9,
+        )
+
+        update_legacy_dict(params.cfg, config)
+        expected = minimal_raw_data.generate_grouped_data(
+            N=64,
+            K=4,
+            nsamples=10,
+            gridsize=2,
+            seed=42,
+        )
+
+        params.cfg.clear()
+        params.cfg.update({"poisoned": "ambient-authority", "N": 7, "gridsize": 9})
+        params.seal()
+        ambient = dict(params.cfg)
+
+        adapter = RawDataTorch(
+            xcoords=minimal_raw_data.xcoords,
+            ycoords=minimal_raw_data.ycoords,
+            diff3d=minimal_raw_data.diff3d,
+            probeGuess=minimal_raw_data.probeGuess,
+            scan_index=np.arange(len(minimal_raw_data.xcoords), dtype=np.int32),
+            objectGuess=minimal_raw_data.objectGuess,
+            config=config,
+        )
+
+        delegated_generate = adapter._tf_raw_data.generate_grouped_data
+        grouping_states = []
+
+        def observe_grouping(*args, **kwargs):
+            grouping_states.append((dict(params.cfg), params._sealed))
+            return delegated_generate(*args, **kwargs)
+
+        monkeypatch.setattr(
+            adapter._tf_raw_data,
+            "generate_grouped_data",
+            observe_grouping,
+        )
+
+        delegated_patches = raw_data.get_image_patches
+        patch_states = []
+
+        def observe_patches(*args, **kwargs):
+            patch_states.append((dict(params.cfg), params._sealed))
+            return delegated_patches(*args, **kwargs)
+
+        monkeypatch.setattr(raw_data, "get_image_patches", observe_patches)
+
+        actual = adapter.generate_grouped_data(
+            N=64,
+            K=4,
+            nsamples=10,
+            gridsize=2,
+            seed=42,
+        )
+
+        assert grouping_states == [(ambient, True)]
+        assert len(patch_states) == 1
+        projected, projected_sealed = patch_states[0]
+        assert projected["N"] == 64
+        assert projected["gridsize"] == 2
+        assert projected["nphotons"] == 1e9
+        assert projected_sealed is True
+        assert params.cfg == ambient
+        assert params._sealed is True
+
+        assert actual.keys() == expected.keys()
+        for key in expected:
+            if expected[key] is None:
+                assert actual[key] is None
+            else:
+                np.testing.assert_array_equal(
+                    np.asarray(actual[key]),
+                    np.asarray(expected[key]),
+                )
+
+    def test_object_guess_fallback_requires_retained_config(
+        self,
+        params_cfg_snapshot,
+        minimal_raw_data,
+    ):
+        """The legacy translation leaf must not treat ambient state as authority."""
+        from ptycho import params
+        from ptycho_torch.raw_data_bridge import RawDataTorch
+
+        params.cfg.clear()
+        params.cfg.update({"N": 64, "gridsize": 2, "poisoned": "ambient-authority"})
+        ambient = dict(params.cfg)
+
+        adapter = RawDataTorch(
+            xcoords=minimal_raw_data.xcoords,
+            ycoords=minimal_raw_data.ycoords,
+            diff3d=minimal_raw_data.diff3d,
+            probeGuess=minimal_raw_data.probeGuess,
+            scan_index=np.arange(len(minimal_raw_data.xcoords), dtype=np.int32),
+            objectGuess=minimal_raw_data.objectGuess,
+            config=None,
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="objectGuess fallback requires an explicit caller config",
+        ):
+            adapter.generate_grouped_data(
+                N=64,
+                K=4,
+                nsamples=2,
+                gridsize=2,
+                seed=42,
+            )
+
+        assert params.cfg == ambient
+
     def test_raw_data_torch_matches_tensorflow(self, params_cfg_snapshot, minimal_raw_data):
         """
         RawDataTorch should produce identical grouped data outputs to RawData.
@@ -143,7 +368,7 @@ class TestRawDataTorchAdapter:
             probeGuess=minimal_raw_data.probeGuess,
             scan_index=np.arange(len(minimal_raw_data.xcoords), dtype=np.int32),
             objectGuess=minimal_raw_data.objectGuess,
-            config=config  # Initializes params.cfg automatically
+            config=config,
         )
 
         # Generate grouped data via adapter (with same seed for exact parity)

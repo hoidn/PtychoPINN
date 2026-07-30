@@ -124,7 +124,11 @@ class TestBackendSelection:
         assert config.backend == 'pytorch', \
             "Backend should be 'pytorch' when explicitly specified"
 
-    def test_pytorch_backend_calls_update_legacy_dict(self, params_cfg_snapshot):
+    def test_pytorch_backend_calls_update_legacy_dict(
+        self,
+        tmp_path,
+        params_cfg_snapshot,
+    ):
         """
         Test that PyTorch backend triggers CONFIG-001 gate before workflow dispatch.
 
@@ -147,9 +151,11 @@ class TestBackendSelection:
 
         # Create PyTorch backend config
         model_config = ModelConfig(N=128, gridsize=2)
+        train_path = tmp_path / "train.npz"
+        train_path.touch()
         config = TrainingConfig(
             model=model_config,
-            train_data_file=Path('train.npz'),
+            train_data_file=train_path,
             batch_size=16,
             nepochs=1,
             backend='pytorch'
@@ -191,7 +197,11 @@ class TestBackendSelection:
     # Test 3: Torch Unavailability Handling
     # ============================================================================
 
-    def test_pytorch_unavailable_raises_error(self, params_cfg_snapshot):
+    def test_pytorch_unavailable_raises_error(
+        self,
+        tmp_path,
+        params_cfg_snapshot,
+    ):
         """
         Test that actionable error raised when PyTorch selected but unavailable.
 
@@ -213,9 +223,11 @@ class TestBackendSelection:
         import numpy as np
 
         model_config = ModelConfig(N=64, gridsize=1)
+        train_path = tmp_path / "train.npz"
+        train_path.touch()
         config = TrainingConfig(
             model=model_config,
-            train_data_file=Path('train.npz'),
+            train_data_file=train_path,
             batch_size=16,
             nepochs=1,
             backend='pytorch'
@@ -238,11 +250,13 @@ class TestBackendSelection:
         )
 
         # Mock torch unavailability by making the import fail in backend_selector
+        real_import = __import__
+
         def mock_import_failure(name, *args, **kwargs):
             if 'ptycho_torch.workflows' in name:
                 raise ImportError(f"No module named '{name}'")
             # Use the real import for everything else
-            return __import__(name, *args, **kwargs)
+            return real_import(name, *args, **kwargs)
 
         with patch('builtins.__import__', side_effect=mock_import_failure):
             try:
@@ -292,6 +306,245 @@ class TestBackendSelection:
             "InferenceConfig should have 'backend' field"
         assert config.backend == 'pytorch', \
             "InferenceConfig backend should be 'pytorch' when specified"
+
+    def test_runnable_failure_precedes_legacy_bridge(
+        self,
+        tmp_path,
+        monkeypatch,
+        params_cfg_snapshot,
+    ):
+        from ptycho.config import ModelConfig, TrainingConfig
+        from ptycho.workflows import backend_selector
+
+        events = []
+        monkeypatch.setattr(
+            backend_selector,
+            "update_legacy_dict",
+            lambda *_args: events.append("bridge"),
+        )
+
+        config = TrainingConfig(
+            model=ModelConfig(),
+            train_data_file=tmp_path / "missing.npz",
+            backend="tensorflow",
+        )
+
+        with pytest.raises(ValueError, match="train_data_file.*exist"):
+            backend_selector.run_cdi_example_with_backend(
+                MagicMock(),
+                None,
+                config,
+            )
+
+        assert events == []
+
+    def test_valid_training_bridge_order_precedes_backend_delegation(
+        self,
+        tmp_path,
+        monkeypatch,
+        params_cfg_snapshot,
+    ):
+        from ptycho.config import ModelConfig, TrainingConfig
+        from ptycho.workflows import backend_selector
+        from ptycho.workflows import components as tf_components
+
+        train_path = tmp_path / "train.npz"
+        train_path.touch()
+        config = TrainingConfig(
+            model=ModelConfig(),
+            train_data_file=train_path,
+            backend="tensorflow",
+        )
+        events = []
+        monkeypatch.setattr(
+            backend_selector,
+            "update_legacy_dict",
+            lambda *_args: events.append("bridge"),
+        )
+        monkeypatch.setattr(
+            tf_components,
+            "run_cdi_example",
+            lambda *_args, **_kwargs: (
+                events.append("delegate") or (None, None, {})
+            ),
+        )
+
+        backend_selector.run_cdi_example_with_backend(
+            MagicMock(),
+            None,
+            config,
+        )
+
+        assert events == ["bridge", "delegate"]
+
+    def test_inference_resource_mismatch_fails_before_bridge(
+        self,
+        tmp_path,
+        monkeypatch,
+        params_cfg_snapshot,
+    ):
+        from ptycho.config import InferenceConfig, ModelConfig
+        from ptycho.workflows import backend_selector
+
+        model_path = tmp_path / "model.zip"
+        model_path.touch()
+        test_path = tmp_path / "test.npz"
+        test_path.touch()
+        config = InferenceConfig(
+            model=ModelConfig(),
+            model_path=model_path,
+            test_data_file=test_path,
+        )
+        events = []
+        monkeypatch.setattr(
+            backend_selector,
+            "update_legacy_dict",
+            lambda *_args: events.append("bridge"),
+        )
+
+        with pytest.raises(ValueError, match="bundle_dir.*model_path"):
+            backend_selector.load_inference_bundle_with_backend(
+                tmp_path / "other.zip",
+                config,
+            )
+
+        assert events == []
+
+    @pytest.mark.parametrize("backend", ["tensorflow", "pytorch"])
+    def test_inference_unsupported_model_layout_fails_before_bridge(
+        self,
+        backend,
+        tmp_path,
+        monkeypatch,
+        params_cfg_snapshot,
+    ):
+        from ptycho.config import InferenceConfig, ModelConfig
+        from ptycho.workflows import backend_selector
+
+        model_path = tmp_path / "empty-model-directory"
+        model_path.mkdir()
+        test_path = tmp_path / "test.npz"
+        test_path.touch()
+        config = InferenceConfig(
+            model=ModelConfig(),
+            model_path=model_path,
+            test_data_file=test_path,
+            backend=backend,
+        )
+        events = []
+        monkeypatch.setattr(
+            backend_selector,
+            "update_legacy_dict",
+            lambda *_args: events.append("bridge"),
+        )
+
+        with pytest.raises(ValueError, match="wts\\.h5\\.zip"):
+            backend_selector.load_inference_bundle_with_backend(
+                model_path,
+                config,
+            )
+
+        assert events == []
+
+    def test_inference_bridge_order_precedes_loader_and_archive_can_restore(
+        self,
+        tmp_path,
+        monkeypatch,
+        params_cfg_snapshot,
+    ):
+        import ptycho.params as params
+        from ptycho.config import InferenceConfig, ModelConfig
+        from ptycho.workflows import backend_selector
+        from ptycho.workflows import components as tf_components
+
+        model_path = tmp_path / "model"
+        model_path.mkdir()
+        (model_path / "wts.h5.zip").touch()
+        test_path = tmp_path / "test.npz"
+        test_path.touch()
+        config = InferenceConfig(
+            model=ModelConfig(N=128),
+            model_path=model_path,
+            test_data_file=test_path,
+        )
+        events = []
+
+        def bridge(cfg, request):
+            events.append("bridge")
+            cfg["N"] = request.model.N
+
+        def loader(path):
+            assert path == model_path
+            assert params.cfg["N"] == 128
+            events.append("loader")
+            params.cfg["N"] = 64
+            return object(), {"N": 64}
+
+        monkeypatch.setattr(
+            backend_selector,
+            "update_legacy_dict",
+            bridge,
+        )
+        monkeypatch.setattr(tf_components, "load_inference_bundle", loader)
+
+        backend_selector.load_inference_bundle_with_backend(
+            model_path,
+            config,
+        )
+
+        assert events == ["bridge", "loader"]
+        assert params.cfg["N"] == 64
+
+    def test_inference_canonical_path_is_shared_by_bridge_and_loader(
+        self,
+        tmp_path,
+        monkeypatch,
+        params_cfg_snapshot,
+    ):
+        from ptycho.config import InferenceConfig, ModelConfig
+        from ptycho.workflows import backend_selector
+        from ptycho.workflows import components as tf_components
+
+        first_target = tmp_path / "first-model"
+        first_target.mkdir()
+        (first_target / "wts.h5.zip").touch()
+        second_target = tmp_path / "second-model"
+        second_target.mkdir()
+        (second_target / "wts.h5.zip").touch()
+        alias = tmp_path / "model-alias"
+        alias.symlink_to(first_target, target_is_directory=True)
+        test_path = tmp_path / "test.npz"
+        test_path.touch()
+        config = InferenceConfig(
+            model=ModelConfig(),
+            model_path=alias,
+            test_data_file=test_path,
+        )
+        canonical_path = first_target.resolve()
+        bridged_records = []
+        delegated_paths = []
+
+        def bridge(_cfg, request):
+            bridged_records.append(request)
+            alias.unlink()
+            alias.symlink_to(second_target, target_is_directory=True)
+
+        def loader(path):
+            delegated_paths.append(path)
+            return object(), {}
+
+        monkeypatch.setattr(
+            backend_selector,
+            "update_legacy_dict",
+            bridge,
+        )
+        monkeypatch.setattr(tf_components, "load_inference_bundle", loader)
+
+        backend_selector.load_inference_bundle_with_backend(alias, config)
+
+        assert bridged_records[0] is not config
+        assert bridged_records[0].model_path == canonical_path
+        assert delegated_paths == [canonical_path]
 
     # ============================================================================
     # Test 5: API Parity Between Backends

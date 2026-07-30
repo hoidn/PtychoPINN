@@ -14,7 +14,10 @@ from ptycho.config.config import (
     ModelConfig,
     TrainingConfig,
     InferenceConfig,
-    PyTorchExecutionConfig,
+)
+from ptycho_torch.execution_request import (
+    ExecutionRequest,
+    resolve_runtime_execution_request,
 )
 from ptycho.workflows.backend_selector import (
     run_cdi_example_with_backend,
@@ -49,7 +52,14 @@ def run_backend(backend: str, out_dir: Path) -> None:
         nepochs=1,
     )
 
-    torch_exec = PyTorchExecutionConfig(accelerator="cpu") if backend == "pytorch" else None
+    torch_exec = (
+        ExecutionRequest(
+            values={"accelerator": "cpu"},
+            explicit_fields=frozenset({"accelerator"}),
+        )
+        if backend == "pytorch"
+        else None
+    )
     run_cdi_example_with_backend(
         train_data,
         test_data,
@@ -73,7 +83,15 @@ def run_backend(backend: str, out_dir: Path) -> None:
     model, params_dict = load_inference_bundle_with_backend(infer_cfg.model_path, infer_cfg)
 
     if backend == "pytorch":
-        exec_cfg = PyTorchExecutionConfig(accelerator="cpu", inference_batch_size=2)
+        exec_cfg = resolve_runtime_execution_request(
+            ExecutionRequest(
+                values={"accelerator": "cpu", "inference_batch_size": 2},
+                explicit_fields=frozenset(
+                    {"accelerator", "inference_batch_size"}
+                ),
+            ),
+            mode="inference",
+        ).config
         amp, phase = torch_infer(model, RawData.from_file(str(DATA)), infer_cfg, exec_cfg, exec_cfg.accelerator)
         save_individual_reconstructions(amp, phase, infer_cfg.output_dir)
     else:

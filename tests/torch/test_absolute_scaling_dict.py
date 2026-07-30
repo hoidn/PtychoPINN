@@ -16,6 +16,7 @@ from ptycho_torch.config_params import (
     ModelConfig,
     TrainingConfig,
 )
+from ptycho_torch.execution_request import ExecutionRequest
 from ptycho_torch.model import RectangularScaledDiffraction
 from ptycho_torch.scaling_contract import derive_ci_experiment_statistics
 from ptycho_torch.workflows import components as torch_components
@@ -68,14 +69,18 @@ def _amplitude_fixture(
     return container, amplitude, probe
 
 
-def _ci_payload(N: int) -> SimpleNamespace:
+def _ci_payload(N: int, batch_size: int) -> SimpleNamespace:
     return SimpleNamespace(
         pt_data_config=DataConfig(N=N, grid_size=(1, 1)),
         pt_model_config=ModelConfig(
             mode="Unsupervised",
             physics_forward_mode="rectangular_scaled",
         ),
-        pt_training_config=TrainingConfig(torch_loss_mode="poisson"),
+        pt_training_config=TrainingConfig(
+            batch_size=batch_size,
+            torch_loss_mode="poisson",
+        ),
+        execution_config=PyTorchExecutionConfig(accelerator="cpu"),
     )
 
 
@@ -185,7 +190,7 @@ def test_ci_trailing_singleton_probe_is_canonical_before_normalization_and_colla
         container,
         None,
         _tf_training_config(tmp_path, N, batch_size),
-        payload=_ci_payload(N),
+        payload=_ci_payload(N, batch_size),
     )
     tensor_dict, probe_training, probe_normalization = next(iter(loader))
     assert probe_training.shape == (batch_size, 1, 1, N, N)
@@ -392,7 +397,7 @@ def test_train_with_lightning_registers_dict_training_statistics_before_fit(
         output_dir=tmp_path / "output",
         batch_size=batch_size,
         n_groups=batch_size,
-        nepochs=0,
+        nepochs=1,
         torch_loss_mode="poisson",
     )
     update_legacy_dict(params.cfg, tf_training_config)
@@ -429,11 +434,21 @@ def test_train_with_lightning_registers_dict_training_statistics_before_fit(
         train_container=container,
         test_container=None,
         config=tf_training_config,
-        execution_config=PyTorchExecutionConfig(
-            accelerator="cpu",
-            strategy="auto",
-            enable_checkpointing=False,
-            logger_backend=None,
+        execution_config=ExecutionRequest(
+            values={
+                "accelerator": "cpu",
+                "strategy": "auto",
+                "enable_checkpointing": False,
+                "logger_backend": None,
+            },
+            explicit_fields=frozenset(
+                {
+                    "accelerator",
+                    "strategy",
+                    "enable_checkpointing",
+                    "logger_backend",
+                }
+            ),
         ),
         overrides={
             "physics_forward_mode": "rectangular_scaled",
@@ -481,7 +496,7 @@ def test_train_with_lightning_registers_native_dataset_statistics_before_fit(
         output_dir=tmp_path / "output",
         batch_size=batch_size,
         n_groups=batch_size,
-        nepochs=0,
+        nepochs=1,
         torch_loss_mode="poisson",
     )
     update_legacy_dict(params.cfg, tf_training_config)
@@ -543,20 +558,29 @@ def test_train_with_lightning_registers_native_dataset_statistics_before_fit(
         train_container=native_dataset,
         test_container=native_dataset,
         config=tf_training_config,
-        execution_config=PyTorchExecutionConfig(
-            accelerator="cpu",
-            strategy="auto",
-            enable_checkpointing=False,
-            logger_backend=None,
+        execution_config=ExecutionRequest(
+            values={
+                "accelerator": "cpu",
+                "strategy": "auto",
+                "enable_checkpointing": False,
+                "logger_backend": None,
+                "num_workers": 1,
+            },
+            explicit_fields=frozenset(
+                {
+                    "accelerator",
+                    "strategy",
+                    "enable_checkpointing",
+                    "logger_backend",
+                    "num_workers",
+                }
+            ),
         ),
         overrides={
             "physics_forward_mode": "rectangular_scaled",
             "cnn_output_mode": "real_imag",
             "scale_contract_version": "ci_intensity_v2",
             "measurement_domain": "count_intensity",
-            "strategy": None,
-            "device": "cpu",
-            "num_workers": 1,
         },
     )
 
@@ -589,7 +613,7 @@ def test_ci_shared_probe_is_batch_invariant(
         container,
         None,
         _tf_training_config(tmp_path, N, batch_size),
-        payload=_ci_payload(N),
+        payload=_ci_payload(N, batch_size),
     )
     tensor_dict, probe_training, probe_normalization = next(iter(loader))
 
@@ -654,7 +678,7 @@ def test_ci_two_probe_modes_are_retained_and_summed_incoherently(
         container,
         None,
         _tf_training_config(tmp_path, N, batch_size),
-        payload=_ci_payload(N),
+        payload=_ci_payload(N, batch_size),
     )
     tensor_dict, probe_training, probe_normalization = next(iter(loader))
 

@@ -1326,6 +1326,161 @@ def test_run_condition_failure_payload_preserves_preflight(monkeypatch, tmp_path
     assert persisted["preflight"]["condition_probe_policy"] == "assumed_probe_replaces_container_probe"
 
 
+def test_stitch_prediction_uses_explicit_cfg_geometry_without_params(
+    monkeypatch,
+):
+    from ptycho import params
+    from ptycho.workflows.grid_lines_workflow import stitch_predictions_explicit
+    from scripts.studies import probe_mischaracterization_stress_test as study
+
+    sim = _toy_sim(_toy_probe())
+    cfg = types.SimpleNamespace(
+        N=4,
+        gridsize=1,
+        nimgs_test=1,
+        outer_offset_test=4,
+    )
+    prediction = (
+        np.arange(16, dtype=np.float32).reshape(1, 4, 4, 1)
+        + 1j * np.linspace(0.0, 1.0, 16, dtype=np.float32).reshape(1, 4, 4, 1)
+    ).astype(np.complex64)
+
+    monkeypatch.setattr(
+        params,
+        "cfg",
+        {
+            "N": 91,
+            "gridsize": 7,
+            "nimgs_test": 83,
+            "outer_offset_test": 79,
+        },
+    )
+    monkeypatch.setattr(
+        params,
+        "get",
+        lambda key: (_ for _ in ()).throw(
+            AssertionError(f"explicit study stitching called params.get({key!r})")
+        ),
+    )
+
+    norm_Y_I = sim["test"]["norm_Y_I"]
+    expected_amp = stitch_predictions_explicit(
+        prediction,
+        norm_Y_I,
+        N=cfg.N,
+        gridsize=cfg.gridsize,
+        nimgs_test=cfg.nimgs_test,
+        outer_offset_test=cfg.outer_offset_test,
+        part="amp",
+    )
+    expected_phase = stitch_predictions_explicit(
+        prediction,
+        norm_Y_I,
+        N=cfg.N,
+        gridsize=cfg.gridsize,
+        nimgs_test=cfg.nimgs_test,
+        outer_offset_test=cfg.outer_offset_test,
+        part="phase",
+    )
+
+    actual = study._stitch_prediction(prediction, sim, cfg)
+
+    np.testing.assert_array_equal(
+        actual,
+        expected_amp * np.exp(1j * expected_phase),
+    )
+
+
+def test_run_condition_uses_explicit_cfg_and_simulation_owners(
+    monkeypatch,
+    tmp_path,
+):
+    from ptycho import evaluation, params
+    from ptycho.workflows import grid_lines_workflow
+    from scripts.studies import probe_mischaracterization_stress_test as study
+
+    true_probe = _toy_probe()
+    assumed_probe = true_probe * np.exp(0.1j)
+    sim = _toy_sim(true_probe)
+    observed_offsets = []
+    observed_scales = []
+
+    def clone_for_test(container, assumed):
+        return _ToyContainer(
+            X=container._X_np,
+            coords_nominal=container._coords_nominal_np,
+            coords_true=container._coords_true_np,
+            probe=assumed,
+        )
+
+    def fake_eval(*_args, **kwargs):
+        observed_offsets.append(kwargs["trim_offset"])
+        return {
+            name: (0.1, 0.2)
+            for name in ("ssim", "psnr", "mse", "mae")
+        }
+
+    monkeypatch.setattr(
+        params,
+        "cfg",
+        {"offset": 98, "poison": "must-remain-untouched"},
+    )
+    monkeypatch.setattr(
+        params,
+        "get",
+        lambda key: (_ for _ in ()).throw(
+            AssertionError(f"probe stress study called params.get({key!r})")
+        ),
+    )
+    monkeypatch.setattr(study, "reset_tf_state", lambda clear_model_cache=True: None)
+    monkeypatch.setattr(study, "clone_container_with_probe", clone_for_test)
+    monkeypatch.setattr(
+        grid_lines_workflow,
+        "configure_legacy_params",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        grid_lines_workflow,
+        "train_pinn_model",
+        lambda *_args, **_kwargs: (object(), {"loss": [1.0]}),
+    )
+    monkeypatch.setattr(
+        grid_lines_workflow,
+        "run_pinn_inference_explicit",
+        lambda *_args, **kwargs: (
+            observed_scales.append(kwargs["intensity_scale"])
+            or np.ones((1, 4, 4, 1), dtype=np.complex64)
+        ),
+    )
+    monkeypatch.setattr(
+        study,
+        "_stitch_prediction",
+        lambda *_args, **_kwargs: np.ones((1, 4, 4, 1), dtype=np.complex64),
+    )
+    monkeypatch.setattr(evaluation, "eval_reconstruction_explicit", fake_eval)
+
+    result = study.run_condition(
+        condition=study.PerturbationCondition(
+            "phase_test",
+            "phase_curvature_scale",
+            value=0.75,
+        ),
+        sim=sim,
+        true_probe=true_probe,
+        assumed_probe=assumed_probe,
+        branch_decision="fixed_wrong_probe_training",
+        cfg=types.SimpleNamespace(offset=4),
+        output_root=tmp_path,
+        canonical_data_checksums=study.build_canonical_data_checksums(sim),
+    )
+
+    assert result["status"] == "ok"
+    assert observed_offsets == [4]
+    assert len(observed_scales) == 1
+    np.testing.assert_array_equal(observed_scales[0], sim["intensity_scale"])
+    assert params.cfg == {"offset": 98, "poison": "must-remain-untouched"}
+
+
 def test_script_path_execution_uses_repo_import_root(tmp_path):
     repo_root = Path(__file__).resolve().parents[2]
     probe_npz = tmp_path / "probe.npz"

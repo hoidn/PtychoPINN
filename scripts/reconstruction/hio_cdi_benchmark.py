@@ -44,6 +44,7 @@ HISTORICAL_GS1_CUSTOM_AMP_SSIM = 0.9044216561120993
 HISTORICAL_GS1_CUSTOM_AMP_PSNR = 68.8864772792175
 TABLE2_AMP_SSIM_TOLERANCE = 0.02
 TABLE2_AMP_PSNR_TOLERANCE = 2.0
+CANONICAL_PINN_H5_PATH = "wts.h5"
 
 
 @dataclass(frozen=True)
@@ -2187,10 +2188,41 @@ def configure_seed_before_generated_data(args: argparse.Namespace) -> dict[str, 
     return _configure_pinn_seed(int(args.pinn_training_seed))
 
 
-def _pinn_model_artifacts(output_root: Path, checkpoint_dir: Path) -> dict[str, Any]:
-    from ptycho import params as p
+def _resolve_pinn_training_config(cfg: Any) -> Any:
+    """Resolve the comparator's public training config without projecting globals."""
+    from ptycho.config.config import ModelConfig, TrainingConfig
 
-    model_archive = Path(output_root) / "pinn" / f"{p.get('h5_path')}.zip"
+    return TrainingConfig(
+        model=ModelConfig(N=cfg.N, gridsize=cfg.gridsize, object_big=False),
+        nphotons=cfg.nphotons,
+        nepochs=cfg.nepochs,
+        batch_size=cfg.batch_size,
+        nll_weight=cfg.nll_weight,
+        mae_weight=cfg.mae_weight,
+        realspace_weight=cfg.realspace_weight,
+    )
+
+
+def _pinn_intensity_scale(resolved_config: Any) -> float:
+    """Evaluate the legacy training normalization from explicit config owners."""
+    nphotons = float(resolved_config.nphotons)
+    N = int(resolved_config.model.N)
+    if not math.isfinite(nphotons) or nphotons <= 0:
+        raise ValueError("PtychoPINN comparator nphotons must be finite and positive")
+    if N <= 0:
+        raise ValueError("PtychoPINN comparator N must be positive")
+    # Match train_pinn.calculate_intensity_scale's TensorFlow float32 scalar
+    # convention without consulting its ambient params.cfg inputs.
+    return float(np.sqrt(np.float32(nphotons)) / np.float32(N / 2))
+
+
+def _pinn_model_artifacts(
+    output_root: Path,
+    checkpoint_dir: Path,
+    *,
+    h5_path: str,
+) -> dict[str, Any]:
+    model_archive = Path(output_root) / "pinn" / f"{h5_path}.zip"
     checkpoints = [
         _file_record(path)
         for path in sorted(Path(checkpoint_dir).glob("*"))
@@ -2213,18 +2245,22 @@ def run_pinn_comparator(
     randomness_manifest: Path,
 ) -> dict[str, Path]:
     """Run the same-split PtychoPINN comparator under the pre-registered seed."""
-    from ptycho.evaluation import eval_reconstruction
+    from ptycho.evaluation import eval_reconstruction_explicit
     from ptycho.workflows.grid_lines_workflow import (
-        configure_legacy_params,
-        run_pinn_inference,
+        run_pinn_inference_explicit,
         save_pinn_model,
         save_recon_artifact,
-        stitch_predictions,
+        stitch_predictions_explicit,
     )
     from ptycho import model as model_mod
     from ptycho import probe as probe_mod
     from ptycho import train_pinn
-    from ptycho import params as p
+    from ptycho import params
+    from ptycho.config.config import update_legacy_dict
+    from ptycho.config.legacy_state import (
+        configured_params_scope,
+        legacy_params_scope,
+    )
 
     if args.data_identity_branch != "same-split-rerun":
         raise ValueError("PtychoPINN comparator requires --data-identity-branch same-split-rerun")
@@ -2234,53 +2270,81 @@ def run_pinn_comparator(
     start = time.perf_counter()
     training_seed = int(args.pinn_training_seed)
     cfg.nepochs = int(args.pinn_comparator_epochs)
+    resolved_config = _resolve_pinn_training_config(cfg)
+    intensity_scale = _pinn_intensity_scale(resolved_config)
     seed_status = _configure_pinn_seed(training_seed)
-    configure_legacy_params(cfg, probe)
 
     train_container = data["train"]["container"]
-    intensity_scale = train_pinn.calculate_intensity_scale(train_container)
-    p.set("intensity_scale", intensity_scale)
-    probe_mod.set_probe_guess(None, train_container.probe)
-
     checkpoint_dir = Path(output_root) / "pinn_comparator" / "keras_checkpoints"
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
-    old_wt_path = getattr(model_mod, "wt_path", None)
-    model_mod.wt_path = str(checkpoint_dir)
-    try:
-        model_instance, diffraction_to_obj = model_mod.create_compiled_model()
-        model_mod.autoencoder = model_instance
-        model_mod.diffraction_to_obj = diffraction_to_obj
-        initial_checksums = _model_weight_checksums(model_instance)
+    missing_wt_path = object()
+    old_wt_path = getattr(model_mod, "wt_path", missing_wt_path)
 
-        model_instance, history = train_pinn.train(
-            train_container,
-            intensity_scale=intensity_scale,
-            model_instance=model_instance,
-        )
-        history_payload = _history_payload(history)
-        final_checksums = _model_weight_checksums(model_instance)
-        save_pinn_model(cfg)
-    finally:
-        if old_wt_path is not None:
-            model_mod.wt_path = old_wt_path
+    # The protected TensorFlow model/train/save stack still consumes params.cfg.
+    # Project only for that exact leaf and restore the caller's ambient state.
+    with legacy_params_scope():
+        with configured_params_scope():
+            update_legacy_dict(params.cfg, cfg.simulation)
+            update_legacy_dict(params.cfg, resolved_config)
+            params.cfg["sim_jitter_scale"] = 0.0
+            params.cfg["intensity_scale"] = intensity_scale
+            params.cfg["h5_path"] = CANONICAL_PINN_H5_PATH
+            probe_mod.set_probe_guess(None, train_container.probe)
+            model_mod.wt_path = str(checkpoint_dir)
+            try:
+                model_instance, diffraction_to_obj = model_mod.create_compiled_model()
+                model_mod.autoencoder = model_instance
+                model_mod.diffraction_to_obj = diffraction_to_obj
+                initial_checksums = _model_weight_checksums(model_instance)
 
-    pinn_pred = run_pinn_inference(
+                model_instance, history = train_pinn.train(
+                    train_container,
+                    intensity_scale=intensity_scale,
+                    model_instance=model_instance,
+                )
+                history_payload = _history_payload(history)
+                final_checksums = _model_weight_checksums(model_instance)
+                save_pinn_model(cfg)
+            finally:
+                if old_wt_path is missing_wt_path:
+                    delattr(model_mod, "wt_path")
+                else:
+                    model_mod.wt_path = old_wt_path
+
+    pinn_pred = run_pinn_inference_explicit(
         model_instance,
         np.asarray(data["test"]["X"]),
         np.asarray(data["test"]["coords_nominal"]),
+        intensity_scale=intensity_scale,
     )
     if pinn_pred is None:
         raise RuntimeError("PtychoPINN inference returned None; see logged XLA/dynamic-shape error")
 
     norm_y_i = float(data["test"]["norm_Y_I"])
-    pinn_amp = stitch_predictions(pinn_pred, norm_y_i, part="amp")
-    pinn_phase = stitch_predictions(pinn_pred, norm_y_i, part="phase")
+    stitch_kwargs = {
+        "N": int(cfg.N),
+        "gridsize": int(cfg.gridsize),
+        "nimgs_test": int(cfg.nimgs_test),
+        "outer_offset_test": int(cfg.outer_offset_test),
+    }
+    pinn_amp = stitch_predictions_explicit(
+        pinn_pred,
+        norm_y_i,
+        part="amp",
+        **stitch_kwargs,
+    )
+    pinn_phase = stitch_predictions_explicit(
+        pinn_pred,
+        norm_y_i,
+        part="phase",
+        **stitch_kwargs,
+    )
     pinn_stitched = pinn_amp * np.exp(1j * pinn_phase)
 
     condition_label = _condition_label(args)
     row_label = f"pinn_same_split_{condition_label}"
     recon_path = save_recon_artifact(Path(output_root), row_label, pinn_stitched)
-    metrics = eval_reconstruction(
+    metrics = eval_reconstruction_explicit(
         pinn_stitched,
         data["test"]["YY_ground_truth"],
         label=row_label,
@@ -2288,6 +2352,7 @@ def run_pinn_comparator(
         frc_sigma=0,
         debug_save_images=False,
         ms_ssim_sigma=1.0,
+        trim_offset=int(cfg.offset),
     )
     metrics_json, nonfinite_annotations = _metrics_jsonable(metrics)
     metrics_payload = build_pinn_comparator_metrics_payload(
@@ -2313,7 +2378,11 @@ def run_pinn_comparator(
         training_history=history_payload,
         seed_api_status=seed_status,
         determinism_status="primary_seed_completed_seed_apis_configured_repeat_not_run",
-        model_artifacts=_pinn_model_artifacts(Path(output_root), checkpoint_dir),
+        model_artifacts=_pinn_model_artifacts(
+            Path(output_root),
+            checkpoint_dir,
+            h5_path=CANONICAL_PINN_H5_PATH,
+        ),
         metrics_path=metrics_path,
         comparison_summary=metrics_payload["historical_table2_comparison"],
     )
@@ -2336,8 +2405,11 @@ def run_smoke_benchmark(
     cfg: Any | None = None,
     data: dict[str, Any] | None = None,
 ) -> tuple[list[Path], list[Path], list[Path]]:
-    from ptycho.evaluation import eval_reconstruction
-    from ptycho.workflows.grid_lines_workflow import save_recon_artifact, stitch_predictions
+    from ptycho.evaluation import eval_reconstruction_explicit
+    from ptycho.workflows.grid_lines_workflow import (
+        save_recon_artifact,
+        stitch_predictions_explicit,
+    )
 
     start = time.perf_counter()
     if cfg is None or data is None:
@@ -2431,7 +2503,15 @@ def run_smoke_benchmark(
 
     recon_array = np.asarray(reconstructed_patches, dtype=np.complex64)
     norm_y_i = float(data["test"]["norm_Y_I"])
-    stitched = stitch_predictions(recon_array, norm_y_i, part="complex")
+    stitched = stitch_predictions_explicit(
+        recon_array,
+        norm_y_i,
+        N=int(cfg.N),
+        gridsize=int(cfg.gridsize),
+        nimgs_test=int(cfg.nimgs_test),
+        outer_offset_test=int(cfg.outer_offset_test),
+        part="complex",
+    )
     metric_ground_truth = np.asarray(data["test"]["YY_ground_truth"])
     if metric_ground_truth.ndim == 2:
         metric_ground_truth = metric_ground_truth[..., None]
@@ -2497,7 +2577,7 @@ def run_smoke_benchmark(
                 f"shape {metric_ground_truth.shape[:2]}; run without --max-test-frames "
                 "for reviewer-facing metrics"
             )
-        metrics = eval_reconstruction(
+        metrics = eval_reconstruction_explicit(
             stitched,
             metric_ground_truth,
             label=row_label,
@@ -2505,6 +2585,7 @@ def run_smoke_benchmark(
             frc_sigma=0,
             debug_save_images=False,
             ms_ssim_sigma=1.0,
+            trim_offset=int(cfg.offset),
         )
     except Exception as exc:
         metrics_payload["eval_status"] = "failed"
@@ -2661,13 +2742,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     prepared_data: dict[str, Any] | None = None
     pre_generation_seed_status: dict[str, Any] | None = None
     if args.data_identity_branch == "same-split-rerun":
-        from ptycho.workflows.grid_lines_workflow import configure_legacy_params
-
         if args.data_generation_control != "loader-compatible":
             assert_metric_gates_allow_metrics(data_identity_manifest, metric_contract_manifest)
         if args.reuse_data_bundle_manifest:
             prepared_cfg = _table2_cfg_from_args(args)
-            configure_legacy_params(prepared_cfg, probe)
             loaded_bundle = load_same_split_data_bundle(args.reuse_data_bundle_manifest)
             prepared_data = loaded_bundle["data"]
             probe_consistency = _validate_reused_bundle_matches_probe(prepared_data, probe)
@@ -2686,7 +2764,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             pre_generation_seed_status = configure_seed_before_generated_data(args)
             _memoization_policy_for_fresh_bundle()
             prepared_cfg, prepared_data = _generate_table2_smoke_data(args, probe)
-            config = configure_legacy_params(prepared_cfg, probe)
+            config = _resolve_pinn_training_config(prepared_cfg)
             bundle = persist_same_split_data_bundle(
                 output_root=output_root,
                 run_id=args.run_id,

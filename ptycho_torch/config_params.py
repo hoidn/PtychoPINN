@@ -1,4 +1,6 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+import math
+from pathlib import Path
 from typing import Tuple, Optional, Literal, Union, List
 
 # PyTorch is now a mandatory dependency (Phase F3.1 gate)
@@ -134,7 +136,13 @@ class ModelConfig:
     decoder_spatial_kernel: int = 7 #Spatial attention kernel for decoder
 
     #Forward model parameters
-    object_big: bool = True # True if object requires patch reassembly
+    object_big: Optional[bool] = None
+    object_layout: Optional[
+        Literal['single_patch', 'grouped_patches']
+    ] = None
+    training_canvas: Optional[
+        Literal['independent', 'relative_overlap']
+    ] = None
     # Normal object-big CNNs require learned full-patch support. False is an
     # explicit historical/diagnostic zero-border opt-out.
     probe_big: bool = True
@@ -145,7 +153,9 @@ class ModelConfig:
     # reassemble_patches_position_real); 'probe' = |Probe|^2-weighted assembly;
     # 'uniform' = binary center mask via the merged probe helper
     # (reassemble_patches_position_real_probe, use_probe_weights=False).
-    training_patch_weighting: Literal['central_mask', 'probe', 'uniform'] = 'central_mask'
+    training_patch_weighting: Optional[
+        Literal['central_mask', 'probe', 'uniform']
+    ] = None
     # B5 (Task 2.6): forward-model physics parameterization. 'amplitude' = the
     # unchanged fno-stable ProbeIllumination -> pad_and_diffract -> inv_scale
     # amplitude chain (default, byte-stable). 'rectangular_scaled' routes the
@@ -187,8 +197,20 @@ class ModelConfig:
     phase_loss: Literal['Total_Variation', "Mean_Deviation", None] = None
     amp_loss_coeff: float = 1.0
     phase_loss_coeff: float = 1.0
-    
-    
+
+    def __post_init__(self):
+        """Validate fields that determine the retained Torch generators."""
+        for name in (
+            'spectral_bottleneck_blocks',
+            'spectral_bottleneck_modes',
+        ):
+            if getattr(self, name) <= 0:
+                raise ValueError(f"{name} must be positive")
+        if self.spectral_bottleneck_gate_mode not in {'shared', 'per_block'}:
+            raise ValueError("invalid spectral_bottleneck_gate_mode")
+        if not math.isfinite(float(self.spectral_bottleneck_gate_init)):
+            raise ValueError("spectral_bottleneck_gate_init must be finite")
+
 
 @dataclass
 class TrainingConfig:
@@ -283,19 +305,78 @@ class DatagenConfig:
     probe_paths: List[str] = field(default_factory=list) # List of all probe files used
     beamstop_diameter: int = 4 # For simulating beamstop in forward model
 
+    def to_simulation_config(self, *, base=None):
+        """Project the generation fields this legacy payload owns.
 
+        ``base`` supplies canonical fields that ``DatagenConfig`` has never
+        represented (N, scan geometry, photon level, seed, and probe transform).
+        The six serialized dataclass fields remain unchanged.
+        """
+        from ptycho.config.config import (
+            SimulationConfig,
+            validate_simulation_config,
+        )
 
+        if not isinstance(self.object_class, str):
+            raise ValueError("DatagenConfig requires a single object_class")
+        if len(self.probe_paths) > 1:
+            raise ValueError(
+                "DatagenConfig can convert exactly one probe path (or none) to SimulationConfig"
+            )
+        simulation = base if base is not None else SimulationConfig()
+        if not isinstance(simulation, SimulationConfig):
+            raise TypeError("base must be a SimulationConfig")
 
-# Update the existing instance
-def update_existing_config(config_instance, updates_dict, verbose = False):
-    for key, value in updates_dict.items():
-        if hasattr(config_instance, key):
-            setattr(config_instance, key, value)
-        else:
-            if verbose:
-            # Bypassing this for now since this function is being used as a generic updater for payloads
-                print(f"Warning: Attribute '{key}' not found in {type(config_instance).__name__}")
+        probe = simulation.probe
+        if self.probe_paths:
+            probe = replace(
+                probe,
+                source="custom",
+                source_path=Path(self.probe_paths[0]),
+            )
+        resolved = replace(
+            simulation,
+            probe=probe,
+            object=replace(
+                simulation.object,
+                kind=self.object_class,
+                image_size=tuple(self.image_size),
+                objects_per_probe=self.objects_per_probe,
+                diffractions_per_object=self.diff_per_object,
+            ),
+            detector=replace(
+                simulation.detector,
+                beamstop_diameter=self.beamstop_diameter,
+            ),
+        )
+        validate_simulation_config(resolved)
+        return resolved
 
+    @classmethod
+    def from_simulation_config(cls, simulation):
+        """Create the exact legacy six-field payload when representation is lossless."""
+        from ptycho.config.config import SimulationConfig, validate_simulation_config
+
+        if not isinstance(simulation, SimulationConfig):
+            raise TypeError("simulation must be a SimulationConfig")
+        validate_simulation_config(simulation)
+        if simulation.probe.source == "ideal":
+            raise ValueError(
+                "DatagenConfig cannot represent an ideal probe without losing source semantics"
+            )
+        probe_paths = (
+            [str(simulation.probe.source_path)]
+            if simulation.probe.source_path is not None
+            else []
+        )
+        return cls(
+            objects_per_probe=simulation.object.objects_per_probe,
+            diff_per_object=simulation.object.diffractions_per_object,
+            object_class=simulation.object.kind,
+            image_size=simulation.object.image_size,
+            probe_paths=probe_paths,
+            beamstop_diameter=simulation.detector.beamstop_diameter,
+        )
 
 # Example Usage (how users would now use these configs):
 #

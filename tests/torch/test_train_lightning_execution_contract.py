@@ -1,7 +1,8 @@
 import json
 import math
-from dataclasses import fields
+from dataclasses import fields, replace
 from pathlib import Path
+from types import SimpleNamespace
 
 import lightning as L
 import pytest
@@ -65,8 +66,8 @@ def test_execution_config_accepts_explicit_default_contract():
     assert config.precision == "32-true"
 
 
-@pytest.mark.parametrize("devices", [1, 3, "auto"])
-def test_execution_config_accepts_supported_devices(devices):
+@pytest.mark.parametrize("devices", [1, 3])
+def test_resolved_execution_config_accepts_positive_device_counts(devices):
     config = PyTorchExecutionConfig(accelerator="cpu", devices=devices)
 
     assert config.devices == devices
@@ -156,49 +157,32 @@ def test_lightning_data_module_uses_execution_loader_settings(
     assert loader_kwargs["collate_fn"].pin_memory_if_cuda is False
 
 
-@pytest.mark.parametrize("loader_method", ["train_dataloader", "val_dataloader"])
-def test_lightning_data_module_normalizes_zero_worker_settings(
-    monkeypatch,
-    loader_method,
-):
+def test_invalid_persistent_worker_settings_never_reach_data_loader(monkeypatch):
     captured = []
     monkeypatch.setattr(
         train_utils,
         "TensorDictDataLoader",
         lambda dataset, **kwargs: captured.append((dataset, kwargs)) or object(),
     )
-    execution_config = PyTorchExecutionConfig(
-        accelerator="cpu",
-        num_workers=0,
-        pin_memory=True,
-        persistent_workers=True,
-        prefetch_factor=7,
-    )
-    data_module = train_utils.PtychoDataModuleLightning(
-        "unused",
-        ModelConfig(),
-        DataConfig(),
-        TrainingConfig(strategy="auto", num_workers=99),
-        execution_config=execution_config,
-    )
-    data_module.train_dataset = object()
-    data_module.val_dataset = object()
+    with pytest.raises(ValueError, match="persistent_workers"):
+        PyTorchExecutionConfig(
+            accelerator="cpu",
+            num_workers=0,
+            pin_memory=True,
+            persistent_workers=True,
+            prefetch_factor=7,
+        )
 
-    getattr(data_module, loader_method)()
-
-    _, loader_kwargs = captured[0]
-    assert loader_kwargs["num_workers"] == 0
-    assert loader_kwargs["persistent_workers"] is False
-    assert "prefetch_factor" not in loader_kwargs
-    assert data_module.effective_dataloader_settings() == {
-        "num_workers": 0,
-        "pin_memory": True,
-        "persistent_workers": False,
-        "prefetch_factor": None,
-    }
+    assert captured == []
 
 
-def _install_training_fakes(monkeypatch, run_dir):
+def _install_training_fakes(
+    monkeypatch,
+    run_dir,
+    *,
+    automatic_optimization=False,
+):
+    automatic_mode = automatic_optimization
     captured = {
         "checkpoint_kwargs": [],
         "early_stop_kwargs": [],
@@ -212,7 +196,9 @@ def _install_training_fakes(monkeypatch, run_dir):
         save_dir = str(run_dir.parent)
 
     class FakeDataModule:
-        def __init__(self, _ptycho_dir, _model, _data, training, **_kwargs):
+        def __init__(self, _ptycho_dir, model, data, training, **_kwargs):
+            captured["data_config"] = data
+            captured["model_config"] = model
             captured["data_training_config"] = training
             captured["data_module_kwargs"] = _kwargs
 
@@ -235,6 +221,7 @@ def _install_training_fakes(monkeypatch, run_dir):
     class FakeModel:
         loss_name = "train_loss"
         val_loss_name = "poisson_val"
+        automatic_optimization = automatic_mode
 
         def __init__(self, _model, _data, training, _inference, **_kwargs):
             self.training_config = training
@@ -310,6 +297,131 @@ def _install_training_fakes(monkeypatch, run_dir):
     monkeypatch.setattr(train_module, "find_best_checkpoint", lambda *_args: None)
     monkeypatch.setattr(train_module, "is_effectively_global_rank_zero", lambda: True)
     return captured
+
+
+def test_main_copies_resolved_records_before_applying_runtime_overrides(
+    tmp_path,
+    monkeypatch,
+):
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    captured = _install_training_fakes(monkeypatch, run_dir)
+    monkeypatch.setattr(train_module, "set_seed", lambda *_args, **_kwargs: None)
+    configs = _configs(tmp_path)
+    snapshots = tuple(replace(config) for config in configs)
+
+    train_module.main(
+        tmp_path / "data",
+        existing_config=configs,
+        output_dir=tmp_path / "output",
+        execution_config=PyTorchExecutionConfig(accelerator="cpu"),
+        run_name="immutable-inputs",
+        scale_contract_version="ci_intensity_v2",
+        measurement_domain="count_intensity",
+        seed=11,
+    )
+
+    assert configs == snapshots
+    assert captured["data_config"] is not configs[0]
+    assert captured["model_config"] is not configs[1]
+    assert captured["data_training_config"] is not configs[2]
+
+
+def test_main_resolves_default_request_through_environment_resolver(
+    tmp_path,
+    monkeypatch,
+):
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    captured = _install_training_fakes(monkeypatch, run_dir)
+    monkeypatch.setattr(train_module, "set_seed", lambda *_args, **_kwargs: None)
+    resolved = PyTorchExecutionConfig(
+        accelerator="cpu",
+        devices=1,
+        enable_checkpointing=False,
+    )
+    calls = []
+
+    def resolve(request, *, mode):
+        calls.append((request, mode))
+        return SimpleNamespace(config=resolved)
+
+    monkeypatch.setattr(
+        train_module,
+        "resolve_runtime_execution_request",
+        resolve,
+        raising=False,
+    )
+
+    train_module.main(
+        tmp_path / "data",
+        existing_config=_configs(tmp_path),
+        output_dir=tmp_path / "output",
+        execution_config=None,
+        run_name="default-request",
+        seed=11,
+    )
+
+    assert calls == [(None, "training")]
+    assert captured["data_module_kwargs"]["execution_config"] is resolved
+
+
+@pytest.mark.parametrize(
+    (
+        "automatic_optimization",
+        "expected_accumulation",
+        "expected_clip",
+        "expected_algorithm",
+    ),
+    [
+        (True, 4, 0.75, "norm"),
+        (False, 1, None, None),
+    ],
+)
+def test_main_trainer_mirrors_only_resolved_training_optimizer_owner(
+    tmp_path,
+    monkeypatch,
+    automatic_optimization,
+    expected_accumulation,
+    expected_clip,
+    expected_algorithm,
+):
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    captured = _install_training_fakes(
+        monkeypatch,
+        run_dir,
+        automatic_optimization=automatic_optimization,
+    )
+    monkeypatch.setattr(train_module, "set_seed", lambda *_args, **_kwargs: None)
+    configs = _configs(tmp_path)
+    owner = replace(
+        configs[2],
+        accum_steps=4,
+        gradient_clip_val=0.75,
+        gradient_clip_algorithm="norm",
+    )
+
+    train_module.main(
+        tmp_path / "data",
+        existing_config=(*configs[:2], owner, *configs[3:]),
+        output_dir=tmp_path / "output",
+        execution_config=PyTorchExecutionConfig(
+            accelerator="cpu",
+            enable_checkpointing=False,
+        ),
+        run_name=f"optimizer-owner-{automatic_optimization}",
+        seed=11,
+    )
+
+    model_owner = captured["fit"][0].training_config
+    assert model_owner.accum_steps == 4
+    assert model_owner.gradient_clip_val == pytest.approx(0.75)
+    assert model_owner.gradient_clip_algorithm == "norm"
+    trainer_kwargs = captured["trainer_kwargs"]
+    assert trainer_kwargs["accumulate_grad_batches"] == expected_accumulation
+    assert trainer_kwargs["gradient_clip_val"] == expected_clip
+    assert trainer_kwargs.get("gradient_clip_algorithm") == expected_algorithm
 
 
 def test_main_resolves_default_checkpoint_monitor_to_model_metric(
@@ -486,7 +598,7 @@ def test_milestone_capture_does_not_drift_selected_best_score_or_model_payload(
         )
 
 
-def test_effective_runtime_uses_actual_cpu_trainer_resolution(tmp_path):
+def test_effective_runtime_uses_resolved_cpu_carrier(tmp_path):
     checkpoint = ModelCheckpoint(
         dirpath=tmp_path / "checkpoints",
         monitor="poisson_val",
@@ -504,7 +616,7 @@ def test_effective_runtime_uses_actual_cpu_trainer_resolution(tmp_path):
         "default_root_dir": str(tmp_path),
         "callbacks": [checkpoint, early_stopping],
         "logger": logger,
-        "devices": "auto",
+        "devices": 1,
         "accelerator": "cpu",
         "strategy": "auto",
         "deterministic": True,
@@ -515,7 +627,7 @@ def test_effective_runtime_uses_actual_cpu_trainer_resolution(tmp_path):
     trainer = L.Trainer(**trainer_kwargs, enable_model_summary=False)
     execution_config = PyTorchExecutionConfig(
         accelerator="cpu",
-        devices="auto",
+        devices=1,
         precision="16-mixed",
         checkpoint_save_top_k=2,
         early_stop_patience=4,
@@ -560,7 +672,7 @@ def test_effective_runtime_uses_actual_cpu_trainer_resolution(tmp_path):
     assert runtime["effective"]["accelerator"]["trainer_value"] == "cpu"
     assert runtime["effective"]["devices"]["count"] == trainer.num_devices
     assert runtime["effective"]["devices"]["ids"] == trainer.device_ids
-    assert runtime["effective"]["devices"]["trainer_value"] == "auto"
+    assert runtime["effective"]["devices"]["trainer_value"] == 1
     assert runtime["effective"]["strategy"]["root_device"] == str(trainer.strategy.root_device)
     assert runtime["effective"]["strategy"]["trainer_value"] == "auto"
     checkpoint_runtime = next(
@@ -827,6 +939,8 @@ def test_main_honors_effective_execution_contract(
         lambda: pytest.fail("explicit seed must bypass PTYCHO_TORCH_SEED"),
     )
     configs = _configs(tmp_path)
+    original_training = configs[2]
+    original_training_snapshot = replace(original_training)
     execution_config = PyTorchExecutionConfig(
         accelerator="cuda",
         devices=2,
@@ -867,12 +981,14 @@ def test_main_honors_effective_execution_contract(
     assert {key: trainer_kwargs[key] for key in expected_trainer_kwargs} == expected_trainer_kwargs
     assert seed_calls == [(11, 2)]
 
-    training_config = configs[2]
-    assert training_config.n_devices == execution_config.devices
-    assert training_config.strategy == execution_config.strategy
-    assert training_config.device == execution_config.accelerator
-    assert training_config.num_workers == execution_config.num_workers
-    assert captured["data_training_config"] is training_config
+    effective_training = captured["data_training_config"]
+    assert original_training == original_training_snapshot
+    assert effective_training is not original_training
+    assert captured["fit"][0].training_config is effective_training
+    assert effective_training.n_devices == execution_config.devices
+    assert effective_training.strategy == execution_config.strategy
+    assert effective_training.device == execution_config.accelerator
+    assert effective_training.num_workers == execution_config.num_workers
 
     assert len(captured["checkpoint_kwargs"]) == int(enable_checkpointing)
     assert len(captured["early_stop_kwargs"]) == int(enable_checkpointing)
@@ -929,6 +1045,8 @@ def test_main_returns_opt_in_training_result_without_trainer(tmp_path, monkeypat
     )
     monkeypatch.setenv("PTYCHO_TORCH_SEED", "23")
     configs = _configs(tmp_path)
+    original_training = configs[2]
+    original_training_snapshot = replace(original_training)
     execution_config = PyTorchExecutionConfig(
         accelerator="cpu",
         devices=1,
@@ -937,7 +1055,7 @@ def test_main_returns_opt_in_training_result_without_trainer(tmp_path, monkeypat
         enable_checkpointing=False,
         num_workers=0,
         pin_memory=True,
-        persistent_workers=True,
+        persistent_workers=False,
         prefetch_factor=7,
         precision="32-true",
     )
@@ -958,10 +1076,18 @@ def test_main_returns_opt_in_training_result_without_trainer(tmp_path, monkeypat
     assert (
         result.data_config,
         result.model_config,
-        result.training_config,
         result.inference_config,
         result.datagen_config,
-    ) == configs
+    ) == (configs[0], configs[1], configs[3], configs[4])
+    assert original_training == original_training_snapshot
+    assert result.training_config is not original_training
+    assert result.training_config is captured["data_training_config"]
+    assert result.model.training_config is result.training_config
+    assert result.training_config.device == "cpu"
+    assert result.training_config.strategy == "auto"
+    assert result.training_config.n_devices == 1
+    assert result.training_config.num_workers == 0
+    assert result.training_config.orchestrator == "Lightning"
     assert result.effective_runtime == json.loads(
         (run_dir / "effective_runtime.json").read_text()
     )

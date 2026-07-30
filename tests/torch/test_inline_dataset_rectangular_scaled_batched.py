@@ -31,6 +31,7 @@ import torch
 
 from ptycho.config.config import (
     ModelConfig as TFModelConfig,
+    PyTorchExecutionConfig,
     TrainingConfig as TFTrainingConfig,
     update_legacy_dict,
 )
@@ -44,7 +45,7 @@ from ptycho_torch.model import RectangularScaledDiffraction
 from ptycho_torch.workflows import components as torch_components
 
 
-def _rectangular_scaled_payload() -> SimpleNamespace:
+def _rectangular_scaled_payload(batch_size: int) -> SimpleNamespace:
     """Task R1-fix: the (C, P, H, W) probe reshape / scaling select+collapse in
     ``PtychoLightningDataset.__getitem__`` is now conditioned on
     ``model_config.physics_forward_mode == 'rectangular_scaled'`` (bisect-report.md
@@ -63,7 +64,11 @@ def _rectangular_scaled_payload() -> SimpleNamespace:
             physics_forward_mode="rectangular_scaled",
             loss_function="MAE",
         ),
-        pt_training_config=PTTrainingConfig(torch_loss_mode="mae"),
+        pt_training_config=PTTrainingConfig(
+            batch_size=batch_size,
+            torch_loss_mode="mae",
+        ),
+        execution_config=PyTorchExecutionConfig(accelerator="cpu"),
     )
 
 
@@ -125,7 +130,7 @@ def test_inline_dataset_collate_shapes_match_native_contract(
         train_container=train_container,
         test_container=None,
         config=tf_training_cfg,
-        payload=_rectangular_scaled_payload(),
+        payload=_rectangular_scaled_payload(batch_size),
     )
 
     tensor_dict, probe, scaling = next(iter(train_loader))
@@ -214,7 +219,7 @@ def test_inline_dataset_collate_rectangular_scaled_forward_no_crash(
         train_container=train_container,
         test_container=None,
         config=tf_training_cfg,
-        payload=_rectangular_scaled_payload(),
+        payload=_rectangular_scaled_payload(batch_size),
     )
 
     tensor_dict, probe, scaling = next(iter(train_loader))

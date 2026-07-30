@@ -498,6 +498,22 @@ def negloglik(y_true, y_pred):
     return tf.nn.log_poisson_loss(y_true, tf.math.log(y_pred), compute_full_loss=False)
 
 
+def _resolve_tensorflow_object_policy():
+    """Resolve the public object policy before TensorFlow model construction."""
+    from ptycho.object_compatibility import resolve_public_object_policy
+
+    return resolve_public_object_policy(
+        object_big=p.cfg.get("object.big"),
+        object_layout=p.cfg.get("object_layout"),
+        training_canvas=p.cfg.get("training_canvas"),
+        training_patch_weighting=p.cfg.get("training_patch_weighting"),
+        pad_object=p.cfg.get("pad_object", True),
+        probe_big=p.cfg.get("probe.big", True),
+        backend="tensorflow",
+        warn_deprecated=False,
+    )
+
+
 def _build_module_level_models():
     """Build module-level models on first access (lazy loading).
 
@@ -526,13 +542,18 @@ def _build_module_level_models():
     # === Begin model construction (moved from module level) ===
     normed_input = IntensityScaler(name='intensity_scaler')([input_img])
 
-    decoded1, decoded2 = create_autoencoder(normed_input, n_filters_scale, gridsize,
-        p.get('object.big'))
+    object_policy = _resolve_tensorflow_object_policy()
+    decoded1, decoded2 = create_autoencoder(
+        normed_input,
+        n_filters_scale,
+        gridsize,
+        object_policy.object_big,
+    )
 
     # Combine the two decoded outputs
     obj = CombineComplexLayer(name='obj')([decoded1, decoded2])
 
-    if p.get('object.big'):
+    if object_policy.object_big:
         # If 'object.big' is true, reassemble the patches
         # Calculate output shape dynamically based on padded_size
         from .params import get_padded_size
@@ -732,8 +753,10 @@ def create_model_with_gridsize(gridsize: int, N: int, **kwargs):
         Tuple of (autoencoder, diffraction_to_obj) models
     """
     # Store current global state for restoration
-    original_gridsize = p.get('gridsize')
-    original_N = p.get('N')
+    # Read without materializing DEFAULT_CFG so an intentionally unset
+    # compatibility alias remains distinguishable until policy resolution.
+    original_gridsize = p.cfg.get('gridsize', p.DEFAULT_CFG['gridsize'])
+    original_N = p.cfg.get('N', p.DEFAULT_CFG['N'])
     original_use_xla = p.cfg.get('use_xla_translate', True)
 
     try:
@@ -746,6 +769,8 @@ def create_model_with_gridsize(gridsize: int, N: int, **kwargs):
         for key, value in kwargs.items():
             p.cfg.update({key: value})
 
+        object_policy = _resolve_tensorflow_object_policy()
+
         # Create input layers with explicit parameters
         input_img = Input(shape=(N, N, gridsize**2), name='input')
         input_positions = Input(shape=(1, 2, gridsize**2), name='input_positions')
@@ -756,12 +781,17 @@ def create_model_with_gridsize(gridsize: int, N: int, **kwargs):
         
         # Create model components using explicit parameters
         normed_input = IntensityScaler(name='intensity_scaler')([input_img])
-        decoded1, decoded2 = create_autoencoder(normed_input, p.get('n_filters_scale'), gridsize, p.get('object.big'))
+        decoded1, decoded2 = create_autoencoder(
+            normed_input,
+            p.get('n_filters_scale'),
+            gridsize,
+            object_policy.object_big,
+        )
         
         # Combine the decoded outputs
         obj = CombineComplexLayer(name='obj')([decoded1, decoded2])
         
-        if p.get('object.big'):
+        if object_policy.object_big:
             # If 'object.big' is true, reassemble the patches
             padded_obj_2 = ReassemblePatchesLayer(
                 padded_size=padded_size,

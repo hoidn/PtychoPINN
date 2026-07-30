@@ -44,6 +44,10 @@ import numpy as np
 import tensorflow as tf
 from typing import Dict, List, Any, Optional
 from ptycho import params
+from ptycho.config.legacy_state import (
+    archived_params_scope,
+    transactional_legacy_params,
+)
 
 class ModelManager:
     @staticmethod
@@ -88,6 +92,17 @@ class ModelManager:
 
     @staticmethod
     def load_model(model_dir: str) -> tf.keras.Model:
+        """Load a model and commit its archived flat state only on success."""
+        params_path = os.path.join(model_dir, "params.dill")
+        with open(params_path, "rb") as f:
+            loaded_params = dill.load(f)
+        loaded_params.pop("_version", None)
+
+        with archived_params_scope(loaded_params):
+            return ModelManager._load_model_uncontained(model_dir)
+
+    @staticmethod
+    def _load_model_uncontained(model_dir: str) -> tf.keras.Model:
         """
         Load a single model along with its custom objects, parameters, and intensity scale.
         Uses architecture-aware loading to avoid gridsize mismatch issues.
@@ -361,6 +376,7 @@ class ModelManager:
                         zf.write(full_path, arc_path)
 
     @staticmethod
+    @transactional_legacy_params
     def load_multiple_models(base_path: str, model_names: Optional[List[str]] = None) -> Dict[str, tf.keras.Model]:
         """
         Load multiple models from a zip archive.

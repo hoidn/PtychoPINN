@@ -73,6 +73,7 @@ import argparse
 import math
 import yaml
 import os
+from types import UnionType
 import numpy as np
 import tensorflow as tf
 from ptycho import params as p
@@ -80,15 +81,28 @@ from ptycho import probe
 from ptycho.loader import RawData, PtychoDataContainer
 import logging
 import matplotlib.pyplot as plt
-from typing import Union, Optional, Dict, Any, Tuple, Literal, get_origin, get_args
+from typing import Annotated, Union, Optional, Dict, Any, Tuple, Literal, get_origin, get_args
 from pathlib import Path
-from ptycho.config.config import TrainingConfig, ModelConfig, dataclass_to_legacy_dict
-from dataclasses import fields
+from ptycho.config.config import (
+    TrainingConfig,
+    ModelConfig,
+    dataclass_to_legacy_dict,
+    resolve_model_object_policy,
+)
+from ptycho.config import resolve_training_config
+from dataclasses import fields, replace
 from ptycho import loader, probe
 from typing import Union, Optional, Tuple, Dict, Any
 from ptycho.raw_data import RawData
 from ptycho.loader import PtychoDataContainer
 from ptycho.config.config import TrainingConfig, update_legacy_dict
+from ptycho.config.legacy_state import (
+    configured_legacy_params,
+    isolated_archived_params_scope,
+    legacy_params_scope,
+    scoped_legacy_params,
+    transactional_legacy_params,
+)
 from ptycho import params
 from ptycho.image import reassemble_patches
 from ptycho.model_manager import ModelManager
@@ -102,6 +116,18 @@ from dataclasses import fields
 from ptycho.config.config import ModelConfig, TrainingConfig
 
 
+def _resolve_tensorflow_training_config(config: TrainingConfig) -> TrainingConfig:
+    """Validate and materialize the public policy for TensorFlow entrypoints."""
+    return replace(
+        config,
+        model=resolve_model_object_policy(
+            config.model,
+            backend="tensorflow",
+            warn_deprecated=False,
+        ),
+    )
+
+
 class DiffractionToObjectAdapter(tf.keras.Model):
     """
     Wrapper that keeps params.cfg['gridsize'] aligned with grouped inference inputs.
@@ -112,9 +138,15 @@ class DiffractionToObjectAdapter(tf.keras.Model):
     legacy gridsize to sqrt(channel_count) and avoid Translation crashes.
     """
 
-    def __init__(self, base_model: tf.keras.Model):
+    def __init__(
+        self,
+        base_model: tf.keras.Model,
+        *,
+        runtime_params: Optional[dict] = None,
+    ):
         super().__init__(name=getattr(base_model, "name", "diffraction_to_obj"))
         self._model = base_model
+        self._runtime_params = dict(runtime_params or {})
 
     def _infer_channel_count(self, diffraction_input) -> Optional[int]:
         if diffraction_input is None:
@@ -155,19 +187,24 @@ class DiffractionToObjectAdapter(tf.keras.Model):
             p.cfg['gridsize'] = gridsize
 
     def call(self, inputs, training=False, **kwargs):
-        self._sync_gridsize(inputs)
-        return self._model(inputs, training=training, **kwargs)
+        with legacy_params_scope():
+            params.cfg.update(self._runtime_params)
+            self._sync_gridsize(inputs)
+            return self._model(inputs, training=training, **kwargs)
 
     def predict(self, *args, **kwargs):
-        input_arg = args[0] if args else kwargs.get('x')
-        self._sync_gridsize(input_arg)
-        return self._model.predict(*args, **kwargs)
+        with legacy_params_scope():
+            params.cfg.update(self._runtime_params)
+            input_arg = args[0] if args else kwargs.get('x')
+            self._sync_gridsize(input_arg)
+            return self._model.predict(*args, **kwargs)
 
     def __getattr__(self, item):
         underlying = super().__getattribute__("_model")
         return getattr(underlying, item)
 
 
+@transactional_legacy_params
 def load_inference_bundle(model_dir: Path) -> Tuple[tf.keras.Model, dict]:
     """Load a trained model bundle for inference from a directory.
     
@@ -237,11 +274,13 @@ def load_inference_bundle(model_dir: Path) -> Tuple[tf.keras.Model, dict]:
                 f"The 'diffraction_to_obj' model should be created during training."
             )
         
-        model = DiffractionToObjectAdapter(models_dict['diffraction_to_obj'])
-        
         # ModelManager updates the global params.cfg when loading
         # Return a copy to avoid unintended modifications
         config = params.cfg.copy()
+        model = DiffractionToObjectAdapter(
+            models_dict['diffraction_to_obj'],
+            runtime_params=config,
+        )
         
         logger.info(f"Successfully loaded model from {model_dir}")
         logger.debug(f"Model configuration: {config}")
@@ -252,6 +291,22 @@ def load_inference_bundle(model_dir: Path) -> Tuple[tf.keras.Model, dict]:
         logger.error(f"Failed to load model from {model_dir}: {str(e)}")
         raise
 
+
+def load_inference_bundle_explicit(
+    model_dir: Path,
+) -> Tuple[tf.keras.Model, dict]:
+    """Load an archived TensorFlow model without retaining global state.
+
+    Historical TensorFlow model reconstruction still requires the archived
+    projection while the model is built. This modern seam returns that
+    projection to the caller and restores the exact pre-load ``params.cfg``
+    contents when reconstruction finishes.
+    """
+    with isolated_archived_params_scope():
+        return load_inference_bundle(model_dir)
+
+
+@configured_legacy_params
 def update_config_from_dict(config_updates: dict):
     """
     Updates the application's configuration from a dictionary, ideal for notebook workflows.
@@ -450,143 +505,141 @@ def load_data(file_path, n_images=None, n_subsample=None, flip_x=False, flip_y=F
 
     return ptycho_data
 
+PUBLIC_TRAINING_INPUT_NAMES = frozenset(
+    item.name for item in fields(ModelConfig)
+) | frozenset(
+    item.name for item in fields(TrainingConfig) if item.name != "model"
+)
+
+
+def _unwrap_public_cli_type(annotation):
+    while True:
+        origin = get_origin(annotation)
+        if origin is Annotated:
+            annotation = get_args(annotation)[0]
+            continue
+        if origin not in (Union, UnionType):
+            return annotation
+        value_types = tuple(
+            item for item in get_args(annotation) if item is not type(None)
+        )
+        if len(value_types) == 1:
+            annotation = value_types[0]
+            continue
+        primitive_types = {
+            _unwrap_public_cli_type(item) for item in value_types
+        }
+        if primitive_types == {int, float}:
+            return float
+        return annotation
+
+
+def _literal_argument_type(choices):
+    choice_types = {type(choice) for choice in choices}
+    if len(choice_types) != 1:
+        raise TypeError(
+            "public CLI Literal choices must use one primitive type"
+        )
+    return next(iter(choice_types))
+
+
+def _public_training_argument_help(name: str, *, model_field: bool) -> str:
+    if name == "n_groups":
+        return (
+            "Number of groups to generate. Always means groups regardless "
+            "of gridsize. Can exceed dataset size when using higher "
+            "--neighbor_count values."
+        )
+    if name == "n_images":
+        return (
+            "DEPRECATED: Use --n_groups instead. Number of groups to use "
+            "from the dataset."
+        )
+    if name == "n_subsample":
+        return (
+            "Number of images to subsample from dataset before grouping "
+            "(independent control). When provided, controls data selection "
+            "separately from grouping."
+        )
+    if name == "subsample_seed":
+        return (
+            "Random seed for reproducible subsampling. Use same seed across "
+            "runs to ensure consistent data selection."
+        )
+    if name == "neighbor_count":
+        return (
+            "Number of nearest neighbors (K) for grouping. Use higher "
+            "values (e.g., 7) to enable more combinations when requesting "
+            "more groups than available points."
+        )
+    if name == "backend":
+        return (
+            "Backend selection: tensorflow, pytorch (default: tensorflow). "
+            "PyTorch backend requires torch>=2.2 (POLICY-001)."
+        )
+    prefix = "Model" if model_field else "Training"
+    return f"{prefix} parameter: {name}"
+
+
+def _add_public_training_argument(
+    parser: argparse.ArgumentParser,
+    config_field,
+    *,
+    model_field: bool,
+) -> None:
+    value_type = _unwrap_public_cli_type(config_field.type)
+    options = {
+        "default": argparse.SUPPRESS,
+        "help": _public_training_argument_help(
+            config_field.name,
+            model_field=model_field,
+        ),
+    }
+
+    if get_origin(value_type) is Literal:
+        choices = list(get_args(value_type))
+        options["choices"] = choices
+        options["type"] = _literal_argument_type(choices)
+    elif value_type is bool:
+        options["action"] = argparse.BooleanOptionalAction
+    else:
+        options["type"] = value_type
+
+    parser.add_argument(f"--{config_field.name}", **options)
+
+
+def add_public_training_config_arguments(
+    parser: argparse.ArgumentParser,
+) -> argparse.ArgumentParser:
+    """Add public training overrides without applying dataclass defaults."""
+    for model_field in fields(ModelConfig):
+        _add_public_training_argument(
+            parser,
+            model_field,
+            model_field=True,
+        )
+    for training_field in fields(TrainingConfig):
+        if training_field.name == "model":
+            continue
+        _add_public_training_argument(
+            parser,
+            training_field,
+            model_field=False,
+        )
+    return parser
+
+
 def parse_arguments():
     """Parse command-line arguments based on TrainingConfig fields."""
     from ptycho.cli_args import add_logging_arguments
-    logger = logging.getLogger(__name__)
+
     parser = argparse.ArgumentParser(description="Non-grid CDI Example Script")
     parser.add_argument("--config", type=str, help="Path to YAML configuration file")
     parser.add_argument("--do_stitching", action='store_true', default=False,
                         help="Perform image stitching after training (default: False)")
-    
-    # Add logging arguments
+
     add_logging_arguments(parser)
-    
-    # Add arguments based on TrainingConfig fields
-    for field in fields(TrainingConfig):
-        if field.name == 'model':
-            # Handle ModelConfig fields
-            for model_field in fields(ModelConfig):
-                # Special handling for Literal types
-                if hasattr(model_field.type, "__origin__") and model_field.type.__origin__ is Literal:
-                    choices = list(model_field.type.__args__)
-                    parser.add_argument(
-                        f"--{model_field.name}",
-                        type=str,
-                        choices=choices,
-                        default=model_field.default,
-                        help=f"Model parameter: {model_field.name}, choices: {choices}"
-                    )
-                else:
-                    parser.add_argument(
-                        f"--{model_field.name}",
-                        type=model_field.type,
-                        default=model_field.default,
-                        help=f"Model parameter: {model_field.name}"
-                    )
-        else:
-            # Handle path fields specially
-            if field.type == Path or str(field.type).startswith("typing.Optional[pathlib.Path"):
-                logger.debug(f"Field: {field.name}")
-                logger.debug(f"Field type: {field.type}")
-                logger.debug(f"Field default: {field.default}")
-                parser.add_argument(
-                    f"--{field.name}",
-                    type=lambda x: (logger.debug(f"Converting path value: {x}"), Path(x) if x is not None else None)[1],
-                    default=None if field.default == None else str(field.default),
-                    help=f"Path for {field.name}"
-                )
-            else:
-                # Special handling for specific parameters to provide better help text
-                if field.name == 'n_groups':
-                    parser.add_argument(
-                        f"--{field.name}",
-                        type=field.type if get_origin(field.type) is not Union else get_args(field.type)[0],
-                        default=field.default,
-                        help="Number of groups to generate. Always means groups regardless of gridsize. "
-                             "Can exceed dataset size when using higher --neighbor_count values."
-                    )
-                elif field.name == 'n_images':
-                    # Keep n_images for backward compatibility but mark as deprecated
-                    parser.add_argument(
-                        f"--{field.name}",
-                        type=field.type if get_origin(field.type) is not Union else get_args(field.type)[0],
-                        default=field.default,
-                        help="DEPRECATED: Use --n_groups instead. Number of groups to use from the dataset."
-                    )
-                elif field.name == 'n_subsample':
-                    parser.add_argument(
-                        f"--{field.name}",
-                        type=field.type if get_origin(field.type) is not Union else get_args(field.type)[0],
-                        default=field.default,
-                        help="Number of images to subsample from dataset before grouping (independent control). "
-                             "When provided, controls data selection separately from grouping."
-                    )
-                elif field.name == 'subsample_seed':
-                    parser.add_argument(
-                        f"--{field.name}",
-                        type=field.type if get_origin(field.type) is not Union else get_args(field.type)[0],
-                        default=field.default,
-                        help="Random seed for reproducible subsampling. "
-                             "Use same seed across runs to ensure consistent data selection."
-                    )
-                elif field.name == 'neighbor_count':
-                    parser.add_argument(
-                        f"--{field.name}",
-                        type=field.type,
-                        default=field.default,
-                        help="Number of nearest neighbors (K) for grouping. Use higher values (e.g., 7) "
-                             "to enable more combinations when requesting more groups than available points."
-                    )
-                elif field.name == 'backend':
-                    # Special handling for backend Literal type
-                    if hasattr(field.type, "__origin__") and field.type.__origin__ is Literal:
-                        choices = list(field.type.__args__)
-                        parser.add_argument(
-                            f"--{field.name}",
-                            type=str,
-                            choices=choices,
-                            default=field.default,
-                            help=f"Backend selection: {', '.join(choices)} (default: {field.default})"
-                        )
-                    else:
-                        # Fallback if not a Literal type
-                        parser.add_argument(
-                            f"--{field.name}",
-                            type=str,
-                            default=field.default,
-                            help="Backend selection for workflow orchestration"
-                        )
-                else:
-                    # Handle Optional types
-                    if get_origin(field.type) is Union:
-                        # This is an Optional type (Union[T, None])
-                        args = get_args(field.type)
-                        actual_type = args[0] if args[0] is not type(None) else args[1]
-                        parser.add_argument(
-                            f"--{field.name}",
-                            type=actual_type,
-                            default=field.default,
-                            help=f"Training parameter: {field.name}"
-                        )
-                    elif get_origin(field.type) is Literal:
-                        # Handle Literal types (e.g., torch_loss_mode)
-                        choices = list(get_args(field.type))
-                        parser.add_argument(
-                            f"--{field.name}",
-                            type=str,
-                            choices=choices,
-                            default=field.default,
-                            help=f"Training parameter: {field.name}, choices: {choices}"
-                        )
-                    else:
-                        parser.add_argument(
-                            f"--{field.name}",
-                            type=field.type,
-                            default=field.default,
-                            help=f"Training parameter: {field.name}"
-                        )
-    
+    add_public_training_config_arguments(parser)
     return parser.parse_args()
 
 def load_yaml_config(file_path: str) -> Dict[str, Any]:
@@ -607,50 +660,13 @@ def load_yaml_config(file_path: str) -> Dict[str, Any]:
 def setup_configuration(args: argparse.Namespace, yaml_path: Optional[str]) -> TrainingConfig:
     """Set up the configuration by merging defaults, YAML file, and command-line arguments."""
     try:
-        params.unseal()
         yaml_config = load_yaml_config(yaml_path) if yaml_path else {}
-        args_config = vars(args)
-        
-        # Start with YAML config as base (if provided)
-        merged_config = yaml_config.copy() if yaml_config else {}
-        
-        # Override with CLI arguments (CLI takes precedence over YAML)
-        for key, value in args_config.items():
-            if value is not None:  # Only override if CLI arg was explicitly provided
-                merged_config[key] = value
-        
-        # Convert string paths to Path objects
-        for key in ['train_data_file', 'test_data_file', 'output_dir']:
-            if key in merged_config and merged_config[key] is not None:
-                merged_config[key] = Path(merged_config[key])
-        
-        # Handle nested 'model' config from YAML
-        model_config_dict = {}
-        if 'model' in merged_config and isinstance(merged_config['model'], dict):
-            model_config_dict = merged_config['model']
-        
-        # Create ModelConfig from merged values
-        model_fields = {f.name for f in fields(ModelConfig)}
-        model_args = {k: v for k, v in merged_config.items() if k in model_fields}
-        # Override with values from nested model config if present
-        model_args.update({k: v for k, v in model_config_dict.items() if k in model_fields})
-        model_config = ModelConfig(**model_args)
-        
-        # Create TrainingConfig
-        training_fields = {f.name for f in fields(TrainingConfig)}
-        training_args = {k: v for k, v in merged_config.items() 
-                        if k in training_fields and k != 'model'}
-        
-        # Log the configuration sources for debugging
-        logger.debug(f"YAML config: {yaml_config}")
-        logger.debug(f"CLI arguments: {args_config}")
-        logger.debug(f"Merged config: {merged_config}")
-        
-        config = TrainingConfig(model=model_config, **training_args)
-        
-        # Update the global configuration
-        update_legacy_dict(params.cfg, config)
-        params.seal()
+        cli_patch = {
+            name: value
+            for name, value in vars(args).items()
+            if name in PUBLIC_TRAINING_INPUT_NAMES
+        }
+        config = resolve_training_config(yaml_config, cli_patch)
 
         logger.info("Configuration setup complete")
         logger.info(f"Final configuration: {config}")
@@ -716,6 +732,7 @@ def create_ptycho_data_container(data: Union[RawData, PtychoDataContainer], conf
     else:
         raise TypeError("data must be either RawData or PtychoDataContainer")
 
+@scoped_legacy_params
 def train_cdi_model(
     train_data: Union[RawData, PtychoDataContainer],
     test_data: Optional[Union[RawData, PtychoDataContainer]],
@@ -731,6 +748,8 @@ def train_cdi_model(
     Returns:
         Dict[str, Any]: Results dictionary containing training history.
     """
+    config = _resolve_tensorflow_training_config(config)
+
     from ptycho.loader import PtychoDataset
     from ptycho import train_pinn
     # Convert input data to PtychoDataContainer
@@ -848,6 +867,7 @@ def reassemble_cdi_image(
     
     return recon_amp, recon_phase, results
 
+@scoped_legacy_params
 def run_cdi_example(
     train_data: Union[RawData, PtychoDataContainer],
     test_data: Optional[Union[RawData, PtychoDataContainer]],
@@ -877,6 +897,8 @@ def run_cdi_example(
         - reconstructed phase (or None)
         - results dictionary
     """
+    config = _resolve_tensorflow_training_config(config)
+
     # Update global params with new-style config at entry point
     update_legacy_dict(params.cfg, config)
     

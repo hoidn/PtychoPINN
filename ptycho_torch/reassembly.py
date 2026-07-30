@@ -10,6 +10,9 @@ from torch import nn
 import torch.nn.functional as F
 import ptycho_torch.helper as hh
 from ptycho_torch.dataloader import Collate
+from ptycho.reconstruction_policy import CalibrationSpec
+from ptycho_torch.reconstruction_ports import calibrate_reconstruction_canvas
+from ptycho_torch.object_compatibility import resolve_model_object_compatibility
 
 #Other useful libraries
 import time
@@ -1437,8 +1440,17 @@ def _scan_identity_evidence(
     if callable(grouping_enabled):
         grouped = bool(grouping_enabled())
     else:
+        compatibility = getattr(source_dataset, "object_compatibility", None)
+        if compatibility is None:
+            source_model_config = getattr(source_dataset, "model_config", None)
+            compatibility = (
+                resolve_model_object_compatibility(source_model_config)
+                if source_model_config is not None
+                else None
+            )
         grouped = bool(
-            getattr(getattr(source_dataset, "model_config", None), "object_big", False)
+            compatibility is not None
+            and compatibility.layout == "grouped_patch_components_v1"
         )
     if not grouped:
         if used.numel() and (
@@ -1929,11 +1941,18 @@ def reconstruct_image_barycentric(model: nn.Module,
 
     # 4. Solve for constants (using corrected statistics if swapped)
     scaler_solve_time_start = time.time()
-    scaled_canvas, s1, s2 = apply_varpro_canvas_scaling(
+    calibration_spec = CalibrationSpec(
+        method="varpro_s1s2_v1" if varpro_scaling else "identity_v1"
+    )
+    scaled_canvas, s1, s2 = calibrate_reconstruction_canvas(
         texture_canvas,
-        scaler,
-        enabled=varpro_scaling,
-        verbose=verbose,
+        calibration_spec,
+        varpro_calibrator=lambda canvas: apply_varpro_canvas_scaling(
+            canvas,
+            scaler,
+            enabled=True,
+            verbose=verbose,
+        ),
     )
     scaler_solve_time_end = time.time() - scaler_solve_time_start
 
@@ -2109,7 +2128,12 @@ def detect_swap_probe_reference(model: nn.Module,
     Returns:
         bool: True if channels are swapped
     """
-    C_in = model_config.C_model if model_config.object_big else 1
+    compatibility = resolve_model_object_compatibility(model_config)
+    C_in = (
+        model_config.C_model
+        if compatibility.layout == "grouped_patch_components_v1"
+        else 1
+    )
 
     with torch.no_grad():
         # |FFT(probe)|^2 — diffraction pattern of a transparent object

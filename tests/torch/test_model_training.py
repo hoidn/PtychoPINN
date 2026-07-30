@@ -3,7 +3,7 @@ import pytest
 import torch
 
 
-def test_configure_optimizers_supports_plateau():
+def test_configure_optimizers_scheduler_plateau_uses_resolved_learning_rate():
     """Test that ReduceLROnPlateau uses TrainingConfig params and monitor."""
     from ptycho import params
     from ptycho.config.config import update_legacy_dict
@@ -16,6 +16,7 @@ def test_configure_optimizers_supports_plateau():
         train_data_file="train.npz",
         test_data_file="test.npz",
         output_dir="training_outputs",
+        learning_rate=4e-4,
         scheduler="ReduceLROnPlateau",
         plateau_factor=0.25,
         plateau_patience=5,
@@ -33,6 +34,7 @@ def test_configure_optimizers_supports_plateau():
         inference_config=infer_cfg,
     )
     result = module.configure_optimizers()
+    assert result["optimizer"].param_groups[0]["lr"] == pytest.approx(4e-4)
     sched_dict = result["lr_scheduler"]
 
     assert sched_dict["monitor"] == module.val_loss_name
@@ -42,6 +44,80 @@ def test_configure_optimizers_supports_plateau():
     assert scheduler.patience == 5
     assert scheduler.min_lrs == [1e-5]
     assert scheduler.threshold == 1e-3
+
+
+@pytest.mark.parametrize("clip_algorithm", ["norm", "value", "agc"])
+def test_manual_gradient_clip_uses_resolved_training_config(
+    clip_algorithm,
+    monkeypatch,
+):
+    from ptycho import params
+    from ptycho.config.config import update_legacy_dict
+    from ptycho_torch import train_utils
+    from ptycho_torch.config_params import (
+        DataConfig,
+        InferenceConfig,
+        ModelConfig,
+        TrainingConfig,
+    )
+    from ptycho_torch.model import PtychoPINN_Lightning
+
+    training_config = TrainingConfig(
+        gradient_clip_val=0.25,
+        gradient_clip_algorithm=clip_algorithm,
+        accum_steps=1,
+    )
+    update_legacy_dict(params.cfg, training_config)
+    module = PtychoPINN_Lightning(
+        model_config=ModelConfig(),
+        data_config=DataConfig(N=64, C=1, grid_size=(1, 1)),
+        training_config=training_config,
+        inference_config=InferenceConfig(),
+    )
+    calls = []
+
+    class FakeOptimizer:
+        def step(self):
+            calls.append(("step", None))
+
+        def zero_grad(self):
+            calls.append(("zero_grad", None))
+
+    module.optimizers = lambda: FakeOptimizer()
+    module.compute_loss = lambda _batch: torch.tensor(2.0, requires_grad=True)
+
+    def fake_backward(_loss):
+        parameter = next(module.parameters())
+        parameter.grad = torch.ones_like(parameter)
+
+    module.manual_backward = fake_backward
+    module.log = lambda *_args, **_kwargs: None
+    monkeypatch.setattr(
+        torch.nn.utils,
+        "clip_grad_norm_",
+        lambda *_args, **kwargs: calls.append(("norm", kwargs["max_norm"])),
+    )
+    monkeypatch.setattr(
+        torch.nn.utils,
+        "clip_grad_value_",
+        lambda _parameters, value: calls.append(("value", value)),
+    )
+    monkeypatch.setattr(
+        train_utils,
+        "adaptive_gradient_clip_",
+        lambda _parameters, *, clip_factor: calls.append(
+            ("agc", clip_factor)
+        ),
+    )
+
+    module.training_step({}, batch_idx=0)
+
+    assert module.training_config is training_config
+    assert module.gradient_clip_val == 0.25
+    assert (clip_algorithm, 0.25) in calls
+    assert {
+        name for name, _value in calls if name in {"norm", "value", "agc"}
+    } == {clip_algorithm}
 
 
 def test_configure_optimizers_selects_warmup_scheduler():

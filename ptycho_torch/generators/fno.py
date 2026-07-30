@@ -316,56 +316,6 @@ class FnoGenerator:
         self.config = config
 
     def build_model(self, pt_configs: Dict[str, Any]) -> 'nn.Module':
-        """Build the Cascaded FNO → CNN Lightning model.
+        from ptycho_torch.application_factory import build_ptychopinn_from_configs
 
-        Args:
-            pt_configs: Dict containing PyTorch config objects:
-                - model_config: PTModelConfig
-                - data_config: PTDataConfig
-                - training_config: PTTrainingConfig
-                - inference_config: PTInferenceConfig
-
-        Returns:
-            PtychoPINN_Lightning model instance with FNO generator
-        """
-        from ptycho_torch.model import PtychoPINN_Lightning
-
-        data_config = pt_configs['data_config']
-        model_config = pt_configs['model_config']
-        training_config = pt_configs['training_config']
-        inference_config = pt_configs['inference_config']
-
-        # Extract parameters from configs
-        N = getattr(data_config, 'N', 64)
-        C = getattr(data_config, 'C', 4)
-        n_filters = getattr(model_config, 'n_filters_scale', 2)
-        fno_modes = getattr(model_config, 'fno_modes', min(12, N // 4))
-        fno_width = getattr(model_config, 'fno_width', 32 * n_filters)
-        fno_blocks = getattr(model_config, 'fno_blocks', 4)
-        fno_cnn_blocks = getattr(model_config, 'fno_cnn_blocks', 2)
-        input_transform = getattr(model_config, "fno_input_transform", "none")
-        output_mode = getattr(model_config, "generator_output_mode", "real_imag")
-        generator_mode = "amp_phase" if output_mode == "amp_phase" else "real_imag"
-
-        # Build core generator module
-        core = CascadedFNOGenerator(
-            in_channels=1,
-            out_channels=2,
-            hidden_channels=fno_width,
-            fno_blocks=fno_blocks,
-            cnn_blocks=fno_cnn_blocks,
-            modes=fno_modes,
-            C=C,
-            input_transform=input_transform,
-            output_mode=generator_mode,
-        )
-
-        # Wrap in Lightning module with physics pipeline
-        return PtychoPINN_Lightning(
-            model_config=model_config,
-            data_config=data_config,
-            training_config=training_config,
-            inference_config=inference_config,
-            generator_module=core,
-            generator_output=output_mode,
-        )
+        return build_ptychopinn_from_configs(pt_configs)

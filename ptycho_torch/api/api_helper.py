@@ -2,98 +2,19 @@ import lightning as L
 from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
 from ptycho_torch.api.base_api import PtychoModel, PtychoDataLoader, ConfigManager, Trainer, Datagen
 from typing import Optional, Dict, Any, Tuple, Union, Protocol
-from ptycho_torch.config_params import TrainingConfig, DatagenConfig, DataConfig, ModelConfig, InferenceConfig, update_existing_config
+from ptycho_torch.config_params import TrainingConfig, DatagenConfig, DataConfig, ModelConfig, InferenceConfig
 from ptycho_torch.train_utils import get_training_strategy
 import mlflow
 import torch
 import os
 
-def config_from_json(json_path):
-
-    from ptycho_torch.utils import load_config_from_json, validate_and_process_config
-    
-    #Try loading from json, otherwise defaults to vanilla behavior
-    json_loaded = False
-    try:
-        config_data = load_config_from_json(json_path)
-        d_cfg, m_cfg, t_cfg, i_cfg, dgen_cfg = validate_and_process_config(config_data)
-        json_loaded = True
-    except Exception as e:
-        d_cfg, m_cfg, t_cfg, i_cfg, dgen_cfg = {}, {}, {}, {}, {} 
-
-    #Create configs and update with JSON values
-    data_config = DataConfig()
-    model_config = ModelConfig()
-    training_config = TrainingConfig()
-    datagen_config = DatagenConfig()
-    inference_config = InferenceConfig()
-
-    update_existing_config(data_config, d_cfg)       
-    update_existing_config(model_config, m_cfg)       
-    update_existing_config(training_config, t_cfg)
-    update_existing_config(datagen_config, dgen_cfg)        
-    update_existing_config(inference_config, i_cfg)
-
-    return {
-        "data_config": data_config,
-        "model_config": model_config,
-        "training_config": training_config,
-        "datagen_config": datagen_config,
-        "inference_config": inference_config,
-    }, json_loaded
-
-def load_configs_from_local_dir(run_root_path):
-    """
-    Reads JSON files from the run directory and reconstructs the dataclasses.
-    """
-    config_dir = os.path.join(run_root_path, "configs")
-    
-    # Map file names to their respective Dataclasses
-    mapping = {
-        "data_config.json": DataConfig(),
-        "model_config.json": ModelConfig(),
-        "training_config.json": TrainingConfig(),
-        "inference_config.json": InferenceConfig(),
-        "datagen_config.json": DatagenConfig()
-    }
-    
-    loaded_configs = []
-    
-    for filename, instance in mapping.items():
-        file_path = os.path.join(config_dir, filename)
-        if os.path.exists(file_path):
-            with open(file_path, 'r') as f:
-                config_dict = json.load(f)
-            update_existing_config(instance, config_dict)
-            print(f"Loaded: {filename}")
-        else:
-            print(f"Warning: {filename} not found in {config_dir}, using defaults.")
-        loaded_configs.append(instance)
-        
-    return tuple(loaded_configs)
-
-def update_manager_with_json(mlflow_manager: ConfigManager,
-                             json_loaded,
-                             json_manager: ConfigManager = None):
-    """
-    Quick helper function to override configs from mlflow load with json if doing flexible load
-    """
-    if json_loaded:
-        update_existing_config(mlflow_manager.data_config, json_manager.data_config)
-        update_existing_config(mlflow_manager.model_config, json_manager.model_config)
-        update_existing_config(mlflow_manager.training_config, json_manager.training_config)
-        update_existing_config(mlflow_manager.inference_config, json_manager.inference_config)
-        update_existing_config(mlflow_manager.datagen_config, json_manager.datagen_config)
-
-    return mlflow_manager
-
 
 def create_new_model(model=None,
                     config_manager: Optional[ConfigManager] = None,
-                    model_config: Optional[Union[ModelConfig, Dict]] = None,
-                    data_config: Optional[Union[DataConfig, Dict]] = None,
-                    training_config: Optional[Union[TrainingConfig, Dict]] = None,
-                    inference_config: Optional[Union[InferenceConfig, Dict]] = None
+                    model_config: Optional[ModelConfig] = None,
+                    data_config: Optional[DataConfig] = None,
+                    training_config: Optional[TrainingConfig] = None,
+                    inference_config: Optional[InferenceConfig] = None,
                     ):
     
     if config_manager is None:

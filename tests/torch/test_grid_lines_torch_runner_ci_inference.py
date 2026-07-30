@@ -273,7 +273,10 @@ def test_library_run_routes_ci_prepared_validation_container_to_inference(
     monkeypatch.setattr(
         runner,
         "load_cached_dataset_with_metadata",
-        lambda path: (raw_test_data, None),
+        lambda path: (
+            raw_test_data,
+            {"additional_parameters": {"offset": 0}},
+        ),
     )
     monkeypatch.setattr(
         runner,
@@ -293,7 +296,10 @@ def test_library_run_routes_ci_prepared_validation_container_to_inference(
     monkeypatch.setattr(
         runner,
         "compute_metrics",
-        lambda pred, gt, label: {"mae": [0.1, 0.2], "mse": [0.01, 0.02]},
+        lambda pred, gt, label, trim_offset=0: {
+            "mae": [0.1, 0.2],
+            "mse": [0.01, 0.02],
+        },
     )
     monkeypatch.setattr(
         "ptycho.workflows.grid_lines_workflow.save_recon_artifact",

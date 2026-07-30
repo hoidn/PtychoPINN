@@ -25,9 +25,11 @@ Override Matrix Reference:
 
 import pytest
 from pathlib import Path
-from dataclasses import is_dataclass
+from dataclasses import fields, is_dataclass
+import math
 import tempfile
 import shutil
+import warnings
 
 # Factory functions under test (stubs in Phase B2)
 from ptycho_torch.config_factory import (
@@ -35,13 +37,19 @@ from ptycho_torch.config_factory import (
     create_inference_payload,
     infer_probe_size,
     populate_legacy_params,
+    simulation_from_datagen_config,
+    datagen_config_from_simulation,
     TrainingPayload,
     InferencePayload,
 )
 
 # Config dataclasses for assertions
 from ptycho.config.config import (
+    DetectorSimulationConfig,
     ModelConfig as TFModelConfig,
+    ProbeSimulationConfig,
+    SimulationConfig,
+    SyntheticObjectConfig,
     TrainingConfig as TFTrainingConfig,
     InferenceConfig as TFInferenceConfig,
 )
@@ -50,7 +58,91 @@ from ptycho_torch.config_params import (
     ModelConfig as PTModelConfig,
     TrainingConfig as PTTrainingConfig,
     InferenceConfig as PTInferenceConfig,
+    DatagenConfig,
 )
+from ptycho.config.config import PyTorchExecutionConfig
+from ptycho_torch.execution_request import (
+    ExecutionCapabilities,
+    ExecutionRequest,
+)
+
+
+def test_datagen_config_converts_owned_fields_to_simulation_without_changing_payload_shape():
+    datagen = DatagenConfig(
+        objects_per_probe=6,
+        diff_per_object=128,
+        object_class="dead_leaves",
+        image_size=(256, 256),
+        probe_paths=["probe.npz"],
+        beamstop_diameter=8,
+    )
+
+    simulation = datagen.to_simulation_config()
+
+    assert simulation.object == SyntheticObjectConfig(
+        kind="dead_leaves",
+        image_size=(256, 256),
+        objects_per_probe=6,
+        diffractions_per_object=128,
+    )
+    assert simulation.probe.source == "custom"
+    assert simulation.probe.source_path == Path("probe.npz")
+    assert simulation.detector.beamstop_diameter == 8
+    assert tuple(datagen.__dataclass_fields__) == (
+        "objects_per_probe",
+        "diff_per_object",
+        "object_class",
+        "image_size",
+        "probe_paths",
+        "beamstop_diameter",
+    )
+
+
+def test_datagen_config_round_trip_preserves_only_representable_owned_fields():
+    simulation = SimulationConfig(
+        probe=ProbeSimulationConfig(source="custom", source_path=Path("probe.npz")),
+        object=SyntheticObjectConfig(
+            kind="natural_patch",
+            image_size=(320, 320),
+            objects_per_probe=5,
+            diffractions_per_object=64,
+        ),
+        detector=DetectorSimulationConfig(
+            photons_per_pattern=1e7,
+            beamstop_diameter=4,
+        ),
+    )
+
+    restored = datagen_config_from_simulation(simulation)
+
+    assert restored == DatagenConfig(
+        objects_per_probe=5,
+        diff_per_object=64,
+        object_class="natural_patch",
+        image_size=(320, 320),
+        probe_paths=["probe.npz"],
+        beamstop_diameter=4,
+    )
+    assert simulation_from_datagen_config(restored, base=simulation) == simulation
+
+
+def test_datagen_config_rejects_lossy_probe_or_object_conversion():
+    with pytest.raises(ValueError, match="exactly one probe path"):
+        DatagenConfig(probe_paths=["a.npz", "b.npz"]).to_simulation_config()
+    with pytest.raises(ValueError, match="single object_class"):
+        DatagenConfig(object_class=["lines", "dead_leaves"]).to_simulation_config()
+    with pytest.raises(ValueError, match="ideal probe"):
+        DatagenConfig.from_simulation_config(
+            SimulationConfig(probe=ProbeSimulationConfig(source="ideal"))
+        )
+
+
+def test_datagen_config_surfaces_canonical_simulation_validation_errors():
+    with pytest.raises(
+        ValueError,
+        match=r"simulation\.object\.image_size must be square",
+    ):
+        DatagenConfig(image_size=(250, 251)).to_simulation_config()
 
 # For params.cfg validation
 import ptycho.params
@@ -483,6 +575,67 @@ class TestLegacyParamsPopulation:
         assert ptycho.params.cfg['gridsize'] == 2
 
 
+def test_training_model_spec_failure_precedes_legacy_commit(
+    mock_train_npz,
+    temp_output_dir,
+    monkeypatch,
+):
+    import ptycho_torch.config_factory as factory
+
+    commits = []
+
+    def commit_spy(config):
+        commits.append(config)
+
+    def fail_model_spec(*_args, **_kwargs):
+        raise RuntimeError("model spec construction failed")
+
+    monkeypatch.setattr(factory, "populate_legacy_params", commit_spy)
+    monkeypatch.setattr(factory, "derive_model_spec", fail_model_spec)
+
+    with pytest.raises(RuntimeError, match="model spec construction failed"):
+        factory.create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={"n_groups": 1},
+        )
+
+    assert commits == []
+
+
+def test_inference_payload_failure_precedes_legacy_commit(
+    mock_checkpoint_dir,
+    mock_test_npz,
+    temp_output_dir,
+    monkeypatch,
+):
+    import ptycho_torch.config_factory as factory
+
+    commits = []
+
+    def commit_spy(config):
+        commits.append(config)
+
+    def fail_payload(*_args, **_kwargs):
+        raise RuntimeError("inference payload construction failed")
+
+    monkeypatch.setattr(factory, "populate_legacy_params", commit_spy)
+    monkeypatch.setattr(factory, "InferencePayload", fail_payload)
+
+    with pytest.raises(
+        RuntimeError,
+        match="inference payload construction failed",
+    ):
+        factory.create_inference_payload(
+            model_path=mock_checkpoint_dir,
+            test_data_file=mock_test_npz,
+            output_dir=temp_output_dir,
+            overrides={"n_groups": 1},
+        )
+
+    assert commits == []
+
+
 # ============================================================================
 # Test Category 4: Override Precedence Rules
 # ============================================================================
@@ -671,20 +824,25 @@ class TestExecutionConfigOverrides:
         assert exec_cfg.num_workers == 0  # CPU-safe default
 
     def test_execution_config_explicit_instance_propagates(self, mock_train_npz, temp_output_dir):
-        """User-provided execution_config instance propagates through payload."""
-        from ptycho.config.config import PyTorchExecutionConfig
+        """User-provided runtime request resolves into the payload carrier."""
+        from ptycho_torch.execution_request import ExecutionRequest
 
-        custom_exec_cfg = PyTorchExecutionConfig(
-            accelerator='gpu',
-            enable_progress_bar=True,
-            deterministic=False,
+        request = ExecutionRequest(
+            values={
+                "accelerator": "gpu",
+                "enable_progress_bar": True,
+                "deterministic": False,
+            },
+            explicit_fields=frozenset(
+                {"accelerator", "enable_progress_bar", "deterministic"}
+            ),
         )
 
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
             overrides={'n_groups': 512},
-            execution_config=custom_exec_cfg,
+            execution_config=request,
         )
         # GREEN phase assertions:
         assert payload.execution_config.accelerator == 'gpu'
@@ -704,23 +862,29 @@ class TestExecutionConfigOverrides:
         assert hasattr(exec_cfg, 'deterministic')
         assert hasattr(exec_cfg, 'num_workers')
         assert hasattr(exec_cfg, 'enable_progress_bar')
-        assert hasattr(exec_cfg, 'gradient_clip_val')
+        assert not hasattr(exec_cfg, 'gradient_clip_val')
+        assert hasattr(payload.pt_training_config, 'gradient_clip_val')
 
     def test_overrides_applied_records_execution_knobs(self, mock_train_npz, temp_output_dir):
         """Factory audit trail includes execution config knobs when applied."""
-        from ptycho.config.config import PyTorchExecutionConfig
+        from ptycho_torch.execution_request import ExecutionRequest
 
-        custom_exec_cfg = PyTorchExecutionConfig(
-            accelerator='cpu',
-            num_workers=4,
-            deterministic=True,
+        request = ExecutionRequest(
+            values={
+                "accelerator": "cpu",
+                "num_workers": 4,
+                "deterministic": True,
+            },
+            explicit_fields=frozenset(
+                {"accelerator", "num_workers", "deterministic"}
+            ),
         )
 
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
             overrides={'n_groups': 512, 'batch_size': 8},
-            execution_config=custom_exec_cfg,
+            execution_config=request,
         )
         # GREEN phase assertions:
         # Execution knobs should be recorded in overrides_applied
@@ -740,21 +904,32 @@ class TestExecutionConfigOverrides:
         - input.md EB1.E (checkpoint controls RED tests)
         - plans/.../phase_e_execution_knobs/plan.md §EB1.C (factory wiring)
         """
-        from ptycho.config.config import PyTorchExecutionConfig
+        from ptycho_torch.execution_request import ExecutionRequest
 
-        custom_exec_cfg = PyTorchExecutionConfig(
-            enable_checkpointing=False,
-            checkpoint_save_top_k=3,
-            checkpoint_monitor_metric='train_loss',
-            checkpoint_mode='max',
-            early_stop_patience=10,
+        request = ExecutionRequest(
+            values={
+                "enable_checkpointing": False,
+                "checkpoint_save_top_k": 3,
+                "checkpoint_monitor_metric": "train_loss",
+                "checkpoint_mode": "max",
+                "early_stop_patience": 10,
+            },
+            explicit_fields=frozenset(
+                {
+                    "enable_checkpointing",
+                    "checkpoint_save_top_k",
+                    "checkpoint_monitor_metric",
+                    "checkpoint_mode",
+                    "early_stop_patience",
+                }
+            ),
         )
 
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
             overrides={'n_groups': 512},
-            execution_config=custom_exec_cfg,
+            execution_config=request,
         )
 
         # GREEN phase assertions:
@@ -794,66 +969,32 @@ class TestExecutionConfigOverrides:
         assert exec_cfg.early_stop_patience == 100  # Default per dataclass
 
     def test_scheduler_override_applied(self, mock_train_npz, temp_output_dir):
-        """
-        Test: --scheduler override propagates to execution_config and overrides_applied.
-
-        Expected Behavior:
-        - execution_config.scheduler matches provided value
-        - overrides_applied['scheduler'] records the applied value
-
-        References:
-        - input.md EB2.B2 (factory override tests)
-        - plans/.../phase_e_execution_knobs/2025-10-23T081500Z/eb2_plan.md §EB2.B (factory wiring)
-        """
-        from ptycho.config.config import PyTorchExecutionConfig
-
-        custom_exec_cfg = PyTorchExecutionConfig(
-            scheduler='Exponential',
-        )
+        """Scheduler overrides resolve only on canonical TrainingConfig."""
 
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 512},
-            execution_config=custom_exec_cfg,
+            overrides={'n_groups': 512, 'scheduler': 'Exponential'},
         )
 
-        # GREEN phase assertions:
-        assert payload.execution_config.scheduler == 'Exponential', \
-            f"Expected scheduler='Exponential', got {payload.execution_config.scheduler}"
+        assert payload.pt_training_config.scheduler == 'Exponential'
+        assert not hasattr(payload.execution_config, 'scheduler')
         assert 'scheduler' in payload.overrides_applied, \
             "scheduler must appear in overrides_applied audit trail"
         assert payload.overrides_applied['scheduler'] == 'Exponential', \
             f"Expected overrides_applied['scheduler']='Exponential', got {payload.overrides_applied['scheduler']}"
 
     def test_accum_steps_override_applied(self, mock_train_npz, temp_output_dir):
-        """
-        Test: --accumulate-grad-batches override propagates to execution_config and overrides_applied.
-
-        Expected Behavior:
-        - execution_config.accum_steps matches provided value
-        - overrides_applied['accum_steps'] records the applied value
-
-        References:
-        - input.md EB2.B2 (factory override tests)
-        - plans/.../phase_e_execution_knobs/2025-10-23T081500Z/eb2_plan.md §EB2.B (factory wiring)
-        """
-        from ptycho.config.config import PyTorchExecutionConfig
-
-        custom_exec_cfg = PyTorchExecutionConfig(
-            accum_steps=4,
-        )
+        """Accumulation overrides resolve only on canonical TrainingConfig."""
 
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 512},
-            execution_config=custom_exec_cfg,
+            overrides={'n_groups': 512, 'accum_steps': 4},
         )
 
-        # GREEN phase assertions:
-        assert payload.execution_config.accum_steps == 4, \
-            f"Expected accum_steps=4, got {payload.execution_config.accum_steps}"
+        assert payload.pt_training_config.accum_steps == 4
+        assert not hasattr(payload.execution_config, 'accum_steps')
         assert 'accum_steps' in payload.overrides_applied, \
             "accum_steps must appear in overrides_applied audit trail"
         assert payload.overrides_applied['accum_steps'] == 4, \
@@ -876,17 +1017,18 @@ class TestExecutionConfigOverrides:
         - input.md EB3.B1 (factory logger tests)
         - plans/.../phase_e_execution_knobs/2025-10-23T110500Z/decision/approved.md §Q1
         """
-        from ptycho.config.config import PyTorchExecutionConfig
+        from ptycho_torch.execution_request import ExecutionRequest
 
-        custom_exec_cfg = PyTorchExecutionConfig(
-            logger_backend='csv',
+        request = ExecutionRequest(
+            values={"logger_backend": "csv"},
+            explicit_fields=frozenset({"logger_backend"}),
         )
 
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
             overrides={'n_groups': 512},
-            execution_config=custom_exec_cfg,
+            execution_config=request,
         )
 
         # GREEN phase assertions:
@@ -913,22 +1055,596 @@ class TestExecutionConfigOverrides:
         - input.md EB3.B1 (factory logger tests)
         - plans/.../phase_e_execution_knobs/2025-10-23T110500Z/decision/approved.md §Q2
         """
-        from ptycho.config.config import PyTorchExecutionConfig
+        from ptycho_torch.execution_request import ExecutionRequest
 
-        custom_exec_cfg = PyTorchExecutionConfig(
-            logger_backend='tensorboard',
+        request = ExecutionRequest(
+            values={"logger_backend": "tensorboard"},
+            explicit_fields=frozenset({"logger_backend"}),
         )
 
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
             overrides={'n_groups': 512},
-            execution_config=custom_exec_cfg,
+            execution_config=request,
         )
 
         # GREEN phase assertions:
         assert payload.execution_config.logger_backend == 'tensorboard', \
             f"Expected logger_backend='tensorboard', got {payload.execution_config.logger_backend}"
+
+
+def test_training_optimizer_inputs_resolve_from_canonical_overrides(
+    mock_train_npz,
+    temp_output_dir,
+):
+    request = ExecutionRequest(
+        values={"accelerator": "cpu"},
+        explicit_fields=frozenset({"accelerator"}),
+    )
+
+    payload = create_training_payload(
+        train_data_file=mock_train_npz,
+        output_dir=temp_output_dir,
+        overrides={
+            "n_groups": 4,
+            "learning_rate": 3e-4,
+            "scheduler": "Exponential",
+            "gradient_clip_val": 5.0,
+            "accum_steps": 4,
+        },
+        training_baseline=PTTrainingConfig(scheduler="WarmupCosine"),
+        execution_config=request,
+    )
+
+    assert payload.pt_training_config.learning_rate == 3e-4
+    assert payload.pt_training_config.scheduler == "Exponential"
+    assert payload.pt_training_config.gradient_clip_val == 5.0
+    assert payload.pt_training_config.accum_steps == 4
+    assert payload.overrides_applied["training_config_provenance"][
+        "learning_rate"
+    ] == "canonical_override"
+    assert payload.overrides_applied["training_config_provenance"][
+        "scheduler"
+    ] == "canonical_override"
+
+
+def test_runtime_request_does_not_override_training_baseline(
+    mock_train_npz,
+    temp_output_dir,
+):
+    request = ExecutionRequest(
+        values={"accelerator": "cpu"},
+        explicit_fields=frozenset({"accelerator"}),
+    )
+
+    payload = create_training_payload(
+        train_data_file=mock_train_npz,
+        output_dir=temp_output_dir,
+        overrides={"n_groups": 4},
+        training_baseline=PTTrainingConfig(learning_rate=4e-4),
+        execution_config=request,
+    )
+
+    assert payload.pt_training_config.learning_rate == 4e-4
+    assert payload.overrides_applied["training_config_provenance"][
+        "learning_rate"
+    ] == "training_baseline"
+
+
+def test_factory_rejects_bare_resolved_execution_carrier(
+    mock_train_npz,
+    temp_output_dir,
+):
+    with pytest.raises(TypeError, match="ExecutionRequest"):
+        create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={"n_groups": 4},
+            execution_config=PyTorchExecutionConfig(),
+        )
+
+
+def test_execution_ownership_public_scheduler_is_baseline_not_explicit_patch(
+    mock_train_npz,
+    temp_output_dir,
+):
+    public = TFTrainingConfig(
+        model=TFModelConfig(),
+        scheduler="WarmupCosine",
+    )
+    baseline = create_training_payload(
+        train_data_file=mock_train_npz,
+        output_dir=temp_output_dir,
+        overrides={"n_groups": 4},
+        training_baseline=public,
+    )
+    canonical = create_training_payload(
+        train_data_file=mock_train_npz,
+        output_dir=temp_output_dir,
+        overrides={"n_groups": 4, "scheduler": "WarmupCosine"},
+        training_baseline=public,
+    )
+
+    assert baseline.pt_training_config.scheduler == "WarmupCosine"
+    assert canonical.pt_training_config.scheduler == "WarmupCosine"
+    assert baseline.overrides_applied["training_config_provenance"][
+        "scheduler"
+    ] == "training_baseline"
+    assert canonical.overrides_applied["training_config_provenance"][
+        "scheduler"
+    ] == "canonical_override"
+
+
+@pytest.mark.parametrize(
+    ("field_name", "invalid"),
+    [
+        ("scheduler", "CosineAnnealing"),
+        ("gradient_clip_algorithm", "bogus"),
+        ("learning_rate", 0.0),
+        ("learning_rate", math.inf),
+        ("accum_steps", 0),
+        ("gradient_clip_val", -1.0),
+        ("gradient_clip_val", math.nan),
+    ],
+)
+def test_execution_domain_rejects_invalid_effective_training_owner(
+    mock_train_npz,
+    temp_output_dir,
+    field_name,
+    invalid,
+):
+    with pytest.raises(ValueError, match=field_name):
+        create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={"n_groups": 4, field_name: invalid},
+            execution_config=ExecutionRequest(
+                values={"accelerator": "cpu"},
+                explicit_fields=frozenset({"accelerator"}),
+            ),
+        )
+
+
+@pytest.mark.parametrize(
+    "scheduler",
+    [
+        "Default",
+        "Exponential",
+        "MultiStage",
+        "Adaptive",
+        "WarmupCosine",
+        "ReduceLROnPlateau",
+    ],
+)
+def test_execution_domain_accepts_complete_torch_scheduler_set(
+    mock_train_npz,
+    temp_output_dir,
+    scheduler,
+):
+    payload = create_training_payload(
+        train_data_file=mock_train_npz,
+        output_dir=temp_output_dir,
+        overrides={"n_groups": 4, "scheduler": scheduler},
+        execution_config=ExecutionRequest(
+            values={"accelerator": "cpu"},
+            explicit_fields=frozenset({"accelerator"}),
+        ),
+    )
+
+    assert payload.pt_training_config.scheduler == scheduler
+
+
+def test_execution_deferred_invalid_patch_does_not_observe_capabilities(
+    mock_train_npz,
+    temp_output_dir,
+    monkeypatch,
+):
+    observed = []
+    monkeypatch.setattr(
+        "ptycho_torch.execution_request.observe_execution_capabilities",
+        lambda: observed.append(True),
+    )
+
+    with pytest.raises(ValueError, match="learning_rate"):
+        create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={"n_groups": 4, "learning_rate": 0.0},
+            execution_config=ExecutionRequest(
+                values={"accelerator": "auto"},
+                explicit_fields=frozenset({"accelerator"}),
+            ),
+        )
+
+    assert observed == []
+
+
+def test_execution_deferred_none_does_not_observe_before_scientific_validation(
+    mock_train_npz,
+    temp_output_dir,
+    monkeypatch,
+):
+    observed = []
+    monkeypatch.setattr(
+        "ptycho_torch.execution_request.observe_execution_capabilities",
+        lambda: observed.append(True),
+    )
+
+    with pytest.raises(ValueError, match="n_groups is required"):
+        create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={},
+            execution_config=None,
+        )
+
+    assert observed == []
+
+
+def test_execution_provenance_cuda_auto_resolution_is_audited(
+    mock_train_npz,
+    temp_output_dir,
+):
+    payload = create_training_payload(
+        train_data_file=mock_train_npz,
+        output_dir=temp_output_dir,
+        overrides={"n_groups": 4},
+        execution_config=ExecutionRequest(
+            values={
+                "accelerator": "auto",
+                "devices": "auto",
+                "pin_memory": True,
+                "precision": "16-mixed",
+            },
+            explicit_fields=frozenset(
+                {"accelerator", "devices", "pin_memory", "precision"}
+            ),
+        ),
+        execution_capabilities=ExecutionCapabilities(
+            cuda_available=True,
+            cuda_device_count=3,
+        ),
+    )
+
+    assert payload.execution_config.accelerator == "cuda"
+    assert payload.execution_config.devices == 3
+    assert payload.overrides_applied["execution_runtime"] == {
+        "explicit_fields": [
+            "accelerator",
+            "devices",
+            "pin_memory",
+            "precision",
+        ],
+        "requested": {
+            "accelerator": "auto",
+            "devices": "auto",
+            "pin_memory": True,
+            "precision": "16-mixed",
+        },
+        "resolved": {
+            "accelerator": "cuda",
+            "devices": 3,
+            "pin_memory": True,
+            "precision": "16-mixed",
+        },
+        "capabilities": {
+            "cuda_available": True,
+            "cuda_device_count": 3,
+        },
+    }
+
+
+def test_execution_values_excluded_from_identity(
+    mock_train_npz,
+    temp_output_dir,
+    monkeypatch,
+):
+    from ptycho_torch.artifact_schema import encode_artifact_identity
+
+    monkeypatch.setattr(ptycho.params, "cfg", {})
+    monkeypatch.setattr(ptycho.params, "_sealed", False)
+    request_values = {
+        "accelerator": "auto",
+        "devices": "auto",
+        "precision": "16-mixed",
+        "pin_memory": True,
+        "logger_backend": "tensorboard",
+        "num_workers": 2,
+        "persistent_workers": True,
+        "checkpoint_save_top_k": 7,
+    }
+    payload = create_training_payload(
+        train_data_file=mock_train_npz,
+        output_dir=temp_output_dir,
+        overrides={"n_groups": 4},
+        execution_config=ExecutionRequest(
+            values=request_values,
+            explicit_fields=frozenset(request_values),
+        ),
+        execution_capabilities=ExecutionCapabilities(
+            cuda_available=True,
+            cuda_device_count=6,
+        ),
+    )
+
+    model_spec_payload = payload.model_spec.to_payload()
+    artifact_identity = encode_artifact_identity(
+        payload.model_spec,
+        payload.pt_data_config,
+        payload.pt_training_config,
+        payload.pt_inference_config,
+    )
+    excluded_names = {
+        "accelerator",
+        "devices",
+        "precision",
+        "pin_memory",
+        "logger_backend",
+        "persistent_workers",
+        "checkpoint_save_top_k",
+    }
+
+    def nested_mapping_keys(value):
+        if isinstance(value, dict):
+            return set(value).union(
+                *(
+                    nested_mapping_keys(item)
+                    for item in value.values()
+                ),
+                set(),
+            )
+        if isinstance(value, (list, tuple)):
+            return set().union(
+                *(nested_mapping_keys(item) for item in value),
+                set(),
+            )
+        return set()
+
+    assert excluded_names.isdisjoint(ptycho.params.cfg)
+    assert excluded_names.isdisjoint(
+        field_info.name for field_info in fields(payload.model_spec)
+    )
+    assert excluded_names.isdisjoint(nested_mapping_keys(model_spec_payload))
+    assert excluded_names.isdisjoint(nested_mapping_keys(artifact_identity))
+    for section_name in (
+        "model_spec",
+        "data_config",
+        "training_config",
+        "inference_config",
+    ):
+        assert excluded_names.isdisjoint(
+            nested_mapping_keys(artifact_identity[section_name])
+        )
+
+    assert payload.execution_config.num_workers == 2
+    assert (
+        payload.pt_training_config.num_workers
+        == PTTrainingConfig().num_workers
+        == 4
+    )
+    assert artifact_identity["training_config"]["num_workers"] == 4
+
+    runtime_audit = payload.overrides_applied["execution_runtime"]
+    assert runtime_audit == {
+        "explicit_fields": sorted(request_values),
+        "requested": {
+            "accelerator": "auto",
+            "devices": "auto",
+            "pin_memory": True,
+            "precision": "16-mixed",
+        },
+        "resolved": {
+            "accelerator": "cuda",
+            "devices": 6,
+            "pin_memory": True,
+            "precision": "16-mixed",
+        },
+        "capabilities": {
+            "cuda_available": True,
+            "cuda_device_count": 6,
+        },
+    }
+
+
+def test_execution_provenance_auto_cpu_fallback_uses_injected_capabilities(
+    mock_train_npz,
+    temp_output_dir,
+):
+    with pytest.warns(UserWarning, match="POLICY-001"):
+        payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={"n_groups": 4},
+            execution_config=ExecutionRequest(
+                values={"accelerator": "auto", "devices": "auto"},
+                explicit_fields=frozenset({"accelerator", "devices"}),
+            ),
+            execution_capabilities=ExecutionCapabilities(
+                cuda_available=False,
+                cuda_device_count=0,
+            ),
+        )
+
+    assert payload.execution_config.accelerator == "cpu"
+    assert payload.execution_config.devices == 1
+    assert payload.overrides_applied["execution_runtime"]["capabilities"] == {
+        "cuda_available": False,
+        "cuda_device_count": 0,
+    }
+
+
+@pytest.mark.parametrize("accelerator", ["cpu", "cuda"])
+def test_execution_deferred_explicit_concrete_runtime_skips_capability_observer(
+    mock_train_npz,
+    temp_output_dir,
+    monkeypatch,
+    accelerator,
+):
+    monkeypatch.setattr(
+        "ptycho_torch.execution_request.observe_execution_capabilities",
+        lambda: pytest.fail("explicit concrete runtime observed capabilities"),
+    )
+
+    payload = create_training_payload(
+        train_data_file=mock_train_npz,
+        output_dir=temp_output_dir,
+        overrides={"n_groups": 4},
+        execution_config=ExecutionRequest(
+            values={"accelerator": accelerator, "devices": 2},
+            explicit_fields=frozenset({"accelerator", "devices"}),
+        ),
+    )
+
+    assert payload.execution_config.accelerator == accelerator
+    assert payload.execution_config.devices == 2
+    assert payload.overrides_applied["execution_runtime"]["capabilities"] is None
+
+
+def test_execution_deferred_invalid_accelerator_fails_before_observer(
+    mock_train_npz,
+    temp_output_dir,
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "ptycho_torch.execution_request.observe_execution_capabilities",
+        lambda: pytest.fail("invalid request observed capabilities"),
+    )
+
+    with pytest.raises(ValueError, match="TPU execution is unsupported"):
+        create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={"n_groups": 4},
+            execution_config=ExecutionRequest(
+                values={"accelerator": "tpu"},
+                explicit_fields=frozenset({"accelerator"}),
+            ),
+        )
+
+
+def test_execution_deferred_resolved_constructor_does_not_repeat_cuda_lookup(
+    mock_train_npz,
+    temp_output_dir,
+    monkeypatch,
+):
+    import torch
+
+    monkeypatch.setattr(
+        torch.cuda,
+        "is_available",
+        lambda: pytest.fail("resolved constructor repeated CUDA lookup"),
+    )
+
+    payload = create_training_payload(
+        train_data_file=mock_train_npz,
+        output_dir=temp_output_dir,
+        overrides={"n_groups": 4},
+        execution_config=ExecutionRequest(
+            values={"accelerator": "auto", "devices": 2},
+            explicit_fields=frozenset({"accelerator", "devices"}),
+        ),
+        execution_capabilities=ExecutionCapabilities(
+            cuda_available=True,
+            cuda_device_count=4,
+        ),
+    )
+
+    assert payload.execution_config.accelerator == "cuda"
+    assert payload.execution_config.devices == 2
+
+
+def test_execution_provenance_cpu_runtime_downgrades_are_deferred_and_audited(
+    mock_train_npz,
+    temp_output_dir,
+):
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={"n_groups": 4},
+            execution_config=ExecutionRequest(
+                values={
+                    "accelerator": "cpu",
+                    "devices": "auto",
+                    "pin_memory": True,
+                    "precision": "16-mixed",
+                },
+                explicit_fields=frozenset(
+                    {"accelerator", "devices", "pin_memory", "precision"}
+                ),
+            ),
+        )
+
+    assert payload.execution_config.devices == 1
+    assert payload.execution_config.pin_memory is False
+    assert payload.execution_config.precision == "bf16-mixed"
+    pin_memory_notices = [
+        str(item.message)
+        for item in caught
+        if "pin_memory=True is unavailable" in str(item.message)
+    ]
+    assert pin_memory_notices == [
+        "pin_memory=True is unavailable for accelerator='cpu'; using False."
+    ]
+    assert payload.overrides_applied["execution_runtime"]["capabilities"] is None
+    assert payload.overrides_applied["execution_runtime"]["resolved"] == {
+        "accelerator": "cpu",
+        "devices": 1,
+        "pin_memory": False,
+        "precision": "bf16-mixed",
+    }
+
+
+def test_execution_inference_accepts_runtime_request_and_rejects_optimizer(
+    mock_checkpoint_dir,
+    mock_test_npz,
+    temp_output_dir,
+):
+    payload = create_inference_payload(
+        model_path=mock_checkpoint_dir,
+        test_data_file=mock_test_npz,
+        output_dir=temp_output_dir,
+        overrides={"n_groups": 4},
+        execution_config=ExecutionRequest(
+            values={"accelerator": "cpu", "devices": "auto"},
+            explicit_fields=frozenset({"accelerator", "devices"}),
+        ),
+    )
+
+    assert payload.execution_config.accelerator == "cpu"
+    assert payload.execution_config.devices == 1
+    assert payload.overrides_applied["execution_runtime"]["requested"][
+        "devices"
+    ] == "auto"
+
+    with pytest.raises(ValueError, match="inference.*learning_rate"):
+        create_inference_payload(
+            model_path=mock_checkpoint_dir,
+            test_data_file=mock_test_npz,
+            output_dir=temp_output_dir,
+            overrides={"n_groups": 4, "learning_rate": 1e-3},
+            execution_config=ExecutionRequest(
+                values={"accelerator": "cpu"},
+                explicit_fields=frozenset({"accelerator"}),
+            ),
+        )
+
+
+def test_execution_inference_rejects_bare_resolved_carrier(
+    mock_checkpoint_dir,
+    mock_test_npz,
+    temp_output_dir,
+):
+    with pytest.raises(TypeError, match="ExecutionRequest"):
+        create_inference_payload(
+            model_path=mock_checkpoint_dir,
+            test_data_file=mock_test_npz,
+            output_dir=temp_output_dir,
+            overrides={"n_groups": 4},
+            execution_config=PyTorchExecutionConfig(),
+        )
 
 
 # ============================================================================
@@ -959,14 +1675,9 @@ class TestVarProProbeWeightingKnobOverrides:
     """Prove the 5 ModelConfig knobs added by Phase-2 (Tasks 2.3-2.6) survive
     create_training_payload's override round-trip.
 
-    update_existing_config() (ptycho_torch/config_params.py) silently drops any
-    override key that is not an existing attribute on the target dataclass
-    instance (no exception, no warning by default). A naive test that only
-    checks create_training_payload() didn't raise would pass even if the
-    factory silently dropped the key. These tests instead assert the override
-    actually moved pt_model_config's field value away from its class default,
-    which is only possible if update_existing_config really applied the
-    override via setattr.
+    A naive test that only checks create_training_payload() did not raise would
+    pass even if the resolver silently dropped a key. These tests instead
+    assert that each override reaches the resolved ModelConfig owner.
     """
 
     def test_cnn_output_mode_override_survives_training_payload(self, mock_train_npz, temp_output_dir):
@@ -988,7 +1699,13 @@ class TestVarProProbeWeightingKnobOverrides:
         assert payload.pt_model_config.use_shared_decoder is True
 
     def test_training_patch_weighting_override_survives_training_payload(self, mock_train_npz, temp_output_dir):
-        assert PTModelConfig().training_patch_weighting == 'central_mask'  # documents the default
+        from ptycho_torch.object_compatibility import resolve_torch_model_object_policy
+
+        assert PTModelConfig().training_patch_weighting is None
+        assert (
+            resolve_torch_model_object_policy(PTModelConfig()).training_patch_weighting
+            == 'central_mask'
+        )
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
@@ -1046,16 +1763,17 @@ class TestTrainWithLightningVarProProbeWeightingForwarding:
             n_groups=4,
         )
 
-        real_create_training_payload = config_factory_module.create_training_payload
+        real_resolve_training_payload = config_factory_module.resolve_training_payload
         captured = {}
 
-        def spy_create_payload(*args, **kwargs):
-            payload = real_create_training_payload(*args, **kwargs)
+        def spy_resolve_payload(*args, **kwargs):
+            payload = real_resolve_training_payload(*args, **kwargs)
             captured["pt_model_config"] = payload.pt_model_config
             raise RuntimeError("stop-after-capture")
 
         monkeypatch.setattr(
-            "ptycho_torch.config_factory.create_training_payload", spy_create_payload
+            "ptycho_torch.config_factory.resolve_training_payload",
+            spy_resolve_payload,
         )
 
         with pytest.raises(RuntimeError, match="stop-after-capture"):
@@ -1094,16 +1812,17 @@ class TestTrainWithLightningVarProProbeWeightingForwarding:
             n_groups=4,
         )
 
-        real_create_training_payload = config_factory_module.create_training_payload
+        real_resolve_training_payload = config_factory_module.resolve_training_payload
         captured = {}
 
-        def spy_create_payload(*args, **kwargs):
-            payload = real_create_training_payload(*args, **kwargs)
+        def spy_resolve_payload(*args, **kwargs):
+            payload = real_resolve_training_payload(*args, **kwargs)
             captured["pt_model_config"] = payload.pt_model_config
             raise RuntimeError("stop-after-capture")
 
         monkeypatch.setattr(
-            "ptycho_torch.config_factory.create_training_payload", spy_create_payload
+            "ptycho_torch.config_factory.resolve_training_payload",
+            spy_resolve_payload,
         )
 
         with pytest.raises(RuntimeError, match="stop-after-capture"):
@@ -1114,7 +1833,9 @@ class TestTrainWithLightningVarProProbeWeightingForwarding:
             )
 
         pt_model_config = captured["pt_model_config"]
-        defaults = PTModelConfig()
+        from ptycho_torch.object_compatibility import resolve_torch_model_object_policy
+
+        defaults = resolve_torch_model_object_policy(PTModelConfig())
         assert pt_model_config.training_patch_weighting == defaults.training_patch_weighting
         assert pt_model_config.physics_forward_mode == defaults.physics_forward_mode
         assert pt_model_config.cnn_output_mode == defaults.cnn_output_mode

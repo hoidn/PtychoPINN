@@ -8,8 +8,8 @@ torch-optional behavior for testing and fallback scenarios.
 Architecture Role:
 -----------------
 This adapter sits at the boundary between PyTorch-specific code and the legacy TensorFlow
-data pipeline. It ensures configuration state is correctly initialized via the config bridge
-before delegating to TensorFlow's RawData implementation.
+data pipeline. It supplies explicit configuration values when delegating to TensorFlow's
+RawData implementation, without projecting them into legacy global state.
 
 Key Design Decisions:
 ---------------------
@@ -19,11 +19,18 @@ Key Design Decisions:
 2. **Torch-Optional**: Module is importable without PyTorch installed; only imports torch
    for future tensor conversion utilities (currently not used).
 
-3. **Configuration Bridge Enforcement**: Constructor accepts dataclass configs and calls
-   `update_legacy_dict()` internally, preventing CONFIG-001 shape mismatch bugs.
+3. **Explicit Configuration Ownership**: Constructor retains the caller's config record,
+   and grouping uses either its model gridsize or an explicit method argument.
 
 4. **NumPy-First Output**: Returns NumPy arrays (matching TensorFlow RawData behavior)
    to maintain compatibility with existing test fixtures and downstream code.
+
+Contained legacy seam:
+----------------------
+When no precomputed ``Y`` exists and ``objectGuess`` is supplied, only the
+TensorFlow ground-truth translation leaf receives a temporary projection of the
+retained caller config. Group selection and all other data preparation remain
+global-free, and the ambient legacy dictionary is restored exactly afterward.
 
 Public Interface:
 -----------------
@@ -53,7 +60,7 @@ Usage Example:
         nphotons=1e9
     )
 
-    # Create adapter (auto-initializes params.cfg)
+    # Create adapter (does not mutate params.cfg)
     raw_data = RawDataTorch(
         xcoords=coords_x,
         ycoords=coords_y,
@@ -81,20 +88,19 @@ Contract Compliance:
 Source References:
 ------------------
 - TensorFlow RawData: ptycho/raw_data.py:126-363
-- Config Bridge: ptycho_torch/config_bridge.py (Phase B.B3 implementation)
 - Data Contract: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T070200Z/data_contract.md
 - Test Blueprint: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T070200Z/test_blueprint.md
 
 Findings Applied:
 -----------------
-- CONFIG-001: Mandatory `update_legacy_dict()` before data operations
+- CONFIG-001: Supply grouping geometry explicitly instead of reading global state
 - DATA-001: Preserve complex64 dtype for Y patches
 - NORMALIZATION-001: Do not apply photon scaling to data (handled by config)
 """
 
 import numpy as np
 from typing import Optional, Dict, Any
-from pathlib import Path
+from ptycho.acquisition import AcquisitionRecord
 
 # Torch-optional import guard (per test_blueprint.md §1.C and CLAUDE.md:57-59)
 try:
@@ -102,6 +108,44 @@ try:
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
+
+
+def _get_object_patches_with_legacy_translation(
+    *,
+    object_guess: np.ndarray,
+    global_offsets: np.ndarray,
+    local_offsets: np.ndarray,
+    N: int,
+    gridsize: int,
+    config: Any,
+) -> Any:
+    """Call the remaining TensorFlow translation leaf with contained legacy state."""
+    from ptycho import params, raw_data
+    from ptycho.config.config import update_legacy_dict
+    from ptycho.config.legacy_state import (
+        configured_params_scope,
+        legacy_params_scope,
+    )
+
+    if config is None:
+        raise ValueError(
+            "objectGuess fallback requires an explicit caller config; "
+            "ambient params.cfg is not configuration authority"
+        )
+
+    # configured_params_scope owns the projection lifecycle; the immediately
+    # enclosing restoration scope guarantees that even a successful legacy
+    # translation leaves the caller's exact ambient state intact.
+    with legacy_params_scope():
+        with configured_params_scope():
+            update_legacy_dict(params.cfg, config)
+            return raw_data.get_image_patches(
+                object_guess,
+                global_offsets,
+                local_offsets,
+                N=N,
+                gridsize=gridsize,
+            )
 
 
 class RawDataTorch:
@@ -113,13 +157,10 @@ class RawDataTorch:
 
     Attributes:
         _tf_raw_data: Underlying TensorFlow RawData instance (delegation target)
-        _config: Optional TrainingConfig/InferenceConfig for params initialization
+        _config: Optional TrainingConfig/InferenceConfig owning grouping defaults
 
-    Critical Gotchas (per CLAUDE.md:76-93):
-    ----------------------------------------
-    1. MUST call update_legacy_dict() before generate_grouped_data()
-    2. Failure causes shape mismatches (e.g., (*, 64, 64, 1) instead of (*, 64, 64, 4))
-    3. This adapter handles initialization automatically in constructor
+    Grouping geometry must come from either ``generate_grouped_data(gridsize=...)``
+    or ``config.model.gridsize``. The adapter never falls back to ``params.cfg``.
     """
 
     def __init__(
@@ -142,39 +183,71 @@ class RawDataTorch:
             probeGuess: Probe function, shape (N, N), dtype complex64
             scan_index: Scan point indices, shape (n_images,), dtype int
             objectGuess: Full object (optional), shape (M, M), dtype complex64
-            config: Optional TrainingConfig/InferenceConfig for params initialization
+            config: Optional TrainingConfig/InferenceConfig owning grouping defaults
 
         Raises:
             ImportError: If ptycho module unavailable (installation issue)
             ValueError: If data arrays have incompatible shapes
 
         Note:
-            If config is provided, this constructor calls update_legacy_dict(params.cfg, config)
-            automatically, preventing CONFIG-001 shape mismatch bugs. If config is None,
-            assumes params.cfg is already initialized (e.g., from loaded model).
+            Construction does not mutate legacy configuration state. Callers that omit
+            ``gridsize`` during grouping must provide a config with ``model.gridsize``.
         """
-        # Import TensorFlow dependencies
-        from ptycho.raw_data import RawData
-        from ptycho.config.config import update_legacy_dict
-        from ptycho import params as p
-
-        # Initialize params.cfg if config provided (CRITICAL per CONFIG-001)
-        if config is not None:
-            update_legacy_dict(p.cfg, config)
-
-        # Delegate to TensorFlow RawData via factory method
-        # (avoids need for separate start coordinates)
-        self._tf_raw_data = RawData.from_coords_without_pc(
+        record = AcquisitionRecord(
             xcoords=xcoords,
             ycoords=ycoords,
+            xcoords_start=xcoords,
+            ycoords_start=ycoords,
             diff3d=diff3d,
             probeGuess=probeGuess,
             scan_index=scan_index,
-            objectGuess=objectGuess
+            objectGuess=objectGuess,
         )
+        self._initialize_from_acquisition(record, config)
+
+    @classmethod
+    def from_acquisition(
+        cls,
+        record: AcquisitionRecord,
+        config: Optional[Any] = None,
+    ) -> "RawDataTorch":
+        """Build the backend adapter from a framework-neutral acquisition record."""
+
+        instance = cls.__new__(cls)
+        instance._initialize_from_acquisition(record, config)
+        return instance
+
+    def _initialize_from_acquisition(
+        self,
+        record: AcquisitionRecord,
+        config: Optional[Any],
+    ) -> None:
+        # Import TensorFlow dependencies only at the operational adapter boundary.
+        from ptycho.raw_data import RawData
+
+        self._tf_raw_data = RawData(
+            xcoords=record.xcoords,
+            ycoords=record.ycoords,
+            xcoords_start=record.xcoords_start,
+            ycoords_start=record.ycoords_start,
+            diff3d=record.diff3d,
+            probeGuess=record.probeGuess,
+            scan_index=record.scan_index,
+            objectGuess=record.objectGuess,
+            Y=record.Y,
+            norm_Y_I=record.norm_Y_I,
+            metadata=record.metadata,
+        )
+        self._tf_raw_data.sample_indices = record.sample_indices
+        self._tf_raw_data.subsample_seed = record.subsample_seed
 
         # Store config reference for potential future use
         self._config = config
+
+    def to_acquisition(self) -> AcquisitionRecord:
+        """Return the neutral acquisition state represented by this adapter."""
+
+        return AcquisitionRecord.from_raw_data(self._tf_raw_data)
 
     def generate_grouped_data(
         self,
@@ -198,7 +271,8 @@ class RawDataTorch:
             nsamples: Number of groups to generate (default 1)
             seed: Optional random seed for reproducibility
             sequential_sampling: If True, use first N points instead of random (default False)
-            gridsize: Explicit gridsize override (if None, uses params.cfg['gridsize'])
+            gridsize: Explicit gridsize override. If omitted, uses
+                ``config.model.gridsize``.
             dataset_path: Optional path for caching (forwarded to TensorFlow, currently ignored for caching)
 
         Returns:
@@ -214,7 +288,7 @@ class RawDataTorch:
 
         Raises:
             ValueError: If dataset too small for requested parameters
-            RuntimeError: If params.cfg not initialized (CONFIG-001)
+            ValueError: If gridsize is omitted and no config-owned value exists.
 
         Example:
             grouped = raw_data.generate_grouped_data(
@@ -227,16 +301,63 @@ class RawDataTorch:
         Source: ptycho/raw_data.py:365-486 (TensorFlow implementation)
         Contract: specs/data_contracts.md:58-176 (grouped data structure)
         """
-        # Direct delegation to TensorFlow RawData (maintaining parity)
-        return self._tf_raw_data.generate_grouped_data(
-            N=N,
-            K=K,
-            nsamples=nsamples,
-            dataset_path=dataset_path,  # Forwarded to TensorFlow (currently ignored for caching)
-            seed=seed,
-            sequential_sampling=sequential_sampling,
-            gridsize=gridsize
+        if gridsize is None:
+            model_config = getattr(self._config, "model", None)
+            gridsize = getattr(model_config, "gridsize", None)
+            if gridsize is None:
+                raise ValueError(
+                    "gridsize must be provided explicitly or via config.model.gridsize"
+                )
+
+        needs_object_patch_fallback = (
+            self._tf_raw_data.Y is None
+            and self._tf_raw_data.objectGuess is not None
         )
+        if needs_object_patch_fallback and self._config is None:
+            raise ValueError(
+                "objectGuess fallback requires an explicit caller config; "
+                "ambient params.cfg is not configuration authority"
+            )
+
+        if not needs_object_patch_fallback:
+            return self._tf_raw_data.generate_grouped_data(
+                N=N,
+                K=K,
+                nsamples=nsamples,
+                dataset_path=dataset_path,
+                seed=seed,
+                sequential_sampling=sequential_sampling,
+                gridsize=gridsize,
+            )
+
+        # Delegate global-free grouping first. The protected TensorFlow adapter
+        # couples object-patch extraction to dataset assembly, so suppress only
+        # that fallback and restore the retained object immediately afterward.
+        object_guess = self._tf_raw_data.objectGuess
+        self._tf_raw_data.objectGuess = None
+        try:
+            grouped_data = self._tf_raw_data.generate_grouped_data(
+                N=N,
+                K=K,
+                nsamples=nsamples,
+                dataset_path=dataset_path,
+                seed=seed,
+                sequential_sampling=sequential_sampling,
+                gridsize=gridsize,
+            )
+        finally:
+            self._tf_raw_data.objectGuess = object_guess
+
+        grouped_data["Y"] = _get_object_patches_with_legacy_translation(
+            object_guess=object_guess,
+            global_offsets=grouped_data["coords_offsets"],
+            local_offsets=grouped_data["coords_relative"],
+            N=N,
+            gridsize=gridsize,
+            config=self._config,
+        )
+        grouped_data["objectGuess"] = object_guess
+        return grouped_data
 
     @property
     def probeGuess(self) -> np.ndarray:
