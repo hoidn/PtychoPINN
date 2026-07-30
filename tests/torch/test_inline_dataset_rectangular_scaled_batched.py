@@ -45,7 +45,11 @@ from ptycho_torch.model import RectangularScaledDiffraction
 from ptycho_torch.workflows import components as torch_components
 
 
-def _rectangular_scaled_payload(batch_size: int) -> SimpleNamespace:
+def _training_payload(
+    batch_size: int,
+    *,
+    physics_forward_mode: str,
+) -> SimpleNamespace:
     """Task R1-fix: the (C, P, H, W) probe reshape / scaling select+collapse in
     ``PtychoLightningDataset.__getitem__`` is now conditioned on
     ``model_config.physics_forward_mode == 'rectangular_scaled'`` (bisect-report.md
@@ -57,18 +61,23 @@ def _rectangular_scaled_payload(batch_size: int) -> SimpleNamespace:
     """
     return SimpleNamespace(
         pt_data_config=PTDataConfig(
+            N=64,
+            C=1,
+            grid_size=(1, 1),
             scale_contract_version="legacy_v1",
             measurement_domain="normalized_amplitude",
         ),
         pt_model_config=PTModelConfig(
-            physics_forward_mode="rectangular_scaled",
+            C_model=1,
+            C_forward=1,
+            physics_forward_mode=physics_forward_mode,
             loss_function="MAE",
         ),
         pt_training_config=PTTrainingConfig(
             batch_size=batch_size,
             torch_loss_mode="mae",
         ),
-        execution_config=PyTorchExecutionConfig(accelerator="cpu"),
+        execution_config=PyTorchExecutionConfig(),
     )
 
 
@@ -130,7 +139,10 @@ def test_inline_dataset_collate_shapes_match_native_contract(
         train_container=train_container,
         test_container=None,
         config=tf_training_cfg,
-        payload=_rectangular_scaled_payload(batch_size),
+        payload=_training_payload(
+            batch_size,
+            physics_forward_mode="rectangular_scaled",
+        ),
     )
 
     tensor_dict, probe, scaling = next(iter(train_loader))
@@ -174,7 +186,10 @@ def test_inline_dataset_amplitude_mode_emits_documented_probe_layout(
         train_container=train_container,
         test_container=None,
         config=tf_training_cfg,
-        payload=None,  # amplitude default: no physics_forward_mode override
+        payload=_training_payload(
+            batch_size,
+            physics_forward_mode="amplitude",
+        ),
     )
 
     _tensor_dict, probe, _scaling = next(iter(train_loader))
@@ -219,7 +234,10 @@ def test_inline_dataset_collate_rectangular_scaled_forward_no_crash(
         train_container=train_container,
         test_container=None,
         config=tf_training_cfg,
-        payload=_rectangular_scaled_payload(batch_size),
+        payload=_training_payload(
+            batch_size,
+            physics_forward_mode="rectangular_scaled",
+        ),
     )
 
     tensor_dict, probe, scaling = next(iter(train_loader))

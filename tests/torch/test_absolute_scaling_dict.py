@@ -80,7 +80,14 @@ def _ci_payload(N: int, batch_size: int) -> SimpleNamespace:
             batch_size=batch_size,
             torch_loss_mode="poisson",
         ),
-        execution_config=PyTorchExecutionConfig(accelerator="cpu"),
+        execution_config=PyTorchExecutionConfig(),
+    )
+
+
+def _execution_request(**values) -> ExecutionRequest:
+    return ExecutionRequest(
+        values=values,
+        explicit_fields=frozenset(values),
     )
 
 
@@ -434,21 +441,11 @@ def test_train_with_lightning_registers_dict_training_statistics_before_fit(
         train_container=container,
         test_container=None,
         config=tf_training_config,
-        execution_config=ExecutionRequest(
-            values={
-                "accelerator": "cpu",
-                "strategy": "auto",
-                "enable_checkpointing": False,
-                "logger_backend": None,
-            },
-            explicit_fields=frozenset(
-                {
-                    "accelerator",
-                    "strategy",
-                    "enable_checkpointing",
-                    "logger_backend",
-                }
-            ),
+        execution_config=_execution_request(
+            accelerator="cpu",
+            strategy="auto",
+            enable_checkpointing=False,
+            logger_backend=None,
         ),
         overrides={
             "physics_forward_mode": "rectangular_scaled",
@@ -558,23 +555,12 @@ def test_train_with_lightning_registers_native_dataset_statistics_before_fit(
         train_container=native_dataset,
         test_container=native_dataset,
         config=tf_training_config,
-        execution_config=ExecutionRequest(
-            values={
-                "accelerator": "cpu",
-                "strategy": "auto",
-                "enable_checkpointing": False,
-                "logger_backend": None,
-                "num_workers": 1,
-            },
-            explicit_fields=frozenset(
-                {
-                    "accelerator",
-                    "strategy",
-                    "enable_checkpointing",
-                    "logger_backend",
-                    "num_workers",
-                }
-            ),
+        execution_config=_execution_request(
+            accelerator="cpu",
+            strategy="auto",
+            num_workers=1,
+            enable_checkpointing=False,
+            logger_backend=None,
         ),
         overrides={
             "physics_forward_mode": "rectangular_scaled",

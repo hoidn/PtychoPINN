@@ -269,14 +269,12 @@ def test_library_run_routes_ci_prepared_validation_container_to_inference(
         "rms_input_scale": np.array(0.25, dtype=np.float32),
     }
     captured = {}
+    test_metadata = {"additional_parameters": {"offset": 0}}
 
     monkeypatch.setattr(
         runner,
         "load_cached_dataset_with_metadata",
-        lambda path: (
-            raw_test_data,
-            {"additional_parameters": {"offset": 0}},
-        ),
+        lambda path: (raw_test_data, test_metadata),
     )
     monkeypatch.setattr(
         runner,
@@ -296,7 +294,7 @@ def test_library_run_routes_ci_prepared_validation_container_to_inference(
     monkeypatch.setattr(
         runner,
         "compute_metrics",
-        lambda pred, gt, label, trim_offset=0: {
+        lambda pred, gt, label, *, trim_offset: {
             "mae": [0.1, 0.2],
             "mse": [0.01, 0.02],
         },

@@ -6,6 +6,8 @@ Exercises the helper and the existing ``_get_tensor``/``_select_scale``
 dataloader wiring directly (CPU, tiny synthetic containers) -- no training
 run, no GPU, no mocks of the components under test.
 """
+from types import SimpleNamespace
+
 import math
 
 import numpy as np
@@ -16,8 +18,14 @@ import torch.distributions as dist
 from ptycho import params
 from ptycho.config.config import (
     ModelConfig as TFModelConfig,
+    PyTorchExecutionConfig,
     TrainingConfig as TFTrainingConfig,
     update_legacy_dict,
+)
+from ptycho_torch.config_params import (
+    DataConfig as PTDataConfig,
+    ModelConfig as PTModelConfig,
+    TrainingConfig as PTTrainingConfig,
 )
 from ptycho_torch.model import PoissonLoss
 from ptycho_torch.workflows import components as torch_components
@@ -68,6 +76,29 @@ def _training_config(tmp_path, N: int, batch_size: int, n_samples: int) -> TFTra
     )
 
 
+def _training_payload(N: int, batch_size: int) -> SimpleNamespace:
+    return SimpleNamespace(
+        pt_data_config=PTDataConfig(
+            N=N,
+            C=1,
+            grid_size=(1, 1),
+            scale_contract_version="legacy_v1",
+            measurement_domain="normalized_amplitude",
+        ),
+        pt_model_config=PTModelConfig(
+            C_model=1,
+            C_forward=1,
+            physics_forward_mode="amplitude",
+            loss_function="MAE",
+        ),
+        pt_training_config=PTTrainingConfig(
+            batch_size=batch_size,
+            torch_loss_mode="mae",
+        ),
+        execution_config=PyTorchExecutionConfig(),
+    )
+
+
 @pytest.mark.torch
 def test_auto_mode_exposes_physics_scale_matching_closed_form(tmp_path, params_cfg_snapshot):
     """(a) auto exposes physics_scale=S, matching the closed form both from
@@ -92,7 +123,7 @@ def test_auto_mode_exposes_physics_scale_matching_closed_form(tmp_path, params_c
         train_container=container,
         test_container=None,
         config=tf_training_cfg,
-        payload=None,
+        payload=_training_payload(N, batch_size),
     )
     tensor_dict, _, _ = next(iter(train_loader))
     physics_scale = tensor_dict["physics_scaling_constant"]
@@ -123,7 +154,7 @@ def test_off_mode_yields_exactly_one(tmp_path, params_cfg_snapshot):
         train_container=container,
         test_container=None,
         config=tf_training_cfg,
-        payload=None,
+        payload=_training_payload(N, batch_size),
     )
     tensor_dict, _, _ = next(iter(train_loader))
     physics_scale = tensor_dict["physics_scaling_constant"]
@@ -178,7 +209,7 @@ def test_both_sides_lift_identity(tmp_path, params_cfg_snapshot):
         train_container=container,
         test_container=None,
         config=tf_training_cfg,
-        payload=None,
+        payload=_training_payload(N, batch_size),
     )
     tensor_dict, _, _ = next(iter(train_loader))
     physics_scale = tensor_dict["physics_scaling_constant"]
