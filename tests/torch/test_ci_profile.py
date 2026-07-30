@@ -351,8 +351,8 @@ def test_cli_profile_reaches_training_execution(tiny_train_npz, tmp_path, monkey
 
     captured = {}
     monkeypatch.setattr(
-        "ptycho.raw_data.RawData.from_file",
-        lambda path: object(),
+        "ptycho_torch.cli.mmap_ingestion.build_cli_mmap_dataset",
+        lambda *args, **kwargs: object(),
     )
 
     def fake_run(*args, **kwargs):
@@ -375,7 +375,8 @@ def test_cli_profile_reaches_training_execution(tiny_train_npz, tmp_path, monkey
     cli_main()
 
     forwarded = captured["overrides"]
-    assert captured["execution_config"] is not None
+    assert captured["resolved_payload"] is not None
+    assert captured.get("execution_config") is None
     assert forwarded["physics_forward_mode"] == "rectangular_scaled"
     assert forwarded["scale_contract_version"] == "ci_intensity_v2"
     assert forwarded["measurement_domain"] == "count_intensity"

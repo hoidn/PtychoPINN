@@ -1,15 +1,11 @@
 """
-RED Phase pytest scaffolds for training CLI execution config integration (ADR-003 Phase C4.B1).
+GREEN coverage for native Torch training CLI configuration and workflow integration.
 
-This module tests the training CLI's ability to accept and forward execution config flags
-to the factory and workflow layers. Tests are expected to FAIL in RED phase because
-the CLI implementation does not yet exist.
-
-Phase C4 Requirements:
-- Training CLI accepts --accelerator, --deterministic, --num-workers, --learning-rate flags
-- CLI args map to PyTorchExecutionConfig fields
-- Factory receives correct execution config values
-- Workflow helpers receive execution config from factory payload
+This module verifies that native CLI arguments form an unresolved
+``ExecutionRequest`` and a separate Torch training patch, reach
+``create_training_payload``, and forward the resulting explicit payload through
+``resolved_payload`` to the shared workflow. It also covers model-bundle
+persistence, checkpoint and logger controls, and patch-stat instrumentation.
 
 References:
 - Plan: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T033100Z/phase_c4_cli_integration/plan.md §C4.B1
@@ -24,16 +20,11 @@ from unittest.mock import patch, MagicMock
 
 class TestExecutionConfigCLI:
     """
-    Test training CLI execution config flag integration.
+    Regression coverage for native training CLI configuration routing.
 
-    RED Phase Strategy:
-    - Each test patches the factory function to capture its arguments
-    - Invokes CLI with specific execution config flags
-    - Asserts factory received correct PyTorchExecutionConfig values
-
-    Expected RED Behavior:
-    - Tests will FAIL with argparse.ArgumentError (unrecognized arguments)
-      OR with AttributeError/AssertionError (flags accepted but not forwarded to factory)
+    Tests invoke ``cli_main`` across execution, optimization, checkpoint, and
+    logger flags, then inspect the unresolved factory request or the explicit
+    payload forwarded to the shared workflow.
     """
 
     @pytest.fixture
@@ -50,12 +41,9 @@ class TestExecutionConfigCLI:
 
     def test_accelerator_flag_roundtrip(self, minimal_train_args, monkeypatch):
         """
-        RED Test: --accelerator flag maps to execution_config.accelerator.
+        Regression intent: --accelerator maps to execution_config.accelerator.
 
-        Expected RED Failure:
-        - argparse.ArgumentError: unrecognized arguments: --accelerator cpu
-        OR
-        - AssertionError: execution_config.accelerator != 'cpu'
+        The CLI must preserve the explicit value in the factory request.
         """
         # Patch factory to capture execution_config argument
         mock_factory = MagicMock()
@@ -71,7 +59,7 @@ class TestExecutionConfigCLI:
             # Simulate CLI invocation with --accelerator cpu
             test_args = minimal_train_args + ['--accelerator', 'cpu']
 
-            # Import and invoke CLI main (will fail in RED phase)
+            # Import and invoke the current CLI entry point.
             from ptycho_torch.train import cli_main
             monkeypatch.setattr('sys.argv', ['train.py'] + test_args)
 
@@ -88,12 +76,9 @@ class TestExecutionConfigCLI:
 
     def test_deterministic_flag_roundtrip(self, minimal_train_args, monkeypatch):
         """
-        RED Test: --deterministic flag maps to execution_config.deterministic=True.
+        Regression intent: --deterministic maps to deterministic=True.
 
-        Expected RED Failure:
-        - argparse.ArgumentError: unrecognized arguments: --deterministic
-        OR
-        - AssertionError: execution_config.deterministic != True
+        The CLI must preserve explicit boolean presence in the factory request.
         """
         mock_factory = MagicMock()
         mock_factory.return_value = MagicMock(
@@ -120,12 +105,9 @@ class TestExecutionConfigCLI:
 
     def test_no_deterministic_flag_roundtrip(self, minimal_train_args, monkeypatch):
         """
-        RED Test: --no-deterministic flag maps to execution_config.deterministic=False.
+        Regression intent: --no-deterministic maps to deterministic=False.
 
-        Expected RED Failure:
-        - argparse.ArgumentError: unrecognized arguments: --no-deterministic
-        OR
-        - AssertionError: execution_config.deterministic != False
+        The CLI must preserve explicit boolean presence in the factory request.
         """
         mock_factory = MagicMock()
         mock_factory.return_value = MagicMock(
@@ -152,12 +134,9 @@ class TestExecutionConfigCLI:
 
     def test_num_workers_flag_roundtrip(self, minimal_train_args, monkeypatch):
         """
-        RED Test: --num-workers flag maps to execution_config.num_workers.
+        Regression intent: --num-workers maps to execution_config.num_workers.
 
-        Expected RED Failure:
-        - argparse.ArgumentError: unrecognized arguments: --num-workers 4
-        OR
-        - AssertionError: execution_config.num_workers != 4
+        The CLI must preserve the explicit worker count in the factory request.
         """
         mock_factory = MagicMock()
         mock_factory.return_value = MagicMock(
@@ -183,12 +162,9 @@ class TestExecutionConfigCLI:
 
     def test_learning_rate_flag_roundtrip(self, minimal_train_args, monkeypatch):
         """
-        --learning-rate maps to the explicit canonical TrainingConfig patch.
+        Regression intent: --learning-rate maps to the TrainingConfig patch.
 
-        Expected RED Failure:
-        - argparse.ArgumentError: unrecognized arguments: --learning-rate 5e-4
-        OR
-        - AssertionError: execution_config.learning_rate != 5e-4
+        Optimization values remain separate from the execution request.
         """
         mock_factory = MagicMock()
         mock_factory.return_value = MagicMock(
@@ -214,12 +190,9 @@ class TestExecutionConfigCLI:
 
     def test_multiple_execution_config_flags(self, minimal_train_args, monkeypatch):
         """
-        RED Test: Multiple execution config flags work together.
+        Regression intent: multiple execution flags retain all explicit values.
 
-        Expected RED Failure:
-        - argparse.ArgumentError: unrecognized arguments (any of the new flags)
-        OR
-        - AssertionError: execution_config fields do not match expected values
+        The combined factory request must not drop or overwrite a flag.
         """
         mock_factory = MagicMock()
         mock_factory.return_value = MagicMock(
@@ -362,18 +335,13 @@ class TestExecutionConfigCLI:
 
     def test_bundle_persistence(self, minimal_train_args, monkeypatch):
         """
-        RED Test: Training CLI invokes save_torch_bundle with dual-model dict.
+        Regression intent: the training CLI persists the dual-model bundle.
 
         This test validates the Phase C4.D3 requirement that training CLI must emit
         the spec-required wts.h5.zip bundle containing both 'autoencoder' and
         'diffraction_to_obj' model keys per specs/ptychodus_api_spec.md §4.6.
 
-        Expected RED Failure:
-        - save_torch_bundle is never called (legacy training path doesn't persist bundles)
-        OR
-        - save_torch_bundle called with incorrect models_dict structure
-
-        Success Criteria (GREEN):
+        Verified behavior:
         - save_torch_bundle called exactly once
         - models_dict contains 'autoencoder' key
         - models_dict contains 'diffraction_to_obj' key
@@ -387,8 +355,8 @@ class TestExecutionConfigCLI:
         # Mock save_torch_bundle at the workflow level where it's actually called
         mock_save_bundle = MagicMock()
 
-        # Mock RawData.from_file to avoid file I/O
-        mock_raw_data = MagicMock()
+        # Keep mmap ingestion at the CLI boundary without constructing real maps.
+        mock_train_dataset = MagicMock()
 
         # Import the workflow before patching the provider so its module-level
         # save_torch_bundle binding cannot retain this test's mock afterward.
@@ -427,7 +395,10 @@ class TestExecutionConfigCLI:
             return None, None, {'models': models_dict}
 
         with patch('ptycho_torch.model_manager.save_torch_bundle', mock_save_bundle), \
-             patch('ptycho.raw_data.RawData.from_file', return_value=mock_raw_data):
+             patch(
+                 'ptycho_torch.cli.mmap_ingestion.build_cli_mmap_dataset',
+                 side_effect=[mock_train_dataset],
+             ):
 
             from ptycho_torch.train import cli_main
             monkeypatch.setattr('sys.argv', ['train.py'] + minimal_train_args)
@@ -473,20 +444,18 @@ class TestExecutionConfigCLI:
         else:
             raise AssertionError("Could not extract base_path from save_torch_bundle call")
 
-        assert 'wts.h5' in str(base_path), \
-            f"Expected base_path to contain 'wts.h5', got {base_path}"
+        expected_base_path = Path(minimal_train_args[3]) / 'wts.h5'
+        assert Path(base_path) == expected_base_path, \
+            f"Expected base_path {expected_base_path}, got {base_path}"
 
     def test_enable_checkpointing_flag(self, minimal_train_args, monkeypatch):
         """
-        RED Test: --enable-checkpointing / --disable-checkpointing flags map to execution_config.enable_checkpointing.
+        Regression intent: checkpoint toggles map to enable_checkpointing.
 
-        Expected RED Failure:
-        - argparse.ArgumentError: unrecognized arguments: --enable-checkpointing / --disable-checkpointing
-        OR
-        - AssertionError: execution_config.enable_checkpointing != expected value
+        The CLI must preserve the explicitly selected boolean value.
 
         References:
-        - input.md EB1.E (checkpoint controls RED tests)
+        - input.md EB1.E (checkpoint controls)
         - plans/.../phase_e_execution_knobs/plan.md §EB1.B (CLI flag parsing)
         """
         mock_factory = MagicMock()
@@ -514,15 +483,12 @@ class TestExecutionConfigCLI:
 
     def test_checkpoint_save_top_k_flag(self, minimal_train_args, monkeypatch):
         """
-        RED Test: --checkpoint-save-top-k flag maps to execution_config.checkpoint_save_top_k.
+        Regression intent: --checkpoint-save-top-k maps to its execution field.
 
-        Expected RED Failure:
-        - argparse.ArgumentError: unrecognized arguments: --checkpoint-save-top-k 3
-        OR
-        - AssertionError: execution_config.checkpoint_save_top_k != 3
+        The CLI must preserve the explicit checkpoint retention count.
 
         References:
-        - input.md EB1.E (checkpoint controls RED tests)
+        - input.md EB1.E (checkpoint controls)
         - plans/.../phase_e_execution_knobs/plan.md §EB1.B (CLI flag parsing)
         """
         mock_factory = MagicMock()
@@ -549,15 +515,12 @@ class TestExecutionConfigCLI:
 
     def test_checkpoint_monitor_flag(self, minimal_train_args, monkeypatch):
         """
-        RED Test: --checkpoint-monitor flag maps to execution_config.checkpoint_monitor_metric.
+        Regression intent: --checkpoint-monitor maps to its execution field.
 
-        Expected RED Failure:
-        - argparse.ArgumentError: unrecognized arguments: --checkpoint-monitor train_loss
-        OR
-        - AssertionError: execution_config.checkpoint_monitor_metric != 'train_loss'
+        The CLI must preserve the explicit monitor metric.
 
         References:
-        - input.md EB1.E (checkpoint controls RED tests)
+        - input.md EB1.E (checkpoint controls)
         - plans/.../phase_e_execution_knobs/plan.md §EB1.B (CLI flag parsing)
         """
         mock_factory = MagicMock()
@@ -584,17 +547,12 @@ class TestExecutionConfigCLI:
 
     def test_checkpoint_mode_flag(self, minimal_train_args, monkeypatch):
         """
-        RED Test: --checkpoint-mode flag maps to execution_config.checkpoint_mode.
+        Regression intent: --checkpoint-mode maps to checkpoint_mode.
 
-        Expected RED Failure:
-        - argparse.ArgumentError: unrecognized arguments: --checkpoint-mode max
-        OR
-        - AssertionError: execution_config.checkpoint_mode != 'max'
-        OR
-        - AttributeError: 'PyTorchExecutionConfig' object has no attribute 'checkpoint_mode'
+        The CLI must preserve the explicit optimization direction.
 
         References:
-        - input.md EB1.E (checkpoint controls RED tests)
+        - input.md EB1.E (checkpoint controls)
         - plans/.../phase_e_execution_knobs/plan.md §EB1.A (introduce checkpoint_mode field)
         """
         mock_factory = MagicMock()
@@ -621,15 +579,12 @@ class TestExecutionConfigCLI:
 
     def test_early_stop_patience_flag(self, minimal_train_args, monkeypatch):
         """
-        RED Test: --early-stop-patience flag maps to execution_config.early_stop_patience.
+        Regression intent: --early-stop-patience maps to its execution field.
 
-        Expected RED Failure:
-        - argparse.ArgumentError: unrecognized arguments: --early-stop-patience 10
-        OR
-        - AssertionError: execution_config.early_stop_patience != 10
+        The CLI must preserve the explicit patience value.
 
         References:
-        - input.md EB1.E (checkpoint controls RED tests)
+        - input.md EB1.E (checkpoint controls)
         - plans/.../phase_e_execution_knobs/plan.md §EB1.B (CLI flag parsing)
         """
         mock_factory = MagicMock()
@@ -672,15 +627,12 @@ class TestExecutionConfigCLI:
         scheduler,
     ):
         """
-        --scheduler maps to the explicit canonical TrainingConfig patch.
+        Regression intent: --scheduler maps to the TrainingConfig patch.
 
-        Expected RED Failure:
-        - argparse.ArgumentError: unrecognized arguments: --scheduler Exponential
-        OR
-        - AssertionError: execution_config.scheduler != 'Exponential'
+        Optimization values remain separate from the execution request.
 
         References:
-        - input.md EB2.A3 (scheduler/accumulation RED tests)
+        - input.md EB2.A3 (scheduler/accumulation controls)
         - plans/.../phase_e_execution_knobs/2025-10-23T081500Z/eb2_plan.md §EB2.A (CLI flag parsing)
         """
         mock_factory = MagicMock()
@@ -707,15 +659,12 @@ class TestExecutionConfigCLI:
 
     def test_accumulate_grad_batches_roundtrip(self, minimal_train_args, monkeypatch):
         """
-        --accumulate-grad-batches maps to the canonical TrainingConfig patch.
+        Regression intent: accumulation maps to the TrainingConfig patch.
 
-        Expected RED Failure:
-        - argparse.ArgumentError: unrecognized arguments: --accumulate-grad-batches 4
-        OR
-        - AssertionError: execution_config.accum_steps != 4
+        Optimization values remain separate from the execution request.
 
         References:
-        - input.md EB2.A3 (scheduler/accumulation RED tests)
+        - input.md EB2.A3 (scheduler/accumulation controls)
         - plans/.../phase_e_execution_knobs/2025-10-23T081500Z/eb2_plan.md §EB2.A (CLI flag parsing)
         """
         mock_factory = MagicMock()
@@ -742,15 +691,12 @@ class TestExecutionConfigCLI:
 
     def test_logger_backend_csv_default(self, minimal_train_args, monkeypatch):
         """
-        RED Test: --logger csv sets execution_config.logger_backend='csv'.
+        Regression intent: --logger csv selects the CSV execution backend.
 
-        Expected RED Failure:
-        - argparse.ArgumentError: unrecognized arguments: --logger csv
-        OR
-        - AssertionError: execution_config.logger_backend != 'csv'
+        The CLI must preserve the explicit logger selection.
 
         References:
-        - input.md EB3.B1 (logger RED tests)
+        - input.md EB3.B1 (logger controls)
         - plans/.../phase_e_execution_knobs/2025-10-23T110500Z/decision/approved.md §Q1
         """
         mock_factory = MagicMock()
@@ -777,15 +723,12 @@ class TestExecutionConfigCLI:
 
     def test_logger_backend_tensorboard(self, minimal_train_args, monkeypatch):
         """
-        RED Test: --logger tensorboard sets execution_config.logger_backend='tensorboard'.
+        Regression intent: --logger tensorboard selects that execution backend.
 
-        Expected RED Failure:
-        - argparse.ArgumentError: unrecognized arguments: --logger tensorboard
-        OR
-        - AssertionError: execution_config.logger_backend != 'tensorboard'
+        The CLI must preserve the explicit logger selection.
 
         References:
-        - input.md EB3.B1 (logger RED tests)
+        - input.md EB3.B1 (logger controls)
         - plans/.../phase_e_execution_knobs/2025-10-23T110500Z/decision/approved.md §Q2
         """
         mock_factory = MagicMock()
@@ -812,15 +755,12 @@ class TestExecutionConfigCLI:
 
     def test_logger_backend_none(self, minimal_train_args, monkeypatch):
         """
-        RED Test: --logger none sets execution_config.logger_backend=None.
+        Regression intent: --logger none disables the execution logger.
 
-        Expected RED Failure:
-        - argparse.ArgumentError: unrecognized arguments: --logger none
-        OR
-        - AssertionError: execution_config.logger_backend != None
+        The CLI must preserve the explicit no-logger selection as None.
 
         References:
-        - input.md EB3.B1 (logger RED tests)
+        - input.md EB3.B1 (logger controls)
         - plans/.../phase_e_execution_knobs/2025-10-23T110500Z/decision/approved.md
         """
         mock_factory = MagicMock()
@@ -847,17 +787,12 @@ class TestExecutionConfigCLI:
 
     def test_disable_mlflow_deprecation_warning(self, minimal_train_args, monkeypatch):
         """
-        RED Test: --disable_mlflow emits DeprecationWarning and maps to --logger none.
+        Regression intent: --disable_mlflow warns and maps to --logger none.
 
-        Expected RED Failure:
-        - argparse.ArgumentError: unrecognized arguments: --disable_mlflow
-        OR
-        - No DeprecationWarning emitted
-        OR
-        - AssertionError: execution_config.logger_backend != None
+        The deprecated spelling must preserve behavior and emit its notice.
 
         References:
-        - input.md EB3.B1 (logger RED tests)
+        - input.md EB3.B1 (logger controls)
         - plans/.../phase_e_execution_knobs/2025-10-23T110500Z/decision/approved.md §Q3
         """
         mock_factory = MagicMock()
@@ -890,17 +825,10 @@ class TestExecutionConfigCLI:
         )
 
 
-# RED Phase Note:
-# These tests are EXPECTED TO FAIL because:
-# 1. The CLI argparse definition does not yet include the new flags
-# 2. The CLI does not yet instantiate PyTorchExecutionConfig from parsed args
-# 3. The CLI does not yet pass execution_config to create_training_payload()
-#
-# Phase C4.C implementation will:
-# 1. Add argparse arguments for --accelerator, --deterministic, --num-workers, --learning-rate
-# 2. Instantiate PyTorchExecutionConfig from args
-# 3. Pass execution_config to factory
-# 4. Turn these RED tests GREEN
+# Current integration status:
+# The CLI accepts these flags, builds an ExecutionRequest and training patch,
+# resolves them through create_training_payload, and forwards the explicit
+# payload to the shared workflow via resolved_payload.
 
 
 class TestPatchStatsCLI:

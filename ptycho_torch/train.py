@@ -379,11 +379,20 @@ Examples:
         test_data_file = Path(args.test_data_file) if args.test_data_file else None
         output_dir = Path(args.output_dir)
 
-        # Validate paths using shared helper (Phase D.B - ADR-003)
+        # Validate every source before any role-local mmap may be replaced.
+        from ptycho_torch.cli.mmap_ingestion import validate_cli_mmap_sources
         from ptycho_torch.cli.shared import validate_paths
         try:
+            validate_cli_mmap_sources(
+                tuple(
+                    source
+                    for source in (train_data_file, test_data_file)
+                    if source is not None
+                ),
+                output_dir=output_dir,
+            )
             validate_paths(train_data_file, test_data_file, output_dir)
-        except FileNotFoundError as e:
+        except (FileNotFoundError, ValueError) as e:
             print(f"ERROR: {e}")
             sys.exit(1)
 
@@ -462,10 +471,25 @@ Examples:
         try:
             print(f"Starting training with {args.max_epochs} epochs...")
 
-            # Load training data (CONFIG-001 already satisfied by factory)
-            from ptycho.raw_data import RawData
-            train_data = RawData.from_file(str(train_data_file))
-            test_data = RawData.from_file(str(test_data_file)) if test_data_file else None
+            # Build fresh, exact-file mmap datasets after payload finalization.
+            from ptycho_torch.cli.mmap_ingestion import build_cli_mmap_dataset
+
+            train_data = build_cli_mmap_dataset(
+                train_data_file,
+                payload=payload,
+                output_dir=output_dir,
+                role="train",
+            )
+            test_data = (
+                build_cli_mmap_dataset(
+                    test_data_file,
+                    payload=payload,
+                    output_dir=output_dir,
+                    role="test",
+                )
+                if test_data_file is not None
+                else None
+            )
 
             # Route through run_cdi_example_torch for bundle persistence
             from ptycho_torch.workflows.components import run_cdi_example_torch
@@ -510,6 +534,11 @@ Examples:
                         amp_tensor = train_container.Y_I
                     elif hasattr(train_container, 'Y'):
                         amp_tensor = torch.abs(train_container.Y)
+                    elif hasattr(train_container, "mmap_ptycho"):
+                        batch_size = payload.pt_training_config.batch_size
+                        amp_tensor = torch.as_tensor(
+                            train_container.mmap_ptycho["images"][:batch_size]
+                        )
 
                 if amp_tensor is not None:
                     amp_tensor = torch.as_tensor(amp_tensor)
