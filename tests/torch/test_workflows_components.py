@@ -23,6 +23,7 @@ Artifacts (Phase D2.A):
 
 from contextlib import nullcontext
 from dataclasses import replace
+import pickle
 from types import SimpleNamespace
 
 import pytest
@@ -45,6 +46,77 @@ def _execution_request(**values):
     )
 
 
+def _mmap_payload(*, data_config=None, model_config=None, strategy="auto"):
+    from ptycho.config.config import PyTorchExecutionConfig
+    from ptycho_torch.config_params import (
+        DataConfig,
+        ModelConfig,
+        TrainingConfig,
+    )
+
+    return SimpleNamespace(
+        pt_data_config=data_config or DataConfig(N=8, C=1, grid_size=(1, 1)),
+        pt_model_config=model_config or ModelConfig(C_forward=1, C_model=1),
+        pt_training_config=TrainingConfig(
+            batch_size=2,
+            device="cpu",
+            strategy=strategy,
+        ),
+        execution_config=PyTorchExecutionConfig(
+            accelerator="cpu",
+            strategy=strategy,
+            num_workers=0,
+        ),
+    )
+
+
+def _from_np_dataset(intensity, *, ci_active):
+    from ptycho_torch.config_params import DataConfig, ModelConfig
+    from ptycho_torch.dataloader import PtychoDataset
+
+    intensity = np.asarray(intensity, dtype=np.float32)
+    n_images, n_pixels, _ = intensity.shape
+    positions = np.stack(
+        [
+            np.arange(n_images, dtype=np.float32),
+            np.arange(n_images, dtype=np.float32),
+        ],
+        axis=1,
+    )
+    data_config = DataConfig(
+        N=n_pixels,
+        C=1,
+        grid_size=(1, 1),
+        x_bounds=(0.0, 1.0),
+        y_bounds=(0.0, 1.0),
+        normalize="Batch",
+        scale_contract_version=(
+            "ci_intensity_v2" if ci_active else "legacy_v1"
+        ),
+        measurement_domain=(
+            "count_intensity" if ci_active else "normalized_amplitude"
+        ),
+    )
+    model_config = ModelConfig(
+        mode="Unsupervised",
+        C_forward=1,
+        C_model=1,
+        object_big=False,
+        physics_forward_mode=(
+            "rectangular_scaled" if ci_active else "amplitude"
+        ),
+        cnn_output_mode="real_imag" if ci_active else "amp_phase",
+    )
+    dataset = PtychoDataset.from_np(
+        intensity,
+        np.ones((n_pixels, n_pixels), dtype=np.complex64),
+        positions,
+        model_config,
+        data_config,
+    )
+    return dataset, data_config, model_config
+
+
 # Add to conftest.py TORCH_OPTIONAL_MODULES if not already present
 # This test must run without torch runtime
 
@@ -56,6 +128,32 @@ class TestWorkflowsComponentsScaffold:
     Modern PyTorch entry points must not create broad legacy projections around
     descendants that already receive their resolved owners directly.
     """
+
+    def test_public_training_workflow_types_include_mmap_for_train_and_test(
+        self,
+    ):
+        from typing import get_args, get_type_hints, Optional
+
+        from ptycho.raw_data import RawData
+        from ptycho_torch.data_container_bridge import PtychoDataContainerTorch
+        from ptycho_torch.dataloader import PtychoDataset
+        from ptycho_torch.raw_data_bridge import RawDataTorch
+        from ptycho_torch.workflows import components
+
+        workflow_input = components.TorchWorkflowInput
+        assert set(get_args(workflow_input)) == {
+            RawData,
+            RawDataTorch,
+            PtychoDataContainerTorch,
+            PtychoDataset,
+        }
+        for workflow in (
+            components.run_cdi_example_torch,
+            components.train_cdi_model_torch,
+        ):
+            hints = get_type_hints(workflow)
+            assert hints["train_data"] == workflow_input
+            assert hints["test_data"] == Optional[workflow_input]
 
     @pytest.fixture
     def params_cfg_snapshot(self):
@@ -588,6 +686,244 @@ class TestWorkflowsComponentsTraining:
         assert captured[0][1]["persistent_workers"] is True
         assert captured[0][1]["prefetch_factor"] == 7
 
+    def test_mmap_dataset_passes_through_ensure_container(
+        self,
+        minimal_training_config,
+    ):
+        from ptycho_torch.dataloader import PtychoDataset
+        from ptycho_torch.workflows import components
+
+        dataset = PtychoDataset.__new__(PtychoDataset)
+
+        assert (
+            components._ensure_container(dataset, minimal_training_config)
+            is dataset
+        )
+
+    def test_mmap_direct_loader_allows_missing_validation_dataset(self):
+        from ptycho_torch.dataloader import PtychoDataset
+        from ptycho_torch.workflows import components
+
+        train_dataset = PtychoDataset.__new__(PtychoDataset)
+        train_dataset.length = 1
+        train_dataset.ci_contract_active = False
+        train_loader, val_loader = (
+            components._build_dataloaders_from_ptycho_dataset(
+                train_ptycho_dataset=train_dataset,
+                test_ptycho_dataset=None,
+                payload=_mmap_payload(strategy="auto"),
+            )
+        )
+
+        assert train_loader.dataset is train_dataset
+        assert val_loader is None
+
+    def test_mmap_direct_loader_preserves_explicit_validation_dataset(self):
+        from ptycho_torch.dataloader import PtychoDataset
+        from ptycho_torch.workflows import components
+
+        train_dataset = PtychoDataset.__new__(PtychoDataset)
+        train_dataset.length = 1
+        train_dataset.ci_contract_active = False
+        test_dataset = PtychoDataset.__new__(PtychoDataset)
+        test_dataset.length = 1
+        test_dataset.ci_contract_active = False
+        train_loader, val_loader = (
+            components._build_dataloaders_from_ptycho_dataset(
+                train_ptycho_dataset=train_dataset,
+                test_ptycho_dataset=test_dataset,
+                payload=_mmap_payload(strategy="auto"),
+            )
+        )
+
+        assert train_loader.dataset is train_dataset
+        assert val_loader is not None
+        assert val_loader.dataset is test_dataset
+
+    def test_mmap_direct_loader_uses_training_ci_statistics_for_validation(self):
+        from ptycho_torch.workflows import components
+
+        train_dataset, data_config, model_config = _from_np_dataset(
+            np.full((4, 8, 8), 4.0, dtype=np.float32),
+            ci_active=True,
+        )
+        test_dataset, _, _ = _from_np_dataset(
+            np.full((4, 8, 8), 400.0, dtype=np.float32),
+            ci_active=True,
+        )
+        provisional = test_dataset.get_ci_statistics()
+
+        components._build_dataloaders_from_ptycho_dataset(
+            train_ptycho_dataset=train_dataset,
+            test_ptycho_dataset=test_dataset,
+            payload=_mmap_payload(
+                data_config=data_config,
+                model_config=model_config,
+                strategy="auto",
+            ),
+        )
+
+        train_stats = train_dataset.get_ci_statistics()
+        for name, expected in train_stats.items():
+            torch.testing.assert_close(
+                test_dataset.get_ci_statistics()[name],
+                expected,
+            )
+        assert any(
+            not torch.equal(provisional[name], train_stats[name])
+            for name in provisional
+        )
+
+    @pytest.mark.parametrize(
+        ("statistics", "match"),
+        [
+            (
+                {"rms_input_scale": torch.tensor([1.0])},
+                "must contain exactly",
+            ),
+            (
+                {
+                    "rms_input_scale": torch.tensor([1.0, 2.0]),
+                    "mean_measured_intensity": torch.tensor([1.0, 2.0]),
+                },
+                "expected 1",
+            ),
+            (
+                {
+                    "rms_input_scale": torch.tensor([0.0]),
+                    "mean_measured_intensity": torch.tensor([1.0]),
+                },
+                "positive and finite",
+            ),
+        ],
+    )
+    def test_mmap_ci_statistics_attachment_validates_contract(
+        self,
+        statistics,
+        match,
+    ):
+        dataset, _, _ = _from_np_dataset(
+            np.full((4, 8, 8), 4.0, dtype=np.float32),
+            ci_active=True,
+        )
+
+        with pytest.raises(ValueError, match=match):
+            dataset.set_ci_statistics(statistics)
+
+    def test_mmap_ci_statistics_rejects_inactive_dataset(self):
+        dataset, _, _ = _from_np_dataset(
+            np.full((4, 8, 8), 4.0, dtype=np.float32),
+            ci_active=False,
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="only be attached to an active CI dataset",
+        ):
+            dataset.set_ci_statistics(
+                {
+                    "rms_input_scale": torch.tensor([1.0]),
+                    "mean_measured_intensity": torch.tensor([1.0]),
+                }
+            )
+
+    @pytest.mark.parametrize(
+        ("field_name", "invalid_value"),
+        [
+            ("rms_input_scale", torch.tensor([True])),
+            (
+                "mean_measured_intensity",
+                torch.tensor([1.0 + 0.0j]),
+            ),
+        ],
+    )
+    def test_mmap_ci_statistics_rejects_non_real_numeric_values(
+        self,
+        field_name,
+        invalid_value,
+    ):
+        dataset, _, _ = _from_np_dataset(
+            np.full((4, 8, 8), 4.0, dtype=np.float32),
+            ci_active=True,
+        )
+        statistics = {
+            "rms_input_scale": torch.tensor([1.0]),
+            "mean_measured_intensity": torch.tensor([1.0]),
+        }
+        statistics[field_name] = invalid_value
+
+        with pytest.raises(
+            ValueError,
+            match=rf"{field_name}.*real numeric values",
+        ):
+            dataset.set_ci_statistics(statistics)
+
+    def test_mmap_ci_statistics_canonicalizes_numeric_values_and_copies(self):
+        dataset, _, _ = _from_np_dataset(
+            np.full((4, 8, 8), 4.0, dtype=np.float32),
+            ci_active=True,
+        )
+        measured = dataset.mmap_ptycho["measured_intensity"]
+        source_device = (
+            torch.device("cuda")
+            if torch.cuda.is_available() and measured.device.type != "cuda"
+            else measured.device
+        )
+        statistics = {
+            "rms_input_scale": torch.tensor(
+                [2],
+                dtype=torch.int64,
+                device=source_device,
+            ),
+            "mean_measured_intensity": torch.tensor(
+                [3.0],
+                dtype=torch.float64,
+                device=source_device,
+            ),
+        }
+
+        attached = dataset.set_ci_statistics(statistics)
+
+        for field_name, expected in (
+            ("rms_input_scale", 2.0),
+            ("mean_measured_intensity", 3.0),
+        ):
+            stored = dataset.data_dict["ci_statistics"][field_name]
+            assert stored.dtype == measured.dtype
+            assert stored.device == measured.device
+            assert attached[field_name].dtype == measured.dtype
+            assert attached[field_name].device == measured.device
+            torch.testing.assert_close(
+                attached[field_name],
+                torch.tensor(
+                    [expected],
+                    dtype=measured.dtype,
+                    device=measured.device,
+                ),
+            )
+
+        for value in statistics.values():
+            value.fill_(99)
+        for value in attached.values():
+            value.fill_(99)
+        fresh = dataset.get_ci_statistics()
+        torch.testing.assert_close(
+            fresh["rms_input_scale"],
+            torch.tensor(
+                [2.0],
+                dtype=measured.dtype,
+                device=measured.device,
+            ),
+        )
+        torch.testing.assert_close(
+            fresh["mean_measured_intensity"],
+            torch.tensor(
+                [3.0],
+                dtype=measured.dtype,
+                device=measured.device,
+            ),
+        )
+
     @pytest.mark.parametrize(
         ("strategy", "expected_num_workers"),
         [("ddp", 3), ("ddp_spawn", 0)],
@@ -627,12 +963,17 @@ class TestWorkflowsComponentsTraining:
 
         result = components._build_dataloaders_from_ptycho_dataset(
             train_ptycho_dataset=SimpleNamespace(
-                data_dir_path=Path("/unused")
+                data_dir_path=Path("/maps/train/memmap")
+            ),
+            test_ptycho_dataset=SimpleNamespace(
+                data_dir_path=Path("/maps/test/memmap")
             ),
             payload=payload,
         )
 
         assert isinstance(result, train_utils.PrebuiltPtychoDataModule)
+        assert result.map_path == Path("/maps/train/memmap")
+        assert result.validation_map_path == Path("/maps/test/memmap")
         assert result.training_config.strategy == strategy
         assert result.training_config.num_workers == 3
         assert result.execution_config is execution
@@ -644,6 +985,19 @@ class TestWorkflowsComponentsTraining:
         assert ("prefetch_factor" in worker_kwargs) is (
             expected_num_workers > 0
         )
+
+    def test_mmap_ddp_loader_without_test_map_uses_internal_split(self):
+        from ptycho_torch.workflows import components
+
+        result = components._build_dataloaders_from_ptycho_dataset(
+            train_ptycho_dataset=SimpleNamespace(
+                data_dir_path=Path("/maps/train/memmap")
+            ),
+            test_ptycho_dataset=None,
+            payload=_mmap_payload(strategy="ddp"),
+        )
+
+        assert result.validation_map_path is None
 
     def test_train_with_lightning_builds_supervised_model_config(
         self,
@@ -712,6 +1066,623 @@ class TestWorkflowsComponentsTraining:
 
         assert captured["model_config"].mode == "Supervised"
         assert captured["model_config"].loss_function == "MAE"
+
+    def test_supervised_mmap_datamodule_reaches_trainer_without_direct_loader(
+        self,
+        monkeypatch,
+        minimal_training_config,
+    ):
+        from ptycho.config.config import PyTorchExecutionConfig
+        from ptycho_torch.config_params import (
+            DataConfig,
+            ModelConfig,
+            TrainingConfig,
+        )
+        from ptycho_torch.dataloader import PtychoDataset
+        from ptycho_torch.train_utils import PrebuiltPtychoDataModule
+        from ptycho_torch.workflows import components
+
+        public_config = replace(
+            minimal_training_config,
+            model=replace(
+                minimal_training_config.model,
+                model_type="supervised",
+            ),
+        )
+        execution_config = PyTorchExecutionConfig(
+            accelerator="cpu",
+            devices=2,
+            strategy="ddp",
+            num_workers=0,
+            enable_checkpointing=False,
+            logger_backend=None,
+        )
+        payload = SimpleNamespace(
+            model_spec=object(),
+            pt_data_config=DataConfig(
+                N=64,
+                C=4,
+                grid_size=(2, 2),
+                scale_contract_version="legacy_v1",
+                measurement_domain="normalized_amplitude",
+            ),
+            pt_model_config=ModelConfig(
+                mode="Supervised",
+                C_forward=4,
+                C_model=4,
+            ),
+            pt_training_config=TrainingConfig(
+                device="cpu",
+                strategy="ddp",
+                n_devices=2,
+                num_workers=0,
+                epochs=1,
+                torch_loss_mode="mae",
+            ),
+            execution_config=execution_config,
+        )
+        dataset = PtychoDataset.__new__(PtychoDataset)
+        data_module = PrebuiltPtychoDataModule.__new__(
+            PrebuiltPtychoDataModule
+        )
+        trainer_state = {"constructed": False, "fit": False}
+
+        class FakeModel:
+            automatic_optimization = True
+            val_loss_name = "mae_val_loss"
+            device = "cpu"
+
+            def save_hyperparameters(self):
+                pass
+
+        class FakeTrainer:
+            def __init__(self, **_kwargs):
+                trainer_state["constructed"] = True
+
+            def fit(self, model, *, datamodule):
+                assert isinstance(model, FakeModel)
+                assert datamodule is data_module
+                trainer_state["fit"] = True
+
+        monkeypatch.setattr(
+            "ptycho_torch.application_factory.build_ptychopinn_application",
+            lambda *_args, **_kwargs: FakeModel(),
+        )
+        monkeypatch.setattr(
+            components,
+            "_build_lightning_dataloaders",
+            lambda *_args, **_kwargs: data_module,
+        )
+        monkeypatch.setattr(
+            components,
+            "validate_scale_contract",
+            lambda *_args: None,
+        )
+        monkeypatch.setattr("lightning.pytorch.Trainer", FakeTrainer)
+
+        components._train_with_lightning(
+            train_container=dataset,
+            test_container=None,
+            config=public_config,
+            resolved_payload=payload,
+        )
+
+        assert trainer_state == {"constructed": True, "fit": True}
+
+    def test_ci_prebuilt_data_module_adds_rank_safe_statistics_callback(
+        self,
+        monkeypatch,
+        minimal_training_config,
+    ):
+        from ptycho.config.config import PyTorchExecutionConfig
+        from ptycho_torch.config_params import (
+            DataConfig,
+            ModelConfig,
+            TrainingConfig,
+        )
+        from ptycho_torch.dataloader import PtychoDataset
+        from ptycho_torch.lightning_utils import CIStatisticsCallback
+        from ptycho_torch.scaling_contract import CI_SCALE_CONTRACT
+        from ptycho_torch.train_utils import PrebuiltPtychoDataModule
+        from ptycho_torch.workflows import components
+
+        execution_config = PyTorchExecutionConfig(
+            accelerator="cpu",
+            devices=2,
+            strategy="ddp",
+            num_workers=0,
+            enable_checkpointing=False,
+            logger_backend=None,
+        )
+        payload = SimpleNamespace(
+            model_spec=object(),
+            pt_data_config=DataConfig(
+                N=64,
+                C=1,
+                grid_size=(1, 1),
+                scale_contract_version=CI_SCALE_CONTRACT,
+                measurement_domain="count_intensity",
+            ),
+            pt_model_config=ModelConfig(
+                mode="Unsupervised",
+                C_forward=1,
+                C_model=1,
+                object_big=False,
+                physics_forward_mode="rectangular_scaled",
+                cnn_output_mode="real_imag",
+            ),
+            pt_training_config=TrainingConfig(
+                device="cpu",
+                strategy="ddp",
+                n_devices=2,
+                num_workers=0,
+                epochs=1,
+                torch_loss_mode="poisson",
+            ),
+            execution_config=execution_config,
+        )
+        dataset = PtychoDataset.__new__(PtychoDataset)
+        data_module = PrebuiltPtychoDataModule.__new__(
+            PrebuiltPtychoDataModule
+        )
+        captured_callbacks = []
+
+        class FakeModel:
+            automatic_optimization = True
+            val_loss_name = "poisson_val_loss"
+            device = "cpu"
+
+            def save_hyperparameters(self):
+                pass
+
+        class FakeTrainer:
+            def __init__(self, **kwargs):
+                captured_callbacks.extend(kwargs["callbacks"])
+
+            def fit(self, model, *, datamodule):
+                assert isinstance(model, FakeModel)
+                assert datamodule is data_module
+
+        monkeypatch.setattr(
+            "ptycho_torch.application_factory.build_ptychopinn_application",
+            lambda *_args, **_kwargs: FakeModel(),
+        )
+        monkeypatch.setattr(
+            components,
+            "_build_lightning_dataloaders",
+            lambda *_args, **_kwargs: data_module,
+        )
+        monkeypatch.setattr("lightning.pytorch.Trainer", FakeTrainer)
+
+        components._train_with_lightning(
+            train_container=dataset,
+            test_container=None,
+            config=minimal_training_config,
+            resolved_payload=payload,
+        )
+
+        assert any(
+            isinstance(callback, CIStatisticsCallback)
+            for callback in captured_callbacks
+        )
+
+    def test_spawn_calibration_runs_after_each_rank_reopens_both_maps(
+        self,
+        monkeypatch,
+        minimal_training_config,
+    ):
+        from ptycho.config.config import PyTorchExecutionConfig
+        from ptycho_torch.config_params import (
+            DataConfig,
+            ModelConfig,
+            TrainingConfig,
+        )
+        from ptycho_torch.dataloader import PtychoDataset
+        from ptycho_torch.scaling_contract import CI_SCALE_CONTRACT
+        from ptycho_torch.workflows import components
+
+        execution_config = PyTorchExecutionConfig(
+            accelerator="cpu",
+            devices=2,
+            strategy="ddp_spawn",
+            num_workers=0,
+            enable_checkpointing=False,
+            logger_backend=None,
+        )
+        data_config = DataConfig(
+            N=8,
+            C=1,
+            grid_size=(1, 1),
+            scale_contract_version=CI_SCALE_CONTRACT,
+            measurement_domain="count_intensity",
+        )
+        model_config = ModelConfig(
+            mode="Unsupervised",
+            C_forward=1,
+            C_model=1,
+            object_big=False,
+            physics_forward_mode="rectangular_scaled",
+            cnn_output_mode="real_imag",
+            rect_s1s2_init="data",
+        )
+        training_config = TrainingConfig(
+            batch_size=2,
+            device="cpu",
+            strategy="ddp_spawn",
+            n_devices=2,
+            num_workers=0,
+            epochs=1,
+            torch_loss_mode="poisson",
+        )
+        payload = SimpleNamespace(
+            model_spec=object(),
+            pt_data_config=data_config,
+            pt_model_config=model_config,
+            pt_training_config=training_config,
+            execution_config=execution_config,
+        )
+        data_module = components._ResolvedPrebuiltPtychoDataModule(
+            Path("/maps/train/memmap"),
+            model_config=model_config,
+            data_config=data_config,
+            training_config=training_config,
+            validation_map_path=Path("/maps/test/memmap"),
+            execution_config=execution_config,
+        )
+        rank_state = {"rank": -1}
+        lifecycle = []
+
+        class ReopenedDataset:
+            ci_contract_active = False
+
+            def __init__(self, map_path, current_rank, is_ddp_active):
+                self.map_path = Path(map_path)
+                self.current_rank = current_rank
+                self.is_ddp_active = is_ddp_active
+
+            def __len__(self):
+                return 4
+
+            def __getitem__(self, indices):
+                indices = torch.as_tensor(indices, dtype=torch.long)
+                batch_size = indices.numel()
+                return (
+                    {
+                        "sample_id": indices,
+                        "rank": torch.full(
+                            (batch_size,),
+                            self.current_rank,
+                            dtype=torch.long,
+                        ),
+                    },
+                    torch.ones(batch_size, 1),
+                    torch.ones(batch_size, 1),
+                )
+
+        def reopen_map(
+            cls,
+            map_path,
+            _model_config,
+            _data_config,
+            current_rank=0,
+            is_ddp_active=False,
+        ):
+            lifecycle.append(
+                ("reopen", current_rank, Path(map_path), is_ddp_active)
+            )
+            return ReopenedDataset(
+                map_path,
+                current_rank,
+                is_ddp_active,
+            )
+
+        monkeypatch.setattr(
+            PtychoDataset,
+            "from_existing_map",
+            classmethod(reopen_map),
+        )
+        monkeypatch.setattr(
+            "ptycho_torch.dataloader.get_current_rank",
+            lambda: rank_state["rank"],
+        )
+        monkeypatch.setattr(
+            "ptycho_torch.dataloader.is_ddp_initialized_and_active",
+            lambda: True,
+        )
+        monkeypatch.setattr(
+            components,
+            "_build_lightning_dataloaders",
+            lambda *_args, **_kwargs: data_module,
+        )
+
+        class FakeModel:
+            automatic_optimization = True
+            val_loss_name = "poisson_val_loss"
+            device = "cpu"
+
+            def save_hyperparameters(self):
+                pass
+
+            def calibrate_rect_s1s2(self, batch):
+                rank = int(batch[0]["rank"][0])
+                lifecycle.append(
+                    ("calibrate", rank, batch[0]["sample_id"].tolist())
+                )
+                return float(rank + 1)
+
+        class SpawnLifecycleTrainer:
+            def __init__(self, **kwargs):
+                self.callbacks = kwargs["callbacks"]
+                self.callback_metrics = {}
+
+            def fit(self, model, *, datamodule):
+                assert datamodule.dataset is None
+                serialized_datamodule = pickle.dumps(datamodule)
+                calibration_callback = next(
+                    callback
+                    for callback in self.callbacks
+                    if callback.__class__.__name__
+                    == "_RectS1S2CalibrationCallback"
+                )
+                ci_callback_index = next(
+                    index
+                    for index, callback in enumerate(self.callbacks)
+                    if callback.__class__.__name__
+                    == "CIStatisticsCallback"
+                )
+                calibration_callback_index = self.callbacks.index(
+                    calibration_callback
+                )
+                assert ci_callback_index < calibration_callback_index
+                serialized_callback = pickle.dumps(calibration_callback)
+
+                for rank in (0, 1):
+                    rank_state["rank"] = rank
+                    worker_datamodule = pickle.loads(
+                        serialized_datamodule
+                    )
+                    worker_callback = pickle.loads(serialized_callback)
+                    worker_datamodule.setup("fit")
+                    worker_trainer = SimpleNamespace(
+                        datamodule=worker_datamodule,
+                        callback_metrics={},
+                    )
+                    worker_callback.on_fit_start(
+                        worker_trainer,
+                        model,
+                    )
+                    # Lightning's validation sanity loop resets callback metrics
+                    # after on_fit_start and before training.
+                    worker_trainer.callback_metrics.clear()
+                    lifecycle.append(("first_train_batch", rank))
+                    next(iter(worker_datamodule.train_dataloader()))
+                    worker_callback.on_fit_end(
+                        worker_trainer,
+                        model,
+                    )
+                    if rank == 0:
+                        self.callback_metrics.update(
+                            worker_trainer.callback_metrics
+                        )
+                assert calibration_callback.calibration is None
+
+        monkeypatch.setattr(
+            "ptycho_torch.application_factory.build_ptychopinn_application",
+            lambda *_args, **_kwargs: FakeModel(),
+        )
+        monkeypatch.setattr(
+            components,
+            "validate_scale_contract",
+            lambda *_args: SimpleNamespace(version=CI_SCALE_CONTRACT),
+        )
+        monkeypatch.setattr(
+            "lightning.pytorch.Trainer",
+            SpawnLifecycleTrainer,
+        )
+
+        result = components._train_with_lightning(
+            train_container=PtychoDataset.__new__(PtychoDataset),
+            test_container=PtychoDataset.__new__(PtychoDataset),
+            config=minimal_training_config,
+            resolved_payload=payload,
+        )
+
+        assert lifecycle == [
+            ("reopen", 0, Path("/maps/train/memmap"), True),
+            ("reopen", 0, Path("/maps/test/memmap"), True),
+            ("calibrate", 0, [0, 1]),
+            ("first_train_batch", 0),
+            ("reopen", 1, Path("/maps/train/memmap"), True),
+            ("reopen", 1, Path("/maps/test/memmap"), True),
+            ("calibrate", 1, [0, 1]),
+            ("first_train_batch", 1),
+        ]
+        assert result["rect_s1s2_calibration"] == 1.0
+
+    def test_direct_loader_calibration_runs_in_fit_lifecycle_before_batch(
+        self,
+        monkeypatch,
+        minimal_training_config,
+    ):
+        from ptycho.config.config import PyTorchExecutionConfig
+        from ptycho_torch.config_params import (
+            DataConfig,
+            ModelConfig,
+            TrainingConfig,
+        )
+        from ptycho_torch.workflows import components
+
+        execution_config = PyTorchExecutionConfig(
+            accelerator="cpu",
+            strategy="auto",
+            num_workers=0,
+            enable_checkpointing=False,
+            logger_backend=None,
+        )
+        payload = SimpleNamespace(
+            model_spec=object(),
+            pt_data_config=DataConfig(N=8, C=1, grid_size=(1, 1)),
+            pt_model_config=ModelConfig(
+                C_forward=1,
+                C_model=1,
+                rect_s1s2_init="data",
+            ),
+            pt_training_config=TrainingConfig(
+                batch_size=2,
+                device="cpu",
+                epochs=1,
+            ),
+            execution_config=execution_config,
+        )
+        calibration_batch = (
+            {"sample_id": torch.tensor([0, 1])},
+            torch.ones(2, 1),
+            torch.ones(2, 1),
+        )
+        train_loader = [calibration_batch]
+        lifecycle = []
+
+        class FakeModel:
+            automatic_optimization = True
+            val_loss_name = "train_loss"
+            device = "cpu"
+
+            def save_hyperparameters(self):
+                pass
+
+            def calibrate_rect_s1s2(self, batch):
+                lifecycle.append(
+                    ("calibrate", batch[0]["sample_id"].tolist())
+                )
+                return 7.0
+
+        class DirectLifecycleTrainer:
+            def __init__(self, **kwargs):
+                self.callbacks = kwargs["callbacks"]
+
+            def fit(
+                self,
+                model,
+                *,
+                train_dataloaders,
+                val_dataloaders,
+            ):
+                assert lifecycle == []
+                assert train_dataloaders is train_loader
+                assert val_dataloaders is None
+                calibration_callback = next(
+                    callback
+                    for callback in self.callbacks
+                    if callback.__class__.__name__
+                    == "_RectS1S2CalibrationCallback"
+                )
+                calibration_callback.on_fit_start(
+                    SimpleNamespace(
+                        datamodule=None,
+                        callback_metrics={},
+                    ),
+                    model,
+                )
+                lifecycle.append(("first_train_batch",))
+
+        monkeypatch.setattr(
+            "ptycho_torch.application_factory.build_ptychopinn_application",
+            lambda *_args, **_kwargs: FakeModel(),
+        )
+        monkeypatch.setattr(
+            components,
+            "_build_lightning_dataloaders",
+            lambda *_args, **_kwargs: (train_loader, None),
+        )
+        monkeypatch.setattr(
+            components,
+            "validate_scale_contract",
+            lambda *_args: None,
+        )
+        monkeypatch.setattr(
+            "lightning.pytorch.Trainer",
+            DirectLifecycleTrainer,
+        )
+
+        result = components._train_with_lightning(
+            train_container={},
+            test_container=None,
+            config=minimal_training_config,
+            resolved_payload=payload,
+        )
+
+        assert lifecycle == [
+            ("calibrate", [0, 1]),
+            ("first_train_batch",),
+        ]
+        assert result["rect_s1s2_calibration"] == 7.0
+
+    def test_mmap_legacy_physics_scale_projects_to_workflow_results(
+        self,
+        tmp_path,
+        monkeypatch,
+        minimal_training_config,
+    ):
+        from ptycho_torch.config_params import (
+            DataConfig,
+            ModelConfig,
+            TrainingConfig,
+        )
+        from ptycho_torch.dataloader import PtychoDataset
+        from ptycho_torch.workflows import components
+
+        source_dir = tmp_path / "npz"
+        source_dir.mkdir()
+        np.savez(
+            source_dir / "legacy.npz",
+            diff3d=np.full((4, 8, 8), 2.0, dtype=np.float32),
+            xcoords=np.arange(4, dtype=np.float32),
+            ycoords=np.arange(4, dtype=np.float32),
+            probeGuess=np.ones((8, 8), dtype=np.complex64),
+            objectGuess=np.ones((8, 8), dtype=np.complex64),
+        )
+        dataset = PtychoDataset(
+            ptycho_dir=str(source_dir),
+            model_config=ModelConfig(
+                mode="Unsupervised",
+                C_forward=1,
+                C_model=1,
+                object_big=False,
+            ),
+            data_config=DataConfig(
+                N=8,
+                C=1,
+                grid_size=(1, 1),
+                x_bounds=(0.0, 1.0),
+                y_bounds=(0.0, 1.0),
+                normalize="Batch",
+                scale_contract_version="legacy_v1",
+                measurement_domain="normalized_amplitude",
+            ),
+            training_config=TrainingConfig(batch_size=2),
+            data_dir=str(tmp_path / "memmap"),
+            remake_map=True,
+        )
+        expected_scale = 7.25
+        dataset.mmap_ptycho["physics_scaling_constant"][:] = expected_scale
+        monkeypatch.setattr(
+            components,
+            "_train_with_lightning",
+            lambda *_args, **_kwargs: {
+                "history": {},
+                "models": {},
+                "train_container": dataset,
+                "test_container": None,
+            },
+        )
+
+        results = components.train_cdi_model_torch(
+            train_data=dataset,
+            test_data=None,
+            config=minimal_training_config,
+        )
+
+        assert results["intensity_scale"] == expected_scale
 
     def test_train_cdi_model_torch_invokes_lightning(
         self,

@@ -7,6 +7,7 @@ import random
 import math
 import warnings
 import dataclasses
+from pathlib import Path
 
 #Typing
 from dataclasses import asdict
@@ -533,16 +534,29 @@ class PtychoDataModule(L.LightningDataModule):
         )
 
 class PrebuiltPtychoDataModule(L.LightningDataModule):
-    def __init__(self, map_path,
-                 model_config, data_config, training_config):
+    def __init__(
+        self,
+        map_path,
+        model_config,
+        data_config,
+        training_config,
+        validation_map_path=None,
+    ):
         super().__init__()
-        self.map_path = map_path
+        self.map_path = Path(map_path)
         self.model_config = model_config
         self.data_config = data_config
         self.training_config = training_config
+        self.validation_map_path = (
+            Path(validation_map_path)
+            if validation_map_path is not None
+            else None
+        )
         self.dataset = None
+        self.validation_dataset = None
         self.train_dataset = None
         self.val_dataset = None
+        self.ci_statistics = None
 
     def setup(self, stage=None):
         """Setup that respects rank separation"""
@@ -560,29 +574,81 @@ class PrebuiltPtychoDataModule(L.LightningDataModule):
                 print(f"[DataModule setup] Rank {current_rank}: Loading existing memory map")
                 
                 # Create dataset with NO setup logic - just load existing map
-                self.dataset = PtychoDataset.from_existing_map(
+                train_dataset = PtychoDataset.from_existing_map(
                     self.map_path, 
                     self.model_config,
                     self.data_config,
                     current_rank=current_rank,
                     is_ddp_active=is_ddp_active
                 )
-                
-                # Train/val split (all ranks do this identically)
-                dataset_size = len(self.dataset)
-                val_size = int(0.1 * dataset_size)
-                train_size = dataset_size - val_size
-                
-                # Use same seed for reproducible split across ranks
-                generator = torch.Generator().manual_seed(42)
-                self.train_dataset, self.val_dataset = torch.utils.data.random_split(
-                    self.dataset, [train_size, val_size], generator=generator
-                )
-                if self.dataset.ci_contract_active:
-                    self.ci_statistics = self.dataset.set_ci_statistics_from_indices(
-                        self.train_dataset.indices
+
+                if self.validation_map_path is not None:
+                    validation_dataset = PtychoDataset.from_existing_map(
+                        self.validation_map_path,
+                        self.model_config,
+                        self.data_config,
+                        current_rank=current_rank,
+                        is_ddp_active=is_ddp_active,
                     )
-                
+                    ci_statistics = None
+                    if train_dataset.ci_contract_active:
+                        ci_statistics = (
+                            train_dataset.set_ci_statistics_from_indices(
+                                torch.arange(len(train_dataset))
+                            )
+                        )
+                        validation_dataset.set_ci_statistics(
+                            ci_statistics
+                        )
+                    train_size = len(train_dataset)
+                    val_size = len(validation_dataset)
+                    (
+                        self.dataset,
+                        self.validation_dataset,
+                        self.train_dataset,
+                        self.val_dataset,
+                        self.ci_statistics,
+                    ) = (
+                        train_dataset,
+                        validation_dataset,
+                        train_dataset,
+                        validation_dataset,
+                        ci_statistics,
+                    )
+                else:
+                    # Train/val split (all ranks do this identically)
+                    dataset_size = len(train_dataset)
+                    val_size = int(0.1 * dataset_size)
+                    train_size = dataset_size - val_size
+
+                    # Use same seed for reproducible split across ranks
+                    generator = torch.Generator().manual_seed(42)
+                    train_split, val_split = torch.utils.data.random_split(
+                        train_dataset,
+                        [train_size, val_size],
+                        generator=generator,
+                    )
+                    ci_statistics = None
+                    if train_dataset.ci_contract_active:
+                        ci_statistics = (
+                            train_dataset.set_ci_statistics_from_indices(
+                                train_split.indices
+                            )
+                        )
+                    (
+                        self.dataset,
+                        self.validation_dataset,
+                        self.train_dataset,
+                        self.val_dataset,
+                        self.ci_statistics,
+                    ) = (
+                        train_dataset,
+                        None,
+                        train_split,
+                        val_split,
+                        ci_statistics,
+                    )
+
                 print(f"[DataModule setup] Rank {current_rank}: Dataset ready, "
                       f"train={train_size}, val={val_size}")
 
@@ -598,6 +664,17 @@ class PrebuiltPtychoDataModule(L.LightningDataModule):
             self.train_dataset,
             batch_size=self.training_config.batch_size,
             shuffle=True,
+            collate_fn=Collate_Lightning(pin_memory_if_cuda=True),
+            pin_memory=True,
+            **self._resolve_worker_kwargs(),
+        )
+
+    def calibration_dataloader(self):
+        """Return a deterministic rank-local batch source for calibration."""
+        return TensorDictDataLoader(
+            self.train_dataset,
+            batch_size=self.training_config.batch_size,
+            shuffle=False,
             collate_fn=Collate_Lightning(pin_memory_if_cuda=True),
             pin_memory=True,
             **self._resolve_worker_kwargs(),

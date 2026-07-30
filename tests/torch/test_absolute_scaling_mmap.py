@@ -595,7 +595,11 @@ def test_prebuilt_data_module_replaces_provisional_ci_statistics_from_train_spli
 
     val_split = 0.1
     val_seed = 42
-    payload, _, _ = _skew_validation_payload(val_split, val_seed)
+    payload, expected_train_indices, expected_validation_indices = (
+        _skew_validation_payload(val_split, val_seed)
+    )
+    assert expected_train_indices == [2, 6, 1, 8, 4, 5, 0, 9, 3]
+    assert expected_validation_indices == [7]
     data_config, model_config, training_config = _ci_configs()
     source_dataset = _build_file_dataset(
         tmp_path,
@@ -612,7 +616,266 @@ def test_prebuilt_data_module_replaces_provisional_ci_statistics_from_train_spli
         training_config,
     )
 
+    module.setup("fit")
+
+    assert isinstance(module.train_dataset, torch.utils.data.Subset)
+    assert isinstance(module.val_dataset, torch.utils.data.Subset)
+    assert module.train_dataset.indices == expected_train_indices
+    assert module.val_dataset.indices == expected_validation_indices
     _assert_finalized_module_statistics(module, provisional_statistics)
+
+
+def test_prebuilt_data_module_uses_complete_explicit_validation_map_and_train_statistics(
+    tmp_path,
+):
+    from ptycho_torch.train_utils import PrebuiltPtychoDataModule
+
+    data_config, model_config, training_config = _ci_configs()
+    train_payload = list(_count_intensity_arrays(n_images=10))
+    train_payload[0][:] = 2.0
+    validation_payload = list(_count_intensity_arrays(n_images=4))
+    validation_payload[0][:] = 2000.0
+    train_source = _build_file_dataset(
+        tmp_path / "train",
+        tuple(train_payload),
+        data_config,
+        model_config,
+        training_config,
+    )
+    validation_source = _build_file_dataset(
+        tmp_path / "validation",
+        tuple(validation_payload),
+        data_config,
+        model_config,
+        training_config,
+    )
+    validation_provisional_statistics = validation_source.get_ci_statistics()
+    module = PrebuiltPtychoDataModule(
+        tmp_path / "train" / "memmap",
+        model_config,
+        data_config,
+        training_config,
+        validation_map_path=tmp_path / "validation" / "memmap",
+    )
+
+    module.setup("fit")
+
+    assert module.train_dataset is module.dataset
+    assert module.val_dataset is module.validation_dataset
+    assert len(module.train_dataset) == len(train_source)
+    assert len(module.val_dataset) == len(validation_source)
+    assert not isinstance(module.train_dataset, torch.utils.data.Subset)
+    assert not isinstance(module.val_dataset, torch.utils.data.Subset)
+
+    train_images = torch.as_tensor(module.dataset.mmap_ptycho["images"])
+    expected = derive_ci_experiment_statistics(train_images, N_PIX)
+    assert not torch.equal(
+        validation_provisional_statistics["mean_measured_intensity"],
+        expected.mean_measured_intensity.reshape(1),
+    )
+    for dataset in (module.train_dataset, module.val_dataset):
+        tensor_dict, _, _ = dataset[torch.arange(len(dataset))]
+        assert torch.all(
+            tensor_dict["rms_input_scale"] == expected.rms_input_scale
+        )
+        assert torch.all(
+            tensor_dict["mean_measured_intensity"]
+            == expected.mean_measured_intensity
+        )
+
+
+def test_prebuilt_data_module_retries_explicit_maps_after_ci_attachment_failure(
+    tmp_path,
+    monkeypatch,
+):
+    from ptycho_torch.train_utils import PrebuiltPtychoDataModule
+
+    data_config, model_config, training_config = _ci_configs()
+    train_payload = list(_count_intensity_arrays(n_images=6))
+    train_payload[0][:] = 2.0
+    validation_payload = list(_count_intensity_arrays(n_images=3))
+    validation_payload[0][:] = 2000.0
+    train_source = _build_file_dataset(
+        tmp_path / "train",
+        tuple(train_payload),
+        data_config,
+        model_config,
+        training_config,
+    )
+    validation_source = _build_file_dataset(
+        tmp_path / "validation",
+        tuple(validation_payload),
+        data_config,
+        model_config,
+        training_config,
+    )
+    train_map_path = tmp_path / "train" / "memmap"
+    validation_map_path = tmp_path / "validation" / "memmap"
+    module = PrebuiltPtychoDataModule(
+        train_map_path,
+        model_config,
+        data_config,
+        training_config,
+        validation_map_path=validation_map_path,
+    )
+    original_from_existing_map = PtychoDataset.from_existing_map
+    original_set_ci_statistics = PtychoDataset.set_ci_statistics
+    reopened_paths = []
+    validation_failures = 0
+
+    def tracking_from_existing_map(
+        cls,
+        map_path,
+        model_config,
+        data_config,
+        current_rank=0,
+        is_ddp_active=False,
+    ):
+        reopened_paths.append(map_path)
+        return original_from_existing_map(
+            map_path,
+            model_config,
+            data_config,
+            current_rank=current_rank,
+            is_ddp_active=is_ddp_active,
+        )
+
+    def fail_first_validation_attachment(dataset, statistics):
+        nonlocal validation_failures
+        if (
+            dataset.data_dir_path == validation_map_path
+            and validation_failures == 0
+        ):
+            validation_failures += 1
+            raise RuntimeError("validation CI attachment failed")
+        return original_set_ci_statistics(dataset, statistics)
+
+    monkeypatch.setattr(
+        PtychoDataset,
+        "from_existing_map",
+        classmethod(tracking_from_existing_map),
+    )
+    monkeypatch.setattr(
+        PtychoDataset,
+        "set_ci_statistics",
+        fail_first_validation_attachment,
+    )
+
+    with pytest.raises(RuntimeError, match="validation CI attachment failed"):
+        module.setup("fit")
+
+    assert module.dataset is None
+    assert module.validation_dataset is None
+    assert module.train_dataset is None
+    assert module.val_dataset is None
+    assert module.ci_statistics is None
+
+    module.setup("fit")
+
+    assert reopened_paths == [
+        train_map_path,
+        validation_map_path,
+        train_map_path,
+        validation_map_path,
+    ]
+    assert module.train_dataset is module.dataset
+    assert module.val_dataset is module.validation_dataset
+    assert len(module.train_dataset) == len(train_source)
+    assert len(module.val_dataset) == len(validation_source)
+    for name, expected in module.train_dataset.get_ci_statistics().items():
+        torch.testing.assert_close(module.ci_statistics[name], expected)
+        torch.testing.assert_close(
+            module.validation_dataset.get_ci_statistics()[name],
+            expected,
+        )
+
+
+def test_prebuilt_data_module_retries_internal_split_after_ci_statistics_failure(
+    tmp_path,
+    monkeypatch,
+):
+    from ptycho_torch.train_utils import PrebuiltPtychoDataModule
+
+    payload = list(_count_intensity_arrays(n_images=10))
+    payload[0][:] = 2.0
+    data_config, model_config, training_config = _ci_configs()
+    source_dataset = _build_file_dataset(
+        tmp_path,
+        tuple(payload),
+        data_config,
+        model_config,
+        training_config,
+    )
+    map_path = tmp_path / "memmap"
+    module = PrebuiltPtychoDataModule(
+        map_path,
+        model_config,
+        data_config,
+        training_config,
+    )
+    original_from_existing_map = PtychoDataset.from_existing_map
+    original_set_ci_statistics_from_indices = (
+        PtychoDataset.set_ci_statistics_from_indices
+    )
+    reopened_paths = []
+    statistics_failures = 0
+
+    def tracking_from_existing_map(
+        cls,
+        reopened_map_path,
+        reopened_model_config,
+        reopened_data_config,
+        current_rank=0,
+        is_ddp_active=False,
+    ):
+        reopened_paths.append(reopened_map_path)
+        return original_from_existing_map(
+            reopened_map_path,
+            reopened_model_config,
+            reopened_data_config,
+            current_rank=current_rank,
+            is_ddp_active=is_ddp_active,
+        )
+
+    def fail_first_statistics_finalization(dataset, indices):
+        nonlocal statistics_failures
+        if statistics_failures == 0:
+            statistics_failures += 1
+            raise RuntimeError("training split CI statistics failed")
+        return original_set_ci_statistics_from_indices(dataset, indices)
+
+    monkeypatch.setattr(
+        PtychoDataset,
+        "from_existing_map",
+        classmethod(tracking_from_existing_map),
+    )
+    monkeypatch.setattr(
+        PtychoDataset,
+        "set_ci_statistics_from_indices",
+        fail_first_statistics_finalization,
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="training split CI statistics failed",
+    ):
+        module.setup("fit")
+
+    assert module.dataset is None
+    assert module.validation_dataset is None
+    assert module.train_dataset is None
+    assert module.val_dataset is None
+    assert module.ci_statistics is None
+
+    module.setup("fit")
+
+    assert reopened_paths == [map_path, map_path]
+    assert len(module.train_dataset) + len(module.val_dataset) == len(
+        source_dataset
+    )
+    assert module.train_dataset.indices == [2, 6, 1, 8, 4, 5, 0, 9, 3]
+    assert module.val_dataset.indices == [7]
+    assert module.ci_statistics is not None
 
 
 def test_ci_statistics_callback_registers_before_batches_and_logs_metadata(tmp_path):

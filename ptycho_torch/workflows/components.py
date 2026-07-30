@@ -101,6 +101,7 @@ try:
         PrebuiltPtychoDataModule,
         is_spawn_strategy,
     )
+    from lightning.pytorch.callbacks import Callback
 except ImportError as e:
     # If Phase C/D3 modules not available, raise actionable error
     raise RuntimeError(
@@ -109,10 +110,18 @@ except ImportError as e:
         "Original error: " + str(e)
     ) from e
 
+TorchWorkflowInput = Union[
+    RawData,
+    RawDataTorch,
+    PtychoDataContainerTorch,
+    PtychoDataset,
+]
+
 # Set up logging
 logger = logging.getLogger(__name__)
 
 _BUNDLE_SCALING_METADATA = "torch_scaling_metadata.pt"
+_RECT_S1S2_CALIBRATION_METRIC = "_rect_s1s2_calibration"
 
 
 def _validate_training_execution_input(
@@ -173,6 +182,9 @@ class _ResolvedPrebuiltPtychoDataModule(PrebuiltPtychoDataModule):
 
     def train_dataloader(self):
         return self._dataloader(self.train_dataset, shuffle=True)
+
+    def calibration_dataloader(self):
+        return self._dataloader(self.train_dataset, shuffle=False)
 
     def val_dataloader(self):
         return self._dataloader(self.val_dataset, shuffle=False)
@@ -625,8 +637,8 @@ class NormalizedAmplitudeCIDictAdapter:
 
 
 def run_cdi_example_torch(
-    train_data: Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch'],
-    test_data: Optional[Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch']],
+    train_data: TorchWorkflowInput,
+    test_data: Optional[TorchWorkflowInput],
     config: TrainingConfig,
     flip_x: bool = False,
     flip_y: bool = False,
@@ -649,7 +661,8 @@ def run_cdi_example_torch(
     legacy leaf owns its own narrow compatibility scope.
 
     Args:
-        train_data: Training data (RawData, RawDataTorch, or PtychoDataContainerTorch)
+        train_data: Training data (RawData, RawDataTorch,
+            PtychoDataContainerTorch, or PtychoDataset)
         test_data: Optional test data (same type constraints as train_data)
         config: TrainingConfig instance (TensorFlow dataclass, translated via config_bridge)
         flip_x: Whether to flip the x coordinates during reconstruction
@@ -768,31 +781,42 @@ def run_cdi_example_torch(
 
 
 def _ensure_container(
-    data: Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch'],
+    data: Union[
+        RawData,
+        'RawDataTorch',
+        'PtychoDataContainerTorch',
+        'PtychoDataset',
+    ],
     config: TrainingConfig
-) -> 'PtychoDataContainerTorch':
+) -> Union['PtychoDataContainerTorch', 'PtychoDataset']:
     """
-    Normalize input data to PtychoDataContainerTorch using Phase C adapters.
+    Preserve native datasets or normalize input data using Phase C adapters.
 
     This helper mirrors the pattern in ptycho.workflows.components.create_ptycho_data_container,
     providing a single normalization pathway for all data types.
 
     Args:
-        data: Input data (RawData, RawDataTorch, or PtychoDataContainerTorch)
+        data: Input data (RawData, RawDataTorch, PtychoDataContainerTorch,
+            or PtychoDataset)
         config: TrainingConfig for grouped data generation parameters
 
     Returns:
-        PtychoDataContainerTorch: Normalized container ready for Lightning training
+        PtychoDataContainerTorch or PtychoDataset: Training-ready input
 
     Raises:
         TypeError: If data is not one of the supported types
         ImportError: If Phase C adapters not available (should not occur in Phase D2.B)
 
     Implementation Notes:
+        - PtychoDataset → return as-is (native mmap substrate)
         - RawData → wrap with RawDataTorch, generate_grouped_data, then PtychoDataContainerTorch
         - RawDataTorch → generate_grouped_data → PtychoDataContainerTorch
         - PtychoDataContainerTorch → return as-is (already normalized)
     """
+    if isinstance(data, PtychoDataset):
+        logger.debug("Input is already PtychoDataset, returning as-is")
+        return data
+
     # Phase C adapters are now mandatory (imported at module level)
     sample_indices = None
 
@@ -1396,6 +1420,11 @@ def _build_dataloaders_from_ptycho_dataset(
             model_config=model_config,
             data_config=data_config,
             training_config=runtime_training_config,
+            validation_map_path=(
+                test_ptycho_dataset.data_dir_path
+                if test_ptycho_dataset is not None
+                else None
+            ),
             execution_config=execution_config,
         )
 
@@ -1423,14 +1452,20 @@ def _build_dataloaders_from_ptycho_dataset(
         **loader_kwargs,
     )
 
-    test_data_loader = TensorDictDataLoader(
-        test_ptycho_dataset,
-        batch_size=training_config.batch_size,
-        collate_fn=Collate(device=primary_device),
-        **loader_kwargs,
-    )
+    val_loader = None
+    if test_ptycho_dataset is not None:
+        if train_ptycho_dataset.ci_contract_active:
+            test_ptycho_dataset.set_ci_statistics(
+                train_ptycho_dataset.get_ci_statistics()
+            )
+        val_loader = TensorDictDataLoader(
+            test_ptycho_dataset,
+            batch_size=training_config.batch_size,
+            collate_fn=Collate(device=primary_device),
+            **loader_kwargs,
+        )
 
-    return train_data_loader, test_data_loader
+    return train_data_loader, val_loader
 
 
     
@@ -1550,6 +1585,55 @@ def _move_batch_to_device(batch, device):
     if isinstance(batch, (list, tuple)):
         return type(batch)(_move_batch_to_device(value, device) for value in batch)
     return batch
+
+
+class _RectS1S2CalibrationCallback(Callback):
+    """Calibrate rectangular scaling after rank-local data setup."""
+
+    def __init__(self, direct_loader=None):
+        super().__init__()
+        self.direct_loader = direct_loader
+        self.calibration = None
+        self._has_run = False
+
+    def _publish_calibration(self, trainer):
+        if self.calibration is None:
+            return
+        import torch
+
+        trainer.callback_metrics[
+            _RECT_S1S2_CALIBRATION_METRIC
+        ] = torch.as_tensor(self.calibration).detach()
+
+    def on_fit_start(self, trainer, pl_module):
+        if self._has_run:
+            return
+        if isinstance(trainer.datamodule, PrebuiltPtychoDataModule):
+            calibration_loader = (
+                trainer.datamodule.calibration_dataloader()
+            )
+        else:
+            calibration_loader = self.direct_loader
+        if calibration_loader is None:
+            raise RuntimeError(
+                "rect_s1s2 data calibration requires a training loader."
+            )
+        calibration_batch = _move_batch_to_device(
+            next(iter(calibration_loader)),
+            pl_module.device,
+        )
+        self.calibration = pl_module.calibrate_rect_s1s2(
+            calibration_batch
+        )
+        self._publish_calibration(trainer)
+        self._has_run = True
+        logger.info(
+            "rect_s1s2 data calibration: s1=s2=%s",
+            self.calibration,
+        )
+
+    def on_fit_end(self, trainer, pl_module):
+        self._publish_calibration(trainer)
 
 
 def _train_with_lightning(
@@ -1766,7 +1850,10 @@ def _train_with_lightning(
 
     # DATA-SUP-001: Supervised mode requires labeled data
     # Check if supervised mode is requested but training data lacks required labels
-    if pt_model_config.mode == 'Supervised':
+    if (
+        pt_model_config.mode == 'Supervised'
+        and not isinstance(train_container, PtychoDataset)
+    ):
         # Inspect first batch to verify label keys exist
         try:
             first_batch = next(iter(train_loader))
@@ -1824,6 +1911,24 @@ def _train_with_lightning(
 
     # EB1.D: Configure checkpoint/early-stop callbacks (ADR-003 Phase EB1)
     callbacks: list = [loss_history_cb]
+    if (
+        resolved_scale_contract is not None
+        and resolved_scale_contract.version == CI_SCALE_CONTRACT
+        and isinstance(data_product, PrebuiltPtychoDataModule)
+    ):
+        from ptycho_torch.lightning_utils import CIStatisticsCallback
+
+        callbacks.append(CIStatisticsCallback())
+    rect_s1s2_calibration_cb = None
+    if getattr(pt_model_config, "rect_s1s2_init", "ones") == "data":
+        rect_s1s2_calibration_cb = _RectS1S2CalibrationCallback(
+            direct_loader=(
+                None
+                if isinstance(data_product, PrebuiltPtychoDataModule)
+                else train_loader
+            )
+        )
+        callbacks.append(rect_s1s2_calibration_cb)
     if execution_config.enable_checkpointing:
         from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 
@@ -1975,22 +2080,6 @@ def _train_with_lightning(
         trainer_kwargs["gradient_clip_algorithm"] = effective_clip_algorithm
     trainer = L.Trainer(**trainer_kwargs)
 
-    rect_s1s2_calibration = None
-    if getattr(pt_model_config, "rect_s1s2_init", "ones") == "data":
-        if isinstance(data_product, PrebuiltPtychoDataModule):
-            data_product.setup("fit")
-            calibration_loader = data_product.train_dataloader()
-        else:
-            calibration_loader = train_loader
-        calibration_batch = _move_batch_to_device(
-            next(iter(calibration_loader)), model.device
-        )
-        rect_s1s2_calibration = model.calibrate_rect_s1s2(calibration_batch)
-        logger.info(
-            "rect_s1s2 data calibration: s1=s2=%s",
-            rect_s1s2_calibration,
-        )
-
     # B2.6: Execute training cycle
     logger.info(
         "Starting Lightning training: %s epochs",
@@ -2008,6 +2097,25 @@ def _train_with_lightning(
         except Exception as e:
             logger.error(f"Lightning training failed: {e}")
             raise RuntimeError(f"Lightning training failed. See logs for details.") from e
+
+    rect_s1s2_calibration = (
+        rect_s1s2_calibration_cb.calibration
+        if rect_s1s2_calibration_cb is not None
+        else None
+    )
+    if (
+        rect_s1s2_calibration_cb is not None
+        and rect_s1s2_calibration is None
+    ):
+        transferred_calibration = trainer.callback_metrics.get(
+            _RECT_S1S2_CALIBRATION_METRIC
+        )
+        if transferred_calibration is not None:
+            rect_s1s2_calibration = float(
+                torch.as_tensor(transferred_calibration)
+                .reshape(-1)[0]
+                .item()
+            )
 
     # Extract loss history from the custom callback
     # The _LossHistoryCallback collects losses per epoch during training
@@ -2310,8 +2418,8 @@ def _reassemble_position_with_legacy_geometry(
 
 
 def train_cdi_model_torch(
-    train_data: Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch', 'PtychoDataset'],
-    test_data: Optional[Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch']],
+    train_data: TorchWorkflowInput,
+    test_data: Optional[TorchWorkflowInput],
     config: TrainingConfig,
     execution_config: Optional[Any] = None,
     overrides: Optional[dict] = None,
@@ -2325,8 +2433,9 @@ def train_cdi_model_torch(
     orchestrating data preparation, probe initialization, and Lightning trainer execution.
 
     Args:
-        train_data: Training data (RawData, RawDataTorch, or PtychoDataContainerTorch)
-        test_data: Optional test data for validation
+        train_data: Training data (RawData, RawDataTorch,
+            PtychoDataContainerTorch, or PtychoDataset)
+        test_data: Optional validation data with the same accepted input types
         config: TrainingConfig instance (TensorFlow dataclass)
         execution_config: Optional unresolved ExecutionRequest for runtime control
         overrides: Optional torch-only factory overrides.
@@ -2388,6 +2497,18 @@ def train_cdi_model_torch(
     if hasattr(train_container, 'physics_scaling_constant'):
         import torch
         scale_tensor = torch.as_tensor(train_container.physics_scaling_constant)
+    elif (
+        isinstance(train_container, PtychoDataset)
+        and "physics_scaling_constant" in train_container.mmap_ptycho.keys()
+    ):
+        import torch
+        scale_tensor = torch.as_tensor(
+            train_container.mmap_ptycho["physics_scaling_constant"]
+        )
+    else:
+        scale_tensor = None
+
+    if scale_tensor is not None:
         results['intensity_scale'] = float(scale_tensor.reshape(-1)[0].item())
 
     return results
