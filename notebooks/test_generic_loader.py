@@ -1,1 +1,0 @@
-../tests/test_generic_loader.py

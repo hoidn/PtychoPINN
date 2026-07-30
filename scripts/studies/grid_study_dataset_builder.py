@@ -15,12 +15,13 @@ from typing import Dict, Iterable, Optional
 
 import numpy as np
 
-from ptycho import params
-from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig, update_legacy_dict
+from ptycho.acquisition import AcquisitionRecord
+from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
 from ptycho.metadata import MetadataManager
 from ptycho.workflows import components as wf_components
 from ptycho.workflows import grid_lines_workflow
 from ptycho.workflows.grid_lines_workflow import GridLinesConfig
+from ptycho_torch.raw_data_bridge import RawDataTorch
 
 
 @dataclass
@@ -139,9 +140,15 @@ def _build_external_bundle_for_n(
         n_samples=(n_groups if n_groups is not None else 1),
         subsample_seed=subsample_seed,
     )
+    train_record = AcquisitionRecord.from_raw_data(raw_train)
+    test_record = AcquisitionRecord.from_raw_data(raw_test)
 
-    train_group_count = int(n_groups) if n_groups is not None else int(raw_train.xcoords.shape[0])
-    test_group_count = int(n_groups) if n_groups is not None else int(raw_test.xcoords.shape[0])
+    train_group_count = (
+        int(n_groups) if n_groups is not None else int(train_record.xcoords.shape[0])
+    )
+    test_group_count = (
+        int(n_groups) if n_groups is not None else int(test_record.xcoords.shape[0])
+    )
     if train_group_count <= 0 or test_group_count <= 0:
         raise ValueError("Resolved n_groups must be positive for both train and test splits.")
 
@@ -161,12 +168,19 @@ def _build_external_bundle_for_n(
         neighbor_count=neighbor_count,
         subsample_seed=subsample_seed,
     )
-    update_legacy_dict(params.cfg, meta_cfg_train)
 
-    if raw_train.objectGuess is None or raw_test.objectGuess is None:
+    if train_record.objectGuess is None or test_record.objectGuess is None:
         raise ValueError("external_raw_npz requires objectGuess for canonical GT reconstruction.")
 
-    grouped_train = raw_train.generate_grouped_data(
+    train_adapter = RawDataTorch.from_acquisition(
+        train_record,
+        config=meta_cfg_train,
+    )
+    test_adapter = RawDataTorch.from_acquisition(
+        test_record,
+        config=meta_cfg_test,
+    )
+    grouped_train = train_adapter.generate_grouped_data(
         N=n_value,
         K=neighbor_count,
         nsamples=train_group_count,
@@ -174,7 +188,7 @@ def _build_external_bundle_for_n(
         seed=subsample_seed,
         gridsize=cfg.gridsize,
     )
-    grouped_test = raw_test.generate_grouped_data(
+    grouped_test = test_adapter.generate_grouped_data(
         N=n_value,
         K=neighbor_count,
         nsamples=test_group_count,
@@ -186,7 +200,7 @@ def _build_external_bundle_for_n(
     if grouped_train.get("Y") is None or grouped_test.get("Y") is None:
         raise ValueError("external_raw_npz requires objectGuess-derived grouped patches (Y).")
 
-    yy_full = np.asarray(np.squeeze(raw_test.objectGuess), dtype=np.complex64)
+    yy_full = np.asarray(np.squeeze(test_record.objectGuess), dtype=np.complex64)
     gt_recon_path = _ensure_canonical_gt(cfg.output_dir, yy_full)
 
     dataset_dir = cfg.output_dir / "datasets" / f"N{n_value}" / f"gs{cfg.gridsize}"
@@ -196,12 +210,12 @@ def _build_external_bundle_for_n(
 
     train_payload = _build_split_payload(
         grouped=grouped_train,
-        probe_guess=raw_train.probeGuess,
+        probe_guess=train_record.probeGuess,
         yy_full=yy_full,
     )
     test_payload = _build_split_payload(
         grouped=grouped_test,
-        probe_guess=raw_test.probeGuess,
+        probe_guess=test_record.probeGuess,
         yy_full=yy_full,
     )
     test_payload["YY_ground_truth"] = np.asarray(yy_full, dtype=np.complex64)

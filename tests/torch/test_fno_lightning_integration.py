@@ -4,6 +4,22 @@ import pytest
 import torch
 
 
+def _cpu_execution_request():
+    """Return unresolved runtime inputs for the short Lightning runs."""
+    from ptycho_torch.execution_request import ExecutionRequest
+
+    values = {
+        "accelerator": "cpu",
+        "logger_backend": None,
+        "enable_checkpointing": False,
+        "strategy": "auto",
+    }
+    return ExecutionRequest(
+        values=values,
+        explicit_fields=frozenset(values),
+    )
+
+
 def test_loss_history_callback_collects_per_epoch():
     """Unit test: Verify _LossHistoryCallback collects losses per epoch."""
     import lightning.pytorch as L
@@ -92,7 +108,7 @@ def test_loss_history_callback_handles_missing_metrics():
 @pytest.mark.slow
 def test_train_history_collects_epochs(synthetic_ptycho_npz, tmp_path):
     """Integration test: Verify training history collects loss values per epoch."""
-    from ptycho.config.config import TrainingConfig, ModelConfig, PyTorchExecutionConfig
+    from ptycho.config.config import TrainingConfig, ModelConfig
     from ptycho.raw_data import RawData
     from ptycho_torch.workflows.components import train_cdi_model_torch
 
@@ -117,11 +133,7 @@ def test_train_history_collects_epochs(synthetic_ptycho_npz, tmp_path):
 
     # Disable checkpointing and logging for speed
     # Use 'auto' strategy to avoid DDP issues in tests
-    exec_cfg = PyTorchExecutionConfig(
-        logger_backend=None,
-        enable_checkpointing=False,
-        strategy='auto',
-    )
+    exec_cfg = _cpu_execution_request()
 
     results = train_cdi_model_torch(train_data, None, cfg, execution_config=exec_cfg)
 
@@ -140,7 +152,7 @@ def test_train_history_collects_epochs_for_fno(synthetic_ptycho_npz, tmp_path, a
     2. The Lightning training pipeline wires up the generator properly
     3. Loss history is collected for at least one epoch
     """
-    from ptycho.config.config import TrainingConfig, ModelConfig, PyTorchExecutionConfig
+    from ptycho.config.config import TrainingConfig, ModelConfig
     from ptycho.raw_data import RawData
     from ptycho_torch.workflows.components import train_cdi_model_torch
 
@@ -158,11 +170,7 @@ def test_train_history_collects_epochs_for_fno(synthetic_ptycho_npz, tmp_path, a
         n_groups=4,
     )
 
-    exec_cfg = PyTorchExecutionConfig(
-        logger_backend=None,
-        enable_checkpointing=False,
-        strategy='auto',
-    )
+    exec_cfg = _cpu_execution_request()
 
     results = train_cdi_model_torch(train_data, None, cfg, execution_config=exec_cfg)
     history = results["history"]["train_loss"]
@@ -179,7 +187,7 @@ def test_reassemble_cdi_image_torch_handles_real_imag_outputs(synthetic_ptycho_n
     3. Amplitude and phase arrays are finite and have correct shapes
     """
     import numpy as np
-    from ptycho.config.config import TrainingConfig, ModelConfig, PyTorchExecutionConfig
+    from ptycho.config.config import TrainingConfig, ModelConfig
     from ptycho.raw_data import RawData
     from ptycho_torch.workflows.components import train_cdi_model_torch, _reassemble_cdi_image_torch
 
@@ -198,15 +206,15 @@ def test_reassemble_cdi_image_torch_handles_real_imag_outputs(synthetic_ptycho_n
         n_groups=4,
     )
 
-    exec_cfg = PyTorchExecutionConfig(
-        logger_backend=None,
-        enable_checkpointing=False,
-        strategy='auto',
-    )
+    exec_cfg = _cpu_execution_request()
 
     results = train_cdi_model_torch(train_data, test_data, cfg, execution_config=exec_cfg)
+    from ptycho import params
+
+    ambient_params = dict(params.cfg)
     amp, phase, _ = _reassemble_cdi_image_torch(test_data, cfg, False, False, False, M=64, train_results=results)
 
     assert amp.shape == phase.shape
     assert np.isfinite(amp).all(), "Amplitude contains non-finite values"
     assert np.isfinite(phase).all(), "Phase contains non-finite values"
+    assert params.cfg == ambient_params

@@ -934,7 +934,7 @@ def __getattr__(name):
             warnings.warn(
                 f"Accessing deprecated module-level singleton '{name}'. "
                 "Use create_compiled_model() or create_model_with_gridsize() instead. "
-                "See docs/findings.md MODULE-SINGLETON-001 for migration guide.",
+                "MODULE-SINGLETON-001 requires explicit model construction.",
                 DeprecationWarning,
                 stacklevel=2
             )

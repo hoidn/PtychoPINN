@@ -1048,8 +1048,17 @@ def _reset_backend_state() -> None:
 # ---------------------------------------------------------------------------
 
 
-def stitch_predictions(predictions: np.ndarray, norm_Y_I: float, part: str = "amp") -> np.ndarray:
-    """Stitch model predictions, bypassing the incorrect gridsize=1 guard.
+def stitch_predictions_explicit(
+    predictions: np.ndarray,
+    norm_Y_I: float,
+    *,
+    N: int,
+    gridsize: int,
+    nimgs_test: int,
+    outer_offset_test: int,
+    part: str = "amp",
+) -> np.ndarray:
+    """Stitch model predictions using caller-owned reconstruction geometry.
 
     NOTE: This function exists because data_preprocessing.stitch_data() has an
     incorrect ValueError guard for gridsize=1. The original stitching math works
@@ -1060,22 +1069,21 @@ def stitch_predictions(predictions: np.ndarray, norm_Y_I: float, part: str = "am
     Contract: STITCH-001
     - Handles both gridsize=1 and gridsize>1
     - For gridsize>1, reshapes channels into spatial grid before stitching
-    - Uses outer_offset_test from params.cfg for border clipping
+    - Uses explicit outer_offset_test for border clipping
     - Returns stitched array with last dimension = 1
 
     Args:
         predictions: Model output, shape (batch, N, N, gridsize^2) or complex
         norm_Y_I: Normalization factor from simulation
+        N: Patch side length
+        gridsize: Number of patch channels along one grid dimension
+        nimgs_test: Number of test image groups
+        outer_offset_test: Scan offset used to derive the clipping border
         part: 'amp', 'phase', or 'complex'
 
     Returns:
         Stitched images, shape (n_test, H, W, 1)
     """
-    nimgs = p.get("nimgs_test")
-    outer_offset = p.get("outer_offset_test")
-    N = p.cfg["N"]
-    gridsize = p.cfg["gridsize"]
-
     if part == "amp":
         getpart = np.absolute
     elif part == "phase":
@@ -1098,12 +1106,12 @@ def stitch_predictions(predictions: np.ndarray, norm_Y_I: float, part: str = "am
         # Reshape to (batch * gridsize * gridsize, N, N, 1)
         processed = processed.reshape(batch * gridsize**2, N, N, 1)
         # Update effective number of images for stitching calculation
-        nimgs_effective = nimgs * gridsize**2
+        nimgs_effective = nimgs_test * gridsize**2
     else:
         # Ensure 4D with trailing 1
         if len(processed.shape) == 3:
             processed = processed[..., np.newaxis]
-        nimgs_effective = nimgs
+        nimgs_effective = nimgs_test
 
     # Calculate number of segments
     nsegments = int(np.sqrt((processed.size / nimgs_effective) / (N**2)))
@@ -1113,7 +1121,7 @@ def stitch_predictions(predictions: np.ndarray, norm_Y_I: float, part: str = "am
     )
 
     # Border clipping (from data_preprocessing.get_clip_sizes)
-    bordersize = (N - outer_offset / 2) / 2
+    bordersize = (N - outer_offset_test / 2) / 2
     borderleft = int(np.ceil(bordersize))
     borderright = int(np.floor(bordersize))
 
@@ -1121,6 +1129,19 @@ def stitch_predictions(predictions: np.ndarray, norm_Y_I: float, part: str = "am
     tmp = img_recon.transpose(0, 1, 3, 2, 4, 5)
     stitched = tmp.reshape(-1, np.prod(tmp.shape[1:3]), np.prod(tmp.shape[1:3]), 1)
     return stitched
+
+
+def stitch_predictions(predictions: np.ndarray, norm_Y_I: float, part: str = "amp") -> np.ndarray:
+    """Legacy params.cfg adapter for :func:`stitch_predictions_explicit`."""
+    return stitch_predictions_explicit(
+        predictions,
+        norm_Y_I,
+        N=p.cfg["N"],
+        gridsize=p.cfg["gridsize"],
+        nimgs_test=p.get("nimgs_test"),
+        outer_offset_test=p.get("outer_offset_test"),
+        part=part,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1440,13 +1461,18 @@ def _write_tf_row_provenance(
     }
 
 
-def run_pinn_inference(model, X_test, coords_nominal):
-    """Run PINN inference on test data.
+def run_pinn_inference_explicit(
+    model,
+    X_test,
+    coords_nominal,
+    *,
+    intensity_scale,
+):
+    """Run PINN inference using caller-owned input normalization.
 
     Returns the reconstructed complex object (first output of model.predict).
     Native inference failures propagate to the caller.
     """
-    intensity_scale = p.get("intensity_scale")
     prediction = model.predict([X_test * intensity_scale, coords_nominal])
     if prediction is None:
         raise ValueError("PINN inference returned no outputs")
@@ -1455,6 +1481,16 @@ def run_pinn_inference(model, X_test, coords_nominal):
             raise ValueError("PINN inference returned no outputs")
         return prediction[0]
     return prediction
+
+
+def run_pinn_inference(model, X_test, coords_nominal):
+    """Legacy params.cfg adapter for :func:`run_pinn_inference_explicit`."""
+    return run_pinn_inference_explicit(
+        model,
+        X_test,
+        coords_nominal,
+        intensity_scale=p.get("intensity_scale"),
+    )
 
 
 def run_baseline_inference(model, X_test):
@@ -1547,10 +1583,7 @@ def _resolve_display_border_pixels(output_dir: Path, override: Optional[int] = N
         return max(0, int(override))
     inferred_n = _infer_patch_size_from_output_dir(output_dir)
     if inferred_n is None:
-        try:
-            inferred_n = int(p.get("N"))
-        except Exception:
-            inferred_n = 0
+        return 0
     # Keep the auto-crop conservative; N//2 can over-tighten color limits.
     # Use a small fraction of N, capped to avoid aggressive clipping on large N.
     border = max(0, int(inferred_n) // 16)

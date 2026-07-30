@@ -210,7 +210,7 @@ def npz_headers(npz):
             raise ValueError(
                 f"Could not find diffraction data in {npz}. "
                 f"Expected standalone-NPZ 'diff3d' key or compatibility alias 'diffraction'. "
-                f"See docs/specs/spec-ptycho-core.md for required NPZ format."
+                f"See docs/data_contracts.md for the required NPZ format."
             )
         with archive.open(f'{diffraction_key}.npy') as npy:
             diffraction_shape = read_npy_shape(npy)
@@ -314,7 +314,7 @@ def _get_diffraction_stack(npz_file):
             raise ValueError(
                 f"Could not find diffraction data in {npz_file}. "
                 f"Expected standalone-NPZ 'diff3d' key or compatibility alias 'diffraction'. "
-                f"See docs/specs/spec-ptycho-core.md for required NPZ format."
+                f"See docs/data_contracts.md for the required NPZ format."
             )
         diff_array = data[diffraction_key]
 

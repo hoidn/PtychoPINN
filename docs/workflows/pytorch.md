@@ -31,22 +31,33 @@ Key properties:
 - `pip install .` installs torch ≥ 2.2, `lightning`, and `tensordict` automatically.
   For a specific CUDA build, install PyTorch manually first
   ([instructions](https://pytorch.org/get-started/locally/)), then `pip install .`
-- Input NPZ files with `diffraction` stored as amplitude (sqrt of intensity),
+- Input NPZ files with `diff3d` stored as amplitude (sqrt of intensity),
   `xcoords`/`ycoords` scan positions, a complex `probeGuess`, and `objectGuess`.
+  The Torch mmap loader also accepts `diffraction` as a compatibility alias;
+  the ordinary `RawData.from_file()` route requires `diff3d`.
 
 ## 3. Configuration
 
-### 3.1. The Two Config Layers
+### 3.1. Configuration Owners and Runtime Resolution
 
 1. **Canonical configs** (`TrainingConfig`, `InferenceConfig`, `ModelConfig`) describe
    the model and data. They bridge to `params.cfg` and to the torch singletons.
    `update_legacy_dict(params.cfg, config)` MUST run before any data
    loading or legacy-module import. The CLIs do this automatically via
    `ptycho_torch/config_factory.py`; programmatic callers must do it themselves.
-2. **`PyTorchExecutionConfig`** (`ptycho.config.config`) holds runtime-only knobs
-   (accelerator, workers, learning rate, scheduler, checkpointing, logger, structural
-   search fields). Execution config must NEVER populate `params.cfg`.
-   Full field catalog and validation rules: `specs/ptychodus_api_spec.md` §4.9.
+2. **`ExecutionRequest`** (`ptycho_torch.execution_request`) carries unresolved
+   runtime values such as accelerator, workers, checkpointing, and logging,
+   together with the set of fields the caller explicitly supplied. It does not
+   own optimization or model topology and must NEVER populate `params.cfg`.
+3. The factory validates canonical owners, observes capabilities only when
+   required, and returns **`PyTorchExecutionConfig`** as a runtime-only output
+   for Lightning and DataLoader construction. A bare resolved carrier is not a
+   supported factory input. Full field catalog and validation rules:
+   `specs/ptychodus_api_spec.md` §4.9.
+
+Learning rate, optimizer, scheduler, gradient clipping, and accumulation enter
+through Torch `TrainingConfig` or an explicit canonical factory training patch.
+Topology enters through Torch `ModelConfig`.
 
 ```python
 from pathlib import Path
@@ -165,11 +176,12 @@ ptycho_train --train_data_file datasets/my_train.npz \
   --torch-accelerator auto --torch-logger csv
 ```
 
-Torch execution flags on the unified scripts: `--torch-accelerator`,
-`--torch-logger`, `--torch-learning-rate`, `--torch-scheduler`, `--torch-num-workers`,
-`--torch-deterministic`, `--torch-enable-checkpointing`,
-`--torch-checkpoint-save-top-k`, `--torch-accumulate-grad-batches`. Dispatch happens
-in `ptycho/workflows/backend_selector.py` (see §7).
+Torch runtime flags on the unified scripts include `--torch-accelerator`,
+`--torch-logger`, `--torch-num-workers`, `--torch-deterministic`,
+`--torch-enable-checkpointing`, and `--torch-checkpoint-save-top-k`.
+Optimization flags such as `--torch-learning-rate`, `--torch-scheduler`, and
+`--torch-accumulate-grad-batches` form an explicit Torch `TrainingConfig`
+patch. Dispatch happens in `ptycho/workflows/backend_selector.py` (see §7).
 
 ### 4.2. Native CLI
 
@@ -187,35 +199,54 @@ Flags (`python -m ptycho_torch.train --help` is authoritative):
 | Group | Flags |
 |---|---|
 | Data/model | `--train_data_file`, `--test_data_file`, `--output_dir`, `--n_images` (number of groups), `--gridsize`, `--batch_size`, `--max_epochs`, `--config <yaml>` |
-| Execution | `--accelerator {auto,cuda,cpu,tpu,mps}`, `--deterministic/--no-deterministic`, `--num-workers`, `--learning-rate`, `--scheduler {Default,Exponential,MultiStage,Adaptive}`, `--accumulate-grad-batches`, `--quiet` |
+| Runtime | `--accelerator {auto,cuda,cpu,tpu,mps}`, `--deterministic/--no-deterministic`, `--num-workers`, `--quiet` |
+| Optimization | `--learning-rate`, `--scheduler {Default,Exponential,MultiStage,Adaptive}`, `--accumulate-grad-batches` |
 | Checkpointing | `--enable-checkpointing/--disable-checkpointing`, `--checkpoint-save-top-k`, `--checkpoint-monitor` (default `val_loss`, auto-aliased to the model's actual metric, e.g. `poisson_val_loss`), `--checkpoint-mode`, `--early-stop-patience` |
 | Loss/probe | `--torch-loss-mode {poisson,mae}`, `--probe-mask/--no-probe-mask`, `--probe-mask-sigma`, `--probe-mask-diameter` |
 | Logging | `--logger {csv,tensorboard,mlflow,none}`, `--log-patch-stats`, `--patch-stats-limit` |
 | Deprecated | `--device` (→ `--accelerator`), `--disable_mlflow` (→ `--logger none` + `--quiet`) |
 
-The CLI builds `PyTorchExecutionConfig` through `ptycho_torch/cli/shared.py`
-(`resolve_accelerator`, `build_execution_config_from_args`, `validate_paths`), which
-also performs the mandatory `params.cfg` bridging via the config factory.
+The native parser retains `tpu` in its accepted `--accelerator` spellings for
+CLI compatibility, but execution-request resolution rejects it explicitly:
+Torch-XLA TPU execution is unsupported.
+
+The CLI builds `ExecutionRequest` with
+`build_execution_request_from_args()` and a canonical optimization patch with
+`build_training_config_patch_from_args()`. The config factory validates owner
+configuration, performs the mandatory `params.cfg` bridge, resolves runtime
+capabilities, and returns `PyTorchExecutionConfig` in the payload.
 
 ### 4.3. Programmatic
 
 ```python
 from ptycho.raw_data import RawData
+from ptycho_torch.execution_request import ExecutionRequest
 from ptycho_torch.workflows.components import run_cdi_example_torch
 
 train_data = RawData.from_file(str(config.train_data_file))
 test_data = RawData.from_file(str(config.test_data_file)) if config.test_data_file else None
+execution_request = ExecutionRequest(
+    values={
+        "accelerator": "auto",
+        "num_workers": 0,
+        "logger_backend": "csv",
+    },
+    explicit_fields=frozenset(
+        {"accelerator", "num_workers", "logger_backend"}
+    ),
+)
 
 amplitude, phase, results = run_cdi_example_torch(
     train_data, test_data, config,
     do_stitching=True,            # False → (None, None, results) training-only
-    execution_config=exec_cfg,    # optional PyTorchExecutionConfig
+    execution_config=execution_request,  # optional unresolved request
 )
 ```
 
 `run_cdi_example_torch` normalizes the data into `PtychoDataContainerTorch`, seeds and
-instantiates `PtychoPINN_Lightning`, runs `Trainer.fit()` (deterministic, checkpoints
-under `{output_dir}/checkpoints/`), persists the bundle, and — when
+passes the request through the factory exactly once, instantiates
+`PtychoPINN_Lightning`, runs `Trainer.fit()` (deterministic, checkpoints under
+`{output_dir}/checkpoints/`), persists the bundle, and — when
 `do_stitching=True` — runs Lightning prediction and reassembles the image
 (`flip_x`/`flip_y`/`transpose` args control coordinate transforms, `M` the stitch
 window).
@@ -343,11 +374,9 @@ CUDA_VISIBLE_DEVICES="0" pytest tests/torch/test_integration_workflow_torch.py::
   `python scripts/tools/patch_parity_helper.py --tf-npz ... --torch-npz ...`
   (aligns shared `sample_indices`, writes comparison grids under `tmp/patch_parity/`).
 
-Commands, selectors, and evidence requirements: `docs/TESTING_GUIDE.md`.
-
 ---
 
 **Related Documentation:**
-- <doc-ref type="guide">docs/DEVELOPER_GUIDE.md</doc-ref> — architectural principles and anti-patterns
+- <doc-ref type="guide">docs/CONFIGURATION.md</doc-ref> — configuration ownership and precedence
+- <doc-ref type="guide">docs/DATA_NORMALIZATION_GUIDE.md</doc-ref> — scaling and measurement conventions
 - <doc-ref type="spec">specs/ptychodus_api_spec.md</doc-ref> — backend dispatch and execution-config contracts (§4.8–4.9)
-- <doc-ref type="guide">docs/TESTING_GUIDE.md</doc-ref> — test commands and evidence requirements

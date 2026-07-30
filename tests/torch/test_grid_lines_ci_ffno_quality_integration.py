@@ -52,9 +52,22 @@ def grid_lines_ffno_ci_scratch_root() -> Path:
     return SCRATCH_ROOT
 
 
+def _dataset_paths(scratch_root: Path) -> tuple[Path, Path]:
+    manifest_path = scratch_root / "dataset_paths.json"
+    if manifest_path.is_file():
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        paths = tuple(Path(payload[name]) for name in ("train_npz", "test_npz"))
+        if any(path.is_absolute() or ".." in path.parts for path in paths):
+            raise ValueError("dataset_paths.json paths must be relative to the scratch root")
+        return tuple(scratch_root / path for path in paths)
+    return (
+        scratch_root / "datasets/N128/gs1/train.npz",
+        scratch_root / "datasets/N128/gs1/test.npz",
+    )
+
+
 def _ensure_dataset(scratch_root: Path) -> tuple[Path, Path]:
-    train_npz = scratch_root / "datasets/N128/gs1/train.npz"
-    test_npz = scratch_root / "datasets/N128/gs1/test.npz"
+    train_npz, test_npz = _dataset_paths(scratch_root)
     if not (train_npz.exists() and test_npz.exists()):
         _run_repo_python(
             DATASET_BUILDER_PATH,
@@ -63,6 +76,7 @@ def _ensure_dataset(scratch_root: Path) -> tuple[Path, Path]:
             "--probe-npz",
             _resolve_probe_npz(),
         )
+        train_npz, test_npz = _dataset_paths(scratch_root)
 
     assert train_npz.is_file()
     assert test_npz.is_file()
@@ -72,6 +86,42 @@ def _ensure_dataset(scratch_root: Path) -> tuple[Path, Path]:
         assert train_data["coords_nominal"].shape[0] == TRAIN_PATTERNS
         assert train_data["YY_full"].shape[0] == TRAIN_GROUPS
     return train_npz, test_npz
+
+
+def test_ensure_dataset_consumes_builder_dataset_paths_manifest(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    expected_dir = tmp_path / "datasets/N128/gs1/simulation-abc123"
+    expected_train = expected_dir / "train.npz"
+    expected_test = expected_dir / "test.npz"
+
+    def fake_builder(*args: object) -> None:
+        expected_dir.mkdir(parents=True)
+        metadata = {"additional_parameters": {"nimgs_train": TRAIN_GROUPS}}
+        np.savez(
+            expected_train,
+            _metadata=json.dumps(metadata),
+            coords_nominal=np.zeros((TRAIN_PATTERNS, 2)),
+            YY_full=np.zeros((TRAIN_GROUPS, 1, 1)),
+        )
+        np.savez(expected_test, placeholder=np.zeros(1))
+        (tmp_path / "dataset_paths.json").write_text(
+            json.dumps(
+                {
+                    "train_npz": str(expected_train.relative_to(tmp_path)),
+                    "test_npz": str(expected_test.relative_to(tmp_path)),
+                }
+            ),
+            encoding="utf-8",
+        )
+
+    monkeypatch.setattr(sys.modules[__name__], "_run_repo_python", fake_builder)
+
+    train_npz, test_npz = _ensure_dataset(tmp_path)
+
+    assert train_npz == expected_train
+    assert test_npz == expected_test
 
 
 def _load_baseline() -> dict:

@@ -33,7 +33,14 @@ from ptycho import params
 from datetime import datetime
 
 # TODO multiple creations of this directory
+def get_path_prefix_explicit(*, label, output_prefix, timestamp):
+    """Build an output prefix from caller-owned primitive values."""
+    date_time = timestamp.replace('/', '-').replace(':', '.').replace(', ', '-')
+    return '{}/{}_{}/'.format(output_prefix, date_time, label)
+
+
 def get_path_prefix():
+    """Legacy adapter resolving and caching path inputs through params.cfg."""
     label = params.cfg['label']
     prefix = params.params()['output_prefix']
     now = datetime.now() # current date and time
@@ -42,11 +49,11 @@ def get_path_prefix():
     except KeyError:
         date_time = now.strftime("%m/%d/%Y, %H:%M:%S")
         params.set('timestamp', date_time)
-    date_time = date_time.replace('/', '-').replace(':', '.').replace(', ', '-')
-
-    #print('offset', offset)
-    out_prefix = '{}/{}_{}/'.format(prefix, date_time, label)
-    return out_prefix
+    return get_path_prefix_explicit(
+        label=label,
+        output_prefix=prefix,
+        timestamp=date_time,
+    )
 
 # Convert RGB colormap images to grayscale
 def colormap2arr(arr,cmap):
@@ -139,7 +146,11 @@ def _dataset_hash_inputs(func, args, kwargs, cfg):
 
 
 def memoize_disk_and_memory(func):
-    from ptycho.params import cfg
+    """Cache a legacy simulation leaf without retaining its global-state alias.
+
+    Remove the ``params.cfg`` key fallback when the remaining TensorFlow
+    simulation callers provide an explicit cache-key record.
+    """
     from ptycho import probe
     memory_cache = {}
     disk_cache_dir = 'memoized_data'
@@ -176,12 +187,16 @@ def memoize_disk_and_memory(func):
             return func(*args, **kwargs)
         key_mode = _memoize_key_mode()
         if key_mode == "dataset":
-            hash_input = _dataset_hash_inputs(func, args, kwargs, cfg)
+            hash_input = _dataset_hash_inputs(func, args, kwargs, params.cfg)
         else:
             cfg_keys = ['offset', 'N', 'outer_offset_train', 'outer_offset_test',
                         'nphotons', 'nimgs_train', 'nimgs_test', 'set_phi',
                         'data_source', 'gridsize', 'big_gridsize', 'default_probe_scale']
-            hash_input = {k: cfg[k] for k in cfg_keys if k in cfg}
+            hash_input = {
+                key: params.cfg[key]
+                for key in cfg_keys
+                if key in params.cfg
+            }
             if key_mode in {"data", "full"}:
                 hash_input.update({f'arg_{i}': _hash_value(arg) for i, arg in enumerate(args)})
                 hash_input.update({f'kwarg_{k}': _hash_value(v) for k, v in kwargs.items()})

@@ -3,7 +3,6 @@ set -euo pipefail
 
 # Bootstrap Git settings for supervisor/loop/orchestrator repos.
 # - Initializes/syncs submodules
-# - Sets ignore=dirty for tooling submodules (.claude/claude) if present
 # - Applies repo-local git configs for automation-friendly pulls
 # - Optionally hardens .gitignore with transient/data patterns
 #
@@ -43,32 +42,6 @@ fi
 echo "[bootstrap] Initializing submodules..."
 git submodule update --init
 git submodule sync --recursive
-
-# Configure ignore=dirty for tooling submodules if present
-did_edit_gitmodules=0
-if git config -f .gitmodules --get-regexp '^submodule\..*\.path$' >/dev/null 2>&1; then
-  while IFS=$' \t' read -r key path; do
-    # key example: submodule.".claude".path or submodule.claude.path
-    name=${key%.*}          # submodule.".claude"
-    name=${name#submodule.} # ".claude"
-    # Normalize quotes
-    unquoted=${name%"}
-    unquoted=${unquoted#"}
-    if [[ "$unquoted" == ".claude" || "$unquoted" == "claude" ]]; then
-      echo "[bootstrap] Marking tooling submodule '$unquoted' as ignore=dirty"
-      git config -f .gitmodules submodule."$unquoted".ignore dirty || true
-      did_edit_gitmodules=1
-    fi
-  done < <(git config -f .gitmodules --get-regexp '^submodule\..*\.path$')
-fi
-
-if [[ $did_edit_gitmodules -eq 1 ]]; then
-  git submodule sync
-  if ! git diff --quiet -- .gitmodules; then
-    git add .gitmodules
-    git commit -m "submodule hygiene: ignore dirty for tooling (.claude/claude)" || true
-  fi
-fi
 
 # Apply repo-local automation-friendly configs
 echo "[bootstrap] Applying repo-local git configs"
@@ -117,4 +90,3 @@ fi
 
 echo "[bootstrap] Submodule status:"; git submodule status || true
 echo "[bootstrap] Completed."
-

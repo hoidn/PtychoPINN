@@ -34,7 +34,6 @@ import math
 import json
 import signal
 from pathlib import Path
-from dataclasses import fields
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
@@ -43,11 +42,11 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from ptycho import probe, params
 from ptycho.raw_data import RawData
-from ptycho.workflows.components import load_data, setup_configuration, parse_arguments
+from ptycho.workflows.components import load_data
 from ptycho.workflows.backend_selector import load_inference_bundle_with_backend
-from ptycho.config.config import InferenceConfig, ModelConfig, validate_inference_config, update_legacy_dict
+from ptycho.config import resolve_inference_config
+from ptycho.config.config import InferenceConfig, load_yaml_config
 from ptycho.config.legacy_state import scoped_legacy_params
 
 # Set up logging
@@ -77,25 +76,28 @@ signal.signal(signal.SIGTERM, signal_handler)
 def parse_arguments() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="Ptychography Inference Script")
-    parser.add_argument("--model_path", type=str, required=True,
+    parser.add_argument("--model_path", type=str, default=argparse.SUPPRESS,
                        help="Path to the saved model")
-    parser.add_argument("--test_data", type=str, required=True,
+    parser.add_argument("--test_data", type=str, default=argparse.SUPPRESS,
                        help="Path to the test data file")
     parser.add_argument("--config", type=str, required=False, default=None,
                        help="Optional path to YAML configuration file to override defaults")
-    parser.add_argument("--output_dir", type=str, default='inference_outputs',
+    parser.add_argument("--output_dir", type=str, default=argparse.SUPPRESS,
                        help="Directory for saving output files and images")
-    parser.add_argument("--debug", action="store_true",
+    parser.add_argument("--debug", action="store_true", default=argparse.SUPPRESS,
                        help="Enable debug mode")
     parser.add_argument("--comparison_plot", action="store_true",
                        help="Generate original comparison plot (only if ground truth is available)")
-    parser.add_argument("--n_images", type=int, required=False, default=None,
+    parser.add_argument("--n_images", type=int, required=False,
+                       default=argparse.SUPPRESS,
                        help="Number of images/groups to process. Interpretation depends on gridsize: "
                             "gridsize=1 means individual images, gridsize>1 means number of groups")
-    parser.add_argument("--n_subsample", type=int, required=False, default=None,
+    parser.add_argument("--n_subsample", type=int, required=False,
+                       default=argparse.SUPPRESS,
                        help="Number of images to subsample from test data (independent control). "
                             "When provided, controls data selection separately from grouping.")
-    parser.add_argument("--subsample_seed", type=int, required=False, default=None,
+    parser.add_argument("--subsample_seed", type=int, required=False,
+                       default=argparse.SUPPRESS,
                        help="Random seed for reproducible subsampling")
     parser.add_argument("--phase_vmin", type=float, required=False, default=None,
                        help="Minimum value for phase color scale (default: auto)")
@@ -106,7 +108,7 @@ def parse_arguments() -> argparse.Namespace:
                             "Defaults to <output_dir>/debug_dump when invoked without a value.")
     # Backend selection (POLICY-001: PyTorch mandatory, CONFIG-001: update_legacy_dict required)
     parser.add_argument("--backend", type=str, choices=['tensorflow', 'pytorch'],
-                       default='tensorflow',
+                       default=argparse.SUPPRESS,
                        help="Backend to use for inference: 'tensorflow' (default) or 'pytorch'. "
                             "PyTorch backend requires torch>=2.2 (POLICY-001). "
                             "Both backends handle params.cfg restoration via CONFIG-001.")
@@ -129,99 +131,100 @@ def parse_arguments() -> argparse.Namespace:
                             "Only applies when --backend pytorch.")
     return parser.parse_args()
 
-def interpret_sampling_parameters(config: InferenceConfig) -> tuple:
+def interpret_sampling_parameters(
+    config: InferenceConfig,
+    *,
+    gridsize: int,
+) -> tuple:
     """
     Interpret sampling parameters for inference based on gridsize and user input.
     
-    This function determines the actual values for n_subsample and n_images based on:
-    1. If n_subsample is provided: use it for subsampling, n_images for grouping
-    2. Otherwise: use n_images for legacy behavior
+    This function determines the actual values for n_subsample and n_groups based on:
+    1. If n_subsample is provided: use it for subsampling, n_groups for grouping
+    2. Otherwise: use n_groups for both legacy-compatible sampling controls
     
     Args:
-        config: Inference configuration with sampling parameters
+        config: Inference configuration with sampling parameters.
+        gridsize: Authoritative grouping geometry restored from the archive.
         
     Returns:
-        tuple: (n_subsample, n_images, interpretation_message)
+        tuple: (n_subsample, n_groups, interpretation_message)
     """
-    gridsize = config.model.gridsize
+    if type(gridsize) is not int or gridsize <= 0:
+        raise ValueError(
+            f"archive gridsize must be a positive integer, got {gridsize!r}"
+        )
     
     # Case 1: Independent control with n_subsample
     if config.n_subsample is not None:
         n_subsample = config.n_subsample
-        n_images = config.n_images if config.n_images is not None else config.n_subsample
+        n_groups = config.n_groups
         
         if gridsize == 1:
+            if n_groups is None:
+                n_groups = n_subsample
             message = (f"Independent sampling control: subsampling {n_subsample} images, "
-                      f"using {n_images} for inference")
+                      f"using {n_groups} for inference")
         else:
-            total_from_groups = n_images * gridsize * gridsize
-            message = (f"Independent sampling control: subsampling {n_subsample} images, "
-                      f"creating {n_images} groups (approx {total_from_groups} patterns from groups)")
-        
-        return n_subsample, n_images, message
-    
-    # Case 2: Legacy behavior - n_images controls both
-    else:
-        if config.n_images is not None:
-            # User specified n_images
-            if gridsize == 1:
-                n_subsample = config.n_images
-                n_images = config.n_images
-                message = f"Legacy mode: using {n_images} individual images (gridsize=1)"
+            if n_groups is None:
+                message = (
+                    "Independent sampling control: subsampling "
+                    f"{n_subsample} images and using all available groups"
+                )
             else:
-                # For gridsize > 1, interpret as groups
+                total_from_groups = n_groups * gridsize * gridsize
+                message = (
+                    "Independent sampling control: subsampling "
+                    f"{n_subsample} images, creating {n_groups} groups "
+                    f"(approx {total_from_groups} patterns from groups)"
+                )
+        
+        return n_subsample, n_groups, message
+    
+    # Case 2: Canonical grouping controls both
+    else:
+        if config.n_groups is not None:
+            if gridsize == 1:
+                n_subsample = config.n_groups
+                n_groups = config.n_groups
+                message = f"Using {n_groups} individual images (gridsize=1)"
+            else:
                 n_subsample = None  # Use full dataset for subsampling
-                n_images = config.n_images
-                total_patterns = n_images * gridsize * gridsize
-                message = (f"Legacy mode: --n-images={n_images} refers to neighbor groups "
-                          f"(gridsize={gridsize}, approx {total_patterns} patterns)")
+                n_groups = config.n_groups
+                total_patterns = n_groups * gridsize * gridsize
+                message = (f"Using {n_groups} groups "
+                           f"(gridsize={gridsize}, approx {total_patterns} patterns)")
         else:
-            # No n_images specified - use full dataset
             n_subsample = None
-            n_images = None
+            n_groups = None
             message = "Using full dataset for inference"
         
-        return n_subsample, n_images, message
+        return n_subsample, n_groups, message
 
 def setup_inference_configuration(args: argparse.Namespace, yaml_path: Optional[str]) -> InferenceConfig:
-    """
-    Correctly sets up inference configuration by prioritizing YAML file settings.
-    """
-    from ptycho.config.config import load_yaml_config
-
-    # Start with default ModelConfig values
-    model_defaults = {f.name: f.default for f in fields(ModelConfig)}
-    
-    # Load and merge YAML config if provided
+    """Resolve YAML and explicitly supplied CLI inference configuration."""
+    yaml_data = {}
     if yaml_path:
         print(f"Loading configuration from YAML: {yaml_path}")
         yaml_data = load_yaml_config(Path(yaml_path))
-        
-        # The YAML might have a nested 'model' structure
-        model_yaml_config = yaml_data.get('model', {})
-        
-        # Update defaults with YAML values
-        model_defaults.update(model_yaml_config)
-        print(f"Loaded gridsize={model_defaults.get('gridsize')} from config.")
 
-    # Create the final ModelConfig object
-    final_model_config = ModelConfig(**model_defaults)
+    cli_destinations = {
+        "model_path": "model_path",
+        "test_data": "test_data_file",
+        "output_dir": "output_dir",
+        "debug": "debug",
+        "n_images": "n_images",
+        "n_subsample": "n_subsample",
+        "subsample_seed": "subsample_seed",
+        "backend": "backend",
+    }
+    cli_patch = {
+        config_name: getattr(args, argument_name)
+        for argument_name, config_name in cli_destinations.items()
+        if hasattr(args, argument_name)
+    }
+    inference_config = resolve_inference_config(yaml_data, cli_patch)
 
-    # Create the InferenceConfig object with n_images and n_subsample support
-    # Backend selection per POLICY-001 (PyTorch >=2.2) and CONFIG-001 (params.cfg restoration)
-    inference_config = InferenceConfig(
-        model=final_model_config,
-        model_path=Path(args.model_path),
-        test_data_file=Path(args.test_data),
-        n_images=args.n_images,
-        n_subsample=args.n_subsample,
-        subsample_seed=args.subsample_seed,
-        debug=args.debug,
-        output_dir=Path(args.output_dir),
-        backend=args.backend  # Populated from CLI argument
-    )
-    
-    validate_inference_config(inference_config)
     print(f"Final inference config - gridsize: {inference_config.model.gridsize}")
     return inference_config
 
@@ -655,9 +658,20 @@ def main():
     """Main entry point for the ptychography inference script."""
     config = None
     try:
+        raw_argv = tuple(sys.argv[1:])
         print("Starting ptychography inference script...")
         args = parse_arguments()
         config = setup_inference_configuration(args, args.config)
+        execution_request = None
+        if config.backend == 'pytorch':
+            from ptycho_torch.cli.shared import build_execution_request_from_args
+
+            execution_request = build_execution_request_from_args(
+                args,
+                mode='inference',
+                explicit_options=raw_argv,
+                lane='unified-inference',
+            )
         debug_dump_dir = None
         if args.debug_dump is not None:
             debug_dump_dir = (
@@ -665,54 +679,69 @@ def main():
                 if args.debug_dump == '__AUTO__'
                 else Path(args.debug_dump)
             )
-        
-        # Interpret sampling parameters with new independent control support
-        n_subsample, n_images, interpretation_message = interpret_sampling_parameters(config)
-        print(interpretation_message)
-        
-        # Log warning if potentially problematic configuration
-        if config.n_subsample is not None and config.model.gridsize > 1 and n_images is not None:
-            min_required = n_images * config.model.gridsize * config.model.gridsize
-            if n_subsample < min_required:
-                print(f"WARNING: n_subsample ({n_subsample}) may be too small to create {n_images} "
-                     f"groups of size {config.model.gridsize}². Consider increasing n_subsample to at least {min_required}")
-        
-        # Note: update_legacy_dict() is called inside load_inference_bundle_with_backend
-        # (via the backend-specific loader) to restore params.cfg from the saved model artifact.
-        # The loaded model's params take precedence per CONFIG-001.
+
+        # The selector bridges this validated bootstrap request before loading.
+        # The backend loader may then restore authoritative archived params,
+        # which take precedence per CONFIG-001.
 
         # Load model using backend selector
         print("Loading model...")
-        model, _ = load_inference_bundle_with_backend(config.model_path, config)
+        model, archive_params = load_inference_bundle_with_backend(
+            config.model_path,
+            config,
+        )
+        archive_gridsize = archive_params.get("gridsize")
+        n_subsample, n_groups, interpretation_message = (
+            interpret_sampling_parameters(
+                config,
+                gridsize=archive_gridsize,
+            )
+        )
+        print(interpretation_message)
+
+        if (
+            config.n_subsample is not None
+            and archive_gridsize > 1
+            and n_groups is not None
+        ):
+            min_required = n_groups * archive_gridsize * archive_gridsize
+            if n_subsample < min_required:
+                print(
+                    f"WARNING: n_subsample ({n_subsample}) may be too small "
+                    f"to create {n_groups} groups of size "
+                    f"{archive_gridsize}². Consider increasing n_subsample "
+                    f"to at least {min_required}"
+                )
 
         # For PyTorch backend, move model to execution device and set to eval mode
         if config.backend == 'pytorch':
-            # Determine if user explicitly provided any --torch-* flags
-            # We check against sys.argv to detect user overrides
-            torch_flags_explicitly_set = any([
-                'torch_accelerator' in sys.argv or '--torch-accelerator' in sys.argv,
-                'torch_num_workers' in sys.argv or '--torch-num-workers' in sys.argv,
-                'torch_inference_batch_size' in sys.argv or '--torch-inference-batch-size' in sys.argv,
-            ])
-
-            if not torch_flags_explicitly_set:
-                # No --torch-* flags provided: emit POLICY-001 info log
+            if not execution_request.explicit_fields:
                 print("POLICY-001: No --torch-* execution flags provided. "
                       "Backend will use GPU-first defaults (auto-detects CUDA if available, else CPU). "
                       "CPU-only users should pass --torch-accelerator cpu.")
 
-            # Resolve device before loading data (will be used for tensors and model)
-            import argparse as arg_module
-            exec_args = arg_module.Namespace(
-                accelerator=getattr(args, 'torch_accelerator', 'auto'),
-                num_workers=getattr(args, 'torch_num_workers', 0),
-                inference_batch_size=getattr(args, 'torch_inference_batch_size', None),
-                quiet=getattr(args, 'debug', False) == False,
-                disable_mlflow=False
+            from ptycho_torch.execution_request import (
+                resolve_runtime_execution_request,
             )
 
-            from ptycho_torch.cli.shared import build_execution_config_from_args
-            execution_config = build_execution_config_from_args(exec_args, mode='inference')
+            runtime = resolve_runtime_execution_request(
+                execution_request,
+                mode='inference',
+            )
+            execution_config = runtime.config
+            execution_runtime_audit = runtime.audit_dict()
+            import warnings
+
+            for notice in runtime.notices:
+                warnings.warn(
+                    notice.message,
+                    notice.category,
+                    stacklevel=2,
+                )
+            logger.debug(
+                "PyTorch execution runtime audit: %s",
+                execution_runtime_audit,
+            )
 
             # Map Lightning accelerator convention to torch device string
             if execution_config.accelerator in ('cuda', 'gpu'):
@@ -730,24 +759,24 @@ def main():
         # Load test data with new independent sampling parameters
         print("Loading test data...")
         test_data = load_data(
-            args.test_data,
-            n_images=n_images,
+            config.test_data_file,
+            n_images=n_groups,
             n_subsample=n_subsample,
             subsample_seed=config.subsample_seed
         )
 
         # Determine number of samples for inference based on loaded data
-        gridsize = params.cfg.get('gridsize', 1)
+        gridsize = archive_gridsize
         total_patterns = len(test_data.xcoords)
         
-        if n_images is not None:
+        if n_groups is not None:
             # User specified number of images/groups (already interpreted above)
             if gridsize == 1:
-                nsamples = min(n_images, total_patterns)
+                nsamples = min(n_groups, total_patterns)
                 print(f"Inference config: gridsize={gridsize}, using {nsamples} individual patterns")
             else:
                 max_groups = total_patterns // (gridsize ** 2)
-                nsamples = min(n_images, max_groups)
+                nsamples = min(n_groups, max_groups)
                 if nsamples == 0:
                     nsamples = 1  # Minimum of 1 group
                 print(f"Inference config: gridsize={gridsize}, using {nsamples} groups (≈{nsamples * gridsize**2} total patterns)")
@@ -796,8 +825,8 @@ def main():
             reconstructed_amplitude, reconstructed_phase, epie_amplitude, epie_phase = perform_inference(
                 model,
                 test_data,
-                params.cfg,
-                K=4,
+                archive_params,
+                K=config.neighbor_count,
                 nsamples=nsamples,
                 debug_dump_dir=debug_dump_dir,
             )

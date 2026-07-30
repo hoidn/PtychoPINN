@@ -12,7 +12,7 @@ def test_runner_config_supports_grad_norm_logging():
     assert hasattr(cfg, "grad_norm_log_freq")
 
 
-def test_runner_config_propagates_grad_clip_to_training_config():
+def test_runner_config_keeps_grad_clip_owned_by_training_config():
     cfg = TorchRunnerConfig(
         train_npz="/tmp/train.npz",
         test_npz="/tmp/test.npz",
@@ -22,4 +22,4 @@ def test_runner_config_propagates_grad_clip_to_training_config():
     )
     training_config, execution_config = setup_torch_configs(cfg)
     assert training_config.gradient_clip.val == 50.0
-    assert execution_config.gradient_clip_val == 50.0
+    assert "gradient_clip_val" not in execution_config.values

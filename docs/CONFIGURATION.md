@@ -21,7 +21,7 @@ Configure the stage where a choice first changes behavior:
 | The model or differentiable physics | `ModelConfig` | Architecture, output representation, object grouping/assembly, and model-time probe behavior |
 | Optimization | `TrainingConfig` | Loss, optimizer family, schedule, epochs, batch size, sampling, and training paths |
 | Reconstruction/evaluation | `InferenceConfig` | Checkpoint, test data, grouping, and inference-only reconstruction behavior |
-| Torch execution mechanics | `PyTorchExecutionConfig` | Device, DDP strategy, workers, precision, logging, Lightning `Trainer` controls, and the current Torch learning-rate/clipping/accumulation controls |
+| Torch execution mechanics | `ExecutionRequest` or explicit CLI runtime values | Requested device, DDP strategy, workers, precision, logging, and Lightning `Trainer` mechanics; capability resolution returns a runtime-only `PyTorchExecutionConfig` |
 | Measured diffraction, positions, or the actual probe | Dataset/acquisition data | Physical inputs such as `diff3d`, coordinates, `probeGuess`, and optional realized-probe fields; these are data, not model settings |
 
 In normal CLI and study workflows, supply config-file values and explicit
@@ -39,7 +39,9 @@ The practical ownership rules are:
 4. If it changes only reconstruction after training, it belongs to
    `InferenceConfig`.
 5. If it changes Torch devices, processes, loaders, or Trainer mechanics, it
-   belongs to `PyTorchExecutionConfig`.
+   belongs to the unresolved `ExecutionRequest`. The factory resolves that
+   request into `PyTorchExecutionConfig`; users do not pass that resolved
+   carrier back into a factory.
 6. If it is measured or saved in an NPZ, it is data.
 
 Fields such as `N` and grid size appear at multiple boundaries because they are
@@ -98,23 +100,27 @@ There are therefore three different persistence/residency modes:
 | Default Torch inference CLI | One standalone NPZ path | Load through `RawData` and run inference in memory. |
 | Barycentric or probe-weighted Torch inference | One standalone NPZ path | Stage the NPZ in an isolated directory and build a temporary `PtychoDataset` mmap because that reconstruction implementation consumes the grouped dataset representation. |
 
-`PyTorchExecutionConfig` controls devices, DDP strategy, workers, and Lightning
-runtime mechanics after this routing decision. It does not select a dataset
-schema or convert a grid-lines cache into the mmap schema. In particular,
-requesting DDP does not cause a file-based or grid-lines entry point to switch
-automatically to `PtychoDataModuleLightning`.
+The factory-resolved `PyTorchExecutionConfig` controls devices, DDP strategy,
+workers, and Lightning runtime mechanics after this routing decision. It does
+not select a dataset schema or convert a grid-lines cache into the mmap schema.
+In particular, requesting DDP does not cause a file-based or grid-lines entry
+point to switch automatically to `PtychoDataModuleLightning`.
 
 ### Standalone NPZ Versus Grid-Lines Cached NPZ
 
-These formats may both contain a field named `diffraction`, but they represent
+These formats carry diffraction under consumer-specific keys and represent
 different pipeline stages:
 
 | Format | Typical contents | Consumer |
 |---|---|---|
-| Standalone scan NPZ | One ungrouped 3-D diffraction stack, `xcoords`, `ycoords`, `probeGuess`, and the other acquisition fields required by the selected loader | `RawData` or the native Torch mmap writer |
+| Standalone scan NPZ through `RawData` | One ungrouped 3-D `diff3d` stack, `xcoords`, `ycoords`, `probeGuess`, and the other acquisition fields required by `RawData.from_file()` | Unified/file-oriented workflows and the default Torch inference route |
+| Standalone scan NPZ through the Torch mmap writer | One ungrouped 3-D `diff3d` stack, or the accepted `diffraction` compatibility alias, plus scan coordinates and the writer-required acquisition fields | `PtychoDataModuleLightning` / `PtychoDataset` mmap route |
 | Grid-lines cached NPZ | Pre-grouped/channelized `diffraction`, `Y_I`, `Y_phi`, `coords_nominal`, `coords_true`, `YY_full`, and optional `probe_simulated` | Grid-lines cached-dataset adapter |
 
-The presence of the same field name does not make the formats interchangeable.
+`RawData.from_file()` requires the standalone key `diff3d`; it does not apply
+the mmap loader's `diffraction` alias. Conversely, acceptance of both spellings
+by the mmap route does not make a grid-lines cache interchangeable with a
+standalone scan.
 The mmap writer expects ungrouped diffraction plus scan coordinates and its
 writer-required acquisition fields; a grid-lines cache is already grouped and
 uses separate amplitude/phase labels. The grid-lines CI adapter also has
@@ -127,12 +133,10 @@ and no global schema dispatcher. To determine the route for a run, start from
 the invoked CLI/function and follow the input type it accepts. Schema
 validation occurs inside the already-selected loader.
 
-The normative standalone and batch shapes remain owned by
-[PtychoPINN Core Contract](specs/spec-ptycho-core.md) and
-[Torch Loader and Batch Contract](specs/spec-ptycho-interfaces.md). The routing
-description above is an implementation guide: it explains which current
-entry-point consumes each contract without turning historical runner choices
-into new format requirements.
+Standalone NPZ shapes are described in the
+[PtychoPINN Data Contracts](data_contracts.md). The routing description above
+explains which current entry point consumes each input form without turning
+historical runner choices into new format requirements.
 
 ## The Probe Lifecycle
 
@@ -247,7 +251,12 @@ These are separate policies:
 
 Changing inference probe weighting or VarPro does not retroactively change the
 training forward model. Conversely, training weighting is not an inference
-default.
+default. Active CI inference is one intentional exception to general
+optionality: when the saved model uses
+`physics_forward_mode="rectangular_scaled"`,
+`scale_contract_version="ci_intensity_v2"`, and
+`measurement_domain="count_intensity"`, inference requires
+`varpro_scaling=True` and fails closed if it is disabled.
 
 ## Developer Architecture
 
@@ -263,7 +272,8 @@ representations are not co-equal sources of truth:
 | Factory-resolved `ptycho_torch.config_params` dataclasses | Torch data, topology, physics, training, and inference carriers after defaults, aliases, and object policy are materialized | Usually no; use the closed factory or a study wrapper |
 | `TrainingPayload` / `InferencePayload` | Phase-local bundles returned by the factory | No; consume them |
 | `ModelSpec("torch-model-spec-portable-v2")` | Derived, sealed Torch graph/state identity used for construction and reload | No |
-| `PyTorchExecutionConfig` | Torch runtime/Trainer mechanics and current backend-specific optimizer controls; never a model-topology owner | Yes |
+| `ExecutionRequest` | Unresolved Torch runtime values plus explicit-input provenance; the CLI builds this from options the caller actually supplied | Yes, for programmatic runtime requests |
+| `PyTorchExecutionConfig` | Capability-resolved Torch runtime output consumed by Lightning and DataLoader construction; never an optimization or model-topology owner | No |
 | `ptycho.params.cfg` | Flat compatibility projection for legacy consumers | Never as a new configuration source |
 
 The public and Torch training records overlap where backend entry points still
@@ -279,10 +289,14 @@ model.
 The normal Torch training flow is:
 
 ```text
-User / study / CLI values
-              │
-              ▼
-    create_training_payload()
+canonical model/training values + unresolved ExecutionRequest
+  ├─ resolve_training_payload() ───────────────────────────┐
+  │    modern resolution; no params.cfg access             │
+  └─ create_training_payload()                             │
+       compatibility resolution                            │
+       └─ CONFIG-001 projection ──► params.cfg             │
+                                                           ▼
+                                                    TrainingPayload
               │
               ├─ pt_data_config
               ├─ pt_model_config
@@ -292,8 +306,6 @@ User / study / CLI values
               ├─ model_spec
               ├─ execution_config
               └─ overrides_applied
-              │
-              ├─ tf_training_config ──► update_legacy_dict() ──► params.cfg
               │
               ├─ shared model fields + Torch extensions + data joins
               │                         │
@@ -306,8 +318,15 @@ User / study / CLI values
               │                         ▼
               │                PtychoPINN_Lightning
               │
-              └─ execution_config ──► Trainer / DataLoader / optimizer setup
+              ├─ pt_training_config ──► optimizer / scheduler / clipping / accumulation
+              └─ execution_config ──► Trainer / DataLoader runtime
 ```
+
+`resolve_training_payload()` neither reads nor writes `params.cfg`; it may emit
+deprecation/runtime notices and observe capabilities when an unresolved runtime
+value requires that observation. `create_training_payload()` is the
+compatibility boundary: it performs the same owner/runtime resolution and then
+projects the public compatibility record into `params.cfg`.
 
 `InferencePayload` is smaller: it carries the public inference projection,
 Torch data/inference settings, execution settings, and applied overrides.
@@ -354,9 +373,11 @@ Factories and bridges fail closed on ambiguous composition:
 - Deprecated aliases may agree with canonical fields but may not contradict
   them.
 - Unknown simulation keys and unknown flat Torch training overrides are errors.
-- `PyTorchExecutionConfig` does not own model topology. Historical structural
-  inputs accepted there are compatibility aliases mapped one-way into Torch
-  `ModelConfig`; generators read only the resolved model config.
+- Neither execution record owns model topology or optimization.
+  `ExecutionRequest` contains runtime requests only; a bare resolved
+  `PyTorchExecutionConfig` is rejected as factory input. Topology enters
+  through Torch `ModelConfig`, and optimization enters through Torch
+  `TrainingConfig` or its explicit factory patch.
 
 Public code materializes the object policy with
 `resolve_model_object_policy()`. Torch code uses
@@ -384,22 +405,68 @@ backend workflow and CONFIG-001 ordering, see
 
 ## Usage and Precedence
 
-Configuration precedence is entry-point specific:
+### Public Training and Inference Resolution
+
+The supported public source boundary is exported from `ptycho.config` as
+`resolve_training_config()` and `resolve_inference_config()`. Both use:
+
+```text
+dataclass defaults < file values < explicitly supplied CLI values
+```
+
+An argparse default is not an explicit CLI value. Supported entry points pass
+only options that the caller actually supplied, so an omitted CLI option does
+not overwrite a file value.
+
+Within each file or explicit-CLI source, model fields may be written either at
+the root or under `model`. An equal flat/nested duplicate is accepted once; an
+unequal duplicate fails with both locations identified. Across sources, the
+normal precedence above applies even when one source uses the flat form and
+the other uses the nested form. Unknown root or nested model fields fail rather
+than being discarded.
+
+`n_groups` is the canonical grouping field. At the resolver boundary,
+`n_images` remains a deprecated alias: an alias-only value becomes `n_groups`,
+equal same-source alias/canonical values are accepted once, and unequal
+same-source values fail. A higher-precedence source may override a lower one
+through either spelling. Successful resolution that used `n_images` emits one
+deprecation warning and returns `n_images=None`; direct dataclass construction
+retains its historical compatibility behavior.
+
+Validation is deliberately layered:
+
+- `validate_*_config_structure()` checks types, closed domains, local ranges,
+  and cross-field coherence without filesystem access. The public resolvers
+  run the corresponding structural validator before returning.
+- `validate_runnable_training_config()` adds the requirements for starting a
+  run, including positive execution values and an existing readable training
+  dataset.
+- `validate_inference_resources()` adds model-archive and test-data resource
+  checks at the inference consumer boundary.
+
+The older `validate_model_config()`, `validate_training_config()`, and
+`validate_inference_config()` exports remain compatibility facades with their
+historical predicates; they are not aliases for the new layers. Source
+resolution and structural validation do not mutate global state or the
+filesystem. Successful source resolution may emit deprecation warnings for
+accepted legacy aliases. Supported workflow consumers apply runnable or
+resource validation before the one-way `update_legacy_dict()` bridge.
+
+Other configuration families retain their entry-point-specific source rules:
 
 - Generation CLIs apply retained explicit CLI overrides over
   `--simulation-config` values. Simulation files may be TOML, YAML, or JSON;
   omitted file fields use dataclass defaults, while omitting the file invokes
   the entry point's historical compatibility defaults.
-- Training and inference CLIs retain their documented `--config`/CLI
-  precedence.
 - Unknown simulation keys and conflicting compatibility aliases are errors.
 - Not every dataclass field has a CLI flag.
 
 ### Named CI Profile
 
-Use `create_training_payload(..., profile="ci")` or the Torch training CLI's
-`--profile ci` instead of assembling a partial count-intensity configuration
-by hand.
+Use `resolve_training_payload(..., profile="ci")` on the modern programmatic
+path, `create_training_payload(..., profile="ci")` at the compatibility
+boundary, or the Torch training CLI's `--profile ci` instead of assembling a
+partial count-intensity configuration by hand.
 
 The profile locks these coherent contract fields:
 
@@ -436,12 +503,44 @@ field lists.
 `detector` sections. Load TOML, YAML, or JSON with
 `load_simulation_config()`; unknown keys are errors.
 
+#### Validation boundary
+
+The five simulation records remain standard frozen stdlib dataclasses: the
+root recipe plus its four nested sections. Direct construction and
+`dataclasses.replace()` retain normal dataclass behavior and do not validate.
+Programmatic callers must call `validate_simulation_config()` before using,
+serializing, hashing, or projecting a recipe. Raw mappings parsed from TOML,
+YAML, or JSON go through `simulation_config_from_mapping()`;
+`load_simulation_config()` applies that mapping boundary for files.
+
+One cached Pydantic `TypeAdapter` performs structural and type validation at
+those two boundaries only. It checks nested field shapes, strict scalar types,
+unknown keys, and exact `Literal` membership. Pydantic is neither the domain
+model nor the serializer: the stored records remain stdlib dataclasses, and
+the existing explicit simulation serializers and canonical identity functions
+remain authoritative.
+
+Input is strict rather than relying on coercion. Booleans are not accepted as
+integers, numeric strings are not converted to numbers, closed strings require
+their exact `Literal` spellings, and boolean fields require exact `bool`
+values. At the raw-mapping boundary, the documented structural normalizations
+are a path string to `pathlib.Path` and a two-element list pair to a tuple.
+Accepted numeric values retain their exact built-in kind, so
+integer-versus-float diameter values remain distinct in canonical simulation
+identity.
+
+Semantic and cross-field rules remain explicit domain validation after the
+TypeAdapter check. These include probe source/path coherence, probe-pipeline
+grammar and terminal-operation constraints, agreement between the pipeline
+output size and `SimulationConfig.N`, and square object and scan dimensions.
+
 Supported probe pipeline operations are ordered and composable:
 
 | Operation | Meaning |
 |---|---|
 | `smooth:0.5` | Smooth complex amplitude and unwrapped phase at the current resolution. |
 | `pad_preserve:128` | Center-pad the prepared complex probe without changing its values. |
+| `pad:128` | Accepted legacy alias for `pad_preserve:128`; prefer the explicit canonical spelling in new recipes. |
 | `interp:128` | Cubic real/imaginary interpolation. |
 | `pad_extrapolate:128` | Legacy behavior: fit and evaluate one quadratic phase over the entire target probe, including the center. |
 | `pad_extrapolate_boundary_matched:128` | Preserve the prepared source exactly and construct a C0 boundary-matched outer phase that relaxes toward the fitted quadratic at the target perimeter. This operation must be last. |
@@ -516,35 +615,74 @@ config, construction, `ModelSpec`, training, and inference boundaries.
 | `probe_mask` | `bool` | `False` | Applies an additional model-time circular support mask inside the forward model. |
 | `pad_object` | `bool` | `True` | Controls object padding in the forward model. |
 | `probe_scale` | `float` | `4.0` | Legacy/public probe-normalization factor. |
-| `gaussian_smoothing_sigma` | `float` | `0.0` | Optional model-time probe smoothing; zero disables it. |
+| `gaussian_smoothing_sigma` | `float` | `0.0` | TensorFlow exit-wave smoothing after probe-object multiplication; zero disables it. Canonical Torch records and seals the field but currently does not consume it, so changing it has no Torch numerical effect. |
 
-### PyTorch Execution (`PyTorchExecutionConfig`)
+### PyTorch Execution Request and Resolved Runtime
 
-`PyTorchExecutionConfig` owns Torch runtime behavior. It also currently carries
-the learning-rate, scheduler, clipping, and accumulation inputs consumed by
-Torch entry points. Those optimizer-adjacent fields do not make it a
-model-topology owner.
+Users and CLIs express unresolved runtime intent as an `ExecutionRequest`. Its
+`values` mapping contains primitive runtime values and `explicit_fields`
+records which values the caller actually supplied. The factory validates
+canonical model and training owners first, resolves any requested hardware
+capabilities, and returns `PyTorchExecutionConfig` in the payload:
 
-| Parameter | Type | Default | Description |
-|---|---|---|---|
-| `accelerator` | `str` | `'auto'` | Resolves to CUDA when available, otherwise CPU. |
-| `devices` | `Union[int, Literal['auto']]` | `1` | Number of devices supplied to Lightning. |
-| `strategy` | `str` | `'auto'` | Lightning strategy, including `ddp` for multi-device execution. |
-| `precision` | `Literal['32-true','16-mixed','bf16-mixed']` | `'32-true'` | Torch numerical precision policy. |
-| `num_workers` | `int` | `0` | DataLoader worker-process count. |
-| `learning_rate` | `float` | `1e-3` | Base learning rate used by current Torch training entry points. |
-| `scheduler` | `str` | `'Default'` | Torch scheduler selection at the execution boundary. |
-| `gradient_clip_val` | `Optional[float]` | `None` | Optional gradient-clipping threshold. |
-| `gradient_clip_algorithm` | `Literal['norm','value','agc']` | `'norm'` | Gradient-clipping algorithm. |
-| `accum_steps` | `int` | `1` | Gradient-accumulation steps. |
-| `logger_backend` | `Optional[str]` | `'csv'` | CSV, TensorBoard, MLflow, or disabled logging. |
+```text
+CLI/runtime values ──► ExecutionRequest ──► capability resolution
+                                             │
+                                             ▼
+                                  PyTorchExecutionConfig
+                                  (Trainer/DataLoader only)
+```
 
-Historical structural fields may still be accepted as deprecated factory
-inputs. New code must configure topology through Torch `ModelConfig`; equal
-dual input is accepted, conflicting dual input fails, and generators never
-read execution config for topology.
+A bare `PyTorchExecutionConfig` is already resolved and is therefore rejected
+as factory input. Construct `ExecutionRequest` directly for programmatic
+runtime control, or let the CLI build it with
+`build_execution_request_from_args()`.
+
+| Runtime value | Request default | Resolution |
+|---|---|---|
+| `accelerator` | `'auto'` | Resolves to an available supported accelerator; the output carrier never stores `'auto'`. |
+| `devices` | `1` | Accepts a positive integer or `'auto'`; resolves to a positive integer. |
+| `strategy` | `'auto'` | Passed to Lightning after runtime resolution, including `ddp` when requested. |
+| `precision` | `'32-true'` | Resolves the supported Torch precision for the selected accelerator. |
+| `num_workers` | `0` | Controls DataLoader worker processes. |
+| `logger_backend` | `'csv'` | Selects CSV, TensorBoard, MLflow, or disabled logging (`None` after resolving CLI `'none'`). |
+
+#### Distributed Data Parallel (DDP)
+
+DDP is execution configuration, not model topology or optimization. The
+current native and unified CLIs do not expose `devices` or `strategy`;
+programmatic callers request them at the high-level Torch workflow boundary:
+
+```python
+from ptycho_torch.execution_request import ExecutionRequest
+
+ddp_request = ExecutionRequest(
+    values={"accelerator": "cuda", "devices": 2, "strategy": "ddp"},
+    explicit_fields=frozenset({"accelerator", "devices", "strategy"}),
+)
+```
+
+Pass this request as `execution_config`; do not construct
+`PyTorchExecutionConfig` as input. Before capability resolution, `devices`
+accepts a positive integer or `"auto"`; the resolved carrier always contains a
+positive integer. Lightning validates and applies `strategy`. Batch size and
+optimizer settings remain in `TrainingConfig`, and architecture remains in
+`ModelConfig`. See the [PyTorch Workflow](workflows/pytorch.md#43-programmatic)
+for the complete programmatic call.
+
+Learning rate, optimizer, scheduler, gradient clipping, and gradient
+accumulation are not execution fields. Configure them through Torch
+`TrainingConfig` or an explicitly supplied canonical factory training patch.
+Optimizer construction and Lightning's derived clipping/accumulation mechanics
+read that single resolved training record.
 
 ### Training (`TrainingConfig`)
+
+The public and resolved Torch training records share many fields. The table is
+representative of that owner family. Torch-only `learning_rate` and
+`accum_steps` are not fields of the public dataclass; supported CLI spellings
+become an explicit factory patch, and the resolved Torch `TrainingConfig` owns
+their effective values.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
@@ -567,6 +705,8 @@ read execution config for topology.
 | `optimizer` | `Literal['adam','adamw','sgd']` | `'adam'` | Optimizer family. |
 | `weight_decay` | `float` | `0.0` | Optimizer weight decay. |
 | `scheduler` | `Literal['Default','Exponential','WarmupCosine','ReduceLROnPlateau']` | `'Default'` | Public scheduler choice. |
+| `gradient_clip_val` | `Optional[float]` | `None` | Torch gradient-clipping threshold; `None` disables clipping. |
+| `gradient_clip_algorithm` | `Literal['norm','value','agc']` | `'norm'` | Torch gradient-clipping algorithm. |
 | `output_dir` | `Path` | `training_outputs` | Training output directory. |
 
 ### Inference (`InferenceConfig`)

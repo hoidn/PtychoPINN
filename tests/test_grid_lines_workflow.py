@@ -14,11 +14,13 @@ from ptycho.workflows.grid_lines_workflow import (
     scale_probe,
     apply_probe_mask,
     run_pinn_inference,
+    run_pinn_inference_explicit,
     run_grid_lines_workflow,
     render_grid_lines_visuals,
     save_split_npz,
     dataset_out_dir,
     stitch_predictions,
+    stitch_predictions_explicit,
     save_recon_artifact,
     save_comparison_png_dynamic,
     _should_share_colorbar,
@@ -309,6 +311,51 @@ def test_run_pinn_inference_uses_first_prediction_output(monkeypatch):
     )
 
     assert output is expected
+
+
+def test_run_pinn_inference_explicit_matches_legacy_without_reading_params(
+    monkeypatch,
+):
+    intensity_scale = np.float32(3.25)
+    X_test = np.arange(32, dtype=np.float32).reshape(2, 4, 4, 1)
+    coords_nominal = np.arange(4, dtype=np.float32).reshape(2, 2)
+
+    class EchoModel:
+        def predict(self, inputs):
+            scaled_X, coords = inputs
+            return (
+                scaled_X.astype(np.complex64) + 1j,
+                coords,
+            )
+
+    monkeypatch.setattr(
+        grid_lines_workflow_module.p,
+        "get",
+        lambda key: intensity_scale if key == "intensity_scale" else None,
+    )
+    expected = run_pinn_inference(EchoModel(), X_test, coords_nominal)
+
+    class _PoisonParams(dict):
+        def __getitem__(self, key):
+            raise AssertionError(f"explicit inference read params.cfg[{key!r}]")
+
+    monkeypatch.setattr(grid_lines_workflow_module.p, "cfg", _PoisonParams())
+    monkeypatch.setattr(
+        grid_lines_workflow_module.p,
+        "get",
+        lambda key: (_ for _ in ()).throw(
+            AssertionError(f"explicit inference called params.get({key!r})")
+        ),
+    )
+
+    actual = run_pinn_inference_explicit(
+        EchoModel(),
+        X_test,
+        coords_nominal,
+        intensity_scale=intensity_scale,
+    )
+
+    np.testing.assert_array_equal(actual, expected)
 
 
 def test_run_pinn_inference_propagates_xla_failure(monkeypatch):
@@ -1498,6 +1545,55 @@ class TestDatasetPersistence:
 class TestStitching:
     """Tests for stitching helper (Task 4)."""
 
+    def test_explicit_stitching_matches_legacy_without_reading_params(
+        self,
+        monkeypatch,
+    ):
+        """The explicit core preserves stitching while ignoring ambient globals."""
+        N = 8
+        gridsize = 1
+        nimgs_test = 2
+        outer_offset_test = 8
+        predictions = (
+            np.arange(nimgs_test * N * N).reshape(nimgs_test, N, N, 1)
+            + 1j
+        )
+
+        p.set("N", N)
+        p.set("gridsize", gridsize)
+        p.set("nimgs_test", nimgs_test)
+        p.set("outer_offset_test", outer_offset_test)
+        expected = stitch_predictions(
+            predictions,
+            norm_Y_I=2.5,
+            part="complex",
+        )
+
+        class _PoisonParams(dict):
+            def __getitem__(self, key):
+                raise AssertionError(f"explicit stitching read params.cfg[{key!r}]")
+
+        monkeypatch.setattr(p, "cfg", _PoisonParams())
+        monkeypatch.setattr(
+            p,
+            "get",
+            lambda key: (_ for _ in ()).throw(
+                AssertionError(f"explicit stitching called params.get({key!r})")
+            ),
+        )
+
+        actual = stitch_predictions_explicit(
+            predictions,
+            norm_Y_I=2.5,
+            N=N,
+            gridsize=gridsize,
+            nimgs_test=nimgs_test,
+            outer_offset_test=outer_offset_test,
+            part="complex",
+        )
+
+        np.testing.assert_allclose(actual, expected)
+
     def test_stitch_predictions_gridsize1(self):
         """stitch_predictions should handle gridsize=1."""
         # Setup params
@@ -1646,6 +1742,17 @@ class TestColorbarSharing:
     def test_resolve_display_border_from_output_dir_token(self, tmp_path: Path):
         out_dir = tmp_path / "grid_lines_external_fly001_n128_top_train_full_test_e5"
         assert _resolve_display_border_pixels(out_dir) == 8
+
+    def test_resolve_display_border_does_not_use_ambient_params(self, tmp_path: Path):
+        from ptycho import params
+
+        original = dict(params.cfg)
+        try:
+            params.cfg["N"] = 512
+            assert _resolve_display_border_pixels(tmp_path / "visuals") == 0
+        finally:
+            params.cfg.clear()
+            params.cfg.update(original)
 
     def test_save_comparison_png_skips_missing(self, tmp_path: Path):
         """save_comparison_png_dynamic should skip missing labels."""

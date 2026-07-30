@@ -378,20 +378,6 @@ class DatagenConfig:
             beamstop_diameter=simulation.detector.beamstop_diameter,
         )
 
-
-
-
-# Update the existing instance
-def update_existing_config(config_instance, updates_dict, verbose = False):
-    for key, value in updates_dict.items():
-        if hasattr(config_instance, key):
-            setattr(config_instance, key, value)
-        else:
-            if verbose:
-            # Bypassing this for now since this function is being used as a generic updater for payloads
-                print(f"Warning: Attribute '{key}' not found in {type(config_instance).__name__}")
-
-
 # Example Usage (how users would now use these configs):
 #
 # if __name__ == "__main__":

@@ -462,7 +462,7 @@ def test_scaled_recon_emits_field_and_labeled_metrics(tmp_path):
     gt = _complex_field((16, 16), seed=1)
     recon_path = _write_recon_npz(tmp_path, recon)
 
-    metrics = compute_metrics(recon, gt, "pinn")
+    metrics = compute_metrics(recon, gt, "pinn", trim_offset=4)
     control = copy.deepcopy(metrics)
 
     s1, s2 = 3.2, 0.7
@@ -472,6 +472,7 @@ def test_scaled_recon_emits_field_and_labeled_metrics(tmp_path):
         pred_for_metrics=recon,
         ground_truth=gt,
         label="pinn",
+        trim_offset=4,
         recon_path=recon_path,
         metrics=metrics,
     )
@@ -488,7 +489,10 @@ def test_scaled_recon_emits_field_and_labeled_metrics(tmp_path):
     # metrics_scaled is the full compute_metrics output on the scaled field.
     assert "metrics_scaled" in metrics
     expected_scaled = compute_metrics(
-        (s1 * recon.real + 1j * (s2 * recon.imag)).astype(np.complex64), gt, "pinn"
+        (s1 * recon.real + 1j * (s2 * recon.imag)).astype(np.complex64),
+        gt,
+        "pinn",
+        trim_offset=4,
     )
     np.testing.assert_equal(metrics["metrics_scaled"], expected_scaled)
 
@@ -506,13 +510,14 @@ def test_scaled_recon_prefers_valid_refit_block(tmp_path):
     recon_path = _write_recon_npz(tmp_path, recon)
 
     refit_block = {"mode": "dataset", "s1": 2.5, "s2": -1.1, "n_patterns": 4}
-    metrics = compute_metrics(recon, gt, "pinn")
+    metrics = compute_metrics(recon, gt, "pinn", trim_offset=4)
     src = _emit_scaled_recon(
         refit_block=refit_block,
         trained_rect_s1s2=(9.9, 9.9),  # must be ignored in favor of the refit pair
         pred_for_metrics=recon,
         ground_truth=gt,
         label="pinn",
+        trim_offset=4,
         recon_path=recon_path,
         metrics=metrics,
     )
@@ -533,13 +538,14 @@ def test_scaled_recon_falls_back_to_trained_on_refit_error(tmp_path):
     recon_path = _write_recon_npz(tmp_path, recon)
 
     refit_block = {"mode": "dataset", "error": "singular normal matrix", "n_patterns": 4}
-    metrics = compute_metrics(recon, gt, "pinn")
+    metrics = compute_metrics(recon, gt, "pinn", trim_offset=4)
     src = _emit_scaled_recon(
         refit_block=refit_block,
         trained_rect_s1s2=(2.0, 0.5),
         pred_for_metrics=recon,
         ground_truth=gt,
         label="pinn",
+        trim_offset=4,
         recon_path=recon_path,
         metrics=metrics,
     )
@@ -559,7 +565,7 @@ def test_scaled_recon_skips_when_no_scaler(tmp_path):
     gt = _complex_field((16, 16), seed=7)
     recon_path = _write_recon_npz(tmp_path, recon)
 
-    metrics = compute_metrics(recon, gt, "pinn")
+    metrics = compute_metrics(recon, gt, "pinn", trim_offset=4)
     control = copy.deepcopy(metrics)
 
     src = _emit_scaled_recon(
@@ -568,6 +574,7 @@ def test_scaled_recon_skips_when_no_scaler(tmp_path):
         pred_for_metrics=recon,
         ground_truth=gt,
         label="pinn",
+        trim_offset=4,
         recon_path=recon_path,
         metrics=metrics,
     )
@@ -585,7 +592,7 @@ def test_scaled_recon_npz_failure_leaves_metrics_unmutated(tmp_path):
 
     recon = _complex_field((16, 16), seed=8)
     gt = _complex_field((16, 16), seed=9)
-    metrics = compute_metrics(recon, gt, "pinn")
+    metrics = compute_metrics(recon, gt, "pinn", trim_offset=4)
     control = copy.deepcopy(metrics)
 
     missing = tmp_path / "no_such_dir" / "recon.npz"  # np.load will raise
@@ -596,6 +603,7 @@ def test_scaled_recon_npz_failure_leaves_metrics_unmutated(tmp_path):
             pred_for_metrics=recon,
             ground_truth=gt,
             label="pinn",
+            trim_offset=4,
             recon_path=missing,
             metrics=metrics,
         )

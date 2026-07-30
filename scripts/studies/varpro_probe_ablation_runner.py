@@ -715,9 +715,10 @@ def run_arm(
     ckpt_path = find_best_checkpoint(run_dir)
     if ckpt_path is None:
         raise FileNotFoundError(f"No checkpoint found under {run_dir}/checkpoints")
-    # Load configs from the checkpoint itself (single source of truth for
-    # what the model was actually trained with) rather than reusing the
-    # in-memory configs object, which train_lightning_only.main() mutates.
+    # Load configs from the checkpoint itself as the persisted source of truth
+    # for what the model was actually trained with. The runner now copies
+    # caller-owned records, so this is an artifact-authority choice rather than
+    # protection against in-place mutation.
     # PtychoPINN_Lightning unconditionally (parity_* kwargs, when non-default,
     # restore from the checkpoint's hparams -- Task 1's save_hyperparameters
     # extension -- so no class-selection branch is needed here).

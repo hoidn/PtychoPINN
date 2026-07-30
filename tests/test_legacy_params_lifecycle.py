@@ -5,7 +5,6 @@ import dill
 import multiprocessing
 from pathlib import Path
 import threading
-from types import SimpleNamespace
 import zipfile
 from unittest.mock import MagicMock
 
@@ -238,7 +237,17 @@ def test_scoped_entrypoint_restores_temporary_global_state():
         params.cfg.update(original)
 
 
-def test_backend_workflow_entrypoint_contains_legacy_bridge(monkeypatch):
+def test_nongrid_entrypoint_has_no_redundant_outer_legacy_scope():
+    from ptycho.nongrid_simulation import generate_simulated_data
+
+    assert not hasattr(generate_simulated_data, "__wrapped__")
+
+
+def test_backend_workflow_entrypoint_contains_legacy_bridge(
+    monkeypatch,
+    tmp_path,
+):
+    from ptycho.config import ModelConfig, TrainingConfig
     from ptycho.workflows import backend_selector
     from ptycho_torch.workflows import components as torch_components
 
@@ -255,12 +264,18 @@ def test_backend_workflow_entrypoint_contains_legacy_bridge(monkeypatch):
             "run_cdi_example_torch",
             lambda *_args, **_kwargs: (None, None, {}),
         )
+        train_path = tmp_path / "train.npz"
+        train_path.touch()
+        config = TrainingConfig(
+            model=ModelConfig(),
+            train_data_file=train_path,
+            backend="pytorch",
+        )
 
         backend_selector.run_cdi_example_with_backend(
             None,
             None,
-            SimpleNamespace(backend="pytorch"),
-            torch_execution_config=object(),
+            config,
         )
 
         assert params.cfg["workflow_marker"] == "root"
@@ -343,6 +358,7 @@ def test_torch_bundle_failure_rolls_back_archived_state(tmp_path, monkeypatch):
 
 
 def test_outer_bundle_route_rolls_back_inner_success(monkeypatch, tmp_path):
+    from ptycho.config import InferenceConfig, ModelConfig
     from ptycho.workflows import backend_selector
     from ptycho_torch.workflows import components as torch_components
 
@@ -359,11 +375,20 @@ def test_outer_bundle_route_rolls_back_inner_success(monkeypatch, tmp_path):
     original = dict(params.cfg)
     try:
         params.cfg["archive_marker"] = "root"
+        (tmp_path / "wts.h5.zip").touch()
+        test_path = tmp_path / "test.npz"
+        test_path.touch()
+        config = InferenceConfig(
+            model=ModelConfig(),
+            model_path=tmp_path,
+            test_data_file=test_path,
+            backend="pytorch",
+        )
 
         with pytest.raises(KeyError, match="diffraction_to_obj"):
             backend_selector.load_inference_bundle_with_backend(
                 tmp_path,
-                SimpleNamespace(backend="pytorch"),
+                config,
             )
 
         assert params.cfg["archive_marker"] == "root"
@@ -383,18 +408,24 @@ def test_inference_adapter_restores_inferred_gridsize_after_call():
 
     def observe_gridsize(*_args, **_kwargs):
         assert params.cfg["gridsize"] == 2
+        assert params.cfg["N"] == 64
         return "result"
 
     base_model.side_effect = observe_gridsize
-    adapter = DiffractionToObjectAdapter(base_model)
+    adapter = DiffractionToObjectAdapter(
+        base_model,
+        runtime_params={"N": 64, "gridsize": 1},
+    )
 
     original = dict(params.cfg)
     try:
         params.cfg["gridsize"] = 1
+        params.cfg["N"] = 13
         result = adapter.call(np.zeros((1, 8, 8, 4), dtype=np.float32))
 
         assert result == "result"
         assert params.cfg["gridsize"] == 1
+        assert params.cfg["N"] == 13
     finally:
         params.cfg.clear()
         params.cfg.update(original)

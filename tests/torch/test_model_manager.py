@@ -9,7 +9,7 @@ ptycho/model_manager.py TensorFlow implementation.
 Critical Behavioral Requirements (from spec §4.6 + Phase D3 callchain):
 1. save_torch_bundle MUST produce wts.h5.zip-compatible archives with dual-model structure
 2. Archive MUST contain manifest.dill, per-model subdirectories with params.dill snapshots
-3. params.dill MUST capture full params.cfg state via dataclass_to_legacy_dict (CONFIG-001)
+3. params.dill MUST capture the config-derived legacy projection (CONFIG-001)
 4. Archives identify their backend; unsupported cross-backend loads fail descriptively
 5. All persistence functions must be torch-optional (importable when PyTorch unavailable)
 
@@ -24,13 +24,15 @@ Artifacts (Phase D3.B):
 - plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T110500Z/pytest_green.log
 """
 
-import pytest
+import copy
 import io
 from pathlib import Path
 import tempfile
 import zipfile
+
 import dill
 import numpy as np
+import pytest
 
 # Add to conftest.py TORCH_OPTIONAL_MODULES if not already present
 # This test must run without torch runtime
@@ -124,7 +126,6 @@ class TestSaveTorchBundle:
     def test_archive_structure(
         self,
         tmp_path,
-        params_cfg_snapshot,
         minimal_training_config,
         dummy_torch_models
     ):
@@ -141,7 +142,7 @@ class TestSaveTorchBundle:
         ├── manifest.dill  # {'models': ['autoencoder', 'diffraction_to_obj'], 'version': '2.0-pytorch'}
         ├── autoencoder/
         │   ├── model.pth  # PyTorch state_dict (replaces model.keras)
-        │   └── params.dill  # Full params.cfg snapshot (CONFIG-001 critical)
+        │   └── params.dill  # Config-derived legacy projection (CONFIG-001)
         └── diffraction_to_obj/
             ├── model.pth
             └── params.dill
@@ -152,7 +153,7 @@ class TestSaveTorchBundle:
         - MUST create {base_path}.zip archive
         - MUST include manifest.dill at root with 'models' and 'version' keys
         - MUST create subdirectory per model in models_dict
-        - Each model dir MUST contain params.dill with params.cfg snapshot
+        - Each model dir MUST contain the config-derived params.dill projection
 
         Test mechanism:
         - Call save_torch_bundle with dummy models + minimal config
@@ -164,10 +165,6 @@ class TestSaveTorchBundle:
         pytest.importorskip("ptycho_torch.model_manager", reason="model_manager module not yet implemented")
 
         from ptycho_torch.model_manager import save_torch_bundle
-        from ptycho.config.config import update_legacy_dict
-
-        # Populate params.cfg via config bridge (CONFIG-001 requirement)
-        update_legacy_dict(params_cfg_snapshot, minimal_training_config)
 
         # Define output path
         base_path = tmp_path / "test_bundle"
@@ -243,17 +240,15 @@ class TestSaveTorchBundle:
     def test_params_snapshot(
         self,
         tmp_path,
-        params_cfg_snapshot,
         minimal_training_config,
         dummy_torch_models
     ):
         """
-        CRITICAL CONFIG-001 TEST: params.dill must capture full params.cfg state.
+        CRITICAL CONFIG-001 TEST: params.dill captures the config projection.
 
-        Requirement: Phase D3.A callchain finding #1 — TensorFlow loader calls
-        `params.cfg.update(loaded_params)` at model_manager.py:119 to restore
-        training-time configuration before model reconstruction. PyTorch MUST replicate
-        this via dataclass_to_legacy_dict snapshot.
+        The archive must carry the flat compatibility projection needed by the
+        public wrapper's post-validation CONFIG-001 restoration. The projection
+        itself comes only from ``dataclass_to_legacy_dict``.
 
         Red-phase contract (Phase D3.B):
         - params.dill MUST be valid dill-serialized dictionary
@@ -270,10 +265,7 @@ class TestSaveTorchBundle:
         pytest.importorskip("ptycho_torch.model_manager", reason="model_manager module not yet implemented")
 
         from ptycho_torch.model_manager import save_torch_bundle
-        from ptycho.config.config import update_legacy_dict, dataclass_to_legacy_dict
-
-        # Populate params.cfg via config bridge (CONFIG-001 requirement)
-        update_legacy_dict(params_cfg_snapshot, minimal_training_config)
+        from ptycho.config.config import dataclass_to_legacy_dict
 
         # Capture expected params snapshot for comparison
         expected_params = dataclass_to_legacy_dict(minimal_training_config)
@@ -328,7 +320,6 @@ class TestSaveTorchBundle:
     def test_save_bundle_with_intensity_scale(
         self,
         tmp_path,
-        params_cfg_snapshot,
         minimal_training_config,
         dummy_torch_models
     ):
@@ -346,10 +337,6 @@ class TestSaveTorchBundle:
         - Verify intensity_scale field equals the provided value
         """
         from ptycho_torch.model_manager import save_torch_bundle
-        from ptycho.config.config import update_legacy_dict
-
-        # Populate params.cfg via config bridge (CONFIG-001 requirement)
-        update_legacy_dict(params_cfg_snapshot, minimal_training_config)
 
         # Define output path
         base_path = tmp_path / "test_intensity_scale"
@@ -377,6 +364,48 @@ class TestSaveTorchBundle:
             f"Expected intensity_scale={test_intensity_scale}, "
             f"got {loaded_params['intensity_scale']}"
         )
+
+    def test_save_snapshot_ignores_poisoned_global_state(
+        self,
+        tmp_path,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_torch_models,
+    ):
+        """The save codec is derived only from its config and explicit scale."""
+        from ptycho.config.config import dataclass_to_legacy_dict
+        from ptycho_torch.model_manager import save_torch_bundle
+
+        config_before = copy.deepcopy(minimal_training_config)
+        params_cfg_snapshot.clear()
+        params_cfg_snapshot.update(
+            {
+                "N": 999,
+                "intensity_scale": 137.0,
+                "poisoned_global_only": True,
+            }
+        )
+        base_path = tmp_path / "poisoned_global"
+
+        save_torch_bundle(
+            models_dict=dummy_torch_models,
+            base_path=str(base_path),
+            config=minimal_training_config,
+        )
+
+        expected = dataclass_to_legacy_dict(minimal_training_config)
+        expected["intensity_scale"] = 1.0
+        expected["_version"] = "2.0-pytorch"
+        with zipfile.ZipFile(f"{base_path}.zip", "r") as archive:
+            autoencoder_bytes = archive.read("autoencoder/params.dill")
+            reconstruction_bytes = archive.read(
+                "diffraction_to_obj/params.dill"
+            )
+
+        assert dill.loads(autoencoder_bytes) == expected
+        assert autoencoder_bytes == reconstruction_bytes
+        assert autoencoder_bytes == dill.dumps(expected)
+        assert minimal_training_config == config_before
 
 
 class TestLoadTorchBundle:
@@ -463,7 +492,7 @@ class TestLoadTorchBundle:
         )
 
     @pytest.mark.parametrize("weight_payload", ["missing", "sentinel", "mismatch"])
-    def test_load_rejects_unverified_weights_and_restores_params(
+    def test_load_rejects_unverified_weights_and_rolls_back_params(
         self,
         tmp_path,
         monkeypatch,
@@ -519,6 +548,62 @@ class TestLoadTorchBundle:
 
         assert params.cfg == {"ambient": "preserved"}
 
+    def test_explicit_reconstruction_core_ignores_poisoned_global(
+        self,
+        tmp_path,
+        monkeypatch,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_torch_models,
+    ):
+        """Modern reconstruction consumes decoded archive inputs, not params.cfg."""
+        from ptycho import params
+        from ptycho_torch import model_manager
+
+        base_path = tmp_path / "explicit_decode"
+        model_manager.save_torch_bundle(
+            dummy_torch_models,
+            str(base_path),
+            minimal_training_config,
+        )
+        manifest, archived = (
+            model_manager._read_torch_bundle_manifest_and_params(
+                str(base_path)
+            )
+        )
+        params.cfg.clear()
+        params.cfg.update({"N": 999, "gridsize": 9, "poison": True})
+        poisoned = dict(params.cfg)
+        observed_during_reconstruction = []
+        create_model = model_manager.create_torch_model_with_gridsize
+
+        def observing_create_model(*args, **kwargs):
+            observed_during_reconstruction.append(dict(params.cfg))
+            return create_model(*args, **kwargs)
+
+        monkeypatch.setattr(
+            model_manager,
+            "create_torch_model_with_gridsize",
+            observing_create_model,
+        )
+        reconstruct = getattr(
+            model_manager,
+            "_reconstruct_torch_bundle_explicit",
+            None,
+        )
+
+        assert callable(reconstruct)
+        models, decoded = reconstruct(
+            str(base_path),
+            manifest=manifest,
+            params_dict=archived,
+        )
+
+        assert set(models) == {"autoencoder", "diffraction_to_obj"}
+        assert decoded is archived
+        assert observed_during_reconstruction == [poisoned, poisoned]
+        assert params.cfg == poisoned
+
     def test_save_rejects_sentinel_models(self, tmp_path, minimal_training_config):
         from ptycho_torch.model_manager import save_torch_bundle
 
@@ -540,22 +625,18 @@ class TestLoadTorchBundle:
         dummy_torch_models
     ):
         """
-        CRITICAL CONFIG-001 TEST: load_torch_bundle MUST restore params.cfg before model reconstruction.
+        CONFIG-001 TEST: load_torch_bundle commits params.cfg after reconstruction.
 
-        Requirement: Phase D3.A callchain finding #1 — TensorFlow load path at
-        ptycho/model_manager.py:119 calls `params.cfg.update(loaded_params)` to restore
-        training-time configuration before calling `create_model_with_gridsize`. PyTorch
-        MUST replicate this to prevent shape mismatch errors.
+        The modern reconstruction core consumes the decoded projection directly.
+        The public legacy/API wrapper retains the external restoration side effect,
+        but only after every model and weight has validated successfully.
 
-        Failure Mode: If params.cfg restoration skipped, subsequent model operations
-        will use stale/default gridsize/N values → tensor shape mismatches → inference fails.
-
-        Red-phase contract (Phase D3.C):
+        Contract:
         - Function signature: load_torch_bundle(base_path, model_name='diffraction_to_obj')
         - MUST extract archive and load params.dill
-        - MUST call params.cfg.update(loaded_params) before model reconstruction
-        - MUST return (model, params_dict) tuple
-        - Model reconstruction may raise NotImplementedError (deferred to follow-up)
+        - MUST reconstruct both roles from explicit decoded values
+        - MUST commit params.cfg only after successful reconstruction
+        - MUST return (models_dict, params_dict) tuple
 
         Test mechanism:
         - Save bundle with known config (N=64, gridsize=2, nphotons=1e9)
@@ -584,35 +665,11 @@ class TestLoadTorchBundle:
         assert params.cfg.get('N') is None, "Sanity check: params.cfg should be empty before load"
         assert params.cfg.get('gridsize') is None, "Sanity check: params.cfg should be empty before load"
 
-        # Attempt to load bundle (may raise NotImplementedError if model reconstruction not yet done)
-        try:
-            model, loaded_params = load_torch_bundle(
-                str(base_path), model_name='diffraction_to_obj'
-            )
-        except NotImplementedError as e:
-            # Model reconstruction not yet implemented — validate params restoration happened
-            # by checking params.cfg was updated (side effect occurs before NotImplementedError)
-            if 'load_torch_bundle model reconstruction not yet implemented' in str(e):
-                # Expected during red→green transition; validate CONFIG-001 gate executed
-                assert params.cfg.get('N') == 64, (
-                    "CONFIG-001 VIOLATION: params.cfg['N'] not restored. "
-                    f"Expected 64, got {params.cfg.get('N')}. "
-                    "load_torch_bundle MUST call params.cfg.update() before model reconstruction."
-                )
-                assert params.cfg.get('gridsize') == 2, (
-                    "CONFIG-001 VIOLATION: params.cfg['gridsize'] not restored. "
-                    f"Expected 2, got {params.cfg.get('gridsize')}."
-                )
-                assert params.cfg.get('nphotons') == 1e9, (
-                    f"CONFIG-001: params.cfg['nphotons'] not restored. Expected 1e9, got {params.cfg.get('nphotons')}."
-                )
-                # Test passes — params restoration verified even though model reconstruction pending
-                return
-            else:
-                raise  # Unexpected NotImplementedError, re-raise
+        model, loaded_params = load_torch_bundle(
+            str(base_path), model_name='diffraction_to_obj'
+        )
 
-        # Full implementation path (once model reconstruction done):
-        # Validate params.cfg was updated
+        # The public wrapper commits the validated projection after reconstruction.
         assert params.cfg.get('N') == 64, f"CONFIG-001: Expected N=64 in params.cfg, got {params.cfg.get('N')}"
         assert params.cfg.get('gridsize') == 2, f"CONFIG-001: Expected gridsize=2, got {params.cfg.get('gridsize')}"
         assert params.cfg.get('nphotons') == 1e9, f"CONFIG-001: Expected nphotons=1e9, got {params.cfg.get('nphotons')}"
@@ -805,7 +862,7 @@ class TestLoadTorchBundle:
         - Models dict MUST contain both 'diffraction_to_obj' and 'autoencoder' keys
         - Each value MUST be a loaded nn.Module (or sentinel dict during torch-optional)
         - Config MUST be reconstructed from serialized metadata (params.dill)
-        - params.cfg MUST be populated via CONFIG-001 bridge before model loading
+        - params.cfg MUST be committed by the API wrapper after model validation
 
         Red-phase expectation (Phase A1):
         - Currently RAISES NotImplementedError at ptycho_torch/model_manager.py:267
@@ -838,7 +895,7 @@ class TestLoadTorchBundle:
             config=minimal_training_config
         )
 
-        # Clear params.cfg to simulate fresh inference process (CONFIG-001 requirement)
+        # Clear params.cfg to simulate a fresh inference process.
         params.cfg.clear()
         assert params.cfg.get('N') is None, "Sanity check: params.cfg should be empty before load"
 
@@ -877,7 +934,7 @@ class TestLoadTorchBundle:
             f"Config MUST preserve gridsize=2, got {loaded_config.get('gridsize')}"
         )
 
-        # CONFIG-001 gate: params.cfg MUST be populated before model reconstruction
+        # CONFIG-001 compatibility side effect occurs after strict reconstruction.
         assert params.cfg.get('N') == 64, (
             "CONFIG-001 VIOLATION: params.cfg['N'] not restored. "
             "load_torch_bundle MUST call params.cfg.update() before returning."

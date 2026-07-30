@@ -8,7 +8,11 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from ptycho.config import load_simulation_config
+from ptycho.config import (
+    load_simulation_config,
+    simulation_config_from_mapping,
+    simulation_config_to_dict,
+)
 from ptycho.config import (
     DetectorSimulationConfig,
     ProbeSimulationConfig,
@@ -17,6 +21,113 @@ from ptycho.config import (
     SyntheticObjectConfig,
 )
 from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
+
+
+_FORMAT_RECIPE = {
+    "N": 128,
+    "seed": 7,
+    "probe": {
+        "source": "custom",
+        "source_path": "probe.npz",
+        "transform_pipeline": "smooth:0.5|pad_preserve:128",
+        "mask_diameter": 100.0,
+    },
+    "object": {
+        "kind": "dead_leaves",
+        "image_size": [392, 392],
+        "objects_per_probe": 5,
+        "diffractions_per_object": 64,
+        "set_phi": True,
+    },
+    "scan": {
+        "kind": "grid",
+        "grid_size": [2, 2],
+        "offset": 4,
+        "outer_offset_train": 8,
+        "outer_offset_test": 20,
+        "train_groups": 9,
+        "test_groups": 3,
+        "buffer": 1,
+    },
+    "detector": {
+        "photons_per_pattern": 1e8,
+        "beamstop_diameter": 4.0,
+    },
+}
+
+_FORMAT_DOCUMENTS = {
+    ".json": (
+        '{"simulation":{"N":128,"seed":7,"probe":{"source":"custom",'
+        '"source_path":"probe.npz","transform_pipeline":'
+        '"smooth:0.5|pad_preserve:128","mask_diameter":100.0},"object":'
+        '{"kind":"dead_leaves","image_size":[392,392],"objects_per_probe":5,'
+        '"diffractions_per_object":64,"set_phi":true},"scan":{"kind":"grid",'
+        '"grid_size":[2,2],"offset":4,"outer_offset_train":8,'
+        '"outer_offset_test":20,"train_groups":9,"test_groups":3,"buffer":1},'
+        '"detector":{"photons_per_pattern":100000000.0,'
+        '"beamstop_diameter":4.0}}}\n'
+    ),
+    ".yaml": """\
+simulation:
+  N: 128
+  seed: 7
+  probe:
+    source: custom
+    source_path: probe.npz
+    transform_pipeline: smooth:0.5|pad_preserve:128
+    mask_diameter: 100.0
+  object:
+    kind: dead_leaves
+    image_size: [392, 392]
+    objects_per_probe: 5
+    diffractions_per_object: 64
+    set_phi: true
+  scan:
+    kind: grid
+    grid_size: [2, 2]
+    offset: 4
+    outer_offset_train: 8
+    outer_offset_test: 20
+    train_groups: 9
+    test_groups: 3
+    buffer: 1
+  detector:
+    photons_per_pattern: 100000000.0
+    beamstop_diameter: 4.0
+""",
+    ".toml": """\
+[simulation]
+N = 128
+seed = 7
+
+[simulation.probe]
+source = "custom"
+source_path = "probe.npz"
+transform_pipeline = "smooth:0.5|pad_preserve:128"
+mask_diameter = 100.0
+
+[simulation.object]
+kind = "dead_leaves"
+image_size = [392, 392]
+objects_per_probe = 5
+diffractions_per_object = 64
+set_phi = true
+
+[simulation.scan]
+kind = "grid"
+grid_size = [2, 2]
+offset = 4
+outer_offset_train = 8
+outer_offset_test = 20
+train_groups = 9
+test_groups = 3
+buffer = 1
+
+[simulation.detector]
+photons_per_pattern = 1.0e8
+beamstop_diameter = 4.0
+""",
+}
 
 
 def _write_simulation_toml(
@@ -75,6 +186,29 @@ def test_load_simulation_config_accepts_wrapped_toml_and_rejects_unknown_keys(
     invalid.write_text("[simulation]\nN = 64\nepochs = 10\n", encoding="utf-8")
     with pytest.raises(ValueError, match="simulation.epochs"):
         load_simulation_config(invalid)
+
+
+@pytest.mark.parametrize(
+    ("suffix", "document"),
+    _FORMAT_DOCUMENTS.items(),
+    ids=("json", "yaml", "toml"),
+)
+def test_load_simulation_config_preserves_exact_recipe_across_formats(
+    tmp_path: Path,
+    suffix: str,
+    document: str,
+):
+    path = tmp_path / f"simulation{suffix}"
+    path.write_text(document, encoding="utf-8")
+
+    loaded = load_simulation_config(path)
+    expected = simulation_config_from_mapping(_FORMAT_RECIPE)
+
+    assert loaded == expected
+    assert simulation_config_to_dict(loaded) == _FORMAT_RECIPE
+    assert simulation_config_from_mapping(
+        simulation_config_to_dict(loaded)
+    ) == loaded
 
 
 def test_grid_lines_cli_file_values_and_explicit_cli_precedence(tmp_path: Path):
@@ -281,6 +415,7 @@ def test_generic_simulation_rejects_grid_recipe_instead_of_ignoring_geometry(
 def test_generic_simulation_persists_complete_probe_identity(
     monkeypatch, tmp_path: Path
 ):
+    from ptycho import params
     from ptycho import nongrid_simulation
     from scripts.simulation import simulate_and_save as cli
 
@@ -323,13 +458,22 @@ def test_generic_simulation_persists_complete_probe_identity(
         probeGuess=np.ones((8, 8), dtype=np.complex64),
         scan_index=np.array([0]),
     )
+    ambient = {"N": 13, "gridsize": 3, "ambient_marker": "poison"}
+    monkeypatch.setattr(params, "cfg", dict(ambient))
+
+    def fake_generate(**kwargs):
+        assert params.cfg["N"] == 8
+        assert params.cfg["gridsize"] == 1
+        assert params.cfg["nphotons"] == 1e8
+        return (
+            fake_raw,
+            np.ones((1, 8, 8), dtype=np.complex64),
+        )
+
     monkeypatch.setattr(
         nongrid_simulation,
         "generate_simulated_data",
-        lambda **kwargs: (
-            fake_raw,
-            np.ones((1, 8, 8), dtype=np.complex64),
-        ),
+        fake_generate,
     )
     monkeypatch.setattr(
         "ptycho.metadata.MetadataManager.save_with_metadata",
@@ -345,6 +489,7 @@ def test_generic_simulation_persists_complete_probe_identity(
         tmp_path / "out.npz",
         None,
     )
+    assert params.cfg == ambient
 
     additional = captured["metadata"]["additional_parameters"]
     assert len(additional["simulation_config_sha256"]) == 64
@@ -512,3 +657,103 @@ def test_synthetic_lines_wrapper_hands_raw_probe_to_the_generic_owner(
         handed_off = archive["probeGuess"]
     assert handed_off.shape == (8, 8)
     assert np.array_equal(handed_off, raw_probe)
+
+
+def test_synthetic_lines_generation_scopes_resolved_simulation_state(
+    monkeypatch, tmp_path: Path
+):
+    from ptycho import params
+    from scripts.simulation import run_with_synthetic_lines as cli
+
+    simulation = SimulationConfig(
+        N=8,
+        probe=ProbeSimulationConfig(
+            source="ideal",
+            transform_pipeline="pad_preserve:8",
+        ),
+        object=SyntheticObjectConfig(kind="lines", image_size=(24, 24)),
+        scan=ScanSimulationConfig(kind="nongrid", buffer=4),
+    )
+    observed = {}
+
+    def fake_object(*, size):
+        observed.update(
+            N=params.cfg["N"],
+            data_source=params.cfg["data_source"],
+            configured_size=params.cfg["size"],
+            requested_size=size,
+        )
+        return np.ones((size, size, 1), dtype=np.complex64)
+
+    monkeypatch.setattr("ptycho.diffsim.sim_object_image", fake_object)
+    monkeypatch.setattr(
+        "ptycho.probe.get_default_probe",
+        lambda *, N, fmt: np.ones((N, N), dtype=np.complex64),
+    )
+
+    before = {"sentinel": object(), "N": 999, "data_source": "poison", "size": 3}
+    previous = dict(params.cfg)
+    previous_sealed = params._sealed
+    try:
+        params.cfg.clear()
+        params.cfg.update(before)
+        params.seal()
+
+        generated = cli.generate_and_save_synthetic_input(tmp_path, simulation)
+
+        assert generated == tmp_path / "synthetic_input.npz"
+        assert observed == {
+            "N": 8,
+            "data_source": "lines",
+            "configured_size": 24,
+            "requested_size": 24,
+        }
+        assert params.cfg == before
+        assert params._sealed is True
+    finally:
+        params.cfg.clear()
+        params.cfg.update(previous)
+        params.seal() if previous_sealed else params.unseal()
+
+
+def test_synthetic_lines_generation_restores_state_when_legacy_leaf_fails(
+    monkeypatch, tmp_path: Path
+):
+    from ptycho import params
+    from scripts.simulation import run_with_synthetic_lines as cli
+
+    simulation = SimulationConfig(
+        N=8,
+        probe=ProbeSimulationConfig(
+            source="ideal",
+            transform_pipeline="pad_preserve:8",
+        ),
+        object=SyntheticObjectConfig(kind="lines", image_size=(24, 24)),
+        scan=ScanSimulationConfig(kind="nongrid", buffer=4),
+    )
+    monkeypatch.setattr(
+        "ptycho.probe.get_default_probe",
+        lambda *, N, fmt: np.ones((N, N), dtype=np.complex64),
+    )
+    monkeypatch.setattr(
+        "ptycho.diffsim.sim_object_image",
+        lambda *, size: (_ for _ in ()).throw(RuntimeError("synthetic failure")),
+    )
+
+    before = {"sentinel": "failure", "N": 999}
+    previous = dict(params.cfg)
+    previous_sealed = params._sealed
+    try:
+        params.cfg.clear()
+        params.cfg.update(before)
+        params.seal()
+
+        with pytest.raises(RuntimeError, match="synthetic failure"):
+            cli.generate_and_save_synthetic_input(tmp_path, simulation)
+
+        assert params.cfg == before
+        assert params._sealed is True
+    finally:
+        params.cfg.clear()
+        params.cfg.update(previous)
+        params.seal() if previous_sealed else params.unseal()

@@ -115,6 +115,20 @@ def archived_params_scope(values: Mapping[str, Any]) -> Iterator[dict]:
                 _owner_identity = None
 
 
+@contextmanager
+def isolated_archived_params_scope() -> Iterator[dict]:
+    """Contain a legacy archive load and restore the caller's ambient state.
+
+    The outer archive frame prevents a nested successful archive load from
+    rewriting the rollback snapshot owned by the inner legacy scope. Modern
+    reload callers can capture decoded archive values explicitly without
+    making them process-global authority.
+    """
+    with archived_params_scope({}):
+        with legacy_params_scope() as state:
+            yield state
+
+
 def scoped_legacy_params(function: Callable[P, R]) -> Callable[P, R]:
     """Run a supported entrypoint with temporary legacy state containment."""
     @wraps(function)
