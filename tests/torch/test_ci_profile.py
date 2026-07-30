@@ -25,6 +25,7 @@ from ptycho_torch.config_params import (
     ModelConfig as PTModelConfig,
     TrainingConfig as PTTrainingConfig,
 )
+from ptycho_torch.execution_request import ExecutionRequest
 
 
 CANONICAL_CI_BUNDLE = {
@@ -320,11 +321,12 @@ def test_workflow_forwards_torch_overrides_to_lightning(monkeypatch):
     from ptycho.config.config import ModelConfig, TrainingConfig
     from ptycho_torch.workflows import components
 
-    execution = object()
+    execution = ExecutionRequest(
+        values={"accelerator": "cpu"},
+        explicit_fields=frozenset({"accelerator"}),
+    )
     overrides = {"physics_forward_mode": "rectangular_scaled"}
     captured = {}
-
-    monkeypatch.setattr(components.ptycho_config, "update_legacy_dict", lambda *a: None)
 
     def fake_train(train_data, test_data, config, execution_config=None, overrides=None):
         captured["execution_config"] = execution_config
@@ -375,7 +377,8 @@ def test_cli_profile_reaches_training_execution(tiny_train_npz, tmp_path, monkey
     cli_main()
 
     forwarded = captured["overrides"]
-    assert captured["execution_config"] is not None
+    assert captured["resolved_payload"].execution_config is not None
+    assert "execution_config" not in captured
     assert forwarded["physics_forward_mode"] == "rectangular_scaled"
     assert forwarded["scale_contract_version"] == "ci_intensity_v2"
     assert forwarded["measurement_domain"] == "count_intensity"
