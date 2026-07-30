@@ -42,6 +42,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** pytorch, lightning, mlflow, configuration, training  
 **Use this when:** Working on the `ptycho_torch/` stack or porting TensorFlow workflows to PyTorch.
 
+### [Native Torch CLI Mmap Ingestion Design](superpowers/specs/2026-07-29-native-torch-cli-mmap-ingestion-design.md)
+**Description:** Approved design for routing the Linux native Torch training CLI through exact-file, run-local, group-capped `PtychoDataset` memory maps while retaining shared workflow, DDP validation, CI-statistics, bundle-persistence, and accessible-procfs safety contracts.
+**Keywords:** pytorch, training-cli, mmap, PtychoDataset, dataloader, ddp, n-groups, linux, procfs
+**Use this when:** Implementing or reviewing native `ptycho_torch.train` ingestion, its `/proc/self/fd` runtime requirement, exact mmap group limits, or explicit validation-map behavior.
+
 ### [Hybrid ResNet CI Compatibility Study](superpowers/specs/2026-07-09-ci-model-compatibility-ablation-design.md)
 **Description:** Active corrective study following withdrawal of the original compatibility PASS; the checked-in [CI-HYBRID-RESNET-COMPAT-001 finding](findings.md#ci-hybrid-resnet-compat-001) retains that result as superseded diagnostic evidence. The [implementation plan](superpowers/plans/2026-07-09-ci-model-compatibility-ablation.md) is the status authority: Tasks 19--23, 25--28, and 30 are `complete_final`. Task 23's coherent 36-arm, three-seed claim-grade matrix completed without execution failures but returned a sealed numeric `FAIL` on the locked DeadLeaves quality and physics gates. Task 24 is therefore not eligible under its existing all-gates-pass publication condition, and Task 29 remains ordered after Task 24. The dependency order is 21 → 25 → 26 → 27 → 28 → 22 → 30 → 23 → 24 → 29.
 **Keywords:** hybrid-resnet, cnn, ci, poisson, varpro, ablation, dead-leaves, lines, experimental-npz

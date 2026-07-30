@@ -7,13 +7,14 @@ This page documents the PyTorch implementation of PtychoPINN, focusing on module
 ```mermaid
 graph TD
     subgraph "Shared Config & Data"
-        A[config/config.py] --> B[params.cfg (Legacy Bridge)]
+        A[config/config.py]
         C[NPZ Files] --> D[ptycho.raw_data.RawData]
     end
 
     subgraph "PyTorch Orchestration"
         E[ptycho_torch/config_bridge.py]
         F[ptycho_torch/workflows/components.py]
+        B[_reassemble_position_with_legacy_geometry scoped params.cfg bridge]
         G[Lightning Trainer]
     end
 
@@ -25,8 +26,10 @@ graph TD
     end
 
     D --> H
+    A --> E
     E --> F
-    B --> F
+    F -. optional legacy stitching .-> B
+    F --> G
     H --> G
     I --> G
     K --> I
@@ -34,45 +37,61 @@ graph TD
     G --> J
 ```
 
-**Config factory layer (ADR-003):** CLI args and workflow params first pass through `ptycho_torch/config_factory.py` (validate + infer + apply overrides), which delegates to `ptycho_torch/config_bridge.py` for TF-canonical dataclass translation and populates `params.cfg` (CONFIG-001). This factory layer sits between "CLI Args" and `config_bridge.py` in the flow above but is omitted from the diagram itself.
+**Config factory layer (ADR-003):** CLI args and workflow parameters first pass
+through `ptycho_torch/config_factory.py` for validation, inference, override
+application, and capability resolution. The pure `resolve_training_payload`
+and `resolve_inference_payload` functions use `ptycho_torch/config_bridge.py`
+for TF-canonical dataclass translation and return explicit `TrainingPayload` /
+`InferencePayload` owners without reading or writing `params.cfg`. The
+compatibility `create_training_payload` and `create_inference_payload` wrappers
+add one bounded CONFIG-001 projection through `_project_legacy_config` and
+`populate_legacy_params` before returning the same explicit owners. The native
+training CLI currently uses `create_training_payload`, then forwards its
+resolved `TrainingPayload`. This layer sits between CLI inputs and workflow
+orchestration in the flow above but is omitted from the diagram.
 
 ## 2. Training Workflow (PyTorch)
 
-```mermaid
-sequenceDiagram
-    participant Script as scripts/training/train.py
-    participant W as Torch workflows/components.py
-    participant D as Torch dataloader/DataContainer
-    participant L as Lightning Trainer
-    participant M as Torch model.py
+```text
+native train CLI
+  -> exact-file run-local PtychoDataset mmap
+  -> shared run_cdi_example_torch
 
-    Script->>W: run_cdi_example_torch(train_data, test_data, config)
-    W->>D: create_container_from_raw(train_data)
-    D-->>W: returns train_container (PtychoDataContainerTorch)
-
-    W->>L: build Trainer(config) + fit(model)
-    Note over L: Lightning training loop executes...
-    Note over L: _LossHistoryCallback collects train/val loss per epoch
-    L-->>W: returns training_history
-
-    alt If test_data is provided
-        W->>D: create_container_from_raw(test_data)
-        D-->>W: returns test_container
-        L->>M: predict(test_container)
-        M-->>L: returns reconstructed_patches
-    end
-
-    W-->>Script: returns results_dict
+programmatic RawData / RawDataTorch
+  -> PtychoDataContainerTorch in memory
+  -> shared run_cdi_example_torch
 ```
+
+Both substrates converge on the same resolved training payload,
+`PtychoPINN_Lightning`, Lightning trainer, bundle persistence, and optional
+reassembly workflow. The native `python -m ptycho_torch.train` path constructs
+one persistent map per selected role under
+`<output_dir>/mmap_workspace/{train,test}/mmap/memmap`; it stages no other NPZs
+and rebuilds each selected role workspace on every invocation. Programmatic
+raw-data objects remain in memory and do not create that workspace.
+
+The native mmap adapter's descriptor-anchored construction is a Linux-only
+runtime boundary. It requires procfs to be mounted and accessible at
+`/proc/self/fd`, together with descriptor-relative and no-follow filesystem
+operations. A live-descriptor identity probe runs before any output or staging
+mutation. Failure is terminal for native mmap ingestion; the adapter does not
+substitute pathname-based staging or the programmatic in-memory substrate.
 
 ## 2.1 Torch Data Flow
 
 Torch has two supported training data paths:
 
-1. Native mmap path: standalone NPZ data is loaded by `ptycho_torch.dataloader.PtychoDataset`, memory-mapped into a TensorDict-style store, then yielded as `(tensor_dict, probe, probe_scaling)` batches for Lightning training.
-2. Grid-lines dict-container path: cached grouped data is prepared by `scripts.studies.grid_lines_torch_runner.run_torch_training`, wrapped by `ptycho_torch.workflows.components.PtychoLightningDataset`, then yielded with the same `(tensor_dict, probe, probe_scaling)` outer contract.
+1. Native CLI mmap path: the exact selected standalone train/test NPZ is loaded by `ptycho_torch.dataloader.PtychoDataset`, memory-mapped into a TensorDict-style store, then yielded as `(tensor_dict, probe, probe_scaling)` batches for Lightning training.
+2. Programmatic in-memory path: `RawData` / `RawDataTorch` inputs, including grid-lines study data, are wrapped by `PtychoDataContainerTorch` and `ptycho_torch.workflows.components.PtychoLightningDataset`, then yielded with the same `(tensor_dict, probe, probe_scaling)` outer contract.
 
 Both paths feed `ptycho_torch.model.PtychoPINN_Lightning.compute_loss`; inference uses `forward_predict(X, positions, probe, input_scale_factor)`. The normative batch contract lives in <doc-ref type="spec">docs/specs/spec-ptycho-interfaces.md</doc-ref>; raw NPZ/grouped-dict keys live in <doc-ref type="spec">docs/specs/spec-ptycho-core.md</doc-ref>; tensor layout conversions live in <doc-ref type="spec">docs/specs/spec-ptycho-tensor-correspondence.md</doc-ref>; amplitude/count scaling lives in <doc-ref type="guide">docs/DATA_NORMALIZATION_GUIDE.md</doc-ref>.
+
+Validation behavior depends on the execution strategy when no test dataset is
+supplied. Direct (non-DDP) mmap training returns `val_loader=None` and trains on
+the complete train map. DDP mmap training retains the existing deterministic
+90/10 train/validation split of the train map. When an explicit test NPZ/map is
+provided, either strategy uses that complete map for validation rather than
+splitting or truncating it.
 
 ## 3. Inference Workflow (PyTorch)
 
@@ -264,7 +283,7 @@ def run_grid_lines_torch(cfg: TorchRunnerConfig, *,
                           invocation_argv=None, invocation_extra=None) -> Dict[str, Any]
 ```
 - **Inputs:** `cfg` — `TorchRunnerConfig` dataclass: `train_npz`/`test_npz`/`output_dir` (`Path`), `architecture` (one of the 14 registry keys), `training_procedure` (`'pinn'`|`'supervised'`), `input_conditioning_mode`, `count_scale_mode`, `N`, `gridsize`, plus architecture-specific hyperparameters (full field list in the dataclass).
-- **Dependencies:** does not read `params.cfg` directly; delegates to `run_torch_training` → `_train_with_lightning` (`ptycho_torch/workflows/components.py`), which builds `TrainingConfig`/execution config via `config_factory` and synchronizes `params.cfg` downstream per CONFIG-001.
+- **Dependencies:** does not read `params.cfg` directly; delegates to `run_torch_training` → `_train_with_lightning` (`ptycho_torch/workflows/components.py`), which forwards explicit configuration and resolved payload owners. Only the named `_reassemble_position_with_legacy_geometry` compatibility leaf performs a narrow scoped legacy projection when that reassembly path is used.
 - **Behavior:** orchestrates load cached train/test NPZ datasets (with metadata) → apply input conditioning → `run_torch_training` (Lightning) → `run_torch_inference` → convert real/imag predictions to complex when the trailing dim is 2 (`to_complex_patches`) → `compute_metrics` → `save_recon_artifact`/`save_run_artifacts` → best-effort visuals rendering (exceptions logged, not raised) → writes invocation-provenance artifacts throughout.
 - **Returns:** dict with keys `architecture`, `model_id`, `run_dir`, `metrics`, `history`, `recon_path`, `recon_npz`, `model_params`, `inference_time_s`, `position_reassembly_runtime_contract`, `randomness_contract`, `paper_row_payload`, optional `visuals`, optional `predictions_complex`.
 - **Error modes:** `ValueError` if test data lacks all of `YY_ground_truth`/`YY_full`/`objectGuess`; on any other exception, writes an invocation artifact with `status="failed"` and re-raises. Visuals rendering is the sole best-effort path (logs a warning instead of raising).
@@ -274,12 +293,13 @@ def run_grid_lines_torch(cfg: TorchRunnerConfig, *,
 ```
 def run_cdi_example_torch(train_data, test_data, config: TrainingConfig,
                            flip_x=False, flip_y=False, transpose=False, M=20,
-                           do_stitching=False, execution_config=None
+                           do_stitching=False, execution_config=None,
+                           overrides=None, *, resolved_payload=None
                            ) -> Tuple[Optional[Any], Optional[Any], Dict[str, Any]]
 ```
-- **Inputs:** `train_data`/`test_data` — `RawData` | `RawDataTorch` | `PtychoDataContainerTorch`; `config` — `TrainingConfig`; `execution_config` — optional `PyTorchExecutionConfig`.
-- **Dependency (params.cfg):** calls `ptycho_config.update_legacy_dict(params.cfg, config)` unconditionally at entry before any delegation, per CONFIG-001.
-- **Behavior** (per the current docstring/body): (1) trains via `train_cdi_model_torch`, forwarding `execution_config` when provided; (2) initializes `recon_amp`/`recon_phase` to `None`; (3) if `do_stitching` and `test_data` is provided, stitches via `_reassemble_cdi_image_torch` and merges the reassembly results into `train_results`; (4) if `config.output_dir` is set and `train_results['models']` is truthy, persists via `save_torch_bundle` to `{output_dir}/wts.h5.zip`; (5) returns `(recon_amp, recon_phase, train_results)`.
+- **Inputs:** `train_data` — `RawData` | `RawDataTorch` | `PtychoDataContainerTorch` | `PtychoDataset`; `test_data` — optional validation input with the same supported types, including a native mmap `PtychoDataset`; `config` — `TrainingConfig`; `execution_config` — optional unresolved `ExecutionRequest`; `overrides` — optional Torch-only factory overrides forwarded to training resolution; keyword-only `resolved_payload` — optional already-resolved `TrainingPayload`. `execution_config` and `resolved_payload` are mutually exclusive and validated before training.
+- **Dependency (params.cfg):** `run_cdi_example_torch` and its descendants do not perform a full legacy projection at workflow entry. Direct unresolved callers are resolved with the pure `resolve_training_payload`; the native CLI instead supplies a `TrainingPayload` after `create_training_payload` has performed its one bounded CONFIG-001 compatibility projection. Optional stitching has a separate narrow bridge: `_reassemble_position_with_legacy_geometry` performs `update_legacy_dict` inside scoped compatibility state when that legacy reassembly path is used.
+- **Behavior** (per the current docstring/body): (1) validates and explicitly forwards `execution_config`, `overrides`, or `resolved_payload` to `train_cdi_model_torch`; (2) initializes `recon_amp`/`recon_phase` to `None`; (3) if `do_stitching` and `test_data` is provided, stitches via `_reassemble_cdi_image_torch` and merges the reassembly results into `train_results`; (4) if `config.output_dir` is set and `train_results['models']` is truthy, persists via `save_torch_bundle` to `{output_dir}/wts.h5.zip`; (5) returns `(recon_amp, recon_phase, train_results)`.
 - **Returns:** tuple of (amplitude or `None`, phase or `None`, results dict — contents depend on `train_cdi_model_torch`/`_reassemble_cdi_image_torch`; includes `'models'` whenever persistence runs).
 - **Error modes:** raises nothing directly; propagates exceptions from `train_cdi_model_torch`, `_reassemble_cdi_image_torch`, or `save_torch_bundle`.
 

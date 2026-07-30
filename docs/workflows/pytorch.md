@@ -37,7 +37,7 @@ Key properties:
   ([instructions](https://pytorch.org/get-started/locally/)), then `pip install .`
 - Input NPZ files conforming to `docs/specs/spec-ptycho-core.md`
   (`diffraction` as amplitude, `xcoords`/`ycoords`, complex `probeGuess`,
-  `objectGuess`).
+  and optional `objectGuess`).
 
 ## 3. Configuration
 
@@ -46,10 +46,13 @@ Key properties:
 1. **Canonical and Torch scientific configs** describe data, model topology,
    optimization, and inference. Learning rate, scheduler, gradient clipping,
    and accumulation resolve into Torch `TrainingConfig`; topology resolves into
-   Torch `ModelConfig`. Compatibility entry points bridge the canonical
-   projection to `params.cfg` before a legacy consumer, while the modern Torch
-   payload resolver leaves global configuration and filesystem state untouched
-   and scopes any surviving legacy leaf separately.
+   Torch `ModelConfig`. The pure `resolve_training_payload` and
+   `resolve_inference_payload` functions leave global configuration and
+   filesystem state untouched. The compatibility `create_training_payload` and
+   `create_inference_payload` wrappers add one bounded CONFIG-001 projection
+   through `_project_legacy_config` and `populate_legacy_params` before
+   returning their explicit payloads. Surviving legacy leaves are scoped
+   separately.
 2. **`ExecutionRequest`** carries unresolved runtime-only intent and explicit
    presence for accelerator, devices, workers, precision, logging,
    checkpointing, and Lightning mechanics. Capability resolution returns
@@ -283,9 +286,44 @@ Flags (`python -m ptycho_torch.train --help` is authoritative):
 The CLI builds an `ExecutionRequest` and a separate Torch training patch through
 `ptycho_torch/cli/shared.py`
 (`build_execution_request_from_args`, `build_training_config_patch_from_args`,
-`validate_paths`). The config factory capability-resolves the request to
-`PyTorchExecutionConfig` and performs the required compatibility projection for
-this native entry point.
+`validate_paths`), then calls `create_training_payload` once. Unlike the pure
+resolver, this compatibility wrapper performs one bounded CONFIG-001
+projection through `_project_legacy_config` and `populate_legacy_params`
+before returning the explicit `TrainingPayload`. That payload owns the
+resolved execution, data, model, and training configuration and is forwarded
+through mmap construction to `run_cdi_example_torch` via `resolved_payload`;
+the workflow does not perform another full projection at entry. Optional
+stitching has a separate narrow scoped projection in
+`_reassemble_position_with_legacy_geometry`.
+
+The native training CLI stages only the exact NPZ selected by
+`--train_data_file` and, when supplied, the exact NPZ selected by
+`--test_data_file`; neighboring NPZ files are not discovered or included. It
+builds persistent `PtychoDataset` maps at
+`<output_dir>/mmap_workspace/{train,test}/mmap/memmap`, with the corresponding
+state and manifest files in each role's `mmap` directory. Each invocation
+removes and rebuilds each selected role workspace before training: `train` is
+always built and rebuilt, while `test` is built and rebuilt only when
+`--test_data_file` is supplied. These paths are run-local working data rather
+than a reusable cross-invocation cache.
+
+This native mmap entry point is supported on Linux with procfs mounted and
+accessible at `/proc/self/fd`. Before it creates `output_dir` or stages any
+data, the command verifies that a live directory descriptor can be resolved
+through procfs and that descriptor-relative, no-follow filesystem operations
+are available. An unsupported platform or inaccessible procfs fails with an
+actionable error; there is no path-based safety fallback. Programmatic
+in-memory training is unaffected by this native-CLI requirement.
+
+For this entry point, `--n_images=N` means exactly `N` grouped mmap rows. The
+limit is applied before memory-map allocation, and the command fails if the
+selected NPZ does not contain at least `N` candidate groups. With
+`sequential_sampling=True`, selection takes the first records in stable
+file/group order. Otherwise selection is deterministic without replacement,
+using `subsample_seed` when configured and `42` when it is absent.
+`objectGuess` is optional for both unsupervised and supervised mmap input.
+Supervised input still requires `label`; when `objectGuess` is absent, its
+phase correction is `0.0`.
 
 ### 4.3. Programmatic
 
@@ -321,6 +359,10 @@ under `{output_dir}/checkpoints/`), persists the bundle, and — when
 `do_stitching=True` — runs Lightning prediction and reassembles the image
 (`flip_x`/`flip_y`/`transpose` args control coordinate transforms, `M` the stitch
 window). Component contract: `docs/architecture_torch.md` §6.
+
+Programmatic `RawData` and `RawDataTorch` inputs continue through this in-memory
+`PtychoDataContainerTorch` path; they do not create the native CLI's
+`mmap_workspace` tree.
 
 ## 5. Checkpoints, Persistence, Reproducibility
 
