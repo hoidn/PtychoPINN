@@ -86,7 +86,13 @@ from pathlib import Path
 from ptycho.config.config import (
     TrainingConfig,
     ModelConfig,
-    dataclass_to_legacy_dict,
+    DataConfig,
+    SamplingConfig,
+    LossConfig,
+    TFLossConfig,
+    GradientClipConfig,
+    OptimizerConfig,
+    SchedulerConfig,
     resolve_model_object_policy,
 )
 from ptycho.config import resolve_training_config
@@ -314,36 +320,81 @@ def update_config_from_dict(config_updates: dict):
     Args:
         config_updates (dict): A dictionary of parameters to update.
     """
-    # 1. Create a mutable dictionary from the default dataclass values
-    model_defaults = {f.name: f.default for f in fields(ModelConfig)}
-    training_defaults = {f.name: f.default for f in fields(TrainingConfig) if f.name != 'model'}
-    
-    # Merge them
-    full_config_dict = {**model_defaults, **training_defaults}
+    model_field_names = frozenset(f.name for f in fields(ModelConfig))
 
-    # 2. Update with the user's dictionary
+    # Mapping of flat user-facing keys to (sub_config, sub_field)
+    _SUB_CONFIG_ROUTING: dict = {
+        'train_data_file': ('data', 'train_data_file'),
+        'test_data_file': ('data', 'test_data_file'),
+        'nphotons': ('data', 'nphotons'),
+        'n_groups': ('sampling', 'n_groups'),
+        'n_images': ('sampling', 'n_images'),
+        'n_subsample': ('sampling', 'n_subsample'),
+        'subsample_seed': ('sampling', 'subsample_seed'),
+        'neighbor_count': ('sampling', 'neighbor_count'),
+        'enable_oversampling': ('sampling', 'enable_oversampling'),
+        'neighbor_pool_size': ('sampling', 'neighbor_pool_size'),
+        'sequential_sampling': ('sampling', 'sequential_sampling'),
+        'torch_loss_mode': ('loss', 'torch_loss_mode'),
+        'torch_mae_pred_l2_match_target': ('loss', 'torch_mae_pred_l2_match_target'),
+        'mae_weight': ('tf_loss', 'mae_weight'),
+        'nll_weight': ('tf_loss', 'nll_weight'),
+        'realspace_mae_weight': ('tf_loss', 'realspace_mae_weight'),
+        'realspace_weight': ('tf_loss', 'realspace_weight'),
+        'gradient_clip_val': ('gradient_clip', 'val'),
+        'gradient_clip_algorithm': ('gradient_clip', 'algorithm'),
+        'optimizer': ('optimizer', 'algorithm'),
+        'weight_decay': ('optimizer', 'weight_decay'),
+        'momentum': ('optimizer_sgd', 'momentum'),
+        'adam_beta1': ('optimizer_adam', 'beta1'),
+        'adam_beta2': ('optimizer_adam', 'beta2'),
+        'scheduler': ('scheduler', 'kind'),
+        'lr_warmup_epochs': ('scheduler', 'lr_warmup_epochs'),
+        'lr_min_ratio': ('scheduler', 'lr_min_ratio'),
+        'plateau_factor': ('scheduler', 'plateau_factor'),
+        'plateau_patience': ('scheduler', 'plateau_patience'),
+        'plateau_min_lr': ('scheduler', 'plateau_min_lr'),
+        'plateau_threshold': ('scheduler', 'plateau_threshold'),
+    }
+
+    model_updates: dict = {}
+    flat_training_updates: dict = {}
+    sub_config_updates: dict = {
+        'data': {}, 'sampling': {}, 'loss': {}, 'tf_loss': {},
+        'gradient_clip': {}, 'optimizer': {}, 'optimizer_sgd': {},
+        'optimizer_adam': {}, 'scheduler': {},
+    }
+
     for key, value in config_updates.items():
-        if key in full_config_dict:
-            full_config_dict[key] = value
+        if key in model_field_names:
+            model_updates[key] = value
+        elif key in _SUB_CONFIG_ROUTING:
+            sub, field_name = _SUB_CONFIG_ROUTING[key]
+            sub_config_updates[sub][field_name] = value
+        elif key in {'batch_size', 'nepochs', 'positions_provided', 'probe_trainable',
+                     'intensity_scale_trainable', 'output_dir', 'backend'}:
+            flat_training_updates[key] = value
         else:
-            # Optionally warn about unused keys
             logger.warning(f"Configuration key '{key}' is not a recognized parameter.")
 
-    # 3. Re-construct the dataclasses
-    model_args = {k: v for k, v in full_config_dict.items() if k in model_defaults}
-    training_args = {k: v for k, v in full_config_dict.items() if k in training_defaults}
+    train_data_file = sub_config_updates['data'].pop('train_data_file', None)
+    if train_data_file is None:
+        train_data_file = Path("dummy_path.npz")
 
-    # Handle required Path objects if they are not set
-    if training_args.get('train_data_file') is None:
-        # Assign a dummy path or handle as an error if it's essential for all workflows
-        training_args['train_data_file'] = Path("dummy_path.npz")
+    final_model_config = ModelConfig(**model_updates)
+    final_training_config = TrainingConfig(
+        model=final_model_config,
+        **flat_training_updates,
+        data=DataConfig(train_data_file=train_data_file, **sub_config_updates['data']),
+        sampling=SamplingConfig(**sub_config_updates['sampling']),
+        loss=LossConfig(**sub_config_updates['loss']),
+        tf_loss=TFLossConfig(**sub_config_updates['tf_loss']),
+        gradient_clip=GradientClipConfig(**sub_config_updates['gradient_clip']),
+        optimizer=OptimizerConfig(**sub_config_updates['optimizer']),
+        scheduler=SchedulerConfig(**sub_config_updates['scheduler']),
+    )
 
-    final_model_config = ModelConfig(**model_args)
-    final_training_config = TrainingConfig(model=final_model_config, **training_args)
-    
-    # 4. Update the legacy global params dictionary
     update_legacy_dict(params.cfg, final_training_config)
-    
     logger.info("Configuration updated programmatically for interactive session.")
     params.print_params()
 
@@ -505,10 +556,60 @@ def load_data(file_path, n_images=None, n_subsample=None, flip_x=False, flip_y=F
 
     return ptycho_data
 
-PUBLIC_TRAINING_INPUT_NAMES = frozenset(
-    item.name for item in fields(ModelConfig)
-) | frozenset(
-    item.name for item in fields(TrainingConfig) if item.name != "model"
+# Flat top-level TrainingConfig fields (still direct attributes)
+_FLAT_TRAINING_FIELD_NAMES = frozenset(
+    item.name for item in fields(TrainingConfig)
+    if item.name not in {"model", "data", "sampling", "loss", "tf_loss",
+                         "gradient_clip", "optimizer", "scheduler"}
+)
+
+# Old flat CLI names for sub-config leaf fields (maps cli_name → (sub_config, new_field_name))
+# Used both for building the CLI parser and for routing args into the nested config.
+_CLI_FLAT_TO_NESTED: dict = {
+    # DataConfig
+    "train_data_file": ("data", "train_data_file"),
+    "test_data_file": ("data", "test_data_file"),
+    "nphotons": ("data", "nphotons"),
+    # SamplingConfig
+    "n_groups": ("sampling", "n_groups"),
+    "n_images": ("sampling", "n_images"),
+    "n_subsample": ("sampling", "n_subsample"),
+    "subsample_seed": ("sampling", "subsample_seed"),
+    "neighbor_count": ("sampling", "neighbor_count"),
+    "enable_oversampling": ("sampling", "enable_oversampling"),
+    "neighbor_pool_size": ("sampling", "neighbor_pool_size"),
+    "sequential_sampling": ("sampling", "sequential_sampling"),
+    # LossConfig
+    "torch_loss_mode": ("loss", "torch_loss_mode"),
+    "torch_mae_pred_l2_match_target": ("loss", "torch_mae_pred_l2_match_target"),
+    # TFLossConfig
+    "mae_weight": ("tf_loss", "mae_weight"),
+    "nll_weight": ("tf_loss", "nll_weight"),
+    "realspace_mae_weight": ("tf_loss", "realspace_mae_weight"),
+    "realspace_weight": ("tf_loss", "realspace_weight"),
+    # GradientClipConfig (old flat names)
+    "gradient_clip_val": ("gradient_clip", "val"),
+    "gradient_clip_algorithm": ("gradient_clip", "algorithm"),
+    # OptimizerConfig (old flat names)
+    "optimizer": ("optimizer", "algorithm"),
+    "weight_decay": ("optimizer", "weight_decay"),
+    "momentum": ("optimizer_sgd", "momentum"),
+    "adam_beta1": ("optimizer_adam", "beta1"),
+    "adam_beta2": ("optimizer_adam", "beta2"),
+    # SchedulerConfig (old flat name for kind)
+    "scheduler": ("scheduler", "kind"),
+    "lr_warmup_epochs": ("scheduler", "lr_warmup_epochs"),
+    "lr_min_ratio": ("scheduler", "lr_min_ratio"),
+    "plateau_factor": ("scheduler", "plateau_factor"),
+    "plateau_patience": ("scheduler", "plateau_patience"),
+    "plateau_min_lr": ("scheduler", "plateau_min_lr"),
+    "plateau_threshold": ("scheduler", "plateau_threshold"),
+}
+
+PUBLIC_TRAINING_INPUT_NAMES = (
+    frozenset(item.name for item in fields(ModelConfig))
+    | _FLAT_TRAINING_FIELD_NAMES
+    | frozenset(_CLI_FLAT_TO_NESTED)
 )
 
 
@@ -613,19 +714,49 @@ def add_public_training_config_arguments(
 ) -> argparse.ArgumentParser:
     """Add public training overrides without applying dataclass defaults."""
     for model_field in fields(ModelConfig):
-        _add_public_training_argument(
-            parser,
-            model_field,
-            model_field=True,
-        )
+        _add_public_training_argument(parser, model_field, model_field=True)
+
+    # Flat top-level TrainingConfig fields (batch_size, nepochs, etc.)
+    sub_config_names = {"data", "sampling", "loss", "tf_loss",
+                        "gradient_clip", "optimizer", "scheduler"}
     for training_field in fields(TrainingConfig):
-        if training_field.name == "model":
+        if training_field.name in {"model"} | sub_config_names:
             continue
-        _add_public_training_argument(
-            parser,
-            training_field,
-            model_field=False,
-        )
+        _add_public_training_argument(parser, training_field, model_field=False)
+
+    # Sub-config leaf fields exposed under their OLD flat CLI names.
+    # Build a lookup: sub_config_class → {field_name: field_object}
+    from ptycho.config.config import (
+        DataConfig, SamplingConfig, LossConfig, TFLossConfig,
+        GradientClipConfig, SgdConfig, AdamConfig, OptimizerConfig, SchedulerConfig,
+    )
+    _sub_config_field_lookup: dict = {}
+    for cls, prefix in [
+        (DataConfig, "data"),
+        (SamplingConfig, "sampling"),
+        (LossConfig, "loss"),
+        (TFLossConfig, "tf_loss"),
+        (GradientClipConfig, "gradient_clip"),
+        (SgdConfig, "optimizer_sgd"),
+        (AdamConfig, "optimizer_adam"),
+        (OptimizerConfig, "optimizer"),
+        (SchedulerConfig, "scheduler"),
+    ]:
+        for f in fields(cls):
+            _sub_config_field_lookup[(prefix, f.name)] = f
+
+    for cli_name, (sub, field_name) in _CLI_FLAT_TO_NESTED.items():
+        sub_field = _sub_config_field_lookup.get((sub, field_name))
+        if sub_field is None:
+            continue
+        # Create a wrapper with the old CLI name but the actual field type
+        class _RenamedField:
+            pass
+        wrapper = _RenamedField()
+        wrapper.name = cli_name
+        wrapper.type = sub_field.type
+        _add_public_training_argument(parser, wrapper, model_field=False)
+
     return parser
 
 
@@ -657,20 +788,42 @@ def load_yaml_config(file_path: str) -> Dict[str, Any]:
 #    if 'train_data_file_path' not in config or config['train_data_file_path'] is None:
 #        raise ValueError("train_data_file_path is a required parameter and must be provided")
 
+def _build_nested_cli_patch(flat_args: dict) -> dict:
+    """Translate flat CLI arg names into the nested structure for resolve_training_config."""
+    model_field_names = frozenset(f.name for f in fields(ModelConfig))
+    result: dict = {}
+    for name, value in flat_args.items():
+        if name in model_field_names:
+            result[name] = value
+        elif name in _FLAT_TRAINING_FIELD_NAMES:
+            result[name] = value
+        elif name in _CLI_FLAT_TO_NESTED:
+            sub, field_name = _CLI_FLAT_TO_NESTED[name]
+            # optimizer_sgd / optimizer_adam route into optimizer.sgd / optimizer.adam
+            if sub == "optimizer_sgd":
+                result.setdefault("optimizer", {}).setdefault("sgd", {})[field_name] = value
+            elif sub == "optimizer_adam":
+                result.setdefault("optimizer", {}).setdefault("adam", {})[field_name] = value
+            else:
+                result.setdefault(sub, {})[field_name] = value
+    return result
+
+
 def setup_configuration(args: argparse.Namespace, yaml_path: Optional[str]) -> TrainingConfig:
     """Set up the configuration by merging defaults, YAML file, and command-line arguments."""
     try:
         yaml_config = load_yaml_config(yaml_path) if yaml_path else {}
-        cli_patch = {
+        flat_cli_args = {
             name: value
             for name, value in vars(args).items()
             if name in PUBLIC_TRAINING_INPUT_NAMES
         }
+        cli_patch = _build_nested_cli_patch(flat_cli_args)
         config = resolve_training_config(yaml_config, cli_patch)
 
         logger.info("Configuration setup complete")
         logger.info(f"Final configuration: {config}")
-        
+
         return config
     except (yaml.YAMLError, IOError, ValueError) as e:
         logger.error(f"Error setting up configuration: {e}")
@@ -717,16 +870,15 @@ def create_ptycho_data_container(data: Union[RawData, PtychoDataContainer], conf
     if isinstance(data, PtychoDataContainer):
         return data
     elif isinstance(data, RawData):
-        # Use config.n_groups for nsamples - this is the interpreted value from the training script
         dataset = data.generate_grouped_data(
             config.model.N,
-            K=config.neighbor_count,  # Use configurable K value
-            nsamples=config.n_groups,  # Use n_groups (clearer naming)
-            dataset_path=str(config.train_data_file) if config.train_data_file else None,
-            sequential_sampling=config.sequential_sampling,  # Pass sequential sampling flag
-            gridsize=config.model.gridsize,  # Pass gridsize explicitly (replaces global params dependency)
-            enable_oversampling=config.enable_oversampling,  # Explicit opt-in for K choose C oversampling
-            neighbor_pool_size=config.neighbor_pool_size  # Pool size for oversampling (if None, defaults to neighbor_count)
+            K=config.sampling.neighbor_count,
+            nsamples=config.sampling.n_groups,
+            dataset_path=str(config.data.train_data_file) if config.data.train_data_file else None,
+            sequential_sampling=config.sampling.sequential_sampling,
+            gridsize=config.model.gridsize,
+            enable_oversampling=config.sampling.enable_oversampling,
+            neighbor_pool_size=config.sampling.neighbor_pool_size,
         )
         return loader.load(lambda: dataset, data.probeGuess, which=None, create_split=False)
     else:

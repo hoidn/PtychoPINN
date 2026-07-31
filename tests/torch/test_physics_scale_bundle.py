@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from ptycho.config.config import TrainingConfig, ModelConfig
+from ptycho.config.config import TrainingConfig, ModelConfig, DataConfig
 from ptycho.config.config import dataclass_to_legacy_dict
 from ptycho import params as legacy_params
 from ptycho_torch.model_manager import (
@@ -16,7 +16,7 @@ from ptycho_torch.workflows.components import load_inference_bundle_torch
 
 
 def test_bundle_persists_intensity_scale(tmp_path: Path):
-    config = TrainingConfig(model=ModelConfig(N=64, gridsize=1), nphotons=1e9)
+    config = TrainingConfig(model=ModelConfig(N=64, gridsize=1), data=DataConfig(nphotons=1e9))
     archived = dataclass_to_legacy_dict(config)
     archived["intensity_scale"] = 123.0
     model = create_torch_model_with_gridsize(1, 64, archived)
@@ -31,7 +31,7 @@ def test_bundle_persists_intensity_scale(tmp_path: Path):
 
 
 def test_metadata_free_legacy_bundle_loads_with_explicit_profile(tmp_path: Path):
-    config = TrainingConfig(model=ModelConfig(N=64, gridsize=1), nphotons=1e9)
+    config = TrainingConfig(model=ModelConfig(N=64, gridsize=1), data=DataConfig(nphotons=1e9))
     archived = dataclass_to_legacy_dict(config)
     archived["intensity_scale"] = 1.0
     model = create_torch_model_with_gridsize(1, 64, archived)

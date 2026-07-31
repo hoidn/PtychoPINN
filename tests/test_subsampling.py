@@ -9,7 +9,7 @@ import numpy as np
 import tempfile
 from pathlib import Path
 from ptycho.workflows.components import load_data
-from ptycho.config.config import TrainingConfig, ModelConfig
+from ptycho.config.config import TrainingConfig, ModelConfig, SamplingConfig
 from ptycho import params
 
 
@@ -215,22 +215,18 @@ class TestSubsampling(unittest.TestCase):
         """Test that new config fields work correctly."""
         config = TrainingConfig(
             model=ModelConfig(N=64),
-            n_images=500,
-            n_subsample=200,
-            subsample_seed=42
+            sampling=SamplingConfig(n_images=500, n_subsample=200, subsample_seed=42),
         )
-        
-        # Check that fields are accessible
-        self.assertEqual(config.n_subsample, 200)
-        self.assertEqual(config.subsample_seed, 42)
-        
-        # Check that None defaults work
+
+        self.assertEqual(config.sampling.n_subsample, 200)
+        self.assertEqual(config.sampling.subsample_seed, 42)
+
         config_default = TrainingConfig(
             model=ModelConfig(N=64),
-            n_images=500
+            sampling=SamplingConfig(n_images=500),
         )
-        self.assertIsNone(config_default.n_subsample)
-        self.assertIsNone(config_default.subsample_seed)
+        self.assertIsNone(config_default.sampling.n_subsample)
+        self.assertIsNone(config_default.sampling.subsample_seed)
 
     def test_load_data_keeps_canonical_diffraction_when_n_scans_less_than_n(self):
         """Canonical (N,H,W) diffraction must not transpose even when N_scans < H."""

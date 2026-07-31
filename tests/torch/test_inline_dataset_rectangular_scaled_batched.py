@@ -30,8 +30,10 @@ import pytest
 import torch
 
 from ptycho.config.config import (
+    DataConfig as TFDataConfig,
     ModelConfig as TFModelConfig,
     PyTorchExecutionConfig,
+    SamplingConfig as TFSamplingConfig,
     TrainingConfig as TFTrainingConfig,
     update_legacy_dict,
 )
@@ -127,10 +129,10 @@ def test_inline_dataset_collate_shapes_match_native_contract(
     tf_model_cfg = TFModelConfig(N=N, gridsize=1, object_big=False)
     tf_training_cfg = TFTrainingConfig(
         model=tf_model_cfg,
-        train_data_file=None,
+        data=TFDataConfig(train_data_file=None),
+        sampling=TFSamplingConfig(n_groups=n_samples),
         output_dir=tmp_path,
         batch_size=batch_size,
-        n_groups=n_samples,
     )
     update_legacy_dict(params.cfg, tf_training_cfg)
 
@@ -174,10 +176,10 @@ def test_inline_dataset_amplitude_mode_emits_documented_probe_layout(
     tf_model_cfg = TFModelConfig(N=N, gridsize=1, object_big=False)
     tf_training_cfg = TFTrainingConfig(
         model=tf_model_cfg,
-        train_data_file=None,
+        data=TFDataConfig(train_data_file=None),
+        sampling=TFSamplingConfig(n_groups=n_samples),
         output_dir=tmp_path,
         batch_size=batch_size,
-        n_groups=n_samples,
     )
     update_legacy_dict(params.cfg, tf_training_cfg)
 
@@ -222,10 +224,10 @@ def test_inline_dataset_collate_rectangular_scaled_forward_no_crash(
     tf_model_cfg = TFModelConfig(N=N, gridsize=1, object_big=False)
     tf_training_cfg = TFTrainingConfig(
         model=tf_model_cfg,
-        train_data_file=None,
+        data=TFDataConfig(train_data_file=None),
+        sampling=TFSamplingConfig(n_groups=n_samples),
         output_dir=tmp_path,
         batch_size=batch_size,
-        n_groups=n_samples,
     )
     update_legacy_dict(params.cfg, tf_training_cfg)
 

@@ -108,7 +108,7 @@ def test_loss_history_callback_handles_missing_metrics():
 @pytest.mark.slow
 def test_train_history_collects_epochs(synthetic_ptycho_npz, tmp_path):
     """Integration test: Verify training history collects loss values per epoch."""
-    from ptycho.config.config import TrainingConfig, ModelConfig
+    from ptycho.config.config import TrainingConfig, ModelConfig, DataConfig, SamplingConfig
     from ptycho.raw_data import RawData
     from ptycho_torch.workflows.components import train_cdi_model_torch
 
@@ -122,13 +122,12 @@ def test_train_history_collects_epochs(synthetic_ptycho_npz, tmp_path):
     # fully integrated with Lightning training pipeline
     cfg = TrainingConfig(
         model=ModelConfig(N=64, gridsize=1, architecture="cnn"),
-        train_data_file=train_npz,
-        test_data_file=None,
+        data=DataConfig(train_data_file=train_npz, test_data_file=None),
+        sampling=SamplingConfig(n_groups=4),  # Small number for fast tests
         nepochs=2,
         batch_size=2,
         backend="pytorch",
         output_dir=tmp_path,
-        n_groups=4,  # Small number for fast tests
     )
 
     # Disable checkpointing and logging for speed
@@ -152,7 +151,7 @@ def test_train_history_collects_epochs_for_fno(synthetic_ptycho_npz, tmp_path, a
     2. The Lightning training pipeline wires up the generator properly
     3. Loss history is collected for at least one epoch
     """
-    from ptycho.config.config import TrainingConfig, ModelConfig
+    from ptycho.config.config import TrainingConfig, ModelConfig, DataConfig, SamplingConfig
     from ptycho.raw_data import RawData
     from ptycho_torch.workflows.components import train_cdi_model_torch
 
@@ -161,13 +160,12 @@ def test_train_history_collects_epochs_for_fno(synthetic_ptycho_npz, tmp_path, a
 
     cfg = TrainingConfig(
         model=ModelConfig(N=64, gridsize=1, architecture=arch),
-        train_data_file=train_npz,
-        test_data_file=None,
+        data=DataConfig(train_data_file=train_npz, test_data_file=None),
+        sampling=SamplingConfig(n_groups=4),
         nepochs=1,
         batch_size=2,
         backend="pytorch",
         output_dir=tmp_path,
-        n_groups=4,
     )
 
     exec_cfg = _cpu_execution_request()
@@ -187,7 +185,7 @@ def test_reassemble_cdi_image_torch_handles_real_imag_outputs(synthetic_ptycho_n
     3. Amplitude and phase arrays are finite and have correct shapes
     """
     import numpy as np
-    from ptycho.config.config import TrainingConfig, ModelConfig
+    from ptycho.config.config import TrainingConfig, ModelConfig, DataConfig, SamplingConfig
     from ptycho.raw_data import RawData
     from ptycho_torch.workflows.components import train_cdi_model_torch, _reassemble_cdi_image_torch
 
@@ -197,13 +195,12 @@ def test_reassemble_cdi_image_torch_handles_real_imag_outputs(synthetic_ptycho_n
 
     cfg = TrainingConfig(
         model=ModelConfig(N=64, gridsize=1, architecture="fno"),
-        train_data_file=train_npz,
-        test_data_file=test_npz,
+        data=DataConfig(train_data_file=train_npz, test_data_file=test_npz),
+        sampling=SamplingConfig(n_groups=4),
         nepochs=1,
         batch_size=2,
         backend="pytorch",
         output_dir=tmp_path,
-        n_groups=4,
     )
 
     exec_cfg = _cpu_execution_request()

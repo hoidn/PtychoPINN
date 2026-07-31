@@ -14,6 +14,7 @@ import torch
 
 from ptycho.config.config import (
     ModelConfig as PublicModelConfig,
+    SchedulerConfig as PublicSchedulerConfig,
     TrainingConfig as PublicTrainingConfig,
 )
 from ptycho_torch.config_resolution import (
@@ -530,7 +531,7 @@ def test_training_factory_baseline_tracks_default_and_public_sources() -> None:
     public = training_factory_baseline(
         training_baseline=PublicTrainingConfig(
             model=PublicModelConfig(),
-            scheduler="WarmupCosine",
+            scheduler=PublicSchedulerConfig(kind="WarmupCosine"),
         )
     )
 

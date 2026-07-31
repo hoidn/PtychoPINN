@@ -24,8 +24,24 @@ _N_IMAGES_DEPRECATION_MESSAGE = (
 )
 
 
+_TRAINING_SAMPLING_FIELDS = frozenset({
+    "n_groups", "n_images", "n_subsample", "subsample_seed",
+    "neighbor_count", "enable_oversampling", "neighbor_pool_size", "sequential_sampling",
+})
+_TRAINING_DATA_FIELDS = frozenset({"train_data_file", "test_data_file", "nphotons"})
+
+
 def _training_source(**updates):
-    return updates
+    """Build a training config mapping with sub-config fields in their nested positions."""
+    result: dict = {}
+    for k, v in updates.items():
+        if k in _TRAINING_SAMPLING_FIELDS:
+            result.setdefault("sampling", {})[k] = v
+        elif k in _TRAINING_DATA_FIELDS:
+            result.setdefault("data", {})[k] = v
+        else:
+            result[k] = v
+    return result
 
 
 def _inference_source(**updates):
@@ -38,8 +54,15 @@ def _inference_source(**updates):
 
 
 def _direct_training_config(**updates):
+    """Construct a TrainingConfig, routing sub-config fields into their sub-configs."""
+    sampling_kwargs = {k: updates.pop(k) for k in list(updates) if k in _TRAINING_SAMPLING_FIELDS}
+    data_kwargs = {k: updates.pop(k) for k in list(updates) if k in _TRAINING_DATA_FIELDS}
+    sampling = public_config.SamplingConfig(**sampling_kwargs) if sampling_kwargs else public_config.SamplingConfig()
+    data = public_config.DataConfig(**data_kwargs) if data_kwargs else public_config.DataConfig()
     return public_config.TrainingConfig(
         model=public_config.ModelConfig(),
+        sampling=sampling,
+        data=data,
         **updates,
     )
 
@@ -51,6 +74,11 @@ def _direct_inference_config(**updates):
         test_data_file=Path("data/test.npz"),
         **updates,
     )
+
+
+def _sampling(config):
+    """Return the sampling container for TrainingConfig or the config itself for InferenceConfig."""
+    return config.sampling if hasattr(config, "sampling") and not isinstance(config, public_config.InferenceConfig) else config
 
 
 _PUBLIC_RESOLVER_CASES = [
@@ -244,8 +272,8 @@ def test_n_images_alone_resolves_to_canonical_n_groups(
         config = resolver(source_factory(n_images=7), {})
 
     _assert_single_n_images_deprecation(caught_warnings)
-    assert config.n_groups == 7
-    assert config.n_images is None
+    assert _sampling(config).n_groups == 7
+    assert _sampling(config).n_images is None
 
 
 @pytest.mark.parametrize(
@@ -263,8 +291,8 @@ def test_equal_n_images_and_n_groups_in_one_source_are_accepted_once(
         )
 
     _assert_single_n_images_deprecation(caught_warnings)
-    assert config.n_groups == 7
-    assert config.n_images is None
+    assert _sampling(config).n_groups == 7
+    assert _sampling(config).n_images is None
 
 
 @pytest.mark.parametrize(
@@ -303,8 +331,8 @@ def test_file_n_images_then_cli_n_groups_uses_cli_canonical_value(
         )
 
     _assert_single_n_images_deprecation(caught_warnings)
-    assert config.n_groups == 11
-    assert config.n_images is None
+    assert _sampling(config).n_groups == 11
+    assert _sampling(config).n_images is None
 
 
 @pytest.mark.parametrize(
@@ -322,8 +350,8 @@ def test_file_n_groups_then_cli_n_images_uses_cli_alias_value(
         )
 
     _assert_single_n_images_deprecation(caught_warnings)
-    assert config.n_groups == 11
-    assert config.n_images is None
+    assert _sampling(config).n_groups == 11
+    assert _sampling(config).n_images is None
 
 
 @pytest.mark.parametrize(
@@ -338,8 +366,8 @@ def test_n_groups_without_n_images_emits_no_compatibility_warning(
         warnings.simplefilter("always")
         config = resolver(source_factory(n_groups=7), {})
 
-    assert config.n_groups == 7
-    assert config.n_images is None
+    assert _sampling(config).n_groups == 7
+    assert _sampling(config).n_images is None
     assert caught_warnings == []
 
 
@@ -390,8 +418,8 @@ def test_direct_config_n_images_construction_retains_post_init_behavior(
         config = config_factory(n_images=7)
 
     _assert_single_n_images_deprecation(caught_warnings)
-    assert config.n_groups == 7
-    assert config.n_images == 7
+    assert _sampling(config).n_groups == 7
+    assert _sampling(config).n_images == 7
 
 
 @pytest.mark.parametrize("config_factory", _DIRECT_CONFIG_CASES)
@@ -402,8 +430,8 @@ def test_direct_config_n_images_n_groups_conflict_remains_accepted(
         warnings.simplefilter("always")
         config = config_factory(n_images=7, n_groups=9)
 
-    assert config.n_groups == 9
-    assert config.n_images == 7
+    assert _sampling(config).n_groups == 9
+    assert _sampling(config).n_images == 7
     assert caught_warnings == []
 
 
@@ -493,18 +521,20 @@ def test_training_and_inference_inputs_are_unchanged(
 def test_training_path_fields_are_materialized_as_paths():
     config = resolve_training_config(
         {
-            "train_data_file": "data/train.npz",
-            "test_data_file": "data/test.npz",
+            "data": {
+                "train_data_file": "data/train.npz",
+                "test_data_file": "data/test.npz",
+            },
             "output_dir": "outputs/train",
         },
         {},
     )
 
-    assert config.train_data_file == Path("data/train.npz")
-    assert config.test_data_file == Path("data/test.npz")
+    assert config.data.train_data_file == Path("data/train.npz")
+    assert config.data.test_data_file == Path("data/test.npz")
     assert config.output_dir == Path("outputs/train")
-    assert isinstance(config.train_data_file, Path)
-    assert isinstance(config.test_data_file, Path)
+    assert isinstance(config.data.train_data_file, Path)
+    assert isinstance(config.data.test_data_file, Path)
     assert isinstance(config.output_dir, Path)
 
 
@@ -771,10 +801,9 @@ def test_resolved_training_legacy_projection_matches_equivalent_direct_config():
     )
     direct = public_config.TrainingConfig(
         model=public_config.ModelConfig(N=128),
-        train_data_file=Path("data/train.npz"),
-        test_data_file=None,
+        data=public_config.DataConfig(train_data_file=Path("data/train.npz"), test_data_file=None),
+        sampling=public_config.SamplingConfig(n_groups=7),
         output_dir=Path("outputs/train"),
-        n_groups=7,
     )
 
     resolved_projection = public_config.dataclass_to_legacy_dict(resolved)
@@ -818,7 +847,7 @@ def test_training_structural_record_can_be_inspected_but_is_not_runnable(
     train_path.touch()
     inspectable = public_config.TrainingConfig(
         model=public_config.ModelConfig(),
-        train_data_file=train_path,
+        data=public_config.DataConfig(train_data_file=train_path),
         nepochs=0,
     )
 
@@ -826,6 +855,21 @@ def test_training_structural_record_can_be_inspected_but_is_not_runnable(
 
     with pytest.raises(ValueError, match="nepochs"):
         public_config.validate_runnable_training_config(inspectable)
+
+
+def _training_cfg_with_flat_updates(train_path, **flat_updates):
+    """Build a TrainingConfig from flat kwargs, routing sub-config fields appropriately."""
+    data_fields = {"nphotons", "test_data_file"}
+    sampling_fields = {"n_groups", "n_images", "n_subsample", "subsample_seed",
+                       "neighbor_count", "enable_oversampling", "neighbor_pool_size"}
+    data_kw = {k: flat_updates.pop(k) for k in list(flat_updates) if k in data_fields}
+    sampling_kw = {k: flat_updates.pop(k) for k in list(flat_updates) if k in sampling_fields}
+    return public_config.TrainingConfig(
+        model=public_config.ModelConfig(),
+        data=public_config.DataConfig(train_data_file=train_path, **data_kw),
+        sampling=public_config.SamplingConfig(**sampling_kw),
+        **flat_updates,
+    )
 
 
 @pytest.mark.parametrize(
@@ -844,11 +888,7 @@ def test_runnable_training_requires_positive_execution_values(
 ):
     train_path = tmp_path / "train.npz"
     train_path.touch()
-    config = public_config.TrainingConfig(
-        model=public_config.ModelConfig(),
-        train_data_file=train_path,
-        **updates,
-    )
+    config = _training_cfg_with_flat_updates(train_path, **updates)
 
     validate_training_config_structure(config)
     with pytest.raises(ValueError, match=message):
@@ -861,7 +901,7 @@ def test_runnable_training_requires_existing_readable_training_data(
 ):
     missing = public_config.TrainingConfig(
         model=public_config.ModelConfig(),
-        train_data_file=tmp_path / "missing.npz",
+        data=public_config.DataConfig(train_data_file=tmp_path / "missing.npz"),
     )
     with pytest.raises(ValueError, match="train_data_file.*exist"):
         public_config.validate_runnable_training_config(missing)
@@ -870,7 +910,7 @@ def test_runnable_training_requires_existing_readable_training_data(
     train_path.touch()
     unreadable = public_config.TrainingConfig(
         model=public_config.ModelConfig(),
-        train_data_file=train_path,
+        data=public_config.DataConfig(train_data_file=train_path),
     )
     from ptycho.config import resolution
 
@@ -888,7 +928,7 @@ def test_runnable_training_rejects_a_training_data_directory(tmp_path):
     train_directory.mkdir()
     config = public_config.TrainingConfig(
         model=public_config.ModelConfig(),
-        train_data_file=train_directory,
+        data=public_config.DataConfig(train_data_file=train_directory),
     )
 
     with pytest.raises(ValueError, match="train_data_file.*regular file"):
@@ -959,10 +999,9 @@ def test_model_compatibility_facade_keeps_narrow_activation_predicate():
 def test_training_compatibility_facade_does_not_require_data_resource():
     config = public_config.TrainingConfig(
         model=public_config.ModelConfig(),
-        train_data_file=Path("does-not-exist.npz"),
+        data=public_config.DataConfig(train_data_file=Path("does-not-exist.npz"), nphotons=1),
         nepochs=1,
         batch_size=16,
-        nphotons=1,
     )
 
     public_config.validate_training_config(config)
@@ -973,9 +1012,9 @@ def test_training_compatibility_facade_does_not_require_data_resource():
     [
         ({"batch_size": 3}, "batch_size"),
         ({"nepochs": 0}, "nepochs"),
-        ({"mae_weight": -1}, "mae_weight"),
-        ({"nll_weight": 2}, "nll_weight"),
-        ({"nphotons": 0}, "nphotons"),
+        ({"tf_loss": public_config.TFLossConfig(mae_weight=-1)}, "mae_weight"),
+        ({"tf_loss": public_config.TFLossConfig(nll_weight=2)}, "nll_weight"),
+        ({"data": public_config.DataConfig(nphotons=0)}, "nphotons"),
     ],
 )
 def test_training_compatibility_facade_keeps_existing_value_checks(

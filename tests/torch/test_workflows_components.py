@@ -74,7 +74,7 @@ class TestWorkflowsComponentsScaffold:
     @pytest.fixture
     def minimal_training_config(self):
         """Create minimal TrainingConfig fixture for parity tests."""
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
 
         model_config = ModelConfig(
             N=64,
@@ -84,11 +84,12 @@ class TestWorkflowsComponentsScaffold:
 
         training_config = TrainingConfig(
             model=model_config,
-            train_data_file=Path("/tmp/dummy_train.npz"),
-            test_data_file=Path("/tmp/dummy_test.npz"),
-            n_groups=10,
-            neighbor_count=4,
-            nphotons=1e9,
+            data=DataConfig(
+                train_data_file=Path("/tmp/dummy_train.npz"),
+                test_data_file=Path("/tmp/dummy_test.npz"),
+                nphotons=1e9,
+            ),
+            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
         )
 
         return training_config
@@ -193,7 +194,7 @@ class TestWorkflowsComponentsTraining:
     @pytest.fixture
     def minimal_training_config(self):
         """Create minimal TrainingConfig fixture for training tests."""
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
 
         model_config = ModelConfig(
             N=64,
@@ -203,11 +204,12 @@ class TestWorkflowsComponentsTraining:
 
         training_config = TrainingConfig(
             model=model_config,
-            train_data_file=Path("/tmp/dummy_train.npz"),
-            test_data_file=Path("/tmp/dummy_test.npz"),
-            n_groups=10,
-            neighbor_count=1,  # No neighbors
-            nphotons=1e9,
+            data=DataConfig(
+                train_data_file=Path("/tmp/dummy_train.npz"),
+                test_data_file=Path("/tmp/dummy_test.npz"),
+                nphotons=1e9,
+            ),
+            sampling=SamplingConfig(n_groups=10, neighbor_count=1),  # No neighbors
             nepochs=2,  # Small number for testing
         )
 
@@ -243,7 +245,7 @@ class TestWorkflowsComponentsTraining:
         params_cfg_snapshot,
     ):
         """_train_with_lightning must forward fno_input_transform to factory overrides."""
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
         from ptycho_torch.workflows import components as torch_components
 
         captured = {}
@@ -281,11 +283,12 @@ class TestWorkflowsComponentsTraining:
 
         training_config = TrainingConfig(
             model=model_config,
-            train_data_file=Path("/tmp/dummy_train.npz"),
-            test_data_file=Path("/tmp/dummy_test.npz"),
-            n_groups=10,
-            neighbor_count=1,
-            nphotons=1e9,
+            data=DataConfig(
+                train_data_file=Path("/tmp/dummy_train.npz"),
+                test_data_file=Path("/tmp/dummy_test.npz"),
+                nphotons=1e9,
+            ),
+            sampling=SamplingConfig(n_groups=10, neighbor_count=1),
             nepochs=1,
         )
 
@@ -652,7 +655,7 @@ class TestWorkflowsComponentsTraining:
         params_cfg_snapshot,
     ):
         """Supervised workflow requests must reach Lightning as Supervised + MAE."""
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
         from ptycho_torch.workflows import components as torch_components
 
         dataset_path = tmp_path / "train_supervised.npz"
@@ -675,12 +678,13 @@ class TestWorkflowsComponentsTraining:
         )
         training_config = TrainingConfig(
             model=model_config,
-            train_data_file=dataset_path,
-            test_data_file=dataset_path,
+            data=DataConfig(
+                train_data_file=dataset_path,
+                test_data_file=dataset_path,
+                nphotons=1e9,
+            ),
+            sampling=SamplingConfig(n_groups=2, neighbor_count=1),
             output_dir=tmp_path / "out",
-            n_groups=2,
-            neighbor_count=1,
-            nphotons=1e9,
             nepochs=1,
         )
 
@@ -1154,7 +1158,7 @@ class TestWorkflowsComponentsTraining:
         - Factory propagates gridsize → C via grid_size tuple → C = grid_size[0]*grid_size[1]
         - ModelConfig receives C_model=4, Lightning module conv layers match
         """
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
         from ptycho_torch.workflows import components as torch_components
 
         # Spy to track Lightning module instantiation and inspect model structure
@@ -1240,11 +1244,12 @@ class TestWorkflowsComponentsTraining:
 
         training_config = TrainingConfig(
             model=model_config,
-            train_data_file=dummy_npz,  # Use temp file for factory validation
-            test_data_file=dummy_npz,   # Reuse for test data
-            n_groups=10,
-            neighbor_count=4,
-            nphotons=1e9,
+            data=DataConfig(
+                train_data_file=dummy_npz,  # Use temp file for factory validation
+                test_data_file=dummy_npz,   # Reuse for test data
+                nphotons=1e9,
+            ),
+            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
             nepochs=2,
         )
 
@@ -1312,7 +1317,7 @@ class TestWorkflowsComponentsTraining:
         - Apply .contiguous() before batching to keep view() happy
         - Rerun test → assertion passes with (batch, 4, 1, 2) shape
         """
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
         from ptycho_torch.workflows import components as torch_components
         from ptycho.config.config import update_legacy_dict
         from ptycho import params
@@ -1327,10 +1332,11 @@ class TestWorkflowsComponentsTraining:
 
         training_config = TrainingConfig(
             model=model_config,
-            train_data_file=Path("/tmp/dummy_train.npz"),
-            n_groups=10,
-            neighbor_count=4,
-            nphotons=1e9,
+            data=DataConfig(
+                train_data_file=Path("/tmp/dummy_train.npz"),
+                nphotons=1e9,
+            ),
+            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
             nepochs=2,
             batch_size=16,  # Explicit batch size for shape check
         )
@@ -1393,7 +1399,7 @@ class TestWorkflowsComponentsRun:
     @pytest.fixture
     def minimal_training_config(self):
         """Create minimal TrainingConfig fixture for inference tests."""
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
 
         model_config = ModelConfig(
             N=64,
@@ -1403,11 +1409,12 @@ class TestWorkflowsComponentsRun:
 
         training_config = TrainingConfig(
             model=model_config,
-            train_data_file=Path("/tmp/dummy_train.npz"),
-            test_data_file=Path("/tmp/dummy_test.npz"),
-            n_groups=10,
-            neighbor_count=4,
-            nphotons=1e9,
+            data=DataConfig(
+                train_data_file=Path("/tmp/dummy_train.npz"),
+                test_data_file=Path("/tmp/dummy_test.npz"),
+                nphotons=1e9,
+            ),
+            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
             nepochs=2,
         )
 
@@ -1551,7 +1558,7 @@ class TestWorkflowsComponentsRun:
         """
         # Import the module under test
         from ptycho_torch.workflows import components as torch_components
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
 
         # Spy flag to track save_torch_bundle invocation
         save_torch_bundle_called = {"called": False, "args": None, "kwargs": None}
@@ -1590,11 +1597,12 @@ class TestWorkflowsComponentsRun:
         model_config = ModelConfig(N=64, gridsize=2, model_type='pinn')
         config_with_output = TrainingConfig(
             model=model_config,
-            train_data_file=Path("/tmp/dummy_train.npz"),
-            test_data_file=Path("/tmp/dummy_test.npz"),
-            n_groups=10,
-            neighbor_count=4,
-            nphotons=1e9,
+            data=DataConfig(
+                train_data_file=Path("/tmp/dummy_train.npz"),
+                test_data_file=Path("/tmp/dummy_test.npz"),
+                nphotons=1e9,
+            ),
+            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
             output_dir=tmp_path,  # Enable persistence
         )
 
@@ -1824,7 +1832,7 @@ class TestTrainWithLightningRed:
     @pytest.fixture
     def minimal_training_config(self, tmp_path):
         """Create minimal TrainingConfig fixture for Lightning tests."""
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
 
         train_data_file = tmp_path / "train.npz"
         test_data_file = tmp_path / "test.npz"
@@ -1839,11 +1847,12 @@ class TestTrainWithLightningRed:
 
         training_config = TrainingConfig(
             model=model_config,
-            train_data_file=train_data_file,
-            test_data_file=test_data_file,
-            n_groups=10,
-            neighbor_count=4,
-            nphotons=1e9,
+            data=DataConfig(
+                train_data_file=train_data_file,
+                test_data_file=test_data_file,
+                nphotons=1e9,
+            ),
+            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
             nepochs=2,
         )
 
@@ -2219,7 +2228,7 @@ class TestReassembleCdiImageTorchGreen:
     @pytest.fixture
     def minimal_training_config(self, tmp_path):
         """Create minimal TrainingConfig for stitching tests."""
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
 
         model_config = ModelConfig(
             N=64,
@@ -2231,13 +2240,14 @@ class TestReassembleCdiImageTorchGreen:
 
         return TrainingConfig(
             model=model_config,
-            train_data_file=Path("dummy_train.npz"),
-            test_data_file=Path("dummy_test.npz"),
-            n_groups=10,
+            data=DataConfig(
+                train_data_file=Path("dummy_train.npz"),
+                test_data_file=Path("dummy_test.npz"),
+                nphotons=1e9,
+            ),
+            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
             batch_size=2,
             nepochs=1,
-            nphotons=1e9,
-            neighbor_count=4,
             output_dir=tmp_path,
         )
 
@@ -2723,7 +2733,7 @@ class TestReassembleCdiImageTorchFloat32:
     @pytest.fixture
     def minimal_training_config(self):
         """Create minimal TrainingConfig fixture for dtype tests."""
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
 
         model_config = ModelConfig(
             N=64,
@@ -2733,11 +2743,12 @@ class TestReassembleCdiImageTorchFloat32:
 
         training_config = TrainingConfig(
             model=model_config,
-            train_data_file=Path("/tmp/dummy_train.npz"),
-            test_data_file=Path("/tmp/dummy_test.npz"),
-            n_groups=10,
-            neighbor_count=4,
-            nphotons=1e9,
+            data=DataConfig(
+                train_data_file=Path("/tmp/dummy_train.npz"),
+                test_data_file=Path("/tmp/dummy_test.npz"),
+                nphotons=1e9,
+            ),
+            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
             batch_size=16,
         )
 
@@ -3138,7 +3149,7 @@ class TestTrainWithLightningGreen:
     @pytest.fixture
     def minimal_training_config(self, tmp_path):
         """Create minimal TrainingConfig fixture for execution config tests."""
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
 
         train_data_file = tmp_path / "train.npz"
         test_data_file = tmp_path / "test.npz"
@@ -3153,11 +3164,12 @@ class TestTrainWithLightningGreen:
 
         training_config = TrainingConfig(
             model=model_config,
-            train_data_file=train_data_file,
-            test_data_file=test_data_file,
-            n_groups=10,
-            neighbor_count=4,
-            nphotons=1e9,
+            data=DataConfig(
+                train_data_file=train_data_file,
+                test_data_file=test_data_file,
+                nphotons=1e9,
+            ),
+            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
             nepochs=2,
         )
 
@@ -3248,7 +3260,7 @@ class TestTrainWithLightningGreen:
             deterministic=False,  # Override default True
             num_workers=4,  # Override default 0
         )
-        minimal_training_config.gradient_clip_val = 1.0
+        minimal_training_config.gradient_clip.val = 1.0
 
         # Create minimal containers
         c = minimal_training_config.model.gridsize ** 2
@@ -3396,18 +3408,19 @@ class TestInferenceExecutionConfig:
     @pytest.fixture
     def minimal_training_config(self):
         """Create minimal TrainingConfig fixture."""
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
 
         model_config = ModelConfig(N=64, gridsize=2, model_type='pinn')
 
         return TrainingConfig(
             model=model_config,
-            train_data_file=Path("/tmp/dummy_train.npz"),
-            test_data_file=Path("/tmp/dummy_test.npz"),
-            n_groups=10,
+            data=DataConfig(
+                train_data_file=Path("/tmp/dummy_train.npz"),
+                test_data_file=Path("/tmp/dummy_test.npz"),
+                nphotons=1e9,
+            ),
+            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
             batch_size=16,
-            neighbor_count=4,
-            nphotons=1e9,
         )
 
     def test_inference_uses_execution_batch_size(
@@ -3504,17 +3517,18 @@ class TestLightningCheckpointCallbacks:
     @pytest.fixture
     def minimal_training_config(self):
         """Minimal TrainingConfig for callback tests."""
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
 
         model_config = ModelConfig(N=64, gridsize=1, model_type='pinn')
         return TrainingConfig(
             model=model_config,
-            train_data_file=Path("/tmp/dummy_train.npz"),
-            n_groups=10,
+            data=DataConfig(
+                train_data_file=Path("/tmp/dummy_train.npz"),
+                nphotons=1e9,
+            ),
+            sampling=SamplingConfig(n_groups=10, neighbor_count=1),
             batch_size=16,
             nepochs=2,
-            neighbor_count=1,
-            nphotons=1e9,
         )
 
     def test_model_checkpoint_callback_configured(self, minimal_training_config, monkeypatch, tmp_path):
@@ -3541,8 +3555,8 @@ class TestLightningCheckpointCallbacks:
         np.savez(str(train_file), **dummy_data)
 
         # Update config with valid paths
-        minimal_training_config.train_data_file = train_file
-        minimal_training_config.test_data_file = None  # No test data for this test
+        minimal_training_config.data.train_data_file = train_file
+        minimal_training_config.data.test_data_file = None  # No test data for this test
         minimal_training_config.output_dir = tmp_path / "outputs"
 
         # Create execution config with checkpoint overrides
@@ -3635,8 +3649,8 @@ class TestLightningCheckpointCallbacks:
         np.savez(str(test_file), **dummy_data)
 
         # Update config with valid paths
-        minimal_training_config.train_data_file = train_file
-        minimal_training_config.test_data_file = test_file  # Validation data for early stopping
+        minimal_training_config.data.train_data_file = train_file
+        minimal_training_config.data.test_data_file = test_file  # Validation data for early stopping
         minimal_training_config.output_dir = tmp_path / "outputs"
 
         # Create execution config with early stopping override
@@ -3783,7 +3797,7 @@ class TestLightningExecutionConfig:
         """
         Minimal TrainingConfig with validation data for dynamic monitor testing.
         """
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
 
         # Create dummy NPZ data
         dummy_data = {
@@ -3807,9 +3821,11 @@ class TestLightningExecutionConfig:
 
         config = TrainingConfig(
             model=model_config,
-            train_data_file=train_file,
-            test_data_file=test_file,  # Validation data present
-            n_groups=64,
+            data=DataConfig(
+                train_data_file=train_file,
+                test_data_file=test_file,  # Validation data present
+            ),
+            sampling=SamplingConfig(n_groups=64),
             batch_size=16,
             nepochs=2,
             output_dir=tmp_path / "outputs",

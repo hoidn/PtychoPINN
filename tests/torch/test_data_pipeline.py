@@ -56,16 +56,18 @@ def minimal_raw_data(params_cfg_snapshot):
     - N=64 (grid size)
     - gridsize=2 (standard 2x2 patches)
     """
-    from ptycho.config.config import TrainingConfig, ModelConfig, update_legacy_dict
+    from ptycho.config.config import (
+        TrainingConfig, ModelConfig, update_legacy_dict,
+        SamplingConfig, DataConfig,
+    )
     from ptycho import params as p
     from ptycho.raw_data import RawData
 
     # 1. Initialize params.cfg (MANDATORY per CLAUDE.md:76-93)
     config = TrainingConfig(
         model=ModelConfig(N=64, gridsize=2),
-        n_groups=64,
-        neighbor_count=4,
-        nphotons=1e9  # Required per Phase B config bridge validation
+        sampling=SamplingConfig(n_groups=64, neighbor_count=4),
+        data=DataConfig(nphotons=1e9),  # Required per Phase B config bridge validation
     )
     update_legacy_dict(p.cfg, config)
 
@@ -109,14 +111,13 @@ class TestRawDataTorchAdapter:
     ):
         """The maintained Torch adapter must not project config into params.cfg."""
         from ptycho import params
-        from ptycho.config.config import ModelConfig, TrainingConfig
+        from ptycho.config.config import ModelConfig, TrainingConfig, SamplingConfig, DataConfig
         from ptycho_torch.raw_data_bridge import RawDataTorch
 
         config = TrainingConfig(
             model=ModelConfig(N=64, gridsize=2),
-            n_groups=10,
-            neighbor_count=4,
-            nphotons=1e9,
+            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
+            data=DataConfig(nphotons=1e9),
         )
         params.cfg.clear()
         params.cfg.update({"poisoned": "legacy-state", "gridsize": 99})
@@ -143,15 +144,14 @@ class TestRawDataTorchAdapter:
     ):
         """Config-owned grouping must work while legacy parameter access is denied."""
         from ptycho import params
-        from ptycho.config.config import ModelConfig, TrainingConfig
+        from ptycho.config.config import ModelConfig, TrainingConfig, SamplingConfig, DataConfig
         from ptycho import tf_helper
         from ptycho_torch.raw_data_bridge import RawDataTorch
 
         config = TrainingConfig(
             model=ModelConfig(N=64, gridsize=2),
-            n_groups=10,
-            neighbor_count=4,
-            nphotons=1e9,
+            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
+            data=DataConfig(nphotons=1e9),
         )
         params.cfg.clear()
         params.cfg.update({"poisoned": "legacy-state", "gridsize": 99})
@@ -201,14 +201,13 @@ class TestRawDataTorchAdapter:
     ):
         """Only object-patch translation may observe a temporary config projection."""
         from ptycho import params, raw_data
-        from ptycho.config.config import ModelConfig, TrainingConfig, update_legacy_dict
+        from ptycho.config.config import ModelConfig, TrainingConfig, update_legacy_dict, SamplingConfig, DataConfig
         from ptycho_torch.raw_data_bridge import RawDataTorch
 
         config = TrainingConfig(
             model=ModelConfig(N=64, gridsize=2),
-            n_groups=10,
-            neighbor_count=4,
-            nphotons=1e9,
+            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
+            data=DataConfig(nphotons=1e9),
         )
 
         update_legacy_dict(params.cfg, config)
@@ -350,14 +349,13 @@ class TestRawDataTorchAdapter:
 
         # Phase C.C1: RawDataTorch adapter implementation
         from ptycho_torch.raw_data_bridge import RawDataTorch
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig, SamplingConfig, DataConfig
 
         # Create configuration for adapter (per data_contract.md §6)
         config = TrainingConfig(
             model=ModelConfig(N=64, gridsize=2),
-            n_groups=10,
-            neighbor_count=4,
-            nphotons=1e9  # Required per Phase B nphotons validation
+            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
+            data=DataConfig(nphotons=1e9),  # Required per Phase B nphotons validation
         )
 
         # Create PyTorch adapter
@@ -470,14 +468,13 @@ class TestDataContainerParity:
         # Phase C.C2: Implement PtychoDataContainerTorch
         from ptycho_torch.data_container_bridge import PtychoDataContainerTorch
         from ptycho_torch.raw_data_bridge import RawDataTorch
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig, SamplingConfig, DataConfig
 
         # Create configuration for adapter
         config = TrainingConfig(
             model=ModelConfig(N=64, gridsize=2),
-            n_groups=10,
-            neighbor_count=4,
-            nphotons=1e9
+            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
+            data=DataConfig(nphotons=1e9),
         )
 
         # Create PyTorch adapter and generate grouped data
@@ -584,14 +581,13 @@ class TestGroundTruthLoading:
         # Phase C.C2/C.C3: Validate PyTorch container Y dtype
         from ptycho_torch.data_container_bridge import PtychoDataContainerTorch
         from ptycho_torch.raw_data_bridge import RawDataTorch
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig, SamplingConfig, DataConfig
 
         # Create configuration and adapter
         config = TrainingConfig(
             model=ModelConfig(N=64, gridsize=2),
-            n_groups=10,
-            neighbor_count=4,
-            nphotons=1e9
+            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
+            data=DataConfig(nphotons=1e9),
         )
 
         pt_raw = RawDataTorch(
@@ -666,14 +662,13 @@ class TestMemmapBridgeParity:
         """
         from ptycho_torch.memmap_bridge import MemmapDatasetBridge
         from ptycho_torch.raw_data_bridge import RawDataTorch
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig, SamplingConfig, DataConfig
 
         # Configuration for both baseline and memmap bridge
         config = TrainingConfig(
             model=ModelConfig(N=64, gridsize=2),
-            n_groups=10,
-            neighbor_count=4,
-            nphotons=1e9  # Required per Phase B nphotons validation
+            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
+            data=DataConfig(nphotons=1e9),  # Required per Phase B nphotons validation
         )
 
         # Baseline: Direct RawDataTorch usage
@@ -742,13 +737,12 @@ class TestMemmapBridgeParity:
         Test source: memmap_bridge_analysis.md §5, phase_c_data_pipeline.md C.D2
         """
         from ptycho_torch.memmap_bridge import MemmapDatasetBridge
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig, SamplingConfig, DataConfig
 
         config = TrainingConfig(
             model=ModelConfig(N=64, gridsize=2),
-            n_groups=10,
-            neighbor_count=4,
-            nphotons=1e9
+            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
+            data=DataConfig(nphotons=1e9),
         )
 
         # First instantiation
@@ -809,7 +803,7 @@ class TestMemmapBridgeParity:
         ROI: Legacy NPZ with canonical 'diffraction' key
         """
         from ptycho_torch.memmap_bridge import MemmapDatasetBridge
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig, SamplingConfig, DataConfig
 
         # Create NPZ with canonical 'diffraction' key (no 'diff3d' key)
         npz_path = tmp_path / "legacy_diffraction.npz"
@@ -826,9 +820,8 @@ class TestMemmapBridgeParity:
         # Configuration
         config = TrainingConfig(
             model=ModelConfig(N=64, gridsize=2),
-            n_groups=10,
-            neighbor_count=4,
-            nphotons=1e9
+            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
+            data=DataConfig(nphotons=1e9),
         )
 
         # RED PHASE: This should raise KeyError with current implementation

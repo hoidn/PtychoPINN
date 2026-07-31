@@ -163,7 +163,7 @@ def _generate_simulated_data_legacy_params(config: TrainingConfig, objectGuess: 
         np.random.seed(random_seed)
 
     # Use n_groups (modern) with fallback to n_images (deprecated) for compatibility
-    n_positions = config.n_groups if config.n_groups is not None else config.n_images
+    n_positions = config.sampling.n_groups if config.sampling.n_groups is not None else config.sampling.n_images
     if n_positions is None:
         raise ValueError("Either n_groups or n_images must be specified in config")
 
@@ -177,7 +177,7 @@ def _generate_simulated_data_legacy_params(config: TrainingConfig, objectGuess: 
         # Set parameters to match the modern config
         p.set('N', probeGuess.shape[0])
         p.set('gridsize', config.model.gridsize)
-        p.set('nphotons', config.nphotons)  # Critical: Set nphotons for proper scaling
+        p.set('nphotons', config.data.nphotons)  # Critical: Set nphotons for proper scaling
         raw_data = RawData.from_simulation(xcoords, ycoords, probeGuess, objectGuess, scan_index)
     
     return raw_data

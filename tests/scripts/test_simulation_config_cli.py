@@ -20,7 +20,7 @@ from ptycho.config import (
     SimulationConfig,
     SyntheticObjectConfig,
 )
-from ptycho.config.config import ModelConfig, TrainingConfig
+from ptycho.config.config import ModelConfig, TrainingConfig, DataConfig, SamplingConfig
 
 
 _FORMAT_RECIPE = {
@@ -445,8 +445,8 @@ def test_generic_simulation_persists_complete_probe_identity(
     )
     training = TrainingConfig(
         model=ModelConfig(N=8, gridsize=1, object_big=False),
-        n_images=1,
-        nphotons=1e8,
+        sampling=SamplingConfig(n_images=1),
+        data=DataConfig(nphotons=1e8),
     )
     captured: dict[str, object] = {}
     fake_raw = SimpleNamespace(
@@ -543,7 +543,8 @@ def test_generic_simulation_preflights_existing_output_before_generation(
         scan=ScanSimulationConfig(kind="nongrid", buffer=4),
     )
     training = TrainingConfig(
-        model=ModelConfig(N=8, gridsize=1, object_big=False), n_images=1
+        model=ModelConfig(N=8, gridsize=1, object_big=False),
+        sampling=SamplingConfig(n_images=1),
     )
     monkeypatch.setattr(
         nongrid_simulation,

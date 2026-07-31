@@ -756,15 +756,49 @@ def training_factory_baseline(
                 "training_baseline must be a public TrainingConfig, "
                 "Torch TrainingConfig, or None"
             )
-        available = {
-            field_info.name for field_info in fields(training_baseline)
-        }
-        baseline_changes = {
-            name: _snapshot_mutable_value(
-                getattr(training_baseline, name)
-            )
-            for name in TRAINING_OWNER_FIELDS & available
-        }
+        if isinstance(training_baseline, PublicTrainingConfig):
+            # Extract TRAINING_OWNER_FIELDS from the nested public TrainingConfig.
+            # The public config uses sub-configs (e.g. scheduler.kind, optimizer.algorithm)
+            # while the torch-internal TrainingConfig still uses flat fields.
+            _public_field_map = {
+                "scheduler": lambda c: c.scheduler.kind,
+                "lr_warmup_epochs": lambda c: c.scheduler.lr_warmup_epochs,
+                "lr_min_ratio": lambda c: c.scheduler.lr_min_ratio,
+                "plateau_factor": lambda c: c.scheduler.plateau_factor,
+                "plateau_patience": lambda c: c.scheduler.plateau_patience,
+                "plateau_min_lr": lambda c: c.scheduler.plateau_min_lr,
+                "plateau_threshold": lambda c: c.scheduler.plateau_threshold,
+                "gradient_clip_val": lambda c: c.gradient_clip.val,
+                "gradient_clip_algorithm": lambda c: c.gradient_clip.algorithm,
+                "optimizer": lambda c: c.optimizer.algorithm,
+                "weight_decay": lambda c: c.optimizer.weight_decay,
+                "momentum": lambda c: c.optimizer.sgd.momentum,
+                "adam_beta1": lambda c: c.optimizer.adam.beta1,
+                "adam_beta2": lambda c: c.optimizer.adam.beta2,
+            }
+            baseline_changes: dict[str, object] = {}
+            for name in TRAINING_OWNER_FIELDS:
+                if name in _public_field_map:
+                    try:
+                        baseline_changes[name] = _snapshot_mutable_value(
+                            _public_field_map[name](training_baseline)
+                        )
+                    except AttributeError:
+                        pass
+                elif hasattr(training_baseline, name):
+                    baseline_changes[name] = _snapshot_mutable_value(
+                        getattr(training_baseline, name)
+                    )
+        else:
+            available = {
+                field_info.name for field_info in fields(training_baseline)
+            }
+            baseline_changes = {
+                name: _snapshot_mutable_value(
+                    getattr(training_baseline, name)
+                )
+                for name in TRAINING_OWNER_FIELDS & available
+            }
         training = _fresh_config(training, baseline_changes)
         training_provenance.update(
             {

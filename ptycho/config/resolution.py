@@ -25,6 +25,52 @@ _INFERENCE_INPUT_NAMES = frozenset(f.name for f in fields(InferenceConfig)) - {"
 assert _MODEL_INPUT_NAMES.isdisjoint(_TRAINING_INPUT_NAMES)
 assert _MODEL_INPUT_NAMES.isdisjoint(_INFERENCE_INPUT_NAMES)
 
+# Backward-compat mapping: old flat training field names → (sub_config_name, new_field_name).
+# Allows callers to still pass flat field names that are now nested inside TrainingConfig.
+_TRAINING_FLAT_FIELD_MAP: dict[str, tuple[str, str]] = {
+    "train_data_file": ("data", "train_data_file"),
+    "test_data_file": ("data", "test_data_file"),
+    "nphotons": ("data", "nphotons"),
+    "n_groups": ("sampling", "n_groups"),
+    "n_images": ("sampling", "n_images"),
+    "n_subsample": ("sampling", "n_subsample"),
+    "subsample_seed": ("sampling", "subsample_seed"),
+    "neighbor_count": ("sampling", "neighbor_count"),
+    "enable_oversampling": ("sampling", "enable_oversampling"),
+    "neighbor_pool_size": ("sampling", "neighbor_pool_size"),
+    "sequential_sampling": ("sampling", "sequential_sampling"),
+    "torch_loss_mode": ("loss", "torch_loss_mode"),
+    "torch_mae_pred_l2_match_target": ("loss", "torch_mae_pred_l2_match_target"),
+    "mae_weight": ("tf_loss", "mae_weight"),
+    "nll_weight": ("tf_loss", "nll_weight"),
+    "realspace_mae_weight": ("tf_loss", "realspace_mae_weight"),
+    "realspace_weight": ("tf_loss", "realspace_weight"),
+    "gradient_clip_val": ("gradient_clip", "val"),
+    "gradient_clip_algorithm": ("gradient_clip", "algorithm"),
+}
+
+
+def _lift_flat_training_fields(values: Any) -> Any:
+    """Translate any legacy flat field names to the nested sub-config format.
+
+    Non-mapping values are returned unchanged so that _normalize_public_source
+    can raise the appropriate type error.
+    """
+    if not isinstance(values, Mapping):
+        return values
+    result: dict[str, Any] = {}
+    for key, value in values.items():
+        if key in _TRAINING_FLAT_FIELD_MAP:
+            sub, field_name = _TRAINING_FLAT_FIELD_MAP[key]
+            existing = result.get(sub, {})
+            if not isinstance(existing, dict):
+                existing = {}
+            existing[field_name] = value
+            result[sub] = existing
+        else:
+            result[key] = value
+    return result
+
 
 _N_IMAGES_DEPRECATION_MESSAGE = (
     "Parameter 'n_images' is deprecated and will be removed in a future "
@@ -145,22 +191,36 @@ def _resolve_group_alias(
     source: str,
 ) -> tuple[dict[str, Any], bool]:
     resolved = dict(values)
-    if "n_images" not in resolved:
+
+    # For TrainingConfig the group fields are nested inside "sampling".
+    # For InferenceConfig they remain at the top level.
+    if "sampling" in resolved:
+        container = dict(resolved.get("sampling", {}))
+        in_sampling = True
+    else:
+        container = resolved
+        in_sampling = False
+
+    if "n_images" not in container:
         return resolved, False
 
-    legacy = resolved["n_images"]
-    canonical = resolved.get("n_groups")
+    legacy = container["n_images"]
+    canonical = container.get("n_groups")
     if (
         canonical is not None
         and legacy is not None
         and canonical != legacy
     ):
+        location = "sampling" if in_sampling else "root"
         raise ValueError(
-            f"{source} field 'n_images' conflicts with canonical 'n_groups'"
+            f"{source} {location} field 'n_images' conflicts with canonical 'n_groups'"
         )
     if canonical is None:
-        resolved["n_groups"] = legacy
-    resolved["n_images"] = None
+        container["n_groups"] = legacy
+    container["n_images"] = None
+
+    if in_sampling:
+        resolved["sampling"] = container
     return resolved, legacy is not None
 
 
@@ -176,6 +236,17 @@ def _object_policy_backend(backend: Any) -> str:
     return "torch" if backend == "pytorch" else "tensorflow"
 
 
+def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    """Merge override into base, deep-merging nested dicts."""
+    result = dict(base)
+    for key, value in override.items():
+        if isinstance(value, dict) and isinstance(result.get(key), dict):
+            result[key] = _deep_merge(result[key], value)
+        else:
+            result[key] = value
+    return result
+
+
 def resolve_training_config(
     file_mapping: Mapping[str, Any] | None,
     explicit_cli_patch: Mapping[str, Any] | None,
@@ -183,12 +254,12 @@ def resolve_training_config(
     """Resolve file and explicitly supplied CLI values into a fresh config."""
 
     file_model, file_training = _normalize_public_source(
-        {} if file_mapping is None else file_mapping,
+        _lift_flat_training_fields({} if file_mapping is None else file_mapping),
         source="file",
         workflow_names=_TRAINING_INPUT_NAMES,
     )
     cli_model, cli_training = _normalize_public_source(
-        {} if explicit_cli_patch is None else explicit_cli_patch,
+        _lift_flat_training_fields({} if explicit_cli_patch is None else explicit_cli_patch),
         source="explicit CLI",
         workflow_names=_TRAINING_INPUT_NAMES,
     )
@@ -201,8 +272,7 @@ def resolve_training_config(
         source="explicit CLI",
     )
 
-    training_values = dict(file_training)
-    training_values.update(cli_training)
+    training_values = _deep_merge(dict(file_training), dict(cli_training))
     model_values = dict(file_model)
     model_values.update(cli_model)
     candidate = _validate_public_structure(
@@ -307,11 +377,19 @@ def validate_model_config_structure(config: ModelConfig) -> None:
 def _validate_sampling_semantics(
     config: TrainingConfig | InferenceConfig,
 ) -> None:
-    if config.enable_oversampling and config.model.gridsize > 1:
+    if isinstance(config, TrainingConfig):
+        enable_oversampling = config.sampling.enable_oversampling
+        neighbor_count = config.sampling.neighbor_count
+        neighbor_pool_size = config.sampling.neighbor_pool_size
+    else:
+        enable_oversampling = config.enable_oversampling
+        neighbor_count = config.neighbor_count
+        neighbor_pool_size = config.neighbor_pool_size
+    if enable_oversampling and config.model.gridsize > 1:
         pool_size = (
-            config.neighbor_count
-            if config.neighbor_pool_size is None
-            else config.neighbor_pool_size
+            neighbor_count
+            if neighbor_pool_size is None
+            else neighbor_pool_size
         )
         group_size = config.model.gridsize**2
         if pool_size < group_size:
@@ -335,7 +413,7 @@ def validate_training_config_structure(config: TrainingConfig) -> None:
     validate_model_config_structure(config.model)
     _validate_sampling_semantics(config)
 
-    if config.realspace_mae_weight > 0 and config.realspace_weight <= 0:
+    if config.tf_loss.realspace_mae_weight > 0 and config.tf_loss.realspace_weight <= 0:
         raise ValueError(
             "realspace_mae_weight requires positive realspace_weight"
         )
@@ -373,19 +451,19 @@ def validate_runnable_training_config(config: TrainingConfig) -> None:
 
     if not isinstance(config, TrainingConfig):
         raise TypeError("config must be a TrainingConfig")
-    if config.train_data_file is None:
+    if config.data.train_data_file is None:
         raise ValueError("train_data_file is required for runnable training")
-    if not config.train_data_file.exists():
+    if not config.data.train_data_file.exists():
         raise ValueError(
-            f"train_data_file must exist: {config.train_data_file}"
+            f"train_data_file must exist: {config.data.train_data_file}"
         )
-    if not config.train_data_file.is_file():
+    if not config.data.train_data_file.is_file():
         raise ValueError(
-            f"train_data_file must be a regular file: {config.train_data_file}"
+            f"train_data_file must be a regular file: {config.data.train_data_file}"
         )
-    if not os.access(config.train_data_file, os.R_OK):
+    if not os.access(config.data.train_data_file, os.R_OK):
         raise ValueError(
-            f"train_data_file must be readable: {config.train_data_file}"
+            f"train_data_file must be readable: {config.data.train_data_file}"
         )
     if config.nepochs <= 0:
         raise ValueError(f"nepochs must be positive, got {config.nepochs!r}")
@@ -393,18 +471,18 @@ def validate_runnable_training_config(config: TrainingConfig) -> None:
         raise ValueError(
             f"batch_size must be positive, got {config.batch_size!r}"
         )
-    if config.nphotons <= 0:
+    if config.data.nphotons <= 0:
         raise ValueError(
-            f"nphotons must be positive, got {config.nphotons!r}"
+            f"nphotons must be positive, got {config.data.nphotons!r}"
         )
-    if config.n_groups is None or config.n_groups <= 0:
+    if config.sampling.n_groups is None or config.sampling.n_groups <= 0:
         raise ValueError(
-            f"n_groups must be positive, got {config.n_groups!r}"
+            f"n_groups must be positive, got {config.sampling.n_groups!r}"
         )
-    if config.n_subsample is not None and config.n_subsample <= 0:
+    if config.sampling.n_subsample is not None and config.sampling.n_subsample <= 0:
         raise ValueError(
             f"n_subsample must be positive when set, "
-            f"got {config.n_subsample!r}"
+            f"got {config.sampling.n_subsample!r}"
         )
 
 
