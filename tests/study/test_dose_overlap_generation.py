@@ -61,11 +61,11 @@ def test_build_simulation_plan(mock_base_npz, design_params):
 
     # Verify dose propagates to TrainingConfig
     assert plan.dose == dose
-    assert plan.training_config.nphotons == int(dose)
+    assert plan.training_config.data.nphotons == int(dose)
 
     # Verify n_images matches base dataset length
     assert plan.n_images == 100  # from mock_base_npz
-    assert plan.training_config.n_groups == 100
+    assert plan.training_config.sampling.n_groups == 100
 
     # Verify seed propagates from design
     assert plan.seed == design_params['rng_seeds']['simulation']
@@ -133,7 +133,7 @@ def test_generate_dataset_pipeline_orchestration(mock_base_npz, design_params, t
 
     # Verify simulate was called with correct dose
     simulate_call = mock_simulate.call_args
-    assert simulate_call.kwargs['config'].nphotons == int(dose)
+    assert simulate_call.kwargs['config'].data.nphotons == int(dose)
     assert simulate_call.kwargs['seed'] == design_params['rng_seeds']['simulation']
 
     # Verify patch generation uses correct parameters
@@ -203,11 +203,11 @@ def test_generate_dataset_config_construction(mock_base_npz, design_params, tmp_
 
     # Verify config was captured and has correct values
     assert captured_config is not None
-    assert captured_config.nphotons == int(dose)
-    assert captured_config.n_groups == 100  # from mock_base_npz
+    assert captured_config.data.nphotons == int(dose)
+    assert captured_config.sampling.n_groups == 100  # from mock_base_npz
     assert captured_config.model.gridsize == 1
     # Verify n_images is set (required for legacy simulator coordinate arrays)
-    assert captured_config.n_images == 100  # must match base dataset length
+    assert captured_config.sampling.n_images == 100  # must match base dataset length
 
 
 def test_generate_dataset_validates_with_real_contract(mock_base_npz, design_params, tmp_path):
@@ -310,7 +310,7 @@ def test_build_simulation_plan_handles_metadata_pickle_guard(tmp_path, design_pa
     - DATA-001 (metadata must be preserved across pipeline stages)
     """
     from ptycho.metadata import MetadataManager
-    from ptycho.config.config import TrainingConfig, ModelConfig
+    from ptycho.config.config import TrainingConfig, ModelConfig, DataConfig, SamplingConfig
 
     # Create a base NPZ with embedded metadata (simulating simulate_and_save output)
     base_path = tmp_path / "base_with_metadata.npz"
@@ -319,9 +319,8 @@ def test_build_simulation_plan_handles_metadata_pickle_guard(tmp_path, design_pa
     model_cfg = ModelConfig(gridsize=1, N=64)
     train_cfg = TrainingConfig(
         model=model_cfg,
-        train_data_file=str(base_path),
-        n_images=100,
-        nphotons=5000,
+        data=DataConfig(train_data_file=str(base_path), nphotons=5000),
+        sampling=SamplingConfig(n_images=100),
     )
 
     # Create metadata
@@ -376,7 +375,7 @@ def test_load_data_for_sim_handles_metadata_pickle_guard(tmp_path):
     """
     from scripts.simulation.simulate_and_save import load_data_for_sim
     from ptycho.metadata import MetadataManager
-    from ptycho.config.config import TrainingConfig, ModelConfig
+    from ptycho.config.config import TrainingConfig, ModelConfig, DataConfig, SamplingConfig
 
     # Create a NPZ with embedded metadata
     npz_path = tmp_path / "data_with_metadata.npz"
@@ -385,9 +384,8 @@ def test_load_data_for_sim_handles_metadata_pickle_guard(tmp_path):
     model_cfg = ModelConfig(gridsize=1, N=64)
     train_cfg = TrainingConfig(
         model=model_cfg,
-        train_data_file=str(npz_path),
-        n_images=50,
-        nphotons=3000,
+        data=DataConfig(train_data_file=str(npz_path), nphotons=3000),
+        sampling=SamplingConfig(n_images=50),
     )
 
     metadata = MetadataManager.create_metadata(
@@ -442,16 +440,15 @@ def test_generate_dataset_for_dose_handles_metadata_splits(tmp_path, design_para
     - input.md (2025-11-08T230500Z Do Now)
     """
     from ptycho.metadata import MetadataManager
-    from ptycho.config.config import TrainingConfig, ModelConfig
+    from ptycho.config.config import TrainingConfig, ModelConfig, DataConfig, SamplingConfig
 
     # Create base NPZ with metadata
     base_npz_path = tmp_path / "base.npz"
     model_cfg = ModelConfig(gridsize=2, N=64)
     train_cfg = TrainingConfig(
         model=model_cfg,
-        train_data_file=str(base_npz_path),
-        n_images=100,
-        nphotons=5000,
+        data=DataConfig(train_data_file=str(base_npz_path), nphotons=5000),
+        sampling=SamplingConfig(n_images=100),
     )
     metadata = MetadataManager.create_metadata(
         config=train_cfg,

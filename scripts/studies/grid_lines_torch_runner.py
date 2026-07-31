@@ -1006,7 +1006,13 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
         Tuple of (TrainingConfig, unresolved ExecutionRequest)
     """
     from typing import cast, Literal
-    from ptycho.config.config import TrainingConfig, ModelConfig
+    from ptycho.config.config import (
+        DataConfig,
+        GradientClipConfig,
+        LossConfig,
+        ModelConfig,
+        TrainingConfig,
+    )
     from ptycho_torch.execution_request import ExecutionRequest
 
     # Cast N and architecture to their Literal types
@@ -1061,20 +1067,26 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
             probe_mask_sigma=cfg.probe_mask_sigma,
             probe_mask_diameter=cfg.probe_mask_diameter,
         ),
-        train_data_file=cfg.train_npz,
-        test_data_file=cfg.test_npz,
+        data=DataConfig(
+            train_data_file=cfg.train_npz,
+            test_data_file=cfg.test_npz,
+        ),
+        loss=LossConfig(
+            torch_loss_mode=cfg.torch_loss_mode,
+            torch_mae_pred_l2_match_target=cfg.torch_mae_pred_l2_match_target,
+        ),
+        gradient_clip=GradientClipConfig(
+            val=cfg.gradient_clip_val,
+            algorithm=cfg.gradient_clip_algorithm,
+        ),
         output_dir=cfg.output_dir,
         nepochs=cfg.epochs,
         batch_size=cfg.batch_size,
         backend='pytorch',
-        torch_loss_mode=cfg.torch_loss_mode,
-        torch_mae_pred_l2_match_target=cfg.torch_mae_pred_l2_match_target,
     )
     training_config.log_grad_norm = cfg.log_grad_norm
     training_config.grad_norm_log_freq = cfg.grad_norm_log_freq
     training_config.subsample_seed = cfg.seed
-    training_config.gradient_clip_val = cfg.gradient_clip_val
-    training_config.gradient_clip_algorithm = cfg.gradient_clip_algorithm
     training_config.optimizer = cfg.optimizer
     training_config.weight_decay = cfg.weight_decay
     training_config.momentum = cfg.momentum

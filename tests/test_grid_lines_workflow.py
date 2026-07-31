@@ -32,12 +32,15 @@ from ptycho.workflows.grid_lines_workflow import (
 )
 from ptycho.workflows import grid_lines_workflow as grid_lines_workflow_module
 from ptycho.config.config import (
+    DataConfig,
     DetectorSimulationConfig,
     ModelConfig,
     ProbeSimulationConfig,
+    SamplingConfig,
     ScanSimulationConfig,
     SimulationConfig,
     SyntheticObjectConfig,
+    TFLossConfig,
     TrainingConfig,
 )
 from ptycho import params as p
@@ -1129,7 +1132,7 @@ class TestDatasetPersistence:
         )
         config = TrainingConfig(
             model=ModelConfig(N=16, gridsize=1, object_big=False),
-            nphotons=1e8,
+            data=DataConfig(nphotons=1e8),
         )
         data = {
             "X": np.zeros((1, 16, 16, 1), dtype=np.float32),
@@ -1300,12 +1303,10 @@ class TestDatasetPersistence:
 
         config = TrainingConfig(
             model=ModelConfig(N=8, gridsize=1, object_big=False),
-            nphotons=1e9,
+            data=DataConfig(nphotons=1e9),
             nepochs=1,
             batch_size=1,
-            nll_weight=0.0,
-            mae_weight=1.0,
-            realspace_weight=0.0,
+            tf_loss=TFLossConfig(nll_weight=0.0, mae_weight=1.0, realspace_weight=0.0),
         )
 
         data = {
@@ -1357,12 +1358,10 @@ class TestDatasetPersistence:
 
         config = TrainingConfig(
             model=ModelConfig(N=256, gridsize=1, object_big=False),
-            nphotons=1e9,
+            data=DataConfig(nphotons=1e9),
             nepochs=1,
             batch_size=1,
-            nll_weight=0.0,
-            mae_weight=1.0,
-            realspace_weight=0.0,
+            tf_loss=TFLossConfig(nll_weight=0.0, mae_weight=1.0, realspace_weight=0.0),
         )
 
         data = {
@@ -1411,12 +1410,10 @@ class TestDatasetPersistence:
 
         config = TrainingConfig(
             model=ModelConfig(N=8, gridsize=1, object_big=False),
-            nphotons=1e9,
+            data=DataConfig(nphotons=1e9),
             nepochs=1,
             batch_size=1,
-            nll_weight=0.0,
-            mae_weight=1.0,
-            realspace_weight=0.0,
+            tf_loss=TFLossConfig(nll_weight=0.0, mae_weight=1.0, realspace_weight=0.0),
         )
 
         data = {
@@ -1460,12 +1457,10 @@ class TestDatasetPersistence:
 
         config = TrainingConfig(
             model=ModelConfig(N=8, gridsize=1, object_big=False),
-            nphotons=1e9,
+            data=DataConfig(nphotons=1e9),
             nepochs=1,
             batch_size=1,
-            nll_weight=0.0,
-            mae_weight=1.0,
-            realspace_weight=0.0,
+            tf_loss=TFLossConfig(nll_weight=0.0, mae_weight=1.0, realspace_weight=0.0),
         )
 
         data = {
@@ -2068,12 +2063,10 @@ def test_build_grid_lines_datasets_persists_nonconstant_scan_positions(monkeypat
         _ = (cfg, probe_np)
         return TrainingConfig(
             model=ModelConfig(N=8, gridsize=1, object_big=False),
-            nphotons=1e9,
+            data=DataConfig(nphotons=1e9),
             nepochs=1,
             batch_size=1,
-            nll_weight=0.0,
-            mae_weight=1.0,
-            realspace_weight=0.0,
+            tf_loss=TFLossConfig(nll_weight=0.0, mae_weight=1.0, realspace_weight=0.0),
         )
 
     monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.simulate_grid_data", fake_sim)
@@ -2205,12 +2198,10 @@ class TestProbeSimulatedCapture:
         )
         config = TrainingConfig(
             model=ModelConfig(N=8, gridsize=1, object_big=False),
-            nphotons=1e9,
+            data=DataConfig(nphotons=1e9),
             nepochs=1,
             batch_size=1,
-            nll_weight=0.0,
-            mae_weight=1.0,
-            realspace_weight=0.0,
+            tf_loss=TFLossConfig(nll_weight=0.0, mae_weight=1.0, realspace_weight=0.0),
         )
         probe_sim = (np.arange(64).reshape(8, 8) + 1j).astype(np.complex64)
         base = {

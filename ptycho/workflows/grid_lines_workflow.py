@@ -31,6 +31,8 @@ from ptycho.config.config import (
     SimulationConfig,
     SyntheticObjectConfig,
     TrainingConfig,
+    DataConfig,
+    TFLossConfig,
     simulation_config_to_dict,
     simulation_config_sha256,
     update_legacy_dict,
@@ -533,12 +535,14 @@ def configure_legacy_params(cfg: GridLinesConfig, probe_np: np.ndarray) -> Train
 
     config = TrainingConfig(
         model=ModelConfig(N=cfg.N, gridsize=cfg.gridsize, object_big=False),
-        nphotons=cfg.nphotons,
         nepochs=cfg.nepochs,
         batch_size=cfg.batch_size,
-        nll_weight=cfg.nll_weight,
-        mae_weight=cfg.mae_weight,
-        realspace_weight=cfg.realspace_weight,
+        data=DataConfig(nphotons=cfg.nphotons),
+        tf_loss=TFLossConfig(
+            nll_weight=cfg.nll_weight,
+            mae_weight=cfg.mae_weight,
+            realspace_weight=cfg.realspace_weight,
+        ),
     )
     update_legacy_dict(p.cfg, config)
     p.set("sim_jitter_scale", 0.0)

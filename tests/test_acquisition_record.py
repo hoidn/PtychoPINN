@@ -47,7 +47,7 @@ assert not any(
 def test_raw_data_torch_round_trip_preserves_selected_acquisition_boundary(monkeypatch):
     from ptycho import params
     from ptycho.acquisition import AcquisitionRecord
-    from ptycho.config.config import ModelConfig, TrainingConfig
+    from ptycho.config.config import ModelConfig, TrainingConfig, SamplingConfig, DataConfig
     from ptycho.raw_data import RawData
     from ptycho_torch.raw_data_bridge import RawDataTorch
     from ptycho_torch.workflows import components
@@ -92,9 +92,8 @@ def test_raw_data_torch_round_trip_preserves_selected_acquisition_boundary(monke
         record = AcquisitionRecord.from_raw_data(raw)
         config = TrainingConfig(
             model=ModelConfig(N=patch_size, gridsize=1),
-            n_groups=3,
-            neighbor_count=1,
-            nphotons=1e6,
+            sampling=SamplingConfig(n_groups=3, neighbor_count=1),
+            data=DataConfig(nphotons=1e6),
         )
         adapter = RawDataTorch.from_acquisition(record, config=config)
         restored = adapter.to_acquisition()

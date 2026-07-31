@@ -49,14 +49,14 @@ class TestTrainingCliBackendDispatch:
         Phase: R (backend selector integration)
         Reference: input.md Do Now step 2
         """
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig, DataConfig
         from ptycho.raw_data import RawData
 
         # Create config with PyTorch backend
         model_config = ModelConfig(N=64, gridsize=1)
         config = TrainingConfig(
             model=model_config,
-            train_data_file=Path('train.npz'),
+            data=DataConfig(train_data_file=Path('train.npz')),
             backend='pytorch',  # Explicitly select PyTorch
             batch_size=16,
             nepochs=1,
@@ -129,6 +129,7 @@ class TestTrainingCliBackendDispatch:
     ):
         """The selector forwards the unresolved request or None unchanged."""
         from ptycho.config import ModelConfig, TrainingConfig
+        from ptycho.config.config import DataConfig
         from ptycho.workflows import backend_selector
         from ptycho_torch.execution_request import ExecutionRequest
         from ptycho_torch.workflows import components as torch_components
@@ -162,7 +163,7 @@ class TestTrainingCliBackendDispatch:
         )
         config = TrainingConfig(
             model=ModelConfig(),
-            train_data_file=Path("train.npz"),
+            data=DataConfig(train_data_file=Path("train.npz")),
             backend="pytorch",
         )
 
@@ -187,6 +188,7 @@ class TestTrainingCliBackendDispatch:
             PyTorchExecutionConfig,
             TrainingConfig,
         )
+        from ptycho.config.config import DataConfig
         from ptycho.workflows import backend_selector
         from ptycho_torch.workflows import components as torch_components
 
@@ -213,7 +215,7 @@ class TestTrainingCliBackendDispatch:
         )
         config = TrainingConfig(
             model=ModelConfig(),
-            train_data_file=Path("train.npz"),
+            data=DataConfig(train_data_file=Path("train.npz")),
             backend="pytorch",
         )
 
@@ -234,6 +236,7 @@ class TestTrainingCliBackendDispatch:
         monkeypatch,
     ):
         from ptycho.config import ModelConfig, TrainingConfig
+        from ptycho.config.config import DataConfig
         from ptycho.workflows import backend_selector
         from ptycho_torch.execution_request import ExecutionRequest
         from ptycho_torch.workflows import components as torch_components
@@ -265,7 +268,7 @@ class TestTrainingCliBackendDispatch:
         )
         config = TrainingConfig(
             model=ModelConfig(),
-            train_data_file=Path("train.npz"),
+            data=DataConfig(train_data_file=Path("train.npz")),
             backend="pytorch",
         )
 
@@ -289,6 +292,7 @@ class TestTrainingCliBackendDispatch:
     ):
         """Raw argv drives execution provenance and canonical priority separately."""
         from ptycho.config import ModelConfig, TrainingConfig
+        from ptycho.config.config import DataConfig, SamplingConfig
         from ptycho.metadata import MetadataManager
         from ptycho_torch.cli.shared import (
             build_execution_request_from_args as real_request_builder,
@@ -300,10 +304,10 @@ class TestTrainingCliBackendDispatch:
         train_path.touch()
         config = TrainingConfig(
             model=ModelConfig(),
-            train_data_file=train_path,
+            data=DataConfig(train_data_file=train_path),
             backend="pytorch",
             output_dir=tmp_path / "out",
-            n_groups=1,
+            sampling=SamplingConfig(n_groups=1),
         )
         args = argparse.Namespace(
             config=None,
@@ -400,14 +404,14 @@ class TestTrainingCliBackendDispatch:
         Phase: R (backend selector integration)
         Reference: input.md Do Now step 2 (guard TensorFlow-only helpers)
         """
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig, DataConfig
         from ptycho.raw_data import RawData
 
         # Create config with TensorFlow backend (default)
         model_config = ModelConfig(N=64, gridsize=1)
         config = TrainingConfig(
             model=model_config,
-            train_data_file=Path('train.npz'),
+            data=DataConfig(train_data_file=Path('train.npz')),
             backend='tensorflow',  # Explicitly select TensorFlow
             batch_size=16,
             nepochs=1,
@@ -479,6 +483,8 @@ class TestTrainingCliBackendDispatch:
             ModelConfig,
             PyTorchExecutionConfig,
             TrainingConfig,
+            DataConfig,
+            SamplingConfig,
         )
         from ptycho_torch.config_params import ModelConfig as PTModelConfig
         from pathlib import Path
@@ -491,9 +497,9 @@ class TestTrainingCliBackendDispatch:
         )
         config = TrainingConfig(
             model=model_config,
-            train_data_file=Path('datasets/train.npz'),
+            data=DataConfig(train_data_file=Path('datasets/train.npz')),
             output_dir=Path('outputs/test_supervised'),
-            n_groups=128,
+            sampling=SamplingConfig(n_groups=128),
             nepochs=1,
             backend='pytorch',
         )
@@ -501,7 +507,7 @@ class TestTrainingCliBackendDispatch:
         # Simulate factory payload creation (as _train_with_lightning does)
         mode_map = {'pinn': 'Unsupervised', 'supervised': 'Supervised'}
         factory_overrides = {
-            'n_groups': config.n_groups,
+            'n_groups': config.sampling.n_groups,
             'gridsize': config.model.gridsize,
             'model_type': mode_map.get(config.model.model_type, 'Unsupervised'),
             'amp_activation': config.model.amp_activation,
@@ -602,7 +608,7 @@ class TestTrainingCliBackendDispatch:
 
     def test_manual_optimization_keeps_accumulation_out_of_trainer(self):
         """Manual accumulation remains model-owned, not Trainer-owned."""
-        from ptycho.config.config import TrainingConfig, ModelConfig, PyTorchExecutionConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig, PyTorchExecutionConfig, DataConfig, SamplingConfig
         from pathlib import Path
 
         # Create training config with PINN mode
@@ -613,9 +619,9 @@ class TestTrainingCliBackendDispatch:
         )
         config = TrainingConfig(
             model=model_config,
-            train_data_file=Path('datasets/train.npz'),
+            data=DataConfig(train_data_file=Path('datasets/train.npz')),
             output_dir=Path('outputs/test_accum'),
-            n_groups=128,
+            sampling=SamplingConfig(n_groups=128),
             nepochs=1,
             backend='pytorch',
         )
@@ -706,7 +712,7 @@ class TestTrainingCliBackendDispatch:
         import sys
         import logging
         from unittest.mock import patch, MagicMock
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig, DataConfig
         from ptycho.raw_data import RawData
 
         # Configure caplog to capture INFO level
@@ -716,7 +722,7 @@ class TestTrainingCliBackendDispatch:
         model_config = ModelConfig(N=64, gridsize=1)
         config = TrainingConfig(
             model=model_config,
-            train_data_file=Path('train.npz'),
+            data=DataConfig(train_data_file=Path('train.npz')),
             backend='pytorch',
             batch_size=16,
             nepochs=1,
@@ -1029,7 +1035,7 @@ def test_unified_cli_defers_projection_to_backend_selector(
 
     from ptycho import params
     from ptycho.config import ModelConfig, TrainingConfig
-    from ptycho.config.config import update_legacy_dict as real_update_legacy_dict
+    from ptycho.config.config import update_legacy_dict as real_update_legacy_dict, DataConfig
     from ptycho.metadata import MetadataManager
     from ptycho.workflows import backend_selector, components
     from scripts.training import train as training_script
@@ -1038,8 +1044,7 @@ def test_unified_cli_defers_projection_to_backend_selector(
     train_path.touch()
     config = TrainingConfig(
         model=ModelConfig(),
-        train_data_file=train_path,
-        nphotons=10,
+        data=DataConfig(train_data_file=train_path, nphotons=10),
         backend="tensorflow",
     )
     args = argparse.Namespace(config=None, do_stitching=False)
@@ -1049,7 +1054,7 @@ def test_unified_cli_defers_projection_to_backend_selector(
 
     def record_validation(name, candidate):
         events.append(name)
-        assert candidate.nphotons == 25
+        assert candidate.data.nphotons == 25
 
     def load_data_before_dispatch(*_args, **_kwargs):
         events.append("load_data")
@@ -1149,6 +1154,7 @@ def test_invalid_metadata_photons_fail_before_sampling_bridge_or_data(
     import argparse
 
     from ptycho.config import ModelConfig, TrainingConfig
+    from ptycho.config.config import DataConfig
     from ptycho.metadata import MetadataManager
     from scripts.training import train as training_script
 
@@ -1156,7 +1162,7 @@ def test_invalid_metadata_photons_fail_before_sampling_bridge_or_data(
     train_path.touch()
     config = TrainingConfig(
         model=ModelConfig(),
-        train_data_file=train_path,
+        data=DataConfig(train_data_file=train_path),
         backend="tensorflow",
     )
     args = argparse.Namespace(config=None, do_stitching=False)

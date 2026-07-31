@@ -32,6 +32,48 @@ project_root = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(project_root))
 
 
+_TF_TRAIN_NESTED_PATHS = {
+    "nll_weight": ("tf_loss", "nll_weight"),
+    "mae_weight": ("tf_loss", "mae_weight"),
+    "realspace_mae_weight": ("tf_loss", "realspace_mae_weight"),
+    "realspace_weight": ("tf_loss", "realspace_weight"),
+    "torch_loss_mode": ("loss", "torch_loss_mode"),
+    "torch_mae_pred_l2_match_target": ("loss", "torch_mae_pred_l2_match_target"),
+    "sequential_sampling": ("sampling", "sequential_sampling"),
+    "n_subsample": ("sampling", "n_subsample"),
+    "subsample_seed": ("sampling", "subsample_seed"),
+    "n_groups": ("sampling", "n_groups"),
+    "neighbor_count": ("sampling", "neighbor_count"),
+    "nphotons": ("data", "nphotons"),
+    "train_data_file": ("data", "train_data_file"),
+    "test_data_file": ("data", "test_data_file"),
+    "gradient_clip_algorithm": ("gradient_clip", "algorithm"),
+    "gradient_clip_val": ("gradient_clip", "val"),
+    "optimizer": ("optimizer", "algorithm"),
+    "weight_decay": ("optimizer", "weight_decay"),
+    "momentum": ("optimizer_sgd", "momentum"),
+    "adam_beta1": ("optimizer_adam", "beta1"),
+    "adam_beta2": ("optimizer_adam", "beta2"),
+    "scheduler": ("scheduler", "kind"),
+    "lr_warmup_epochs": ("scheduler", "lr_warmup_epochs"),
+    "lr_min_ratio": ("scheduler", "lr_min_ratio"),
+}
+
+
+def _tf_train_get(tf_train, field_name):
+    """Access a potentially-nested field on the public TFTrainingConfig."""
+    if field_name in _TF_TRAIN_NESTED_PATHS:
+        parts = _TF_TRAIN_NESTED_PATHS[field_name]
+        sub = parts[0]
+        attr = parts[1]
+        if sub == "optimizer_sgd":
+            return getattr(tf_train.optimizer.sgd, attr)
+        if sub == "optimizer_adam":
+            return getattr(tf_train.optimizer.adam, attr)
+        return getattr(getattr(tf_train, sub), attr)
+    return getattr(tf_train, field_name)
+
+
 class TestConfigBridgeMVP(unittest.TestCase):
     """Test suite for PyTorch → TensorFlow config bridge MVP functionality."""
 
@@ -235,7 +277,7 @@ class TestConfigBridgeParity:
             overrides=dict(train_data_file=Path('train.npz'), n_groups=512, nphotons=1e9)
         )
 
-        assert getattr(tf_train, field_name) == expected_tf_value, \
+        assert _tf_train_get(tf_train, field_name) == expected_tf_value, \
             f"{field_name} should pass through directly"
 
     # ============================================================================
@@ -298,7 +340,7 @@ class TestConfigBridgeParity:
             overrides=dict(train_data_file=Path('train.npz'), n_groups=512, nphotons=1e9)
         )
 
-        assert getattr(tf_train, tf_field) == tf_value, \
+        assert _tf_train_get(tf_train, tf_field) == tf_value, \
             f"{pt_field}={pt_value} should transform to {tf_field}={tf_value}"
 
     # ============================================================================
@@ -366,7 +408,7 @@ class TestConfigBridgeParity:
             tf_model, pt_data, pt_model, pt_train, overrides=overrides
         )
 
-        assert getattr(tf_train, field_name) == expected_value, \
+        assert _tf_train_get(tf_train, field_name) == expected_value, \
             f"{field_name} should use {'override' if override_value is not None else 'default'} value"
 
     @pytest.mark.parametrize('field_name,override_value,expected_value', [
@@ -498,7 +540,7 @@ class TestConfigBridgeParity:
                 tf_model, pt_data, pt_model, pt_train,
                 overrides=dict(train_data_file=Path('train.npz'), n_groups=512, nphotons=test_value)
             )
-            actual_value = getattr(tf_train, field_name)
+            actual_value = _tf_train_get(tf_train, field_name)
 
         # Assert explicit value is used (not either default)
         assert actual_value == test_value, \
@@ -677,7 +719,7 @@ class TestConfigBridgeParity:
         )
 
         # Assert override value is used
-        assert tf_train.nphotons == 1e9, \
+        assert tf_train.data.nphotons == 1e9, \
             "nphotons override should be applied successfully"
 
     # ============================================================================
@@ -718,9 +760,9 @@ class TestConfigBridgeParity:
         )
 
         # Assert PyTorch value is NOT propagated (semantic collision protection)
-        assert tf_train.n_subsample is None, \
+        assert tf_train.sampling.n_subsample is None, \
             "n_subsample should default to None when not in overrides (semantic collision guard)"
-        assert tf_train.n_subsample != 7, \
+        assert tf_train.sampling.n_subsample != 7, \
             "PyTorch DataConfig.n_subsample should NOT propagate to TensorFlow (different semantics)"
 
     def test_training_config_n_subsample_explicit_override(self, params_cfg_snapshot):
@@ -754,9 +796,9 @@ class TestConfigBridgeParity:
         )
 
         # Assert override value is used (not PyTorch value)
-        assert tf_train.n_subsample == 1000, \
+        assert tf_train.sampling.n_subsample == 1000, \
             "n_subsample override should be applied successfully"
-        assert tf_train.n_subsample != 7, \
+        assert tf_train.sampling.n_subsample != 7, \
             "Override should replace PyTorch value (semantic collision resolved)"
 
     def test_inference_config_n_subsample_missing_override_uses_none(self, params_cfg_snapshot):
@@ -864,7 +906,7 @@ class TestConfigBridgeParity:
         )
 
         # Assert subsample_seed is propagated from DataConfig
-        assert tf_train.subsample_seed == 42, \
+        assert tf_train.sampling.subsample_seed == 42, \
             "subsample_seed should propagate from DataConfig to TrainingConfig"
 
     def test_training_config_subsample_seed_override(self, params_cfg_snapshot):
@@ -894,9 +936,9 @@ class TestConfigBridgeParity:
         )
 
         # Assert override value is used (not DataConfig value)
-        assert tf_train.subsample_seed == 99, \
+        assert tf_train.sampling.subsample_seed == 99, \
             "subsample_seed override should take precedence"
-        assert tf_train.subsample_seed != 42, \
+        assert tf_train.sampling.subsample_seed != 42, \
             "Override should replace DataConfig value"
 
     # ============================================================================
@@ -1168,8 +1210,8 @@ class TestConfigBridgeParity:
         )
 
         # Assert TF dataclass has the field
-        assert tf_train.gradient_clip_algorithm == 'agc', \
-            "gradient_clip_algorithm should be 'agc' on TF TrainingConfig"
+        assert tf_train.gradient_clip.algorithm == 'agc', \
+            "gradient_clip.algorithm should be 'agc' on TF TrainingConfig"
 
         # Populate params.cfg and check
         update_legacy_dict(params.cfg, tf_train)
@@ -1205,11 +1247,11 @@ class TestConfigBridgeParity:
             overrides=dict(train_data_file=Path('train.npz'), n_groups=512, nphotons=1e9)
         )
 
-        assert tf_train.optimizer == 'sgd'
-        assert tf_train.momentum == 0.9
-        assert tf_train.weight_decay == 1e-4
-        assert tf_train.adam_beta1 == 0.9
-        assert tf_train.adam_beta2 == 0.999
+        assert tf_train.optimizer.algorithm == 'sgd'
+        assert tf_train.optimizer.sgd.momentum == 0.9
+        assert tf_train.optimizer.weight_decay == 1e-4
+        assert tf_train.optimizer.adam.beta1 == 0.9
+        assert tf_train.optimizer.adam.beta2 == 0.999
 
         update_legacy_dict(params.cfg, tf_train)
         assert params.cfg.get('optimizer') == 'sgd'
@@ -1290,9 +1332,9 @@ class TestConfigBridgeArchitecture:
             overrides=dict(train_data_file=Path('train.npz'), n_groups=512, nphotons=1e9)
         )
 
-        assert tf_train.scheduler == 'WarmupCosine'
-        assert tf_train.lr_warmup_epochs == 5
-        assert tf_train.lr_min_ratio == 0.05
+        assert tf_train.scheduler.kind == 'WarmupCosine'
+        assert tf_train.scheduler.lr_warmup_epochs == 5
+        assert tf_train.scheduler.lr_min_ratio == 0.05
 
 
 if __name__ == '__main__':

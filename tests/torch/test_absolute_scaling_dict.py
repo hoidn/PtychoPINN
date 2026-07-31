@@ -6,8 +6,11 @@ import torch
 
 from ptycho import params
 from ptycho.config.config import (
+    DataConfig as TFDataConfig,
+    LossConfig as TFLossConfig,
     ModelConfig as TFModelConfig,
     PyTorchExecutionConfig,
+    SamplingConfig as TFSamplingConfig,
     TrainingConfig as TFTrainingConfig,
     update_legacy_dict,
 )
@@ -92,13 +95,14 @@ def _execution_request(**values) -> ExecutionRequest:
 
 
 def _tf_training_config(tmp_path, N: int, batch_size: int) -> TFTrainingConfig:
+    from ptycho.config.config import LossConfig
     config = TFTrainingConfig(
         model=TFModelConfig(N=N, gridsize=1, object_big=False),
-        train_data_file=None,
+        data=TFDataConfig(train_data_file=None),
+        sampling=TFSamplingConfig(n_groups=8),
+        loss=LossConfig(torch_loss_mode="poisson"),
         output_dir=tmp_path,
         batch_size=batch_size,
-        n_groups=8,
-        torch_loss_mode="poisson",
     )
     update_legacy_dict(params.cfg, config)
     return config
@@ -400,12 +404,12 @@ def test_train_with_lightning_registers_dict_training_statistics_before_fit(
             object_big=False,
             probe_big=False,
         ),
-        train_data_file=train_path,
+        data=TFDataConfig(train_data_file=train_path),
+        sampling=TFSamplingConfig(n_groups=batch_size),
+        loss=TFLossConfig(torch_loss_mode="poisson"),
         output_dir=tmp_path / "output",
         batch_size=batch_size,
-        n_groups=batch_size,
         nepochs=1,
-        torch_loss_mode="poisson",
     )
     update_legacy_dict(params.cfg, tf_training_config)
 
@@ -489,12 +493,12 @@ def test_train_with_lightning_registers_native_dataset_statistics_before_fit(
             object_big=False,
             probe_big=False,
         ),
-        train_data_file=train_path,
+        data=TFDataConfig(train_data_file=train_path),
+        sampling=TFSamplingConfig(n_groups=batch_size),
+        loss=TFLossConfig(torch_loss_mode="poisson"),
         output_dir=tmp_path / "output",
         batch_size=batch_size,
-        n_groups=batch_size,
         nepochs=1,
-        torch_loss_mode="poisson",
     )
     update_legacy_dict(params.cfg, tf_training_config)
 

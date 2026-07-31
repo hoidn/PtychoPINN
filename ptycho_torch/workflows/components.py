@@ -829,12 +829,12 @@ def _ensure_container(
             metadata = getattr(data._tf_raw_data, 'metadata', None)
         grouped_data = data.generate_grouped_data(
             N=config.model.N,
-            K=config.neighbor_count,
-            nsamples=config.n_groups,
-            dataset_path=str(config.train_data_file) if config.train_data_file else None,
-            sequential_sampling=config.sequential_sampling,
+            K=config.sampling.neighbor_count,
+            nsamples=config.sampling.n_groups,
+            dataset_path=str(config.data.train_data_file) if config.data.train_data_file else None,
+            sequential_sampling=config.sampling.sequential_sampling,
             gridsize=config.model.gridsize,
-            seed=getattr(config, 'subsample_seed', None),
+            seed=config.sampling.subsample_seed,
         )
         actual_sample_indices = grouped_data.get('sample_indices')
         if sample_indices is not None and actual_sample_indices is not None:
@@ -1630,7 +1630,7 @@ def _train_with_lightning(
         ) from e
 
     logger.info("_train_with_lightning orchestrating Lightning training")
-    logger.info(f"Training config: nepochs={config.nepochs}, n_groups={config.n_groups}")
+    logger.info(f"Training config: nepochs={config.nepochs}, n_groups={config.sampling.n_groups}")
 
     # B2.1: Use the pure config resolver to derive PyTorch configs with correct
     # channel propagation. The compatibility factory remains for declared
@@ -1652,7 +1652,7 @@ def _train_with_lightning(
         warn_deprecated=False,
     )
     factory_overrides = {
-        'n_groups': config.n_groups,  # Required by factory validation
+        'n_groups': config.sampling.n_groups,  # Required by factory validation
         'gridsize': config.model.gridsize,
         'architecture': config.model.architecture,
         'model_type': mode_map.get(config.model.model_type, 'Unsupervised'),
@@ -1668,13 +1668,13 @@ def _train_with_lightning(
         'probe_mask_sigma': getattr(config.model, 'probe_mask_sigma', 1.0),
         'probe_mask_diameter': getattr(config.model, 'probe_mask_diameter', None),
         'pad_object': resolved_public_model.pad_object,
-        'nphotons': config.nphotons,
-        'neighbor_count': config.neighbor_count,
+        'nphotons': config.data.nphotons,
+        'neighbor_count': config.sampling.neighbor_count,
         'max_epochs': config.nepochs,
         'batch_size': getattr(config, 'batch_size', 16),
-        'subsample_seed': getattr(config, 'subsample_seed', None),
-        'torch_loss_mode': getattr(config, 'torch_loss_mode', 'poisson'),
-        'torch_mae_pred_l2_match_target': getattr(config, 'torch_mae_pred_l2_match_target', False),
+        'subsample_seed': config.sampling.subsample_seed,
+        'torch_loss_mode': config.loss.torch_loss_mode,
+        'torch_mae_pred_l2_match_target': config.loss.torch_mae_pred_l2_match_target,
         'log_grad_norm': getattr(config, 'log_grad_norm', False),
         'grad_norm_log_freq': getattr(config, 'grad_norm_log_freq', 1),
     }
@@ -1710,7 +1710,7 @@ def _train_with_lightning(
     payload = resolved_payload
     if payload is None:
         payload = resolve_training_payload(
-            train_data_file=Path(config.train_data_file),
+            train_data_file=Path(config.data.train_data_file),
             output_dir=Path(getattr(config, 'output_dir', './outputs')),
             execution_config=execution_config,
             overrides=factory_overrides,

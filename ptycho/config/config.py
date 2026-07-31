@@ -102,6 +102,15 @@ __all__ = [
     # Dataclass configurations
     'ModelConfig',
     'TrainingConfig',
+    'DataConfig',
+    'SamplingConfig',
+    'LossConfig',
+    'TFLossConfig',
+    'GradientClipConfig',
+    'AdamConfig',
+    'SgdConfig',
+    'OptimizerConfig',
+    'SchedulerConfig',
     'InferenceConfig',
     'PyTorchExecutionConfig',
     'ProbeSimulationConfig',
@@ -546,64 +555,122 @@ def resolve_model_object_policy(
 
 @with_config(_DATACLASS_ADAPTER_CONFIG)
 @dataclass
-class TrainingConfig:
-    """Training specific configuration."""
-    model: ModelConfig
-    train_data_file: _PublicPath | None = None  # Made optional for simulation scripts
-    test_data_file: _PublicPath | None = None  # Added
-    batch_size: _StrictNonNegativeInt = 16
-    nepochs: _StrictNonNegativeInt = 50
-    mae_weight: _StrictClosedUnitNumber = 0.0
-    nll_weight: _StrictClosedUnitNumber = 1.0
-    realspace_mae_weight: _StrictClosedUnitNumber = 0.0
-    realspace_weight: _StrictClosedUnitNumber = 0.0
+class DataConfig:
+    """Data source and physics scaling settings."""
+    train_data_file: _PublicPath | None = None
+    test_data_file: _PublicPath | None = None
     nphotons: _StrictFiniteNonNegativeNumber = 1e9
-    n_groups: _StrictNonNegativeInt | None = None  # Number of groups to generate (always means groups, regardless of gridsize)
-    n_images: _StrictNonNegativeInt | None = None  # DEPRECATED: Use n_groups instead (kept for backward compatibility)
-    n_subsample: _StrictNonNegativeInt | None = None  # Number of images to subsample before grouping (independent control)
-    subsample_seed: _StrictNonNegativeInt | None = None  # Random seed for reproducible subsampling
-    neighbor_count: _StrictPositiveInt = 4  # K value: number of nearest neighbors for grouping (use higher values like 7 for K choose C oversampling)
-    enable_oversampling: _StrictBool = False  # Explicit opt-in for K choose C oversampling (requires gridsize>1 and neighbor_pool_size>=C)
-    neighbor_pool_size: _StrictPositiveInt | None = None  # Pool size for K choose C oversampling (if None, defaults to neighbor_count)
-    positions_provided: _StrictBool = True
-    probe_trainable: _StrictBool = False
-    intensity_scale_trainable: _StrictBool = True  # Changed default
-    output_dir: _PublicPath = Path("training_outputs")
-    sequential_sampling: _StrictBool = False  # Use sequential sampling instead of random
-    backend: Annotated[Literal['tensorflow', 'pytorch'], BeforeValidator(_require_exact_str)] = 'tensorflow'  # Backend selection: defaults to TensorFlow for backward compatibility
-    torch_loss_mode: Annotated[Literal['poisson', 'mae'], BeforeValidator(_require_exact_str)] = 'poisson'  # Backend-specific loss mode selector
-    torch_mae_pred_l2_match_target: _StrictBool = False  # Optional Torch MAE prediction scaling mode
-    gradient_clip_val: _StrictFiniteNonNegativeNumber | None = None  # Gradient clipping threshold (None = disabled)
-    gradient_clip_algorithm: Annotated[Literal['norm', 'value', 'agc'], BeforeValidator(_require_exact_str)] = 'norm'  # Gradient clipping algorithm: norm, value, or agc
-    optimizer: Annotated[Literal['adam', 'adamw', 'sgd'], BeforeValidator(_require_exact_str)] = 'adam'  # Optimizer algorithm
-    momentum: _StrictClosedUnitNumber = 0.9  # SGD momentum (ignored for Adam/AdamW)
-    weight_decay: _StrictFiniteNonNegativeNumber = 0.0  # Weight decay (L2 penalty)
-    adam_beta1: _StrictHalfOpenUnitNumber = 0.9  # Adam/AdamW beta1
-    adam_beta2: _StrictHalfOpenUnitNumber = 0.999  # Adam/AdamW beta2
-    scheduler: Annotated[Literal['Default', 'Exponential', 'WarmupCosine', 'ReduceLROnPlateau'], BeforeValidator(_require_exact_str)] = 'Default'  # LR scheduler type
-    lr_warmup_epochs: _StrictNonNegativeInt = 0  # Number of warmup epochs for WarmupCosine scheduler
-    lr_min_ratio: _StrictClosedUnitNumber = 0.1  # Minimum LR ratio for WarmupCosine scheduler (eta_min = base_lr * ratio)
-    plateau_factor: _StrictOpenUnitNumber = 0.5
-    plateau_patience: _StrictNonNegativeInt = 2
-    plateau_min_lr: _StrictFiniteNonNegativeNumber = 5e-5
-    plateau_threshold: _StrictFiniteNonNegativeNumber = 0.0
+
+
+@with_config(_DATACLASS_ADAPTER_CONFIG)
+@dataclass
+class SamplingConfig:
+    """Group sampling and neighbor selection settings."""
+    n_groups: _StrictNonNegativeInt | None = None
+    n_images: _StrictNonNegativeInt | None = None  # DEPRECATED: use n_groups
+    n_subsample: _StrictNonNegativeInt | None = None
+    subsample_seed: _StrictNonNegativeInt | None = None
+    neighbor_count: _StrictPositiveInt = 4
+    enable_oversampling: _StrictBool = False
+    neighbor_pool_size: _StrictPositiveInt | None = None
+    sequential_sampling: _StrictBool = False
 
     def __post_init__(self):
-        """Handle backward compatibility for n_images → n_groups migration."""
-        # Handle the deprecated n_images parameter
         if self.n_images is not None and self.n_groups is None:
             warnings.warn(
                 "Parameter 'n_images' is deprecated and will be removed in a future version. "
                 "Use 'n_groups' instead, which always means the number of groups regardless of gridsize.",
                 DeprecationWarning,
-                stacklevel=2
+                stacklevel=2,
             )
-            # Use object.__setattr__ to modify dataclass (not frozen anymore)
             object.__setattr__(self, 'n_groups', self.n_images)
-        
-        # Set default if neither was provided
         if self.n_groups is None:
             object.__setattr__(self, 'n_groups', 512)
+
+
+@with_config(_DATACLASS_ADAPTER_CONFIG)
+@dataclass
+class LossConfig:
+    """PyTorch-specific loss settings."""
+    torch_loss_mode: Annotated[Literal['poisson', 'mae'], BeforeValidator(_require_exact_str)] = 'poisson'
+    torch_mae_pred_l2_match_target: _StrictBool = False
+
+
+@with_config(_DATACLASS_ADAPTER_CONFIG)
+@dataclass
+class TFLossConfig:
+    """TensorFlow-only loss weights. Will be removed when TF is phased out."""
+    mae_weight: _StrictClosedUnitNumber = 0.0
+    nll_weight: _StrictClosedUnitNumber = 1.0
+    realspace_mae_weight: _StrictClosedUnitNumber = 0.0
+    realspace_weight: _StrictClosedUnitNumber = 0.0
+
+
+@with_config(_DATACLASS_ADAPTER_CONFIG)
+@dataclass
+class GradientClipConfig:
+    """Gradient clipping settings."""
+    val: _StrictFiniteNonNegativeNumber | None = None
+    algorithm: Annotated[Literal['norm', 'value', 'agc'], BeforeValidator(_require_exact_str)] = 'norm'
+
+
+@with_config(_DATACLASS_ADAPTER_CONFIG)
+@dataclass
+class AdamConfig:
+    """Adam/AdamW optimizer hyperparameters."""
+    beta1: _StrictHalfOpenUnitNumber = 0.9
+    beta2: _StrictHalfOpenUnitNumber = 0.999
+
+
+@with_config(_DATACLASS_ADAPTER_CONFIG)
+@dataclass
+class SgdConfig:
+    """SGD optimizer hyperparameters."""
+    momentum: _StrictClosedUnitNumber = 0.9
+
+
+@with_config(_DATACLASS_ADAPTER_CONFIG)
+@dataclass
+class OptimizerConfig:
+    """Optimizer algorithm and hyperparameter settings."""
+    algorithm: Annotated[Literal['adam', 'adamw', 'sgd'], BeforeValidator(_require_exact_str)] = 'adam'
+    weight_decay: _StrictFiniteNonNegativeNumber = 0.0
+    sgd: SgdConfig = field(default_factory=SgdConfig)
+    adam: AdamConfig = field(default_factory=AdamConfig)
+
+
+@with_config(_DATACLASS_ADAPTER_CONFIG)
+@dataclass
+class SchedulerConfig:
+    """Learning rate scheduler settings."""
+    kind: Annotated[Literal['Default', 'Exponential', 'WarmupCosine', 'ReduceLROnPlateau'], BeforeValidator(_require_exact_str)] = 'Default'
+    lr_warmup_epochs: _StrictNonNegativeInt = 0
+    lr_min_ratio: _StrictClosedUnitNumber = 0.1
+    plateau_factor: _StrictOpenUnitNumber = 0.5
+    plateau_patience: _StrictNonNegativeInt = 2
+    plateau_min_lr: _StrictFiniteNonNegativeNumber = 5e-5
+    plateau_threshold: _StrictFiniteNonNegativeNumber = 0.0
+
+
+@with_config(_DATACLASS_ADAPTER_CONFIG)
+@dataclass
+class TrainingConfig:
+    """Training specific configuration."""
+    model: ModelConfig
+    batch_size: _StrictNonNegativeInt = 16
+    nepochs: _StrictNonNegativeInt = 50
+    positions_provided: _StrictBool = True
+    probe_trainable: _StrictBool = False
+    intensity_scale_trainable: _StrictBool = True
+    output_dir: _PublicPath = Path("training_outputs")
+    backend: Annotated[Literal['tensorflow', 'pytorch'], BeforeValidator(_require_exact_str)] = 'tensorflow'
+    data: DataConfig = field(default_factory=DataConfig)
+    sampling: SamplingConfig = field(default_factory=SamplingConfig)
+    loss: LossConfig = field(default_factory=LossConfig)
+    tf_loss: TFLossConfig = field(default_factory=TFLossConfig)
+    gradient_clip: GradientClipConfig = field(default_factory=GradientClipConfig)
+    optimizer: OptimizerConfig = field(default_factory=OptimizerConfig)
+    scheduler: SchedulerConfig = field(default_factory=SchedulerConfig)
 
 @with_config(_DATACLASS_ADAPTER_CONFIG)
 @dataclass
@@ -855,12 +922,12 @@ def validate_training_config(config: TrainingConfig) -> None:
         raise ValueError(f"batch_size must be positive power of 2, got {config.batch_size}")
     if config.nepochs <= 0:
         raise ValueError(f"nepochs must be positive, got {config.nepochs}")
-    if not (0 <= config.mae_weight <= 1):
-        raise ValueError(f"mae_weight must be in [0,1], got {config.mae_weight}")
-    if not (0 <= config.nll_weight <= 1):
-        raise ValueError(f"nll_weight must be in [0,1], got {config.nll_weight}")
-    if config.nphotons <= 0:
-        raise ValueError(f"nphotons must be positive, got {config.nphotons}")
+    if not (0 <= config.tf_loss.mae_weight <= 1):
+        raise ValueError(f"mae_weight must be in [0,1], got {config.tf_loss.mae_weight}")
+    if not (0 <= config.tf_loss.nll_weight <= 1):
+        raise ValueError(f"nll_weight must be in [0,1], got {config.tf_loss.nll_weight}")
+    if config.data.nphotons <= 0:
+        raise ValueError(f"nphotons must be positive, got {config.data.nphotons}")
 
 def validate_inference_config(config: InferenceConfig) -> None:
     """Validate inference configuration."""
@@ -904,14 +971,7 @@ def load_yaml_config(path: Path) -> Dict[str, Any]:
         raise type(e)(f"Failed to load config from {path}: {str(e)}")
 
 def dataclass_to_legacy_dict(obj: Any) -> Dict[str, Any]:
-    """Convert dataclass to legacy dictionary format with key mappings.
-    
-    Args:
-        obj: Dataclass instance to convert
-        
-    Returns:
-        Dictionary with legacy parameter names and values
-    """
+    """Convert dataclass to legacy dictionary format with key mappings."""
     if isinstance(obj, SimulationConfig):
         validate_simulation_config(obj)
         return {
@@ -947,43 +1007,117 @@ def dataclass_to_legacy_dict(obj: Any) -> Dict[str, Any]:
 
     if isinstance(obj, ModelConfig):
         obj = resolve_model_object_policy(obj)
-    elif hasattr(obj, "model") and isinstance(obj.model, ModelConfig):
-        obj = replace(obj, model=resolve_model_object_policy(obj.model))
+        d = asdict(obj)
+        _apply_model_key_mappings(d)
+        return d
 
-    # Key mappings from dataclass field names to legacy param names
-    KEY_MAPPINGS = {
+    if isinstance(obj, TrainingConfig):
+        obj = replace(obj, model=resolve_model_object_policy(obj.model))
+        return _training_config_to_legacy_dict(obj)
+
+    # Generic fallback for other dataclasses (e.g., InferenceConfig)
+    if hasattr(obj, "model") and isinstance(obj.model, ModelConfig):
+        obj = replace(obj, model=resolve_model_object_policy(obj.model))
+    d = asdict(obj)
+    if 'model' in d:
+        model_dict = d.pop('model')
+        _apply_model_key_mappings(model_dict)
+        d.update(model_dict)
+    # Apply legacy key renames for InferenceConfig and other config types
+    _apply_workflow_key_mappings(d)
+    return d
+
+
+def _apply_model_key_mappings(d: Dict[str, Any]) -> None:
+    """Apply legacy key renames for ModelConfig fields in-place."""
+    MODEL_KEY_MAPPINGS = {
         'object_big': 'object.big',
-        'probe_big': 'probe.big', 
+        'probe_big': 'probe.big',
         'probe_mask': 'probe.mask',
+    }
+    for old_key, new_key in MODEL_KEY_MAPPINGS.items():
+        if old_key in d:
+            d[new_key] = d.pop(old_key)
+
+
+def _apply_workflow_key_mappings(d: Dict[str, Any]) -> None:
+    """Apply legacy key renames for InferenceConfig and similar workflow configs."""
+    WORKFLOW_KEY_MAPPINGS = {
         'probe_trainable': 'probe.trainable',
         'intensity_scale_trainable': 'intensity_scale.trainable',
         'positions_provided': 'positions.provided',
         'output_dir': 'output_prefix',
         'train_data_file': 'train_data_file_path',
-        'test_data_file': 'test_data_file_path'
+        'test_data_file': 'test_data_file_path',
     }
-
-    # Convert dataclass to dict
-    d = asdict(obj)
-
-    # Handle nested ModelConfig
-    if 'model' in d:
-        model_dict = d.pop('model')
-        d.update(model_dict)
-
-    # Apply key mappings and convert Path objects to strings
-    for old_key, new_key in KEY_MAPPINGS.items():
+    for old_key, new_key in WORKFLOW_KEY_MAPPINGS.items():
         if old_key in d:
             value = d.pop(old_key)
-            # Convert Path objects to strings
-            if isinstance(value, Path):
-                d[new_key] = str(value)
-            else:
-                d[new_key] = value
+            d[new_key] = str(value) if isinstance(value, Path) else value
 
-    # Convert Path to string (legacy fallback)
-    if 'output_dir' in d:
-        d['output_prefix'] = str(d.pop('output_dir'))
+
+def _training_config_to_legacy_dict(obj: TrainingConfig) -> Dict[str, Any]:
+    """Flatten a nested TrainingConfig into a legacy-compatible dict."""
+    d: Dict[str, Any] = {}
+
+    # Flat TrainingConfig fields
+    d['batch_size'] = obj.batch_size
+    d['nepochs'] = obj.nepochs
+    d['probe.trainable'] = obj.probe_trainable
+    d['intensity_scale.trainable'] = obj.intensity_scale_trainable
+    d['positions.provided'] = obj.positions_provided
+    d['output_prefix'] = str(obj.output_dir)
+    d['backend'] = obj.backend
+
+    # ModelConfig fields (with key mappings)
+    model_dict = asdict(obj.model)
+    _apply_model_key_mappings(model_dict)
+    d.update(model_dict)
+
+    # DataConfig fields
+    d['nphotons'] = obj.data.nphotons
+    d['train_data_file_path'] = str(obj.data.train_data_file) if obj.data.train_data_file is not None else None
+    d['test_data_file_path'] = str(obj.data.test_data_file) if obj.data.test_data_file is not None else None
+
+    # SamplingConfig fields
+    d['n_groups'] = obj.sampling.n_groups
+    d['n_images'] = obj.sampling.n_images
+    d['n_subsample'] = obj.sampling.n_subsample
+    d['subsample_seed'] = obj.sampling.subsample_seed
+    d['neighbor_count'] = obj.sampling.neighbor_count
+    d['enable_oversampling'] = obj.sampling.enable_oversampling
+    d['neighbor_pool_size'] = obj.sampling.neighbor_pool_size
+    d['sequential_sampling'] = obj.sampling.sequential_sampling
+
+    # LossConfig fields
+    d['torch_loss_mode'] = obj.loss.torch_loss_mode
+    d['torch_mae_pred_l2_match_target'] = obj.loss.torch_mae_pred_l2_match_target
+
+    # TFLossConfig fields
+    d['mae_weight'] = obj.tf_loss.mae_weight
+    d['nll_weight'] = obj.tf_loss.nll_weight
+    d['realspace_mae_weight'] = obj.tf_loss.realspace_mae_weight
+    d['realspace_weight'] = obj.tf_loss.realspace_weight
+
+    # GradientClipConfig fields (renamed)
+    d['gradient_clip_val'] = obj.gradient_clip.val
+    d['gradient_clip_algorithm'] = obj.gradient_clip.algorithm
+
+    # OptimizerConfig fields (renamed/flattened)
+    d['optimizer'] = obj.optimizer.algorithm
+    d['weight_decay'] = obj.optimizer.weight_decay
+    d['momentum'] = obj.optimizer.sgd.momentum
+    d['adam_beta1'] = obj.optimizer.adam.beta1
+    d['adam_beta2'] = obj.optimizer.adam.beta2
+
+    # SchedulerConfig fields (renamed/flattened)
+    d['scheduler'] = obj.scheduler.kind
+    d['lr_warmup_epochs'] = obj.scheduler.lr_warmup_epochs
+    d['lr_min_ratio'] = obj.scheduler.lr_min_ratio
+    d['plateau_factor'] = obj.scheduler.plateau_factor
+    d['plateau_patience'] = obj.scheduler.plateau_patience
+    d['plateau_min_lr'] = obj.scheduler.plateau_min_lr
+    d['plateau_threshold'] = obj.scheduler.plateau_threshold
 
     return d
 
