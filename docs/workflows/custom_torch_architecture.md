@@ -147,10 +147,11 @@ class TinyResidualGenerator:
 ```
 
 `TinyResidualGeneratorModule` is the trainable network.
-`TinyResidualGenerator` is only the registry adapter: it holds the public config
-used for name selection and delegates the complete Torch config bundle to the
-application factory. It must not construct the module or
-`PtychoPINN_Lightning`; construction and reload must use the same builder.
+`TinyResidualGenerator` is only the registry adapter: `resolve_generator()`
+selects it from `config.model.architecture`, then its `build_model()` delegates
+the complete Torch config bundle to the application factory. The wrapper must
+not construct the module or `PtychoPINN_Lightning` directly; training and reload
+must converge on the same application/core builder.
 
 ## 3. Register and Persist the Architecture
 
