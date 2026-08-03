@@ -146,8 +146,12 @@ class TinyResidualGenerator:
         return build_ptychopinn_from_configs(pt_configs)
 ```
 
-The wrapper must delegate to the application factory. It must not construct
-`PtychoPINN_Lightning` itself.
+`TinyResidualGeneratorModule` is the trainable network.
+`TinyResidualGenerator` is only the registry adapter: `resolve_generator()`
+selects it from `config.model.architecture`, then its `build_model()` delegates
+the complete Torch config bundle to the application factory. The wrapper must
+not construct the module or `PtychoPINN_Lightning` directly; training and reload
+must converge on the same application/core builder.
 
 ## 3. Register and Persist the Architecture
 
