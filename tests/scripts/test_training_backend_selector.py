@@ -27,6 +27,29 @@ project_root = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(project_root))
 
 
+def test_interpret_sampling_parameters_reads_nested_sampling_config():
+    from ptycho.config import ModelConfig, TrainingConfig
+    from ptycho.config.config import DataConfig, SamplingConfig
+    from scripts.training.train import interpret_sampling_parameters
+
+    config = TrainingConfig(
+        model=ModelConfig(gridsize=2),
+        data=DataConfig(train_data_file=Path("train.npz")),
+        sampling=SamplingConfig(
+            n_groups=7,
+            n_subsample=32,
+            neighbor_count=4,
+            enable_oversampling=True,
+            neighbor_pool_size=8,
+        ),
+    )
+
+    resolved = interpret_sampling_parameters(config)
+
+    assert resolved[:4] == (32, 7, True, 8)
+    assert "Oversampling enabled: K=8" in resolved[4]
+
+
 class TestTrainingCliBackendDispatch:
     """
     Test suite for backend selector dispatch in training CLI.
