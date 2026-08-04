@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# ruff: noqa: E402
 # scripts/simulation/simulate_and_save.py
 
 """
@@ -18,7 +19,7 @@ from dataclasses import replace
 import os
 import sys
 from pathlib import Path
-from typing import Optional, Tuple, Dict, Any
+from typing import Optional, Dict, Any
 
 # Add project root to Python path
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -47,10 +48,10 @@ from ptycho.image.cropping import center_crop_spatial
 from ptycho.metadata import MetadataManager
 from ptycho.simulation.probe_transform import (
     apply_probe_mask,
-    apply_probe_transform_pipeline,
+    apply_probe_transform_pipeline,  # noqa: F401 - compatibility re-export
     apply_probe_transform_pipeline_with_metadata,
     normalize_probe_transform_pipeline,
-    parse_probe_transform_pipeline,
+    parse_probe_transform_pipeline,  # noqa: F401 - compatibility re-export
 )
 from ptycho.simulation.identity import (
     build_simulation_probe_lineage,
@@ -103,15 +104,17 @@ def _generate_simulated_data_legacy(
     object_guess: np.ndarray,
     probe_guess: np.ndarray,
     buffer: int,
+    coordinate_seed: int | None = None,
+    detector_seed: int | None = None,
 ):
     """Run the protected TensorFlow simulator under a bounded projection."""
     from ptycho import params
-    from ptycho.nongrid_simulation import generate_simulated_data
-
     with legacy_params_scope():
         with configured_params_scope():
             update_legacy_dict(params.cfg, simulation)
             update_legacy_dict(params.cfg, config)
+            from ptycho.nongrid_simulation import generate_simulated_data
+
             print("--- Configuration Updated for Simulation ---")
             params.print_params()
             print("------------------------------------------\n")
@@ -121,6 +124,8 @@ def _generate_simulated_data_legacy(
                 probeGuess=probe_guess,
                 buffer=buffer,
                 return_patches=True,
+                random_seed=coordinate_seed,
+                detector_seed=detector_seed,
             )
 
 
@@ -145,10 +150,6 @@ def simulate_and_save(
     print(f"  - Probe shape: {probe_guess.shape}")
 
     buffer = simulation.scan.buffer
-    if simulation.seed is not None:
-        print(f"Setting random seed to: {simulation.seed}")
-        np.random.seed(simulation.seed)
-
     reject_mismatched_output_identity(
         output_file_path,
         expected_simulation_digest=str(
@@ -156,13 +157,18 @@ def simulate_and_save(
         ),
         expected_recipe_digest=str(probe_lineage["dataset_recipe_sha256"]),
     )
-    print(f"Simulating {config.n_images} diffraction patterns...")
+    print(
+        "Simulating "
+        f"{config.sampling.n_groups} diffraction patterns..."
+    )
     raw_data_instance, ground_truth_patches = _generate_simulated_data_legacy(
         config=config,
         simulation=simulation,
         object_guess=object_guess,
         probe_guess=probe_guess,
         buffer=buffer,
+        coordinate_seed=simulation.seed,
+        detector_seed=simulation.seed,
     )
     print("Simulation complete.")
     
@@ -209,7 +215,10 @@ def simulate_and_save(
         data_dict,
         metadata
     )
-    print(f"File saved successfully with metadata (nphotons={config.nphotons}).")
+    print(
+        "File saved successfully with metadata "
+        f"(nphotons={config.data.nphotons})."
+    )
 
     if visualize:
         print("Generating visualization plot...")
@@ -475,12 +484,15 @@ def prepare_probe_for_simulation_with_lineage(
                 source_data["probeGuess"], dtype=np.complex64
             ).squeeze()
     else:
+        from ptycho import params
         from ptycho.probe import get_default_probe
 
-        source = np.asarray(
-            get_default_probe(N=simulation.N, fmt="np"),
-            dtype=np.complex64,
-        ).squeeze()
+        with legacy_params_scope():
+            params.set("default_probe_scale", simulation.probe.ideal_scale)
+            source = np.asarray(
+                get_default_probe(N=simulation.N, fmt="np"),
+                dtype=np.complex64,
+            ).squeeze()
     normalized, steps = normalize_probe_transform_pipeline(
         target_N=simulation.N,
         probe_shape=source.shape,

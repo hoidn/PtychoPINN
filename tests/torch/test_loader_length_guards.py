@@ -758,3 +758,341 @@ def test_supervised_object_big_sizes_without_subsampling(tmp_path):
 
     assert len(dataset) == 30
     assert dataset.mmap_ptycho["label_amp"].shape[0] == 30
+
+
+# ---------------------------------------------------------------------------
+# Local grouping RNG ownership
+# ---------------------------------------------------------------------------
+
+def _assert_legacy_rng_state_equal(left, right):
+    assert left[0] == right[0]
+    np.testing.assert_array_equal(left[1], right[1])
+    assert left[2:] == right[2:]
+
+
+def test_sample_rows_draws_only_from_explicit_local_generator():
+    from ptycho_torch.patch_generator import sample_rows
+
+    candidates = np.tile(np.arange(9, dtype=np.int64), (5, 1))
+    np.random.seed(9981)
+    ambient_before = np.random.get_state()
+
+    first = sample_rows(
+        candidates, 4, 3, rng=np.random.default_rng(2718)
+    )
+    second = sample_rows(
+        candidates, 4, 3, rng=np.random.default_rng(2718)
+    )
+
+    _assert_legacy_rng_state_equal(ambient_before, np.random.get_state())
+    np.testing.assert_array_equal(first, second)
+    assert first.shape == (5, 3, 4)
+
+
+def test_group_coords_uses_dataconfig_seed_without_ambient_numpy_state():
+    from ptycho_torch.patch_generator import get_neighbor_indices, group_coords
+
+    xcoords, ycoords = _raster(5, spacing=1.0)
+    valid = np.arange(len(xcoords), dtype=np.int64)
+    config = DataConfig(
+        N=N_PIX,
+        C=4,
+        K=8,
+        n_subsample=3,
+        subsample_seed=1447,
+        grid_size=(2, 2),
+        neighbor_function="Nearest",
+        x_bounds=(0.0, 1.0),
+        y_bounds=(0.0, 1.0),
+    )
+    np.random.seed(6621)
+    ambient_before = np.random.get_state()
+
+    first_indices, first_coords = group_coords(
+        xcoords,
+        ycoords,
+        xcoords,
+        ycoords,
+        get_neighbor_indices,
+        valid,
+        config,
+    )
+    second_indices, second_coords = group_coords(
+        xcoords,
+        ycoords,
+        xcoords,
+        ycoords,
+        get_neighbor_indices,
+        valid,
+        config,
+    )
+
+    _assert_legacy_rng_state_equal(ambient_before, np.random.get_state())
+    np.testing.assert_array_equal(first_indices, second_indices)
+    np.testing.assert_array_equal(first_coords, second_coords)
+
+
+def test_nearest_group_coords_can_repair_complete_participant_coverage():
+    """One reconstruction group per center must cover every eligible scan."""
+    from ptycho_torch.patch_generator import get_neighbor_indices, group_coords
+
+    coordinate_rng = np.random.default_rng(118549108)
+    xcoords = coordinate_rng.uniform(64.0, 328.0, size=1024)
+    ycoords = coordinate_rng.uniform(64.0, 328.0, size=1024)
+    valid = np.arange(len(xcoords), dtype=np.int64)
+    config = DataConfig(
+        N=N_PIX,
+        C=4,
+        K=4,
+        n_subsample=1,
+        subsample_seed=523213049,
+        grid_size=(2, 2),
+        neighbor_function="Nearest",
+        x_bounds=(0.0, 1.0),
+        y_bounds=(0.0, 1.0),
+    )
+
+    np.random.seed(34521)
+    ambient_before = np.random.get_state()
+    original_indices, _original_coords, _original_centers = group_coords(
+        xcoords,
+        ycoords,
+        xcoords,
+        ycoords,
+        get_neighbor_indices,
+        valid,
+        config,
+        return_center_indices=True,
+    )
+    first_indices, first_coords, first_centers = group_coords(
+        xcoords,
+        ycoords,
+        xcoords,
+        ycoords,
+        get_neighbor_indices,
+        valid,
+        config,
+        return_center_indices=True,
+        ensure_complete_coverage=True,
+    )
+    second_indices, second_coords, second_centers = group_coords(
+        xcoords,
+        ycoords,
+        xcoords,
+        ycoords,
+        get_neighbor_indices,
+        valid,
+        config,
+        return_center_indices=True,
+        ensure_complete_coverage=True,
+    )
+
+    _assert_legacy_rng_state_equal(ambient_before, np.random.get_state())
+    np.testing.assert_array_equal(first_indices, second_indices)
+    np.testing.assert_array_equal(first_coords, second_coords)
+    np.testing.assert_array_equal(first_centers, second_centers)
+    assert first_indices.shape == (len(valid), 4)
+    assert first_centers.tolist() == valid.tolist()
+    assert all(len(set(row.tolist())) == 4 for row in first_indices)
+    missing_before = set(valid.tolist()) - set(
+        original_indices.reshape(-1).tolist()
+    )
+    assert missing_before == {695, 720, 920}
+    changed_rows = np.any(first_indices != original_indices, axis=1)
+    assert int(np.count_nonzero(changed_rows)) == len(missing_before)
+    assert set(first_indices.reshape(-1).tolist()) == set(valid.tolist())
+
+
+def test_complete_coverage_accepts_boolean_mask_and_small_k_equals_c():
+    """Boolean masks and K=C=N must not create -1/sentinel participants."""
+    from ptycho_torch.patch_generator import get_neighbor_indices, group_coords
+
+    xcoords, ycoords = _raster(2, spacing=1.0)
+    valid_mask = np.ones(len(xcoords), dtype=np.bool_)
+    config = DataConfig(
+        N=N_PIX,
+        C=4,
+        K=4,
+        n_subsample=1,
+        subsample_seed=9,
+        grid_size=(2, 2),
+        neighbor_function="Nearest",
+        x_bounds=(0.0, 1.0),
+        y_bounds=(0.0, 1.0),
+    )
+
+    indices, _coords, centers = group_coords(
+        xcoords,
+        ycoords,
+        xcoords,
+        ycoords,
+        get_neighbor_indices,
+        valid_mask,
+        config,
+        return_center_indices=True,
+        ensure_complete_coverage=True,
+    )
+
+    assert centers.tolist() == [0, 1, 2, 3]
+    assert indices.shape == (4, 4)
+    assert np.all(indices >= 0)
+    assert all(len(set(row.tolist())) == 4 for row in indices)
+    assert set(indices.reshape(-1).tolist()) == {0, 1, 2, 3}
+
+
+def test_real_mmap_persists_and_identifies_complete_group_coverage(tmp_path):
+    source_dir = tmp_path / "npz"
+    source_dir.mkdir()
+    xcoords, ycoords = _raster(8, spacing=1.0)
+    _write_npz(
+        source_dir / "scan.npz",
+        len(xcoords),
+        xcoords,
+        ycoords,
+    )
+    data_config = DataConfig(
+        N=N_PIX,
+        C=4,
+        K=4,
+        n_subsample=1,
+        subsample_seed=523213049,
+        grid_size=(2, 2),
+        neighbor_function="Nearest",
+        x_bounds=(0.0, 1.0),
+        y_bounds=(0.0, 1.0),
+    )
+    model_config = ModelConfig(C_model=4, C_forward=4)
+    map_dir = tmp_path / "mmap" / "memmap"
+
+    anchored = PtychoDataset(
+        ptycho_dir=str(source_dir),
+        model_config=model_config,
+        data_config=data_config,
+        training_config=TrainingConfig(batch_size=8),
+        data_dir=str(map_dir),
+        remake_map=True,
+        require_complete_group_coverage=True,
+    )
+    rows = torch.as_tensor(anchored.mmap_ptycho["nn_indices"]).cpu().numpy()
+    centers = (
+        torch.as_tensor(anchored.mmap_ptycho["center_scan_id"])
+        .cpu()
+        .numpy()
+        .reshape(-1)
+    )
+
+    assert rows.shape == (len(xcoords), 4)
+    assert centers.tolist() == list(range(len(xcoords)))
+    assert set(rows.reshape(-1).tolist()) == set(centers.tolist())
+    assert all(len(set(row.tolist())) == 4 for row in rows)
+
+    with pytest.raises(ValueError, match="require_complete_group_coverage"):
+        PtychoDataset(
+            ptycho_dir=str(source_dir),
+            model_config=model_config,
+            data_config=data_config,
+            training_config=TrainingConfig(batch_size=8),
+            data_dir=str(map_dir),
+            remake_map=False,
+        )
+
+    reused = PtychoDataset(
+        ptycho_dir=str(source_dir),
+        model_config=model_config,
+        data_config=data_config,
+        training_config=TrainingConfig(batch_size=8),
+        data_dir=str(map_dir),
+        remake_map=False,
+        require_complete_group_coverage=True,
+    )
+    torch.testing.assert_close(
+        reused.mmap_ptycho["nn_indices"],
+        anchored.mmap_ptycho["nn_indices"],
+        rtol=0,
+        atol=0,
+    )
+
+
+def test_fresh_mmap_builds_replay_grouping_without_ambient_numpy_state(
+    tmp_path,
+):
+    """The dataset build owns one reproducible grouping stream per mmap."""
+    source_dir = tmp_path / "npz"
+    source_dir.mkdir()
+    xcoords, ycoords = _raster(8)
+    _write_npz(source_dir / "scan.npz", len(xcoords), xcoords, ycoords)
+    data_config, model_config = _quadrant_configs(n_subsample=3)
+
+    def build(map_name):
+        return PtychoDataset(
+            ptycho_dir=str(source_dir),
+            model_config=model_config,
+            data_config=data_config,
+            training_config=TrainingConfig(batch_size=8),
+            data_dir=str(tmp_path / map_name),
+            remake_map=True,
+        )
+
+    np.random.seed(8347)
+    ambient_before = np.random.get_state()
+    first = build("mmap-first")
+    second = build("mmap-second")
+
+    _assert_legacy_rng_state_equal(ambient_before, np.random.get_state())
+    torch.testing.assert_close(
+        first.mmap_ptycho["nn_indices"],
+        second.mmap_ptycho["nn_indices"],
+        rtol=0,
+        atol=0,
+    )
+    torch.testing.assert_close(
+        first.mmap_ptycho["coords_global"],
+        second.mmap_ptycho["coords_global"],
+        rtol=0,
+        atol=0,
+    )
+
+
+def test_quadrant_grouping_uses_global_center_identity_and_local_rng(monkeypatch):
+    from ptycho_torch.patch_generator import group_coords
+
+    xcoords, ycoords = _raster(8, spacing=1.5)
+    # Deliberately make bounded row ids differ from their global scan ids.
+    valid = np.array([18, 19, 20, 26, 27, 28, 34, 35, 36], dtype=np.int64)
+    config = DataConfig(
+        N=N_PIX,
+        C=4,
+        K=8,
+        K_quadrant=30,
+        n_subsample=2,
+        subsample_seed=909,
+        grid_size=(2, 2),
+        neighbor_function="4_quadrant",
+        min_neighbor_distance=0.0,
+        max_neighbor_distance=3.0,
+        scan_pattern="Isotropic",
+        x_bounds=(0.0, 1.0),
+        y_bounds=(0.0, 1.0),
+    )
+    monkeypatch.setattr(
+        np.random,
+        "choice",
+        lambda *_args, **_kwargs: pytest.fail(
+            "grouping read ambient np.random.choice"
+        ),
+    )
+
+    rows, _coords, centers = group_coords(
+        xcoords,
+        ycoords,
+        xcoords[valid],
+        ycoords[valid],
+        None,
+        valid,
+        config,
+        return_center_indices=True,
+    )
+
+    assert len(rows) > 0
+    assert set(centers).issubset(set(valid))
+    assert all(len(set(row.tolist())) == 4 for row in rows)

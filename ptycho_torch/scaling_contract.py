@@ -1,9 +1,12 @@
 """Configuration contract for PyTorch absolute-intensity scaling profiles."""
 
+import json
 import math
-from dataclasses import dataclass
-from typing import Any, Optional
+from dataclasses import asdict, dataclass
+from types import SimpleNamespace
+from typing import Any, Mapping, Optional
 
+import numpy as np
 import torch
 
 
@@ -23,6 +26,405 @@ class ResolvedScaleContract:
 class CIExperimentStatistics:
     rms_input_scale: torch.Tensor
     mean_measured_intensity: torch.Tensor
+
+
+@dataclass(frozen=True)
+class AmplitudePhysicsGainRecord:
+    """Plain persisted resolution of one training-time amplitude gain."""
+
+    value: float
+    provenance: str
+    method: str
+    version: str
+    input_statistics: Mapping[str, Any]
+
+    def __post_init__(self) -> None:
+        if isinstance(self.value, bool) or not isinstance(
+            self.value, (int, float, np.integer, np.floating)
+        ):
+            raise TypeError("value must be a positive real scalar")
+        value = float(self.value)
+        if not math.isfinite(value) or value <= 0:
+            raise ValueError("value must be positive and finite")
+        for name in ("provenance", "method", "version"):
+            field_value = getattr(self, name)
+            if not isinstance(field_value, str) or not field_value:
+                raise TypeError(f"{name} must be a non-empty string")
+        if not isinstance(self.input_statistics, Mapping):
+            raise TypeError("input_statistics must be a mapping")
+        statistics = dict(self.input_statistics)
+        try:
+            json.dumps(statistics, allow_nan=False)
+        except (TypeError, ValueError) as error:
+            raise ValueError(
+                "input_statistics must be finite JSON-native values"
+            ) from error
+        object.__setattr__(self, "value", value)
+        object.__setattr__(self, "input_statistics", statistics)
+        _validate_gain_record_semantics(self)
+
+    def factory_overrides(self) -> dict[str, float]:
+        """Return the existing Torch factory patch owned by this record."""
+
+        return {"amplitude_physics_gain": self.value}
+
+    def to_metadata(self) -> dict[str, Any]:
+        """Return a detached JSON-native copy of the plain persisted record."""
+
+        return asdict(self)
+
+    @classmethod
+    def from_metadata(
+        cls,
+        metadata: Mapping[str, Any],
+    ) -> "AmplitudePhysicsGainRecord":
+        """Decode the five persisted record fields."""
+
+        if not isinstance(metadata, Mapping):
+            raise ValueError("amplitude physics gain record must be a mapping")
+        try:
+            return cls(
+                value=metadata["value"],
+                provenance=metadata["provenance"],
+                method=metadata["method"],
+                version=metadata["version"],
+                input_statistics=metadata["input_statistics"],
+            )
+        except KeyError as error:
+            raise ValueError(
+                f"amplitude physics gain record is missing {error.args[0]!r}"
+            ) from error
+
+
+def amplitude_physics_gain_record_to_json(
+    record: AmplitudePhysicsGainRecord,
+) -> str:
+    """Encode the plain five-field record stored in the bundle."""
+
+    return json.dumps(
+        record.to_metadata(),
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    )
+
+
+def amplitude_physics_gain_record_from_json(
+    encoded: Any,
+) -> AmplitudePhysicsGainRecord:
+    """Decode one plain gain-record JSON sidecar."""
+
+    if not isinstance(encoded, (str, bytes, bytearray)):
+        raise TypeError("amplitude physics gain sidecar JSON must be text or bytes")
+    try:
+        record = json.loads(encoded)
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        raise ValueError("invalid amplitude physics gain sidecar JSON") from exc
+    return AmplitudePhysicsGainRecord.from_metadata(record)
+
+
+_GAIN_METHOD = "normalized_amplitude_physical_gain"
+_GAIN_VERSION = "legacy-amplitude-physics-gain-v1"
+_GAIN_RESOLUTION_VERSION = "amplitude-physics-gain-resolution-v1"
+
+
+def _validate_gain_record_semantics(record: AmplitudePhysicsGainRecord) -> None:
+    allowed = {
+        "derived": (_GAIN_METHOD, _GAIN_VERSION),
+        "override": ("advanced_model_override", _GAIN_RESOLUTION_VERSION),
+        "scale_contract_fixed": (
+            "rectangular_scale_contract_fixed",
+            _GAIN_RESOLUTION_VERSION,
+        ),
+    }
+    expected = allowed.get(record.provenance)
+    if expected is None:
+        raise ValueError(f"unsupported amplitude gain provenance {record.provenance!r}")
+    if (record.method, record.version) != expected:
+        raise ValueError(
+            f"provenance {record.provenance!r} requires method/version {expected!r}"
+        )
+    if record.provenance == "scale_contract_fixed" and record.value != 1.0:
+        raise ValueError("scale_contract_fixed value must be exactly 1.0")
+
+
+def _mask_control_metadata(value: Any) -> Any:
+    if value is None or isinstance(value, (bool, np.bool_)):
+        return None if value is None else bool(value)
+    if isinstance(value, torch.Tensor):
+        array = value.detach().cpu().numpy()
+    else:
+        array = np.asarray(value)
+    return {
+        "shape": list(array.shape),
+        "dtype": array.dtype.name,
+    }
+
+
+def _gain_record(
+    *,
+    value: float,
+    provenance: str,
+    method: str,
+    version: str,
+    input_statistics: Mapping[str, Any],
+) -> AmplitudePhysicsGainRecord:
+    value = validate_amplitude_physics_gain(
+        SimpleNamespace(
+            amplitude_physics_gain=value,
+            physics_forward_mode=(
+                "rectangular_scaled"
+                if provenance == "scale_contract_fixed"
+                else "amplitude"
+            ),
+        )
+    )
+    return AmplitudePhysicsGainRecord(
+        value=value,
+        provenance=provenance,
+        method=method,
+        version=version,
+        input_statistics=dict(input_statistics),
+    )
+
+
+def _canonical_detector_samples(
+    value: np.ndarray,
+    *,
+    name: str,
+    complex_values: bool,
+) -> np.ndarray:
+    dtype = np.complex128 if complex_values else np.float64
+    array = np.asarray(value, dtype=dtype)
+    if array.ndim == 3:
+        samples = array
+    elif array.ndim == 4 and array.shape[1] == array.shape[2]:
+        # Grouped loader layout (B, N, N, C).
+        samples = np.moveaxis(array, -1, 1).reshape(
+            -1, array.shape[1], array.shape[2]
+        )
+    elif array.ndim == 4 and array.shape[-2] == array.shape[-1]:
+        # Torch-native grouped layout (B, C, N, N).
+        samples = array.reshape(-1, array.shape[-2], array.shape[-1])
+    else:
+        raise ValueError(
+            f"{name} must have flat shape (S, N, N) or grouped shape "
+            "(B, N, N, C)/(B, C, N, N)"
+        )
+    samples = np.ascontiguousarray(samples)
+    if samples.shape[1] != samples.shape[2]:
+        raise ValueError(f"{name} detector patterns must be square")
+    if not np.isfinite(samples).all():
+        raise ValueError(f"{name} must contain only finite values")
+    if not complex_values and np.any(samples < 0):
+        raise ValueError(f"{name} must contain nonnegative amplitudes")
+    return samples
+
+
+def _canonical_probe_modes(stored_probe: np.ndarray, N: int) -> np.ndarray:
+    probe = np.asarray(stored_probe, dtype=np.complex64)
+    if probe.shape == (N, N):
+        probe = probe[None, ...]
+    elif probe.shape == (N, N, 1):
+        probe = probe[..., 0][None, ...]
+    elif probe.ndim == 3 and probe.shape[-2:] == (N, N):
+        pass
+    else:
+        raise ValueError(
+            "stored_probe must have shape (N, N), (N, N, 1), or (P, N, N)"
+        )
+    if not np.isfinite(probe).all():
+        raise ValueError("stored_probe must contain only finite values")
+    if not np.any(probe):
+        raise ValueError("stored_probe must have nonzero energy")
+    return np.ascontiguousarray(probe)
+
+
+def derive_legacy_amplitude_physics_gain(
+    measured_amplitude: np.ndarray,
+    object_patches: np.ndarray,
+    stored_probe: np.ndarray,
+    *,
+    probe_scale: float,
+    probe_mask: Any = False,
+    probe_mask_tensor: Any = None,
+    probe_mask_sigma: float = 1.0,
+    probe_mask_diameter: float | None = None,
+) -> AmplitudePhysicsGainRecord:
+    """Derive the documented legacy normalized-amplitude physical gain."""
+
+    if isinstance(probe_scale, bool) or not isinstance(
+        probe_scale, (int, float, np.integer, np.floating)
+    ):
+        raise TypeError("probe_scale must be a real scalar")
+    probe_scale = float(probe_scale)
+    if not math.isfinite(probe_scale) or probe_scale <= 0:
+        raise ValueError("probe_scale must be positive and finite")
+
+    measured = _canonical_detector_samples(
+        measured_amplitude,
+        name="measured_amplitude",
+        complex_values=False,
+    )
+    truth = _canonical_detector_samples(
+        object_patches,
+        name="object_patches",
+        complex_values=True,
+    )
+    if measured.shape != truth.shape:
+        raise ValueError(
+            "measured_amplitude and object_patches must resolve to matching "
+            f"sample shapes, got {measured.shape} and {truth.shape}"
+        )
+    if not np.any(measured):
+        raise ValueError("measured_amplitude must have positive nonzero energy")
+    N = measured.shape[-1]
+    probe_modes = _canonical_probe_modes(stored_probe, N)
+
+    from ptycho_torch.helper import normalize_probe_like_tf
+    from ptycho_torch.probe_mask import resolve_probe_mask_np
+
+    normalized_probe, normalization_multiplier = normalize_probe_like_tf(
+        probe_modes,
+        probe_scale=probe_scale,
+        probe_mask=probe_mask,
+        probe_mask_tensor=probe_mask_tensor,
+        probe_mask_sigma=probe_mask_sigma,
+        probe_mask_diameter=probe_mask_diameter,
+    )
+    resolved_mask = resolve_probe_mask_np(
+        N,
+        probe_mask=probe_mask,
+        probe_mask_tensor=probe_mask_tensor,
+        probe_mask_sigma=probe_mask_sigma,
+        probe_mask_diameter=probe_mask_diameter,
+    )
+    effective_probe = (
+        np.asarray(normalized_probe, dtype=np.complex128)
+        * np.asarray(resolved_mask, dtype=np.float64)[None, ...]
+    ) / probe_scale
+    coherent_field = np.fft.fft2(
+        truth[:, None, ...] * effective_probe[None, ...], axes=(-2, -1)
+    ).sum(axis=1)
+    forward_amplitude = np.fft.fftshift(
+        np.abs(coherent_field), axes=(-2, -1)
+    ) / float(N)
+
+    measured_squared = np.square(measured, dtype=np.float64)
+    measured_energy = float(measured_squared.sum(dtype=np.float64))
+    mean_sample_energy = float(
+        measured_squared.sum(axis=(-2, -1), dtype=np.float64).mean()
+    )
+    forward_energy = float(
+        np.square(forward_amplitude, dtype=np.float64).sum(dtype=np.float64)
+    )
+    if not math.isfinite(mean_sample_energy) or mean_sample_energy <= 0:
+        raise ValueError("measured_amplitude has degenerate sample energy")
+    if not math.isfinite(forward_energy) or forward_energy <= 0:
+        raise ValueError("object_patches/stored_probe forward has degenerate energy")
+    r = math.sqrt((N**2) / mean_sample_energy)
+    value = r * math.sqrt(measured_energy / forward_energy)
+    if not math.isfinite(value) or value <= 0:
+        raise ValueError("derived amplitude_physics_gain must be positive and finite")
+
+    statistics = {
+        "N": N,
+        "sample_count": measured.shape[0],
+        "probe_mode_count": effective_probe.shape[0],
+        "probe_scale": probe_scale,
+        "probe_normalization_multiplier": float(normalization_multiplier),
+        "effective_probe_multiplier": float(normalization_multiplier)
+        / probe_scale,
+        "probe_mask_settings": {
+            "probe_mask": _mask_control_metadata(probe_mask),
+            "probe_mask_tensor": _mask_control_metadata(probe_mask_tensor),
+            "probe_mask_sigma": float(probe_mask_sigma),
+            "probe_mask_diameter": (
+                None
+                if probe_mask_diameter is None
+                else float(probe_mask_diameter)
+            ),
+        },
+        "mean_sample_measured_energy": mean_sample_energy,
+        "measured_energy": measured_energy,
+        "forward_energy": forward_energy,
+        "r": r,
+    }
+    return _gain_record(
+        value=value,
+        provenance="derived",
+        method=_GAIN_METHOD,
+        version=_GAIN_VERSION,
+        input_statistics=statistics,
+    )
+
+
+derive_amplitude_physics_gain = derive_legacy_amplitude_physics_gain
+
+
+def resolve_amplitude_physics_gain(
+    measured_amplitude: np.ndarray | None = None,
+    object_patches: np.ndarray | None = None,
+    stored_probe: np.ndarray | None = None,
+    *,
+    probe_scale: float,
+    override: float | None = None,
+    physics_forward_mode: str = "amplitude",
+    probe_mask: Any = False,
+    probe_mask_tensor: Any = None,
+    probe_mask_sigma: float = 1.0,
+    probe_mask_diameter: float | None = None,
+) -> AmplitudePhysicsGainRecord:
+    """Resolve override/fixed/derived gain without relabeling provenance."""
+
+    if physics_forward_mode not in {"amplitude", "rectangular_scaled"}:
+        raise ValueError(
+            f"unsupported physics_forward_mode {physics_forward_mode!r}"
+        )
+    if physics_forward_mode == "rectangular_scaled":
+        if override is not None:
+            validate_amplitude_physics_gain(
+                SimpleNamespace(
+                    amplitude_physics_gain=override,
+                    physics_forward_mode=physics_forward_mode,
+                )
+            )
+        return _gain_record(
+            value=1.0,
+            provenance="scale_contract_fixed",
+            method="rectangular_scale_contract_fixed",
+            version=_GAIN_RESOLUTION_VERSION,
+            input_statistics={},
+        )
+    if override is not None:
+        value = validate_amplitude_physics_gain(
+            SimpleNamespace(
+                amplitude_physics_gain=override,
+                physics_forward_mode=physics_forward_mode,
+            )
+        )
+        return _gain_record(
+            value=value,
+            provenance="override",
+            method="advanced_model_override",
+            version=_GAIN_RESOLUTION_VERSION,
+            input_statistics={},
+        )
+    if measured_amplitude is None or object_patches is None or stored_probe is None:
+        raise ValueError(
+            "legacy amplitude gain derivation requires measured_amplitude, "
+            "object_patches, and stored_probe"
+        )
+    return derive_legacy_amplitude_physics_gain(
+        measured_amplitude,
+        object_patches,
+        stored_probe,
+        probe_scale=probe_scale,
+        probe_mask=probe_mask,
+        probe_mask_tensor=probe_mask_tensor,
+        probe_mask_sigma=probe_mask_sigma,
+        probe_mask_diameter=probe_mask_diameter,
+    )
 
 
 def _require_real_floating_tensor(value: Any, name: str) -> torch.Tensor:

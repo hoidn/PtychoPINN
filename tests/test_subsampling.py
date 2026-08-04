@@ -13,6 +13,13 @@ from ptycho.config.config import TrainingConfig, ModelConfig, SamplingConfig
 from ptycho import params
 
 
+def assert_numpy_random_state_equal(test_case, before, after):
+    """Assert equality for the tuple returned by ``np.random.get_state``."""
+    test_case.assertEqual(before[0], after[0])
+    np.testing.assert_array_equal(before[1], after[1])
+    test_case.assertEqual(before[2:], after[2:])
+
+
 class TestSubsampling(unittest.TestCase):
     """Test suite for data subsampling functionality."""
     
@@ -129,6 +136,65 @@ class TestSubsampling(unittest.TestCase):
         # Check that different indices were selected
         # (with high probability for reasonable dataset sizes)
         self.assertFalse(np.array_equal(data1.xcoords, data2.xcoords))
+
+    def test_seeded_subsampling_does_not_mutate_ambient_numpy_state(self):
+        """A reproducible subset must not overwrite NumPy's global RNG stream."""
+        np.random.seed(20260803)
+        state_before = np.random.get_state()
+        original_cwd = Path.cwd()
+
+        with tempfile.TemporaryDirectory() as temporary_cwd:
+            try:
+                import os
+
+                os.chdir(temporary_cwd)
+                load_data(
+                    self.test_data_file.name,
+                    n_subsample=100,
+                    subsample_seed=71,
+                )
+            finally:
+                os.chdir(original_cwd)
+
+        assert_numpy_random_state_equal(
+            self,
+            state_before,
+            np.random.get_state(),
+        )
+
+    def test_subsampling_consumes_passed_generator(self):
+        """Selection must accept and draw from a caller-owned Generator."""
+        data1 = load_data(
+            self.test_data_file.name,
+            n_subsample=100,
+            rng=np.random.default_rng(73),
+        )
+        data2 = load_data(
+            self.test_data_file.name,
+            n_subsample=100,
+            rng=np.random.default_rng(73),
+        )
+        data3 = load_data(
+            self.test_data_file.name,
+            n_subsample=100,
+            rng=np.random.default_rng(74),
+        )
+
+        np.testing.assert_array_equal(data1.sample_indices, data2.sample_indices)
+        self.assertFalse(np.array_equal(data1.sample_indices, data3.sample_indices))
+
+    def test_subsampling_rejects_seed_and_generator_together(self):
+        """The persisted subsample seed and explicit Generator cannot conflict."""
+        with self.assertRaisesRegex(
+            ValueError,
+            "subsample_seed.*rng|rng.*subsample_seed",
+        ):
+            load_data(
+                self.test_data_file.name,
+                n_subsample=100,
+                subsample_seed=79,
+                rng=np.random.default_rng(79),
+            )
     
     def test_subsample_larger_than_dataset(self):
         """Test that requesting more samples than available uses full dataset."""

@@ -14,6 +14,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
     [
         ("scripts/training/train.py", "--train_data_file"),
         ("scripts/inference/inference.py", "--model_path"),
+        ("scripts/simulation/synthetic_pipeline.py", "--output-root"),
     ],
 )
 def test_cli_entrypoint_bootstraps_repo_root_without_pythonpath(

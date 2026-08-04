@@ -10,6 +10,7 @@ requires-python = ">=3.10,<3.12"
 license = {file = "LICENSE"}
 dependencies = [
     "Pillow",
+    "PyYAML",
     "dill",
     "imageio", 
     "ipywidgets",
@@ -32,6 +33,7 @@ dependencies = [
     "tensorflow-metadata",
     "tensorflow-probability",
     "tensordict",
+    "tomli; python_version < '3.11'",
     "torch",
     "tqdm",
     "ujson",
@@ -43,6 +45,7 @@ dynamic = ["version"]
 [project.scripts]
 ptycho_train = "scripts.training.train:main"
 ptycho_inference = "scripts.inference.inference:main"
+ptycho_synthetic = "scripts.simulation.synthetic_pipeline:main"
 
 [tool.setuptools.package-data]
 datasets = ["*.npz"]

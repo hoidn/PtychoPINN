@@ -181,6 +181,7 @@ def _install_training_fakes(
     run_dir,
     *,
     automatic_optimization=False,
+    global_zero=True,
 ):
     automatic_mode = automatic_optimization
     captured = {
@@ -258,6 +259,7 @@ def _install_training_fakes(
             self.accelerator = FakeAccelerator()
             self.precision_plugin = FakePrecisionPlugin()
             self.strategy = FakeStrategy()
+            self.is_global_zero = global_zero
             self.num_devices = kwargs["devices"] if isinstance(kwargs["devices"], int) else 1
             self.device_ids = list(range(self.num_devices))
 
@@ -891,9 +893,9 @@ def test_metadata_logger_handles_checkpointing_without_best_model(tmp_path):
 def test_training_result_run_dir_is_path_on_nonzero_rank(tmp_path, monkeypatch):
     run_dir = tmp_path / "run"
     run_dir.mkdir()
-    _install_training_fakes(monkeypatch, run_dir)
+    _install_training_fakes(monkeypatch, run_dir, global_zero=False)
     monkeypatch.setattr(train_module, "set_seed", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(train_module, "is_effectively_global_rank_zero", lambda: False)
+    monkeypatch.setattr(train_module, "is_effectively_global_rank_zero", lambda: True)
 
     result = train_module.main(
         tmp_path / "data",

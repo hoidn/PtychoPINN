@@ -1,16 +1,12 @@
-"""VARPRO-SOLVE-UNITS-001: explicit legacy VarPro must compare
-observed diffraction and basis images in the SAME units the training loss used.
+"""VARPRO-SOLVE-UNITS-001: detector observations and basis must share units.
 
-Training (physics_forward_mode='rectangular_scaled') converges the object so
-that ``I_obs ~= sum_p |F{output_scale * (s1*P*Re(O) + i*s2*P*Im(O))}|^2`` on the
-FULL detector frame, with ``output_scale = sqrt(1/(probe_scaling^2 *
-physics_scale + 1e-9))`` (ptycho_torch/model.py::PtychoPINN_Lightning.
-compute_loss rect branch; RectangularScaledDiffraction.forward). The
-inference-side solve in ``reassembly.reconstruct_image_barycentric`` must
-therefore accumulate full-frame ``I_raw`` against a basis with that same
-``output_scale`` folded in -- so that on a converged model it recovers
-s1 ~= s2 ~= 1 instead of absorbing ``output_scale`` x center-crop distortion
-(measured 5.49/22.49 on the mainparity_p1full/gs1_trainable checkpoint).
+Legacy ``images`` are normalized diffraction amplitudes while VarPro's basis
+images are detector intensities.  The reconstruction solve must square the
+full-frame legacy observation exactly once.  Amplitude-mode inference also
+receives a normalized training probe, so its VarPro basis must undo that probe
+normalization to return the object in the acquisition-probe gauge.  CI already
+provides physical count intensity and is covered by its independent oracle
+tests in ``test_absolute_scaling_varpro.py``.
 """
 
 import dataclasses
@@ -127,7 +123,15 @@ def _training_unit_intensity(probe, textures, s1, s2, out_scale):
     return torch.sum(torch.abs(psi_f) ** 2, dim=2)
 
 
-def _build_synthetic_case(s1_true: float, s2_true: float, *, com: "torch.Tensor | None" = None):
+def _build_synthetic_case(
+    s1_true: float,
+    s2_true: float,
+    *,
+    physics_forward_mode: str = "rectangular_scaled",
+    output_scale: float = _OUT_SCALE,
+    probe_scaling: float = 1.0,
+    com: "torch.Tensor | None" = None,
+):
     torch.manual_seed(7)
     n, C, P = 4, 1, 1
 
@@ -137,18 +141,30 @@ def _build_synthetic_case(s1_true: float, s2_true: float, *, com: "torch.Tensor 
         indexing="ij",
     )
     disk = torch.exp(-(xx ** 2 + yy ** 2) / (2 * (_N / 6) ** 2))
-    probe = (disk * torch.exp(1j * 0.3 * xx / _N)).to(torch.complex64)
-    probe = probe.view(1, 1, P, _N, _N).expand(C, C, P, _N, _N)[0:1]
+    probe_physical = (disk * torch.exp(1j * 0.3 * xx / _N)).to(torch.complex64)
+    probe_physical = probe_physical.view(1, 1, P, _N, _N).expand(
+        C, C, P, _N, _N
+    )[0:1]
+    probe_training = probe_physical * probe_scaling
 
     textures = (0.8 + 0.2 * torch.rand(n, C, _N, _N)) * torch.exp(
         1j * 0.4 * (torch.rand(n, C, _N, _N) - 0.5)
     )
     textures = textures.to(torch.complex64)
 
-    probe_batch = probe.expand(n, C, P, _N, _N)
+    if physics_forward_mode == "rectangular_scaled":
+        detector_probe = probe_training
+        detector_scale = output_scale
+    elif physics_forward_mode == "amplitude":
+        detector_probe = probe_physical
+        detector_scale = 1.0
+    else:
+        raise ValueError(f"unsupported test mode: {physics_forward_mode!r}")
+    probe_batch = detector_probe.expand(n, C, P, _N, _N)
     I_obs = _training_unit_intensity(
-        probe_batch, textures, s1_true, s2_true, _OUT_SCALE
+        probe_batch, textures, s1_true, s2_true, detector_scale
     )
+    measured_amplitude = torch.sqrt(torch.clamp_min(I_obs, 0.0))
 
     coords = torch.tensor(
         [[96.0, 96.0], [104.0, 96.0], [96.0, 104.0], [104.0, 104.0]]
@@ -156,16 +172,24 @@ def _build_synthetic_case(s1_true: float, s2_true: float, *, com: "torch.Tensor 
 
     td = TensorDict(
         {
-            "images": I_obs,
+            "images": measured_amplitude,
             "coords_relative": torch.zeros(n, C, 1, 2),
             "coords_global": coords,
             "rms_scaling_constant": torch.ones(n, 1, 1, 1),
-            # sqrt(1/(probe_scaling^2 * physics_scale + 1e-9)) == _OUT_SCALE
-            "physics_scaling_constant": torch.full((n, 1, 1, 1), 1.0 / _OUT_SCALE ** 2),
+            # sqrt(1/(probe_scaling^2 * physics_scale)) == output_scale.
+            "physics_scaling_constant": torch.full(
+                (n, 1, 1, 1),
+                1.0 / (probe_scaling ** 2 * output_scale ** 2),
+            ),
         },
         batch_size=[n],
     )
-    dataset = _SyntheticVarProDataset(td, probe[0], torch.ones(1, 1, 1, 1), com=com)
+    dataset = _SyntheticVarProDataset(
+        td,
+        probe_training[0],
+        torch.full((1, 1, 1, 1), probe_scaling),
+        com=com,
+    )
     model = _FixedTextureModel(textures)
     return model, dataset
 
@@ -190,17 +214,36 @@ def _run_reconstruction(model, dataset, *, varpro_scaling: bool,
     )
 
 
-def test_varpro_solve_recovers_known_scalars_from_training_unit_observations():
-    """Observations generated at KNOWN (s1, s2) = (1.3, 0.7) in the training
-    count-unit convention: the solve must recover them. Pre-fix (units
-    mismatch: cropped I_raw vs unscaled cropped basis) it instead recovers
-    ~output_scale x crop-distorted scalars (order 10, the 5.49/22.49 defect
-    measured on the real checkpoint)."""
+def test_legacy_rectangular_varpro_squares_amplitude_before_intensity_solve():
+    """The output-scale-folded legacy basis is fit to squared amplitude."""
     s1_true, s2_true = 1.3, 0.7
     model, dataset = _build_synthetic_case(s1_true, s2_true)
 
     _canvas, _subset, stats, _prescale = _run_reconstruction(
         model, dataset, varpro_scaling=True
+    )
+    s1, s2 = float(stats[4]), float(stats[5])
+
+    assert s1 == pytest.approx(s1_true, rel=5e-2), f"s1={s1} (true {s1_true})"
+    assert s2 == pytest.approx(s2_true, rel=5e-2), f"s2={s2} (true {s2_true})"
+
+
+def test_legacy_amplitude_varpro_uses_physical_probe_gauge():
+    """Amplitude mode must undo training-probe normalization for VarPro."""
+    s1_true, s2_true = 1.3, 0.7
+    model, dataset = _build_synthetic_case(
+        s1_true,
+        s2_true,
+        physics_forward_mode="amplitude",
+        output_scale=1.0,
+        probe_scaling=2.5,
+    )
+
+    _canvas, _subset, stats, _prescale = _run_reconstruction(
+        model,
+        dataset,
+        varpro_scaling=True,
+        physics_forward_mode="amplitude",
     )
     s1, s2 = float(stats[4]), float(stats[5])
 
@@ -224,15 +267,13 @@ def test_varpro_solve_is_unit_for_converged_model_at_unit_scalars():
 
 
 def test_amplitude_mode_takes_scale_none_branch_matching_pre_fix_basis():
-    """Amplitude-mode models (physics_forward_mode default 'amplitude') must
-    NOT get the rectangular_scaled output_scale fold: the reviewer-required
-    guard routes them through ``compute_varpro_basis(probe, a_tilde, b_tilde)``
-    (``scale=None``), which is byte-identical to the pre-d755b2ae unscaled
-    basis call (locked down by
-    ``test_compute_varpro_basis_default_scale_is_identity`` above). Verify by
-    recomputing the full-frame reference basis directly and comparing against
-    the loop's returned Psi_a/Psi_b diagnostics."""
-    model, dataset = _build_synthetic_case(1.0, 1.0)
+    """Amplitude mode uses the physical probe without rectangular scaling."""
+    model, dataset = _build_synthetic_case(
+        1.0,
+        1.0,
+        physics_forward_mode="amplitude",
+        output_scale=1.0,
+    )
 
     _canvas, _subset, stats, _prescale = _run_reconstruction(
         model, dataset, varpro_scaling=True, physics_forward_mode="amplitude",

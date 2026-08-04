@@ -393,12 +393,15 @@ class PtychoDataset(Dataset):
     data_config: DataConfig instance, expected to have attributes like x_bounds, y_bounds, C, N, etc.
     data_dir: Directory for memory map files.
     remake_map: Boolean, if True, recreate the memory map.
+    require_complete_group_coverage: Reconstruction-only Nearest policy that
+        repairs missing eligible participants while preserving existing rows.
 
     """
     def __init__(self, ptycho_dir: str, model_config: 'ModelConfig', data_config: 'DataConfig',
                  training_config: 'TrainingConfig' = None,
                  data_dir: str = 'data/memmap', remake_map: bool = False,
-                 defer_ci_statistics: bool = False):
+                 defer_ci_statistics: bool = False,
+                 require_complete_group_coverage: bool = False):
         
         # --- Initial loading ---
         self.model_config = model_config
@@ -406,6 +409,13 @@ class PtychoDataset(Dataset):
         self.object_compatibility = resolve_model_object_compatibility(model_config)
         self.ci_contract_active = _ci_profile_active(model_config, data_config)
         self.defer_ci_statistics = defer_ci_statistics
+        if not isinstance(require_complete_group_coverage, bool):
+            raise TypeError(
+                "require_complete_group_coverage must be a bool"
+            )
+        self.require_complete_group_coverage = (
+            require_complete_group_coverage
+        )
         self.is_ddp_active = is_ddp_initialized_and_active()
         self.current_rank = get_current_rank()
         self.data_dict = {} #Includes important tensors that don't need to be memory mapped
@@ -664,7 +674,10 @@ class PtychoDataset(Dataset):
                     neighbor_function,
                     valid_indices,
                     self.data_config, C=self.data_config.C,
-                    return_center_indices=True)
+                    return_center_indices=True,
+                    ensure_complete_coverage=(
+                        self.require_complete_group_coverage
+                    ))
                 nn_indices = nn_indices.astype(np.int64)
                 grouping_per_file.append(
                     (
@@ -719,6 +732,9 @@ class PtychoDataset(Dataset):
             "scale_contract_version": contract_version,
             "measurement_domain": measurement_domain,
             "required_fields": sorted(required_fields),
+            "require_complete_group_coverage": (
+                self.require_complete_group_coverage
+            ),
         }
 
     def _mmap_rebuild_error(self, reason):
@@ -749,10 +765,14 @@ class PtychoDataset(Dataset):
             "scale_contract_version",
             "measurement_domain",
             "required_fields",
+            "require_complete_group_coverage",
         ):
-            if manifest.get(field) != expected[field]:
+            observed = manifest.get(field)
+            if field == "require_complete_group_coverage":
+                observed = manifest.get(field, False)
+            if observed != expected[field]:
                 raise self._mmap_rebuild_error(
-                    f"manifest {field}={manifest.get(field)!r}, "
+                    f"manifest {field}={observed!r}, "
                     f"expected {expected[field]!r}"
                 )
 
@@ -765,7 +785,15 @@ class PtychoDataset(Dataset):
             )
     
     @classmethod
-    def from_existing_map(cls, map_path, model_config, data_config, current_rank = 0, is_ddp_active = False):
+    def from_existing_map(
+        cls,
+        map_path,
+        model_config,
+        data_config,
+        current_rank=0,
+        is_ddp_active=False,
+        require_complete_group_coverage=False,
+    ):
         """
         Creates data instance from existing memory map. Do NOT run without a memory map!
 
@@ -789,6 +817,9 @@ class PtychoDataset(Dataset):
             data_config,
         )
         instance.defer_ci_statistics = False
+        instance.require_complete_group_coverage = (
+            require_complete_group_coverage
+        )
         instance.current_rank = current_rank
         instance.is_ddp_active = is_ddp_active
 

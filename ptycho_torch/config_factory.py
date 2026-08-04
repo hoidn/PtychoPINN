@@ -238,6 +238,99 @@ class InferencePayload:
     overrides_applied: Dict[str, Any] = field(default_factory=dict)  # Audit trail
 
 
+def build_training_factory_overrides(
+    config: TFTrainingConfig,
+) -> Dict[str, Any]:
+    """Project a public config into the shared historical factory baseline."""
+
+    if not isinstance(config, TFTrainingConfig):
+        raise TypeError("config must be a public TrainingConfig")
+    from ptycho.config.config import resolve_model_object_policy
+
+    model = resolve_model_object_policy(
+        config.model,
+        backend="torch",
+        warn_deprecated=False,
+    )
+    mode = {
+        "pinn": "Unsupervised",
+        "supervised": "Supervised",
+    }[model.model_type]
+    data = config.data
+    sampling = config.sampling
+    loss = config.loss
+    gradient_clip = config.gradient_clip
+    optimizer = config.optimizer
+    scheduler = config.scheduler
+    overrides: Dict[str, Any] = {
+        "n_groups": sampling.n_groups,
+        "gridsize": model.gridsize,
+        "architecture": model.architecture,
+        "model_type": mode,
+        "amp_activation": model.amp_activation,
+        "n_filters_scale": model.n_filters_scale,
+        "object_layout": model.object_layout,
+        "training_canvas": model.training_canvas,
+        "training_patch_weighting": model.training_patch_weighting,
+        "probe_big": model.probe_big,
+        "probe_mask": model.probe_mask,
+        "probe_mask_sigma": model.probe_mask_sigma,
+        "probe_mask_diameter": model.probe_mask_diameter,
+        "pad_object": model.pad_object,
+        "probe_scale": model.probe_scale,
+        "gaussian_smoothing_sigma": model.gaussian_smoothing_sigma,
+        "nphotons": data.nphotons,
+        "neighbor_count": sampling.neighbor_count,
+        "max_epochs": config.nepochs,
+        "batch_size": config.batch_size,
+        "subsample_seed": sampling.subsample_seed,
+        "enable_oversampling": sampling.enable_oversampling,
+        "neighbor_pool_size": sampling.neighbor_pool_size,
+        "sequential_sampling": sampling.sequential_sampling,
+        "test_data_file": data.test_data_file,
+        "torch_loss_mode": loss.torch_loss_mode,
+        "torch_mae_pred_l2_match_target": (
+            loss.torch_mae_pred_l2_match_target
+        ),
+        "intensity_scale_trainable": config.intensity_scale_trainable,
+        "gradient_clip_val": gradient_clip.val,
+        "gradient_clip_algorithm": gradient_clip.algorithm,
+        "optimizer": optimizer.algorithm,
+        "momentum": optimizer.sgd.momentum,
+        "weight_decay": optimizer.weight_decay,
+        "adam_beta1": optimizer.adam.beta1,
+        "adam_beta2": optimizer.adam.beta2,
+        "scheduler": scheduler.kind,
+        "lr_warmup_epochs": scheduler.lr_warmup_epochs,
+        "lr_min_ratio": scheduler.lr_min_ratio,
+        "plateau_factor": scheduler.plateau_factor,
+        "plateau_patience": scheduler.plateau_patience,
+        "plateau_min_lr": scheduler.plateau_min_lr,
+        "plateau_threshold": scheduler.plateau_threshold,
+        "log_grad_norm": getattr(config, "log_grad_norm", False),
+        "grad_norm_log_freq": getattr(config, "grad_norm_log_freq", 1),
+    }
+    if model.model_type == "supervised":
+        overrides["torch_loss_mode"] = "mae"
+    if sampling.n_subsample is not None:
+        overrides["n_subsample"] = sampling.n_subsample
+    for name in (
+        "fno_modes",
+        "fno_width",
+        "fno_blocks",
+        "fno_cnn_blocks",
+        "fno_input_transform",
+        "learned_input_channels",
+        "max_hidden_channels",
+        "resnet_width",
+        "generator_output_mode",
+    ):
+        value = getattr(model, name, None)
+        if value is not None:
+            overrides[name] = value
+    return overrides
+
+
 def _load_nphotons_from_metadata(data_file: Path) -> Optional[float]:
     """Return nphotons from embedded NPZ metadata if present."""
     import json
@@ -338,7 +431,7 @@ def _resolve_training_payload(
         ...     ),
         ... )
         >>> assert isinstance(payload.tf_training_config, TrainingConfig)
-        >>> assert payload.tf_training_config.n_groups == 512
+        >>> assert payload.tf_training_config.sampling.n_groups == 512
 
     See also:
         - Design: plans/active/ADR-003-BACKEND-API/reports/.../factory_design.md §3.1

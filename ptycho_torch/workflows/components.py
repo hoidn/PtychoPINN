@@ -53,6 +53,7 @@ Artifacts:
 """
 
 # Standard library imports (no torch dependency)
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 import io
 import logging
@@ -70,14 +71,18 @@ from ptycho.config.legacy_state import (
 from ptycho.metadata import MetadataManager
 from ptycho.raw_data import RawData
 from ptycho_torch.scaling_contract import (
+    AmplitudePhysicsGainRecord,
     CI_SCALE_CONTRACT,
     LEGACY_SCALE_CONTRACT,
     NORMALIZED_AMPLITUDE,
     CIExperimentStatistics,
     adapt_normalized_amplitude_to_ci,
+    amplitude_physics_gain_record_from_json,
+    amplitude_physics_gain_record_to_json,
     derive_ci_experiment_statistics,
     ci_scaling_active,
     resolve_scale_contract,
+    validate_amplitude_physics_gain,
     validate_scale_contract,
 )
 from ptycho_torch.object_compatibility import resolve_model_object_compatibility
@@ -101,6 +106,10 @@ try:
         PrebuiltPtychoDataModule,
         is_spawn_strategy,
     )
+    from ptycho_torch.runtime_provenance import (
+        build_effective_runtime as _build_effective_runtime,
+        write_effective_runtime_json,
+    )
 except ImportError as e:
     # If Phase C/D3 modules not available, raise actionable error
     raise RuntimeError(
@@ -113,6 +122,7 @@ except ImportError as e:
 logger = logging.getLogger(__name__)
 
 _BUNDLE_SCALING_METADATA = "torch_scaling_metadata.pt"
+_BUNDLE_AMPLITUDE_PHYSICS_GAIN_RECORD = "amplitude_physics_gain_record.json"
 
 
 def _validate_training_execution_input(
@@ -178,7 +188,14 @@ class _ResolvedPrebuiltPtychoDataModule(PrebuiltPtychoDataModule):
         return self._dataloader(self.val_dataset, shuffle=False)
 
 
-def _persist_bundle_scaling_metadata(archive_path: Path, model) -> None:
+def _persist_bundle_scaling_metadata(
+    archive_path: Path,
+    model,
+    *,
+    amplitude_physics_gain_record: Optional[
+        AmplitudePhysicsGainRecord
+    ] = None,
+) -> None:
     """Append the torch config and frozen CI statistics needed for strict reload."""
     statistics = model.get_ci_statistics()
     profile = resolve_scale_contract(
@@ -224,6 +241,11 @@ def _persist_bundle_scaling_metadata(archive_path: Path, model) -> None:
         model.inference_config,
         ci_statistics=serialized_statistics,
     )
+    sidecar_json = (
+        amplitude_physics_gain_record_to_json(amplitude_physics_gain_record)
+        if amplitude_physics_gain_record is not None
+        else None
+    )
     buffer = io.BytesIO()
     torch.save(payload, buffer)
 
@@ -235,7 +257,12 @@ def _persist_bundle_scaling_metadata(archive_path: Path, model) -> None:
         members = {
             info.filename: archive.read(info.filename)
             for info in archive.infolist()
-            if info.filename not in {"manifest.dill", _BUNDLE_SCALING_METADATA}
+            if info.filename
+            not in {
+                "manifest.dill",
+                _BUNDLE_SCALING_METADATA,
+                _BUNDLE_AMPLITUDE_PHYSICS_GAIN_RECORD,
+            }
         }
         manifest = dill.loads(archive.read("manifest.dill"))
     validate_torch_bundle_manifest(manifest)
@@ -255,6 +282,11 @@ def _persist_bundle_scaling_metadata(archive_path: Path, model) -> None:
             for name, content in members.items():
                 archive.writestr(name, content)
             archive.writestr(_BUNDLE_SCALING_METADATA, buffer.getvalue())
+            if sidecar_json is not None:
+                archive.writestr(
+                    _BUNDLE_AMPLITUDE_PHYSICS_GAIN_RECORD,
+                    sidecar_json.encode("utf-8"),
+                )
         os.replace(temporary_name, archive_path)
     finally:
         if os.path.exists(temporary_name):
@@ -274,6 +306,18 @@ def _read_bundle_scaling_metadata(archive_path: Path):
             map_location="cpu",
             weights_only=False,
         )
+
+
+def _read_bundle_amplitude_physics_gain_record(
+    archive_path: Path,
+) -> Optional[AmplitudePhysicsGainRecord]:
+    if not archive_path.is_file():
+        return None
+    with zipfile.ZipFile(archive_path, "r") as archive:
+        if _BUNDLE_AMPLITUDE_PHYSICS_GAIN_RECORD not in archive.namelist():
+            return None
+        encoded = archive.read(_BUNDLE_AMPLITUDE_PHYSICS_GAIN_RECORD)
+    return amplitude_physics_gain_record_from_json(encoded)
 
 
 def _decode_bundle_metadata(metadata):
@@ -637,6 +681,10 @@ def run_cdi_example_torch(
     overrides: Optional[dict] = None,
     *,
     resolved_payload: Optional[TrainingPayload] = None,
+    amplitude_physics_gain_record: Optional[
+        AmplitudePhysicsGainRecord
+    ] = None,
+    torch_training_seed: Optional[int] = None,
 ) -> Tuple[Optional[Any], Optional[Any], Dict[str, Any]]:
     """
     Run the main CDI example execution flow using PyTorch backend.
@@ -661,6 +709,10 @@ def run_cdi_example_torch(
                          control. The factory resolves it exactly once.
         overrides: Optional torch-only factory overrides forwarded unchanged to
             the Lightning training boundary.
+        amplitude_physics_gain_record: Optional provenance record for the
+            already-resolved scalar persisted in the strict bundle sidecar.
+        torch_training_seed: Optional dedicated seed for Torch parameter and
+            dataloader initialization.
 
     Returns:
         Tuple containing:
@@ -708,12 +760,21 @@ def run_cdi_example_torch(
         training_kwargs["overrides"] = overrides
     if resolved_payload is not None:
         training_kwargs["resolved_payload"] = resolved_payload
+    if torch_training_seed is not None:
+        training_kwargs["torch_training_seed"] = torch_training_seed
     train_results = train_cdi_model_torch(
         train_data,
         test_data,
         config,
         **training_kwargs,
     )
+    if amplitude_physics_gain_record is not None:
+        train_results["amplitude_physics_gain_record"] = (
+            amplitude_physics_gain_record
+        )
+        train_results["amplitude_physics_gain_metadata"] = (
+            amplitude_physics_gain_record.to_metadata()
+        )
 
     # Step 2: Initialize return values for reconstruction outputs
     recon_amp, recon_phase = None, None
@@ -757,7 +818,19 @@ def run_cdi_example_torch(
                 "get_ci_statistics",
             )
         ):
-            _persist_bundle_scaling_metadata(bundle_path, persisted_model)
+            _persist_bundle_scaling_metadata(
+                bundle_path,
+                persisted_model,
+                amplitude_physics_gain_record=(
+                    amplitude_physics_gain_record
+                ),
+            )
+        elif amplitude_physics_gain_record is not None:
+            raise RuntimeError(
+                "Cannot persist amplitude_physics_gain_record because the "
+                "training bundle or resolved model metadata is unavailable."
+            )
+        train_results["bundle_path"] = bundle_path
         logger.info(f"Models saved successfully to {archive_path}.zip")
     else:
         logger.debug("Skipping model persistence (no output_dir or no models in train_results)")
@@ -864,11 +937,33 @@ def _ensure_container(
     )
 
 
+def _resolve_torch_training_seed(
+    config: Optional[TrainingConfig],
+    torch_training_seed: Optional[int],
+) -> int:
+    """Resolve the dedicated Torch stream or the direct-call fallback."""
+
+    if torch_training_seed is None:
+        sampling = getattr(config, "sampling", None)
+        configured_seed = getattr(sampling, "subsample_seed", None)
+        torch_training_seed = 42 if configured_seed is None else configured_seed
+    if (
+        isinstance(torch_training_seed, bool)
+        or not isinstance(torch_training_seed, int)
+    ):
+        raise TypeError("torch_training_seed must be a nonnegative integer")
+    if torch_training_seed < 0:
+        raise ValueError("torch_training_seed must be a nonnegative integer")
+    return torch_training_seed
+
+
 def _build_lightning_dataloaders(
     train_container: Union['PtychoDataContainerTorch', Dict, 'PtychoDataset'],
     test_container: Optional[Union['PtychoDataContainerTorch', Dict, 'PtychoDataset']],
     config: Optional[TrainingConfig],
-    payload: Optional[TrainingPayload] = None
+    payload: Optional[TrainingPayload] = None,
+    *,
+    torch_training_seed: Optional[int] = None,
 ):
     """
     Build PyTorch DataLoader instances from container data for Lightning training. This is training-specific,
@@ -949,8 +1044,13 @@ def _build_lightning_dataloaders(
 
     training_config = getattr(payload, "pt_training_config", None) if payload else None
     if training_config is None:
+        public_loss = getattr(config, "loss", None)
         training_config = PTTrainingConfig(
-            torch_loss_mode=getattr(config, "torch_loss_mode", "poisson"),
+            torch_loss_mode=getattr(
+                public_loss,
+                "torch_loss_mode",
+                getattr(config, "torch_loss_mode", "poisson"),
+            ),
         )
 
     resolved_scale_contract = validate_scale_contract(
@@ -970,7 +1070,7 @@ def _build_lightning_dataloaders(
         model_config = config.model
 
     # Set deterministic seed if provided
-    seed = getattr(config, 'subsample_seed', None) or 42
+    seed = _resolve_torch_training_seed(config, torch_training_seed)
     L.seed_everything(seed)
 
     # Extract tensors from container (duck-typing for dict-based test fixtures)
@@ -1562,6 +1662,38 @@ def _move_batch_to_device(batch, device):
     return batch
 
 
+def _effective_dataloader_settings(
+    data_product,
+    train_loader,
+    execution_config,
+):
+    """Return the loader settings used by this Trainer invocation."""
+
+    if isinstance(data_product, PrebuiltPtychoDataModule):
+        worker_kwargs = data_product._resolve_worker_kwargs()
+        return {
+            "num_workers": worker_kwargs["num_workers"],
+            "pin_memory": execution_config.pin_memory,
+            "persistent_workers": worker_kwargs["persistent_workers"],
+            "prefetch_factor": worker_kwargs.get("prefetch_factor"),
+        }
+    num_workers = int(getattr(train_loader, "num_workers", 0))
+    return {
+        "num_workers": num_workers,
+        "pin_memory": bool(getattr(train_loader, "pin_memory", False)),
+        "persistent_workers": (
+            bool(getattr(train_loader, "persistent_workers", False))
+            if num_workers > 0
+            else False
+        ),
+        "prefetch_factor": (
+            getattr(train_loader, "prefetch_factor", None)
+            if num_workers > 0
+            else None
+        ),
+    }
+
+
 def _train_with_lightning(
     train_container: Union['PtychoDataContainerTorch','PtychoDataset'],
     test_container: Optional['PtychoDataContainerTorch'],
@@ -1570,6 +1702,7 @@ def _train_with_lightning(
     overrides: Optional[dict] = None,
     *,
     resolved_payload: Optional[TrainingPayload] = None,
+    torch_training_seed: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
     Orchestrate Lightning trainer execution for PyTorch model training.
@@ -1618,9 +1751,7 @@ def _train_with_lightning(
 
     # B2.2: torch-optional imports with POLICY-001 compliant error messaging
     try:
-        import torch
         import lightning.pytorch as L
-        from ptycho_torch.model import PtychoPINN_Lightning
         from ptycho_torch.train_utils import PrebuiltPtychoDataModule
     except ImportError as e:
         raise RuntimeError(
@@ -1638,64 +1769,11 @@ def _train_with_lightning(
     # CRITICAL (Phase C4.D B2): Factory ensures C = gridsize**2 is propagated to
     # pt_model_config.C_model and pt_model_config.C_forward, preventing channel mismatch
     # when gridsize > 1 (see docs/findings.md#BUG-TF-001).
-    from ptycho_torch.config_factory import resolve_training_payload
-
-    # Build factory overrides from TrainingConfig fields
-    # Factory requires n_groups in overrides dict; train_data_file and output_dir as positional
-    # Note: Factory expects model_type in PyTorch naming ('Unsupervised'/'Supervised')
-    #       but TrainingConfig uses TensorFlow naming ('pinn'/'supervised')
-    mode_map = {'pinn': 'Unsupervised', 'supervised': 'Supervised'}
-    from ptycho.config.config import resolve_model_object_policy
-    resolved_public_model = resolve_model_object_policy(
-        config.model,
-        backend="torch",
-        warn_deprecated=False,
+    from ptycho_torch.config_factory import (
+        build_training_factory_overrides,
+        resolve_training_payload,
     )
-    factory_overrides = {
-        'n_groups': config.sampling.n_groups,  # Required by factory validation
-        'gridsize': config.model.gridsize,
-        'architecture': config.model.architecture,
-        'model_type': mode_map.get(config.model.model_type, 'Unsupervised'),
-        'amp_activation': config.model.amp_activation,
-        'n_filters_scale': config.model.n_filters_scale,
-        'object_layout': resolved_public_model.object_layout,
-        'training_canvas': resolved_public_model.training_canvas,
-        'training_patch_weighting': (
-            resolved_public_model.training_patch_weighting
-        ),
-        'probe_big': resolved_public_model.probe_big,
-        'probe_mask': config.model.probe_mask,
-        'probe_mask_sigma': getattr(config.model, 'probe_mask_sigma', 1.0),
-        'probe_mask_diameter': getattr(config.model, 'probe_mask_diameter', None),
-        'pad_object': resolved_public_model.pad_object,
-        'nphotons': config.data.nphotons,
-        'neighbor_count': config.sampling.neighbor_count,
-        'max_epochs': config.nepochs,
-        'batch_size': getattr(config, 'batch_size', 16),
-        'subsample_seed': config.sampling.subsample_seed,
-        'torch_loss_mode': config.loss.torch_loss_mode,
-        'torch_mae_pred_l2_match_target': config.loss.torch_mae_pred_l2_match_target,
-        'log_grad_norm': getattr(config, 'log_grad_norm', False),
-        'grad_norm_log_freq': getattr(config, 'grad_norm_log_freq', 1),
-    }
-    if config.model.model_type == 'supervised':
-        # Preserve the supported supervised contract, but resolve it before the
-        # structural ModelSpec is sealed instead of mutating the model later.
-        factory_overrides['torch_loss_mode'] = 'mae'
-    for field_name in (
-        'fno_modes',
-        'fno_width',
-        'fno_blocks',
-        'fno_cnn_blocks',
-        'fno_input_transform',
-        'learned_input_channels',
-    ):
-        field_val = getattr(config.model, field_name, None)
-        if field_val is not None:
-            factory_overrides[field_name] = field_val
-    generator_output_mode = getattr(config.model, 'generator_output_mode', None)
-    if generator_output_mode is not None:
-        factory_overrides['generator_output_mode'] = generator_output_mode
+    factory_overrides = build_training_factory_overrides(config)
     # Caller-supplied torch-only overrides take highest precedence. This is how
     # ModelConfig knobs that live exclusively on the torch-side config_params.ModelConfig
     # (training_patch_weighting, physics_forward_mode, cnn_output_mode,
@@ -1723,6 +1801,14 @@ def _train_with_lightning(
     pt_training_config = payload.pt_training_config
     execution_config = payload.execution_config
 
+    # Seed before module construction and reuse the same stream at the loader
+    # boundary so initialization and sampling are reproducible together.
+    effective_torch_training_seed = _resolve_torch_training_seed(
+        config,
+        torch_training_seed,
+    )
+    L.seed_everything(effective_torch_training_seed)
+
     resolved_scale_contract = validate_scale_contract(
         pt_data_config,
         pt_model_config,
@@ -1746,7 +1832,11 @@ def _train_with_lightning(
 
     # B2.3: Build dataloaders via helper
     data_product = _build_lightning_dataloaders(
-        train_container, test_container, config, payload = payload
+        train_container,
+        test_container,
+        config,
+        payload=payload,
+        torch_training_seed=effective_torch_training_seed,
     )
     
     # Data product is a Lightning datamodule for DDP-style launchers and a
@@ -1951,7 +2041,7 @@ def _train_with_lightning(
         )
 
     trainer_kwargs = dict(
-        max_epochs=config.nepochs,
+        max_epochs=pt_training_config.epochs,
         # Execution config overrides (ADR-003 Phase C3)
         accelerator=execution_config.accelerator,  # CPU-safe default, GPU via override
         strategy=execution_config.strategy,
@@ -1976,6 +2066,17 @@ def _train_with_lightning(
     if automatic_optimization:
         trainer_kwargs["gradient_clip_algorithm"] = effective_clip_algorithm
     trainer = L.Trainer(**trainer_kwargs)
+    effective_runtime = _build_effective_runtime(
+        effective_torch_training_seed,
+        trainer_kwargs,
+        execution_config,
+        _effective_dataloader_settings(
+            data_product,
+            train_loader,
+            execution_config,
+        ),
+        trainer=trainer,
+    )
 
     rect_s1s2_calibration = None
     if getattr(pt_model_config, "rect_s1s2_init", "ones") == "data":
@@ -1994,7 +2095,10 @@ def _train_with_lightning(
         )
 
     # B2.6: Execute training cycle
-    logger.info(f"Starting Lightning training: {config.nepochs} epochs")
+    logger.info(
+        "Starting Lightning training: %s epochs",
+        pt_training_config.epochs,
+    )
     if isinstance(data_product, PrebuiltPtychoDataModule):
         try:
             trainer.fit(model, datamodule = data_product)
@@ -2007,6 +2111,12 @@ def _train_with_lightning(
         except Exception as e:
             logger.error(f"Lightning training failed: {e}")
             raise RuntimeError(f"Lightning training failed. See logs for details.") from e
+
+    if bool(getattr(trainer, "is_global_zero", False)):
+        write_effective_runtime_json(
+            output_dir / "effective_runtime.json",
+            effective_runtime,
+        )
 
     # Extract loss history from the custom callback
     # The _LossHistoryCallback collects losses per epoch during training
@@ -2025,6 +2135,8 @@ def _train_with_lightning(
         "train_container": train_container,
         "test_container": test_container,
         "rect_s1s2_calibration": rect_s1s2_calibration,
+        "execution_config": execution_config,
+        "effective_runtime": effective_runtime,
         "models": {
             "diffraction_to_obj": model,
             "autoencoder": model,
@@ -2305,6 +2417,7 @@ def train_cdi_model_torch(
     overrides: Optional[dict] = None,
     *,
     resolved_payload: Optional[TrainingPayload] = None,
+    torch_training_seed: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
     Train the CDI model using PyTorch Lightning backend.
@@ -2367,6 +2480,8 @@ def train_cdi_model_torch(
         lightning_kwargs["overrides"] = overrides
     if resolved_payload is not None:
         lightning_kwargs["resolved_payload"] = resolved_payload
+    if torch_training_seed is not None:
+        lightning_kwargs["torch_training_seed"] = torch_training_seed
     results = _train_with_lightning(
         train_container,
         test_container,
@@ -2381,63 +2496,43 @@ def train_cdi_model_torch(
     return results
 
 
-@transactional_legacy_params
-def load_inference_bundle_torch(
-    bundle_dir: Union[str, Path],
-    model_name: str = 'diffraction_to_obj',
+@contextmanager
+def _pinned_bundle_snapshot(zip_path: Path):
+    """Yield an immutable private snapshot of one archive generation."""
+    from collections import Counter
+    import shutil
+    import tempfile
+
+    if not zip_path.is_file():
+        raise FileNotFoundError(f"Model archive not found: {zip_path}")
+
+    with tempfile.TemporaryDirectory(
+        prefix="ptycho-torch-bundle-snapshot-"
+    ) as temporary_directory:
+        snapshot_zip_path = Path(temporary_directory) / zip_path.name
+        with zip_path.open("rb") as source, snapshot_zip_path.open("wb") as target:
+            shutil.copyfileobj(source, target)
+
+        with zipfile.ZipFile(snapshot_zip_path, "r") as archive:
+            counts = Counter(info.filename for info in archive.infolist())
+        duplicates = sorted(name for name, count in counts.items() if count > 1)
+        if duplicates:
+            raise ValueError(
+                "Torch bundle contains duplicate archive member(s): "
+                + ", ".join(duplicates)
+            )
+
+        yield snapshot_zip_path.with_suffix(""), snapshot_zip_path
+
+
+def _decode_pinned_inference_bundle(
+    archive_path: Path,
+    zip_path: Path,
     *,
-    scale_contract_version: Optional[str] = None,
-    measurement_domain: Optional[str] = None,
-) -> Tuple[Any, dict]:
-    """
-    Load a trained PyTorch model bundle for inference from a directory.
-
-    This function provides API parity with ptycho.workflows.components.load_inference_bundle,
-    enabling transparent backend selection for model loading.
-
-    Decoding and model reconstruction are explicit and global-free. This
-    legacy/API wrapper commits the validated archive projection only after
-    every declared model role has loaded successfully.
-
-    Args:
-        bundle_dir: Path to the directory containing the wts.h5.zip archive.
-                   Expects TorchModelManager archive format matching TensorFlow baseline.
-        model_name: Name of model to load from dual-model bundle (default: 'diffraction_to_obj')
-
-    Returns:
-        Tuple containing:
-        - models_dict: Dictionary with loaded model (or sentinel when torch unavailable)
-        - params_dict: Configuration dictionary restored from saved bundle
-
-    Raises:
-        ValueError: If bundle archive not found or params.dill incomplete
-        FileNotFoundError: If bundle_dir does not contain wts.h5.zip
-
-    Phase D4.C2 Implementation:
-        - Returns (models_dict, params_dict) matching TensorFlow signature
-        - Commits archived params.cfg only after strict model/weight validation
-
-    Example:
-        >>> models_dict, params_dict = load_inference_bundle_torch("outputs/run_001")
-        >>> # params.cfg now restored with training-time N, gridsize, nphotons
-        >>> # Use models_dict['diffraction_to_obj'] for inference
-    """
-    # Normalize bundle_dir to string for Path compatibility
-    bundle_dir_str = str(bundle_dir)
-
-    # Build archive path following TensorFlow convention (wts.h5.zip in bundle_dir)
-    # TensorFlow baseline: load_inference_bundle expects model_dir containing wts.h5.zip
-    # PyTorch mirrors this: bundle_dir/wts.h5.zip.
-    archive_path = Path(bundle_dir_str) / "wts.h5"
-    zip_path = archive_path.with_suffix(".h5.zip")
-
-    logger.info(f"Loading PyTorch inference bundle from {archive_path}.zip")
-
-    from ptycho_torch.config_factory import resolve_profile_overrides
-    explicit_profile = resolve_profile_overrides({
-        "scale_contract_version": scale_contract_version,
-        "measurement_domain": measurement_domain,
-    })
+    model_name: str,
+    explicit_profile: Optional[Tuple[str, str]],
+) -> Tuple[Any, dict, Optional[AmplitudePhysicsGainRecord]]:
+    """Decode and reconstruct all members from one private snapshot."""
     from ptycho_torch.artifact_schema import (
         ARTIFACT_SCHEMA_V1_VERSION,
         CURRENT_ARTIFACT_SCHEMA_VERSION,
@@ -2449,6 +2544,9 @@ def load_inference_bundle_torch(
     )
     manifest_era = validate_torch_bundle_manifest(manifest)
     metadata = _read_bundle_scaling_metadata(zip_path)
+    amplitude_physics_gain_record = (
+        _read_bundle_amplitude_physics_gain_record(zip_path)
+    )
     if metadata is None:
         known_legacy = (
             params_dict.get("_version") == "2.0-pytorch"
@@ -2472,8 +2570,7 @@ def load_inference_bundle_torch(
         ):
             raise ValueError(
                 "wts.h5.zip root manifest and metadata schemas disagree: "
-                f"manifest={manifest_era!r}, "
-                f"declares {metadata_schema!r}"
+                f"manifest={manifest_era!r}, declares {metadata_schema!r}"
             )
         if (
             manifest_era == "metadata-free-legacy"
@@ -2485,6 +2582,21 @@ def load_inference_bundle_torch(
             )
         identity = _decode_bundle_metadata(metadata)
 
+    if amplitude_physics_gain_record is not None:
+        if identity is None:
+            raise ValueError(
+                "amplitude physics gain sidecar requires persisted ModelSpec "
+                "metadata for its scalar join"
+            )
+        model_gain = validate_amplitude_physics_gain(
+            identity.model_spec.to_model_config()
+        )
+        if amplitude_physics_gain_record.value != model_gain:
+            raise ValueError(
+                "amplitude physics gain record disagrees with persisted "
+                "ModelSpec amplitude_physics_gain"
+            )
+
     models_dict, params_dict, _ = _reconstruct_inference_bundle_explicit(
         archive_path,
         zip_path,
@@ -2494,13 +2606,53 @@ def load_inference_bundle_torch(
         explicit_profile=explicit_profile,
         model_name=model_name,
     )
+    return models_dict, params_dict, amplitude_physics_gain_record
 
-    # Sole compatibility mutation: the transactional decorator commits only
-    # after every decode, profile, construction, and strict weight check passed.
+
+@transactional_legacy_params
+def load_inference_bundle_torch(
+    bundle_dir: Union[str, Path],
+    model_name: str = "diffraction_to_obj",
+    *,
+    scale_contract_version: Optional[str] = None,
+    measurement_domain: Optional[str] = None,
+) -> Tuple[Any, dict]:
+    """Strictly load a trained PyTorch bundle from a pinned snapshot."""
+    archive_path = Path(bundle_dir) / "wts.h5"
+    zip_path = archive_path.with_suffix(".h5.zip")
+    logger.info("Loading PyTorch inference bundle from %s.zip", archive_path)
+
+    from ptycho_torch.config_factory import resolve_profile_overrides
+
+    explicit_profile = resolve_profile_overrides(
+        {
+            "scale_contract_version": scale_contract_version,
+            "measurement_domain": measurement_domain,
+        }
+    )
+    with _pinned_bundle_snapshot(zip_path) as (
+        pinned_archive_path,
+        pinned_zip_path,
+    ):
+        models_dict, params_dict, amplitude_physics_gain_record = (
+            _decode_pinned_inference_bundle(
+                pinned_archive_path,
+                pinned_zip_path,
+                model_name=model_name,
+                explicit_profile=explicit_profile,
+            )
+        )
+
     params.cfg.update(params_dict)
+    returned_params = dict(params_dict)
+    if amplitude_physics_gain_record is not None:
+        returned_params["amplitude_physics_gain_record"] = (
+            amplitude_physics_gain_record
+        )
 
-    logger.info(f"Inference bundle loaded successfully. Models: {list(models_dict.keys())}, Params keys: {list(params_dict.keys())[:5]}...")
-
-    # Return (models_dict, params_dict) matching TensorFlow baseline signature
-    # models_dict already contains both models per Phase C4.D implementation
-    return models_dict, params_dict
+    logger.info(
+        "Inference bundle loaded successfully. Models: %s, Params keys: %s...",
+        list(models_dict),
+        list(params_dict)[:5],
+    )
+    return models_dict, returned_params

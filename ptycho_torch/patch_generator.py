@@ -1,18 +1,27 @@
 
 import numpy as np
 from scipy.spatial import cKDTree, KDTree
-from scipy.sparse import coo_matrix
-from ptycho_torch.config_params import DataConfig, ModelConfig # Removed TrainingConfig
+from ptycho_torch.config_params import DataConfig
 from typing import Tuple, Optional
 #All methods for patch generation that used to be in loader will go here
 #Will be imported into dset_loader for generating patches of grid_size ** 2
+
+
+def _grouping_rng(data_config: DataConfig) -> np.random.Generator:
+    """Create the deterministic local grouping stream for one fresh build."""
+    seed = data_config.subsample_seed
+    if seed is None:
+        seed = 0
+    return np.random.default_rng(seed)
 
 def group_coords(xcoords_full, ycoords_full,
                  xcoords_bounded, ycoords_bounded,
                  neighbor_function,
                  valid_mask,
                  data_config: DataConfig, C: int = None,
-                 return_center_indices: bool = False): # Added data_config
+                 return_center_indices: bool = False,
+                 rng: Optional[np.random.Generator] = None,
+                 ensure_complete_coverage: bool = False): # Added data_config
     """
     Assemble a flat dataset into solution regions using nearest-neighbor grouping.
     ---
@@ -24,11 +33,21 @@ def group_coords(xcoords_full, ycoords_full,
     valid_mask - mask on xcoords_full to get us our indices of interest
     neighbor_function - nearest neighbor calculation function, need to consolidate these all into one call
     data_config - DataConfig class
+    ensure_complete_coverage - for Nearest grouping, deterministically repair
+                               missing eligible participants without changing
+                               rows that already provide complete coverage
 
     Returns:
         nn_indices: shape (M, C), M = total number of solution regions
         coords_nn: shape (M, C, 1, 2)
     """
+
+    if rng is None:
+        rng = _grouping_rng(data_config)
+    elif not isinstance(rng, np.random.Generator):
+        raise TypeError("rng must be a numpy.random.Generator")
+    if not isinstance(ensure_complete_coverage, bool):
+        raise TypeError("ensure_complete_coverage must be a bool")
 
     if C is None:
         C = data_config.C # Use config C
@@ -58,7 +77,8 @@ def group_coords(xcoords_full, ycoords_full,
                 xcoords_full, ycoords_full,
                 xcoords_bounded, ycoords_bounded,
                 valid_mask,
-                data_config)
+                data_config,
+                rng=rng)
             center_indices_global = np.asarray(valid_mask)[center_indices_global]
 
         else:
@@ -71,15 +91,36 @@ def group_coords(xcoords_full, ycoords_full,
             # CRITICAL FIX: Map bounded indices back to global indices
             nn_indices_global = map_bounded_to_global_indices(nn_indices_bounded, valid_mask)
             
-            # Sample and reshape
-            nn_indices = sample_rows(nn_indices_global, C, data_config.n_subsample).reshape(-1, C)
+            # Reconstruction can require the participant union to cover every
+            # eligible center. Keep this opt-in so the established training
+            # grouper and ordinary mmap callers retain their existing draws.
+            nn_indices = sample_rows(
+                nn_indices_global,
+                C,
+                data_config.n_subsample,
+                rng=rng,
+            ).reshape(-1, C)
+            valid_array = np.asarray(valid_mask)
+            if valid_array.dtype == np.bool_:
+                centers = np.flatnonzero(valid_array).astype(np.int64)
+            else:
+                centers = valid_array.astype(np.int64, copy=False)
+            center_indices_global = np.repeat(
+                centers, data_config.n_subsample
+            )
+            if ensure_complete_coverage:
+                if data_config.neighbor_function != 'Nearest':
+                    raise ValueError(
+                        "complete coverage repair supports only Nearest grouping"
+                    )
+                nn_indices = _repair_participant_coverage(
+                    nn_indices,
+                    center_indices_global,
+                )
 
             # Get final array of coordinates using GLOBAL indices
             coords_nn = np.stack([xcoords_full[nn_indices],
                                 ycoords_full[nn_indices]], axis=2)[:, :, None, :]
-            center_indices_global = np.repeat(
-                np.asarray(valid_mask), data_config.n_subsample
-            )
 
     
     if return_center_indices:
@@ -102,8 +143,66 @@ def get_neighbor_indices(xcoords, ycoords, data_config, K = 6):
     tree = cKDTree(points)
 
     # Query for K nearest neighbors for each point
-    distances, nn_indices = tree.query(points, k=K+1)  # +1 because the point itself is included in the results
+    distances, nn_indices = tree.query(
+        points,
+        k=min(K + 1, len(points)),
+    )  # +1 because the point itself is included in the results
     return nn_indices
+
+
+def _repair_participant_coverage(
+    groups: np.ndarray,
+    paired_centers: np.ndarray,
+) -> np.ndarray:
+    """Repair only missing eligible participants using their paired rows.
+
+    A missing center is inserted into one of the groups generated for that
+    center, replacing a participant that occurs elsewhere. This preserves
+    row cardinality/distinctness and never removes the last occurrence of an
+    already covered scan.
+    """
+    repaired = np.array(groups, dtype=np.int64, copy=True)
+    centers = np.asarray(paired_centers, dtype=np.int64).reshape(-1)
+    if repaired.ndim != 2 or repaired.shape[0] != centers.size:
+        raise ValueError("group rows must align with paired center identities")
+    if np.any(repaired < 0):
+        raise ValueError("Nearest grouping produced an invalid scan index")
+    if any(len(set(row.tolist())) != repaired.shape[1] for row in repaired):
+        raise ValueError("Nearest grouping rows must contain distinct scan ids")
+
+    values, frequencies = np.unique(repaired, return_counts=True)
+    counts = {
+        int(value): int(frequency)
+        for value, frequency in zip(values, frequencies, strict=True)
+    }
+    eligible = sorted(set(int(item) for item in centers.tolist()))
+    for missing in (item for item in eligible if counts.get(item, 0) == 0):
+        replacement = None
+        for row_index in np.flatnonzero(centers == missing).tolist():
+            for column_index, participant in enumerate(repaired[row_index]):
+                participant = int(participant)
+                if counts.get(participant, 0) > 1:
+                    replacement = (
+                        int(row_index),
+                        int(column_index),
+                        participant,
+                    )
+                    break
+            if replacement is not None:
+                break
+        if replacement is None:
+            raise ValueError(
+                "cannot repair complete scan coverage without dropping an "
+                f"existing participant: {missing}"
+            )
+        row_index, column_index, participant = replacement
+        repaired[row_index, column_index] = missing
+        counts[participant] -= 1
+        counts[missing] = 1
+
+    if not set(eligible).issubset(set(repaired.reshape(-1).tolist())):
+        raise ValueError("complete scan coverage repair did not converge")
+    return repaired
 
 def get_neighbors_indices_within_bounds(xcoords, ycoords,
                                         data_config, K):
@@ -214,7 +313,10 @@ def get_fixed_quadrant_neighbors_c4(
     xcoords_bounded: np.ndarray,
     ycoords_bounded: np.ndarray,
     valid_mask: np.ndarray,
-    data_config: DataConfig) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    data_config: DataConfig,
+    *,
+    rng: Optional[np.random.Generator] = None,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
 
     """
     Finds groups of 4 neighbors for central points, enforcing a fixed spatial
@@ -259,6 +361,11 @@ def get_fixed_quadrant_neighbors_c4(
                                      [TL, TR, BL, BR] (shape M, 4).
             - final_coords_nn: Coordinates of the neighbors (shape M, 4, 1, 2).
     """
+    if rng is None:
+        rng = _grouping_rng(data_config)
+    elif not isinstance(rng, np.random.Generator):
+        raise TypeError("rng must be a numpy.random.Generator")
+
     k_neighbors_query = getattr(data_config, 'K_quadrant', 60)
 
     if k_neighbors_query <= 4:
@@ -284,6 +391,7 @@ def get_fixed_quadrant_neighbors_c4(
 
     for i in range(n_points_bounded):
         center_coord = points_bounded[i]
+        center_global_index = int(np.asarray(valid_mask)[i])
 
         # Query K nearest neighbors (include self initially)
         # Increase k slightly just in case some neighbours are filtered out by distance
@@ -293,7 +401,7 @@ def get_fixed_quadrant_neighbors_c4(
         # --- Filter Neighbors ---
         valid_neighbor_indices = []
         for k_idx, dist in zip(indices, distances):
-            if k_idx == i:
+            if k_idx == center_global_index:
                 continue
             
             if min_dist <= dist < max_dist:
@@ -340,7 +448,7 @@ def get_fixed_quadrant_neighbors_c4(
         #Add center point in there also
         #Need to append the true index of the point in "points", not in "points_bounded"
         for quad in quad_order:
-            quadrant_candidates[quad].append(valid_mask[i])
+            quadrant_candidates[quad].append(center_global_index)
 
         # # #Check failure conditiont
         # # #Check if center is the only value in at least 2 quadrants
@@ -358,13 +466,13 @@ def get_fixed_quadrant_neighbors_c4(
         for _ in range(data_config.n_subsample):
             center_count = 2
             while center_count > 1:
-                idx_tl = np.random.choice(quadrant_candidates["TL"])
-                idx_tr = np.random.choice(quadrant_candidates["TR"])
-                idx_bl = np.random.choice(quadrant_candidates["BL"])
-                idx_br = np.random.choice(quadrant_candidates["BR"])
+                idx_tl = rng.choice(quadrant_candidates["TL"])
+                idx_tr = rng.choice(quadrant_candidates["TR"])
+                idx_bl = rng.choice(quadrant_candidates["BL"])
+                idx_br = rng.choice(quadrant_candidates["BR"])
 
                 candidate_set = [idx_tl, idx_tr, idx_bl, idx_br]
-                center_count = candidate_set.count(i)
+                center_count = candidate_set.count(center_global_index)
 
             valid_center_indices.append(i)
             valid_neighbor_groups.append(candidate_set)
@@ -385,11 +493,16 @@ def get_fixed_quadrant_neighbors_c4(
     return final_center_indices, final_neighbor_indices, final_coords_nn
 
 
-def sample_rows(indices, n, m):
+def sample_rows(indices, n, m, *, rng: np.random.Generator):
+    if not isinstance(rng, np.random.Generator):
+        raise TypeError("rng must be a numpy.random.Generator")
     N = indices.shape[0]
     result = np.zeros((N, m, n), dtype=int)
     for i in range(N):
-        result[i] = np.array([np.random.choice(indices[i], size=n, replace=False) for _ in range(m)])
+        result[i] = np.array([
+            rng.choice(indices[i], size=n, replace=False)
+            for _ in range(m)
+        ])
     return result
 
 def get_relative_coords(coords_nn, local_offset_sign=-1):

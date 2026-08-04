@@ -124,6 +124,17 @@ local_offset_sign = -1
 key_coords_offsets = 'coords_start_offsets'
 key_coords_relative = 'coords_start_relative'
 
+
+def _resolve_rng(
+    seed: Optional[int],
+    rng: Optional[np.random.Generator],
+) -> np.random.Generator:
+    """Return one caller-owned or locally seeded NumPy generator."""
+    if seed is not None and rng is not None:
+        raise ValueError("seed and rng are mutually exclusive")
+    return rng if rng is not None else np.random.default_rng(seed)
+
+
 class RawData:
     """Core data container for raw ptychographic scan data (NPZ-backed).
 
@@ -369,7 +380,7 @@ class RawData:
         return train_raw_data, test_raw_data
 
     #@debug
-    def generate_grouped_data(self, N, K = 4, nsamples = 1, dataset_path: Optional[str] = None, seed: Optional[int] = None, sequential_sampling: bool = False, gridsize: Optional[int] = None, enable_oversampling: bool = False, neighbor_pool_size: Optional[int] = None):
+    def generate_grouped_data(self, N, K = 4, nsamples = 1, dataset_path: Optional[str] = None, seed: Optional[int] = None, sequential_sampling: bool = False, gridsize: Optional[int] = None, enable_oversampling: bool = False, neighbor_pool_size: Optional[int] = None, *, rng: Optional[np.random.Generator] = None):
         """
         Generate nearest-neighbor solution region grouping with efficient sampling.
         
@@ -404,6 +415,8 @@ class RawData:
             neighbor_pool_size (Optional[int], optional): Pool size K for oversampling. If None,
                                                          defaults to the K parameter. Must be >= C
                                                          when enable_oversampling is True.
+            rng (np.random.Generator, optional): Caller-owned random generator. Mutually
+                                                exclusive with seed.
 
         Returns:
             dict: Dictionary containing grouped data with keys:
@@ -437,6 +450,9 @@ class RawData:
 
         See: docs/debugging/TROUBLESHOOTING.md#shape-mismatch-errors
         """
+        if seed is not None and rng is not None:
+            raise ValueError("seed and rng are mutually exclusive")
+
         # Use explicit gridsize parameter if provided, otherwise fallback to params
         if gridsize is None:
             gridsize = params.get('gridsize', 1)
@@ -506,7 +522,8 @@ class RawData:
                 K=effective_K,
                 C=C,
                 seed=seed,
-                seed_indices=seed_indices
+                seed_indices=seed_indices,
+                rng=rng,
             )
         else:
             # Use the standard method for non-oversampling cases
@@ -516,7 +533,8 @@ class RawData:
                 K=K, 
                 C=C, 
                 seed=seed,
-                seed_indices=seed_indices
+                seed_indices=seed_indices,
+                rng=rng,
             )
         
         logging.info(f"[OVERSAMPLING DEBUG] Generated {len(selected_groups)} groups in total")
@@ -606,7 +624,7 @@ class RawData:
         return dset
 
 
-    def _generate_groups_efficiently(self, nsamples: int, K: int, C: int, seed: Optional[int] = None, seed_indices: Optional[np.ndarray] = None) -> np.ndarray:
+    def _generate_groups_efficiently(self, nsamples: int, K: int, C: int, seed: Optional[int] = None, seed_indices: Optional[np.ndarray] = None, *, rng: Optional[np.random.Generator] = None) -> np.ndarray:
         """
         Efficiently generate coordinate groups using a "sample-then-group" strategy.
         
@@ -620,6 +638,7 @@ class RawData:
             C: Number of coordinates per group (typically gridsize^2)
             seed: Random seed for reproducibility (optional)
             seed_indices: Pre-selected seed indices for sequential sampling (optional)
+            rng: Caller-owned random generator. Mutually exclusive with seed.
             
         Returns:
             np.ndarray: Array of group indices with shape (nsamples, C)
@@ -628,9 +647,11 @@ class RawData:
             ValueError: If K < C or if dataset is too small
         """
         try:
-            # Set random seed if provided (only affects random sampling, not sequential)
-            if seed is not None and seed_indices is None:
-                np.random.seed(seed)
+            local_rng = _resolve_rng(seed, rng)
+            if seed_indices is not None:
+                # Sequential anchors historically ignore the caller seed while
+                # retaining deterministic neighbor selection.
+                local_rng = np.random.default_rng(0)
             
             n_points = len(self.xcoords)
             logging.info(f"[OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples={nsamples}, K={K}, C={C}")
@@ -650,8 +671,6 @@ class RawData:
                 seed_indices = seed_indices[:n_samples_actual]
                 logging.info(f"[OVERSAMPLING DEBUG] Using sequential sampling with {n_samples_actual} seed indices")
                 logging.info(f"Using provided {n_samples_actual} sequential seed indices")
-                # Set a fixed seed for neighbor selection to ensure determinism
-                np.random.seed(0)
             else:
                 # Random sampling: handle edge case where more samples requested than available points
                 if nsamples > n_points:
@@ -665,7 +684,7 @@ class RawData:
                 # Sample seed points randomly
                 all_indices = np.arange(n_points)
                 if n_samples_actual < n_points:
-                    seed_indices = np.random.choice(all_indices, size=n_samples_actual, replace=False)
+                    seed_indices = local_rng.choice(all_indices, size=n_samples_actual, replace=False)
                     logging.info(f"[OVERSAMPLING DEBUG] Randomly sampled {n_samples_actual} seed points")
                     logging.info(f"Sampled {n_samples_actual} seed points from {n_points} total points")
                 else:
@@ -710,10 +729,10 @@ class RawData:
                     
                     # Randomly select C indices from available neighbors
                     if len(available) >= C:
-                        selected = np.random.choice(available, size=C, replace=False)
+                        selected = local_rng.choice(available, size=C, replace=False)
                     else:
                         # If still not enough, allow replacement (edge case for very small datasets)
-                        selected = np.random.choice(available, size=C, replace=True)
+                        selected = local_rng.choice(available, size=C, replace=True)
                     
                     groups[i] = selected
             
@@ -725,7 +744,7 @@ class RawData:
             logging.error(f"Failed to generate groups: {e}")
             raise
 
-    def _generate_groups_with_oversampling(self, nsamples, K, C, seed=None, seed_indices=None):
+    def _generate_groups_with_oversampling(self, nsamples, K, C, seed=None, seed_indices=None, *, rng: Optional[np.random.Generator] = None):
         """
         Generate groups using K choose C combinations for data augmentation.
         
@@ -738,6 +757,7 @@ class RawData:
             C: Number of coordinates per group (gridsize²)
             seed: Random seed for reproducibility
             seed_indices: Optional pre-selected seed indices
+            rng: Caller-owned random generator. Mutually exclusive with seed.
             
         Returns:
             np.ndarray: Array of shape (nsamples, C) containing selected indices
@@ -745,8 +765,7 @@ class RawData:
         from itertools import combinations
         
         try:
-            if seed is not None:
-                np.random.seed(seed)
+            local_rng = _resolve_rng(seed, rng)
             
             n_points = len(self.xcoords)
             logging.info(f"[OVERSAMPLING DEBUG] _generate_groups_with_oversampling called with: nsamples={nsamples}, K={K}, C={C}")
@@ -776,7 +795,7 @@ class RawData:
             else:
                 all_indices = np.arange(n_points)
                 if n_seeds < n_points:
-                    seed_indices = np.random.choice(all_indices, size=n_seeds, replace=False)
+                    seed_indices = local_rng.choice(all_indices, size=n_seeds, replace=False)
                     logging.info(f"[OVERSAMPLING DEBUG] Randomly selected {n_seeds} seed points from {n_points}")
                 else:
                     seed_indices = all_indices
@@ -788,9 +807,9 @@ class RawData:
             if C == 1:
                 # For C=1, just sample with replacement if needed
                 if nsamples <= len(seed_indices):
-                    groups = np.random.choice(seed_indices, size=nsamples, replace=False).reshape(-1, 1)
+                    groups = local_rng.choice(seed_indices, size=nsamples, replace=False).reshape(-1, 1)
                 else:
-                    groups = np.random.choice(seed_indices, size=nsamples, replace=True).reshape(-1, 1)
+                    groups = local_rng.choice(seed_indices, size=nsamples, replace=True).reshape(-1, 1)
                 logging.info(f"Generated {nsamples} groups for C=1 case")
                 return groups
             
@@ -848,13 +867,13 @@ class RawData:
             # Sample combinations
             if nsamples <= total_combinations:
                 # Sample without replacement for diversity
-                selected_indices = np.random.choice(total_combinations, size=nsamples, replace=False)
+                selected_indices = local_rng.choice(total_combinations, size=nsamples, replace=False)
                 logging.info(f"[OVERSAMPLING DEBUG] Sampling {nsamples} from {total_combinations} combinations (without replacement)")
             else:
                 # Sample with replacement if requesting more than available
                 logging.info(f"[OVERSAMPLING DEBUG] Need {nsamples} groups but only {total_combinations} combinations available - using replacement")
                 logging.warning(f"Requested {nsamples} groups but only {total_combinations} unique combinations available. Sampling with replacement.")
-                selected_indices = np.random.choice(total_combinations, size=nsamples, replace=True)
+                selected_indices = local_rng.choice(total_combinations, size=nsamples, replace=True)
             
             groups = combination_pool[selected_indices]
             
