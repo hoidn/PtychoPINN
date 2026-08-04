@@ -96,6 +96,53 @@ def _validate_execution_request(execution_request: Optional[Any]) -> None:
     normalize_execution_input(execution_request, mode="training")
 
 
+def _validate_torch_workflow_inputs(
+    *,
+    backend: str,
+    execution_config: Optional[Any],
+    factory_overrides: Optional[Dict[str, Any]],
+    resolved_payload: Optional[Any],
+    amplitude_physics_gain_record: Optional[Any],
+    torch_training_seed: Optional[int],
+) -> None:
+    """Validate mutually exclusive and backend-specific Torch inputs."""
+    if resolved_payload is not None and (
+        execution_config is not None or factory_overrides is not None
+    ):
+        raise ValueError(
+            "torch_resolved_payload cannot be combined with "
+            "torch_execution_config or torch_factory_overrides"
+        )
+    if amplitude_physics_gain_record is not None and resolved_payload is None:
+        raise ValueError(
+            "torch_amplitude_physics_gain_record requires "
+            "torch_resolved_payload"
+        )
+    if backend == "tensorflow" and (
+        resolved_payload is not None
+        or amplitude_physics_gain_record is not None
+        or torch_training_seed is not None
+    ):
+        raise ValueError(
+            "torch_resolved_payload and "
+            "torch_amplitude_physics_gain_record and torch_training_seed "
+            "are only valid for the PyTorch backend"
+        )
+    if torch_training_seed is not None:
+        if (
+            isinstance(torch_training_seed, bool)
+            or not isinstance(torch_training_seed, int)
+        ):
+            raise TypeError(
+                "torch_training_seed must be a nonnegative integer"
+            )
+        if torch_training_seed < 0:
+            raise ValueError(
+                "torch_training_seed must be a nonnegative integer"
+            )
+    _validate_execution_request(execution_config)
+
+
 @scoped_legacy_params
 def run_cdi_example_with_backend(
     train_data: Union[RawData, PtychoDataContainer],
@@ -108,6 +155,9 @@ def run_cdi_example_with_backend(
     do_stitching: bool = False,
     torch_execution_config: Optional[Any] = None,
     torch_factory_overrides: Optional[Dict[str, Any]] = None,
+    torch_resolved_payload: Optional[Any] = None,
+    torch_amplitude_physics_gain_record: Optional[Any] = None,
+    torch_training_seed: Optional[int] = None,
 ) -> Tuple[Optional[Any], Optional[Any], Dict[str, Any]]:
     """
     Run the complete CDI workflow with automatic backend selection.
@@ -130,6 +180,11 @@ def run_cdi_example_with_backend(
                                PyTorch backend (ignored for TensorFlow).
         torch_factory_overrides: Explicit canonical Torch factory overrides.
                                 Ignored for TensorFlow.
+        torch_resolved_payload: Optional already-resolved Torch training
+                               payload. Mutually exclusive with execution
+                               config and factory overrides.
+        torch_amplitude_physics_gain_record: Optional structured gain record
+                                            persisted with the Torch bundle.
 
     Returns:
         Tuple containing:
@@ -155,7 +210,14 @@ def run_cdi_example_with_backend(
             f"Invalid backend: {config.backend!r}. "
             f"TrainingConfig.backend must be 'tensorflow' or 'pytorch'."
         )
-    _validate_execution_request(torch_execution_config)
+    _validate_torch_workflow_inputs(
+        backend=config.backend,
+        execution_config=torch_execution_config,
+        factory_overrides=torch_factory_overrides,
+        resolved_payload=torch_resolved_payload,
+        amplitude_physics_gain_record=torch_amplitude_physics_gain_record,
+        torch_training_seed=torch_training_seed,
+    )
 
     # CRITICAL: Update params.cfg only after all request/config validation.
     update_legacy_dict(params.cfg, config)
@@ -192,6 +254,11 @@ def run_cdi_example_with_backend(
             train_data, test_data, config, flip_x, flip_y, transpose, M, do_stitching,
             execution_config=torch_execution_config,
             overrides=torch_factory_overrides,
+            resolved_payload=torch_resolved_payload,
+            amplitude_physics_gain_record=(
+                torch_amplitude_physics_gain_record
+            ),
+            torch_training_seed=torch_training_seed,
         )
 
     # Inject backend metadata into results for traceability

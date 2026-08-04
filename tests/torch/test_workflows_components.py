@@ -45,6 +45,23 @@ def _execution_request(**values):
     )
 
 
+@pytest.fixture(autouse=True)
+def _isolate_effective_runtime_artifacts(monkeypatch):
+    """Keep workflow-unit fakes focused on their declared Trainer behavior."""
+    from ptycho_torch.workflows import components
+
+    monkeypatch.setattr(
+        components,
+        "_build_effective_runtime",
+        lambda seed, *_args, **_kwargs: {"seed": seed},
+    )
+    monkeypatch.setattr(
+        components,
+        "write_effective_runtime_json",
+        lambda *_args, **_kwargs: None,
+    )
+
+
 # Add to conftest.py TORCH_OPTIONAL_MODULES if not already present
 # This test must run without torch runtime
 
@@ -1653,6 +1670,7 @@ class TestWorkflowsComponentsRun:
     ):
         """The API wrapper commits decoded state only after pure reconstruction."""
         from types import SimpleNamespace
+        import zipfile
 
         from ptycho_torch.workflows import components as torch_components
         from ptycho import params
@@ -1679,6 +1697,10 @@ class TestWorkflowsComponentsRun:
             "autoencoder": loaded_model,
             "diffraction_to_obj": loaded_model,
         }
+        bundle_dir = tmp_path / "test_bundle"
+        bundle_dir.mkdir()
+        with zipfile.ZipFile(bundle_dir / "wts.h5.zip", "w"):
+            pass
         observed_during_reconstruction = []
 
         def reconstruct_explicit(*args, **kwargs):
@@ -1700,7 +1722,7 @@ class TestWorkflowsComponentsRun:
 
         models_dict, params_dict = (
             torch_components.load_inference_bundle_torch(
-                bundle_dir=str(tmp_path / "test_bundle"),
+                bundle_dir=str(bundle_dir),
                 scale_contract_version="legacy_v1",
                 measurement_domain="normalized_amplitude",
             )

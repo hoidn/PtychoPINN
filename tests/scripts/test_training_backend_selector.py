@@ -50,6 +50,99 @@ def test_interpret_sampling_parameters_reads_nested_sampling_config():
     assert "Oversampling enabled: K=8" in resolved[4]
 
 
+def test_shared_training_workflow_reads_nested_sampling_config():
+    from ptycho.config import ModelConfig, TrainingConfig
+    from ptycho.config.config import DataConfig, SamplingConfig
+    from ptycho.workflows.training import interpret_sampling_parameters
+
+    config = TrainingConfig(
+        model=ModelConfig(gridsize=2),
+        data=DataConfig(train_data_file=Path("train.npz")),
+        sampling=SamplingConfig(
+            n_groups=7,
+            n_subsample=32,
+            neighbor_count=4,
+            enable_oversampling=True,
+            neighbor_pool_size=8,
+        ),
+    )
+
+    resolved = interpret_sampling_parameters(config)
+
+    assert resolved[:4] == (32, 7, True, 8)
+    assert "Oversampling enabled: K=8" in resolved[4]
+
+
+def test_public_factory_override_map_reads_nested_training_config():
+    from ptycho.config import ModelConfig, TrainingConfig
+    from ptycho.config.config import (
+        AdamConfig,
+        DataConfig,
+        GradientClipConfig,
+        LossConfig,
+        OptimizerConfig,
+        SamplingConfig,
+        SchedulerConfig,
+        SgdConfig,
+    )
+    from ptycho_torch.config_factory import build_training_factory_overrides
+
+    config = TrainingConfig(
+        model=ModelConfig(gridsize=2),
+        batch_size=8,
+        nepochs=9,
+        data=DataConfig(
+            train_data_file=Path("train.npz"),
+            test_data_file=Path("test.npz"),
+            nphotons=2.5e7,
+        ),
+        sampling=SamplingConfig(
+            n_groups=7,
+            n_subsample=32,
+            subsample_seed=11,
+            neighbor_count=5,
+            enable_oversampling=True,
+            neighbor_pool_size=8,
+            sequential_sampling=True,
+        ),
+        loss=LossConfig(
+            torch_loss_mode="mae",
+            torch_mae_pred_l2_match_target=True,
+        ),
+        gradient_clip=GradientClipConfig(val=0.25, algorithm="value"),
+        optimizer=OptimizerConfig(
+            algorithm="adamw",
+            weight_decay=0.03,
+            sgd=SgdConfig(momentum=0.4),
+            adam=AdamConfig(beta1=0.8, beta2=0.95),
+        ),
+        scheduler=SchedulerConfig(
+            kind="ReduceLROnPlateau",
+            plateau_factor=0.4,
+            plateau_patience=3,
+        ),
+    )
+
+    overrides = build_training_factory_overrides(config)
+
+    assert overrides["n_groups"] == 7
+    assert overrides["n_subsample"] == 32
+    assert overrides["nphotons"] == 2.5e7
+    assert overrides["neighbor_count"] == 5
+    assert overrides["test_data_file"] == Path("test.npz")
+    assert overrides["torch_loss_mode"] == "mae"
+    assert overrides["gradient_clip_val"] == 0.25
+    assert overrides["gradient_clip_algorithm"] == "value"
+    assert overrides["optimizer"] == "adamw"
+    assert overrides["momentum"] == 0.4
+    assert overrides["weight_decay"] == 0.03
+    assert overrides["adam_beta1"] == 0.8
+    assert overrides["adam_beta2"] == 0.95
+    assert overrides["scheduler"] == "ReduceLROnPlateau"
+    assert overrides["plateau_factor"] == 0.4
+    assert overrides["plateau_patience"] == 3
+
+
 class TestTrainingCliBackendDispatch:
     """
     Test suite for backend selector dispatch in training CLI.
@@ -605,7 +698,12 @@ class TestTrainingCliBackendDispatch:
             with patch(
                 "ptycho_torch.application_factory.build_ptychopinn_application",
                 return_value=mock_lightning_module,
-            ) as build_application:
+            ) as build_application, patch(
+                "ptycho_torch.workflows.components._build_effective_runtime",
+                return_value={},
+            ), patch(
+                "ptycho_torch.workflows.components.write_effective_runtime_json"
+            ):
                 with patch('ptycho_torch.workflows.components._build_lightning_dataloaders', return_value=(mock_train_loader, None)):
                     with patch('lightning.pytorch.Trainer') as mock_trainer_class:
                         mock_trainer = MagicMock()
@@ -695,7 +793,12 @@ class TestTrainingCliBackendDispatch:
             with patch(
                 "ptycho_torch.application_factory.build_ptychopinn_application",
                 return_value=mock_lightning_module,
-            ) as build_application:
+            ) as build_application, patch(
+                "ptycho_torch.workflows.components._build_effective_runtime",
+                return_value={},
+            ), patch(
+                "ptycho_torch.workflows.components.write_effective_runtime_json"
+            ):
                 with patch('ptycho_torch.workflows.components._build_lightning_dataloaders',
                           return_value=(mock_train_loader, mock_val_loader)):
                     with patch(

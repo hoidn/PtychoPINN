@@ -19,6 +19,13 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from ptycho.raw_data import RawData
 
 
+def assert_numpy_random_state_equal(test_case, before, after):
+    """Assert equality for the tuple returned by ``np.random.get_state``."""
+    test_case.assertEqual(before[0], after[0])
+    np.testing.assert_array_equal(before[1], after[1])
+    test_case.assertEqual(before[2:], after[2:])
+
+
 class TestRawDataGrouping(unittest.TestCase):
     """Test suite for the efficient grouping implementation."""
     
@@ -193,6 +200,151 @@ class TestRawDataGrouping(unittest.TestCase):
         # Should be different (with high probability)
         self.assertFalse(np.array_equal(groups1, groups3),
                         "Different seeds should produce different results")
+
+    def test_generate_grouped_data_seed_does_not_mutate_ambient_numpy_state(self):
+        """Seeded public grouping must not read or overwrite NumPy's global RNG."""
+        np.random.seed(20260803)
+        state_before = np.random.get_state()
+
+        self.raw_data.generate_grouped_data(
+            N=64,
+            K=7,
+            nsamples=32,
+            seed=41,
+            gridsize=2,
+        )
+
+        assert_numpy_random_state_equal(
+            self,
+            state_before,
+            np.random.get_state(),
+        )
+
+    def test_efficient_grouping_consumes_passed_generator(self):
+        """Ordinary grouping must draw from the caller-owned Generator."""
+        groups1 = self.raw_data._generate_groups_efficiently(
+            nsamples=64,
+            K=7,
+            C=4,
+            rng=np.random.default_rng(29),
+        )
+        groups2 = self.raw_data._generate_groups_efficiently(
+            nsamples=64,
+            K=7,
+            C=4,
+            rng=np.random.default_rng(29),
+        )
+        groups3 = self.raw_data._generate_groups_efficiently(
+            nsamples=64,
+            K=7,
+            C=4,
+            rng=np.random.default_rng(30),
+        )
+
+        np.testing.assert_array_equal(groups1, groups2)
+        self.assertFalse(np.array_equal(groups1, groups3))
+
+    def test_oversampling_consumes_passed_generator_without_mutating_ambient_state(self):
+        """K-choose-C grouping must use one passed Generator for every draw."""
+        np.random.seed(20260803)
+        state_before = np.random.get_state()
+
+        groups1 = self.raw_data._generate_groups_with_oversampling(
+            nsamples=self.n_points + 32,
+            K=7,
+            C=4,
+            rng=np.random.default_rng(37),
+        )
+        groups2 = self.raw_data._generate_groups_with_oversampling(
+            nsamples=self.n_points + 32,
+            K=7,
+            C=4,
+            rng=np.random.default_rng(37),
+        )
+
+        np.testing.assert_array_equal(groups1, groups2)
+        assert_numpy_random_state_equal(
+            self,
+            state_before,
+            np.random.get_state(),
+        )
+
+    def test_grouping_rejects_seed_and_generator_together(self):
+        """The legacy seed and new Generator inputs are mutually exclusive."""
+        with self.assertRaisesRegex(ValueError, "seed.*rng|rng.*seed"):
+            self.raw_data.generate_grouped_data(
+                N=64,
+                K=7,
+                nsamples=32,
+                seed=41,
+                gridsize=2,
+                rng=np.random.default_rng(41),
+            )
+
+    def test_fresh_grouping_generators_do_not_consume_one_anothers_streams(self):
+        """Train-like draws must not perturb an independently seeded validation draw."""
+        expected_validation = self.raw_data.generate_grouped_data(
+            N=64,
+            K=7,
+            nsamples=48,
+            gridsize=2,
+            rng=np.random.default_rng(53),
+        )["nn_indices"]
+
+        train_rng = np.random.default_rng(53)
+        self.raw_data.generate_grouped_data(
+            N=64,
+            K=7,
+            nsamples=96,
+            gridsize=2,
+            rng=train_rng,
+        )
+        self.raw_data.generate_grouped_data(
+            N=64,
+            K=7,
+            nsamples=12,
+            gridsize=2,
+            rng=train_rng,
+        )
+
+        actual_validation = self.raw_data.generate_grouped_data(
+            N=64,
+            K=7,
+            nsamples=48,
+            gridsize=2,
+            rng=np.random.default_rng(53),
+        )["nn_indices"]
+
+        np.testing.assert_array_equal(expected_validation, actual_validation)
+
+    def test_sequential_grouping_uses_fixed_local_generator(self):
+        """Sequential anchors remain seed-independent without touching global state."""
+        np.random.seed(20260803)
+        state_before = np.random.get_state()
+
+        groups1 = self.raw_data.generate_grouped_data(
+            N=64,
+            K=7,
+            nsamples=24,
+            sequential_sampling=True,
+            gridsize=2,
+            rng=np.random.default_rng(61),
+        )["nn_indices"]
+        groups2 = self.raw_data.generate_grouped_data(
+            N=64,
+            K=7,
+            nsamples=24,
+            sequential_sampling=True,
+            gridsize=2,
+            rng=np.random.default_rng(62),
+        )["nn_indices"]
+
+        np.testing.assert_array_equal(groups1, groups2)
+        assert_numpy_random_state_equal(
+            self,
+            state_before,
+            np.random.get_state(),
+        )
     
     def test_performance_improvement(self):
         """Test that the new method is faster than the old approach (when not cached)."""

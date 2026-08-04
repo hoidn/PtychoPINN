@@ -151,7 +151,16 @@ def load_probe_object(file_path: str) -> Tuple[np.ndarray, np.ndarray]:
         raise RuntimeError(f"Error loading data from {file_path}: {str(e)}")
 
 
-def _generate_simulated_data_legacy_params(config: TrainingConfig, objectGuess: np.ndarray, probeGuess: np.ndarray, buffer: float, random_seed: int = None) -> RawData:
+def _generate_simulated_data_legacy_params(
+    config: TrainingConfig,
+    objectGuess: np.ndarray,
+    probeGuess: np.ndarray,
+    buffer: float,
+    random_seed: int | None = None,
+    *,
+    coordinate_rng: np.random.Generator | None = None,
+    detector_seed: int | None = None,
+) -> RawData:
     """
     Internal legacy function that manipulates global state to generate data.
     This is a temporary workaround until raw_data.py and diffsim.py can be refactored.
@@ -159,44 +168,72 @@ def _generate_simulated_data_legacy_params(config: TrainingConfig, objectGuess: 
     height, width = objectGuess.shape
     buffer = min(buffer, min(height, width) / 2 - 1)
 
-    if random_seed is not None:
-        np.random.seed(random_seed)
+    if random_seed is not None and coordinate_rng is not None:
+        raise ValueError("random_seed and coordinate_rng are mutually exclusive")
+    if coordinate_rng is not None and not isinstance(
+        coordinate_rng, np.random.Generator
+    ):
+        raise TypeError("coordinate_rng must be a numpy.random.Generator")
+    rng = (
+        np.random.default_rng(random_seed)
+        if coordinate_rng is None
+        else coordinate_rng
+    )
 
     # Use n_groups (modern) with fallback to n_images (deprecated) for compatibility
     n_positions = config.sampling.n_groups if config.sampling.n_groups is not None else config.sampling.n_images
     if n_positions is None:
         raise ValueError("Either n_groups or n_images must be specified in config")
 
-    xcoords = np.random.uniform(buffer, width - buffer, n_positions)
-    ycoords = np.random.uniform(buffer, height - buffer, n_positions)
-    scan_index = np.zeros(n_positions, dtype=int)
+    xcoords = rng.uniform(buffer, width - buffer, n_positions)
+    ycoords = rng.uniform(buffer, height - buffer, n_positions)
+    scan_index = np.zeros(n_positions, dtype=np.int64)
 
     # This is the non-conforming part: it manipulates global state.
     # It sets N, gridsize, and nphotons for the duration of the call to from_simulation.
     with legacy_params_scope():
         # Set parameters to match the modern config
         p.set('N', probeGuess.shape[0])
-        p.set('gridsize', config.model.gridsize)
+        # RawData.from_simulation is a per-position extraction leaf. Flat
+        # storage is independent of the logical grouping geometry.
+        p.set('gridsize', 1)
         p.set('nphotons', config.data.nphotons)  # Critical: Set nphotons for proper scaling
+        protected_seed = detector_seed if detector_seed is not None else random_seed
+        if protected_seed is not None:
+            import tensorflow as tf
+
+            np.random.seed(protected_seed)
+            tf.random.set_seed(protected_seed)
         raw_data = RawData.from_simulation(xcoords, ycoords, probeGuess, objectGuess, scan_index)
     
     return raw_data
 
 
-def generate_simulated_data(config: TrainingConfig, objectGuess: np.ndarray, probeGuess: np.ndarray, buffer: float, return_patches: bool = True) -> Union[RawData, Tuple[RawData, np.ndarray]]:
+def generate_simulated_data(
+    config: TrainingConfig,
+    objectGuess: np.ndarray,
+    probeGuess: np.ndarray,
+    buffer: float,
+    return_patches: bool = True,
+    random_seed: int | None = None,
+    *,
+    coordinate_rng: np.random.Generator | None = None,
+    detector_seed: int | None = None,
+) -> Union[RawData, Tuple[RawData, np.ndarray]]:
     """
     CONFORMING: Generate simulated ptychography data using a configuration object.
     
     This function acts as an adapter, calling an internal legacy function
     but exposing a clean, modern interface.
     """
-    # TODO: Get seed from config if it gets added there.
     raw_data = _generate_simulated_data_legacy_params(
         config=config,
         objectGuess=objectGuess,
         probeGuess=probeGuess,
         buffer=buffer,
-        random_seed=42 
+        random_seed=random_seed,
+        coordinate_rng=coordinate_rng,
+        detector_seed=detector_seed,
     )
 
     if return_patches:

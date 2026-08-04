@@ -79,6 +79,79 @@ def test_simulation_config_nested_defaults_are_independent_and_valid():
     api.validate_simulation_config(first)
 
 
+def test_probe_ideal_scale_default_and_positive_override_are_semantic():
+    api = _api()
+    default = api.simulation_config_from_mapping(
+        {
+            "probe": {
+                "source": "ideal",
+                "ideal_scale": 0.7,
+            }
+        }
+    )
+    overridden = api.simulation_config_from_mapping(
+        {
+            "probe": {
+                "source": "ideal",
+                "ideal_scale": 1.25,
+            }
+        }
+    )
+
+    assert api.simulation_config_to_dict(default)["probe"]["ideal_scale"] == 0.7
+    assert api.simulation_config_to_dict(overridden)["probe"]["ideal_scale"] == 1.25
+    default_payload = api.simulation_config_to_dict(default)
+    overridden_payload = api.simulation_config_to_dict(overridden)
+    assert {
+        **overridden_payload,
+        "probe": {
+            **overridden_payload["probe"],
+            "ideal_scale": 0.7,
+        },
+    } == default_payload
+    assert api.simulation_config_from_mapping(
+        api.simulation_config_to_dict(overridden)
+    ) == overridden
+    assert api.simulation_config_sha256(default) != api.simulation_config_sha256(
+        overridden
+    )
+
+
+@pytest.mark.parametrize(
+    "value",
+    [0, -0.1, float("nan"), float("inf"), True, "1.0"],
+    ids=("zero", "negative", "nan", "infinity", "bool", "string"),
+)
+def test_probe_ideal_scale_rejects_nonpositive_nonfinite_or_coercive_values(value):
+    api = _api()
+
+    with pytest.raises(
+        ValueError,
+        match=re.escape("simulation.probe.ideal_scale"),
+    ):
+        api.simulation_config_from_mapping(
+            {"probe": {"source": "ideal", "ideal_scale": value}}
+        )
+
+
+def test_custom_probe_rejects_a_nondefault_ideal_scale():
+    api = _api()
+
+    with pytest.raises(
+        ValueError,
+        match=re.escape("simulation.probe.ideal_scale"),
+    ):
+        api.simulation_config_from_mapping(
+            {
+                "probe": {
+                    "source": "custom",
+                    "source_path": "probe.npz",
+                    "ideal_scale": 1.0,
+                }
+            }
+        )
+
+
 def test_simulation_config_from_mapping_converts_nested_paths_and_round_trips():
     api = _api()
     mapping = {
@@ -89,6 +162,7 @@ def test_simulation_config_from_mapping_converts_nested_paths_and_round_trips():
             "source_path": "datasets/probe.npz",
             "transform_pipeline": "smooth:0.5|pad_extrapolate_boundary_matched:128",
             "mask_diameter": None,
+            "ideal_scale": 0.7,
         },
         "object": {
             "kind": "dead_leaves",
@@ -306,25 +380,25 @@ def test_validate_simulation_config_rejects_non_builtin_closed_domain_strings():
             "probe",
             "mask_diameter",
             4,
-            "94a65f289bc3785dccd34bcf2034877e075e0a589584ed3f6f5499cf5836d673",
+            "a3a32e630aaeae47f59bc4d2c2b512ec9e9a4a07d3b1153386c4c1d71c35f3fc",
         ),
         (
             "probe",
             "mask_diameter",
             4.0,
-            "5df4f608ec440800a94df144c4e375cc776be02f5912d955aa6ed65174dec6da",
+            "0d35379b6dee35a6af4a0d35ef0fe3942053f79976b058ed0ac680407c390f45",
         ),
         (
             "detector",
             "beamstop_diameter",
             4,
-            "100caa4523e0ca2be8225fc5b2aa4b74dcd95c1bab98d09214d7ce43dc37013c",
+            "fc05017036fd2003d46bdbb164efe08cc9ce5067980351c7932d9db5b73fbaa6",
         ),
         (
             "detector",
             "beamstop_diameter",
             4.0,
-            "5f1dc9073bd4899377873136cdb0ff2a7eb179e305a15e4e79a92b90fd0713db",
+            "8c9539a5ca537ae4b21a74cb2e37229dfe4548a32cc737e4d5600bee3ec51018",
         ),
     ],
 )
@@ -519,7 +593,13 @@ def test_direct_construction_and_replace_remain_non_validating():
     [
         (
             "ProbeSimulationConfig",
-            ("source", "source_path", "transform_pipeline", "mask_diameter"),
+            (
+                "source",
+                "source_path",
+                "transform_pipeline",
+                "mask_diameter",
+                "ideal_scale",
+            ),
         ),
         (
             "SyntheticObjectConfig",
@@ -576,6 +656,7 @@ def test_simulation_records_retain_positional_frozen_value_semantics():
         Path("probe.npz"),
         "pad_preserve:128",
         4,
+        0.9,
     )
     object_config = api.SyntheticObjectConfig(
         "dead_leaves",
@@ -612,6 +693,7 @@ def test_simulation_records_retain_positional_frozen_value_semantics():
             "source_path": Path("probe.npz"),
             "transform_pipeline": "pad_preserve:128",
             "mask_diameter": 4,
+            "ideal_scale": 0.9,
         },
         "object": {
             "kind": "dead_leaves",
@@ -656,6 +738,7 @@ def test_default_simulation_canonical_dictionary_and_digest_are_exact():
             "source_path": None,
             "transform_pipeline": "pad_preserve:64",
             "mask_diameter": None,
+            "ideal_scale": 0.7,
         },
         "object": {
             "kind": "lines",
@@ -680,7 +763,7 @@ def test_default_simulation_canonical_dictionary_and_digest_are_exact():
         },
     }
     assert api.simulation_config_sha256(config) == (
-        "e2b3a9972bb5c9992490b82f38b074ea9e96ac766427bfb8e53ad6699716e5ef"
+        "f149d2d29e2e105643f9ee44087e3e0a562b9621be24f210301194302348772d"
     )
 
 

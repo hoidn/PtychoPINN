@@ -70,7 +70,10 @@ from typing import Annotated, Dict, Any, List, Optional, Literal, Union
 import json
 import hashlib
 import math
-import tomllib
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - exercised on Python 3.10
+    import tomli as tomllib
 from pydantic import (
     BeforeValidator,
     ConfigDict,
@@ -197,6 +200,7 @@ class ProbeSimulationConfig:
         BeforeValidator(_require_exact_str),
     ] = "pad_preserve:64"
     mask_diameter: _StrictFinitePositiveNumber | None = None
+    ideal_scale: _StrictFinitePositiveNumber = 0.7
 
 
 @with_config(_DATACLASS_ADAPTER_CONFIG)
@@ -311,6 +315,7 @@ def simulation_config_to_dict(config: SimulationConfig) -> Dict[str, Any]:
             ),
             "transform_pipeline": config.probe.transform_pipeline,
             "mask_diameter": config.probe.mask_diameter,
+            "ideal_scale": config.probe.ideal_scale,
         },
         "object": {
             "kind": config.object.kind,
@@ -453,6 +458,12 @@ def validate_simulation_config(config: SimulationConfig) -> None:
         raise ValueError(
             "simulation.probe.source_path must be omitted when "
             "simulation.probe.source='ideal'"
+        )
+    if config.probe.source == "custom" and config.probe.ideal_scale != 0.7:
+        raise ValueError(
+            "simulation.probe.ideal_scale must remain 0.7 when "
+            "simulation.probe.source='custom' because ideal_scale only affects "
+            "ideal probe construction"
         )
     final_size = _pipeline_final_size(config.probe.transform_pipeline)
     if final_size != config.N:

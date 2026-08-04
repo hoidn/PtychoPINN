@@ -401,7 +401,7 @@ def update_config_from_dict(config_updates: dict):
     logger.info("Configuration updated programmatically for interactive session.")
     params.print_params()
 
-def load_data(file_path, n_images=None, n_subsample=None, flip_x=False, flip_y=False, swap_xy=False, n_samples=1, coord_scale=1.0, subsample_seed=None):
+def load_data(file_path, n_images=None, n_subsample=None, flip_x=False, flip_y=False, swap_xy=False, n_samples=1, coord_scale=1.0, subsample_seed=None, *, rng: Optional[np.random.Generator] = None):
     """
     Load ptychography data from a file and return RawData objects.
 
@@ -416,10 +416,15 @@ def load_data(file_path, n_images=None, n_subsample=None, flip_x=False, flip_y=F
         n_samples (int, optional): Number of samples to generate. Defaults to 1.
         coord_scale (float, optional): Scale factor for x and y coordinates. Defaults to 1.0.
         subsample_seed (int, optional): Random seed for reproducible subsampling. If None, uses random selection.
+        rng (np.random.Generator, optional): Caller-owned random generator. Mutually exclusive
+                                             with subsample_seed.
 
     Returns:
         RawData: RawData object containing the dataset.
     """
+    if subsample_seed is not None and rng is not None:
+        raise ValueError("subsample_seed and rng are mutually exclusive")
+
     logger.info(f"Loading data from {file_path} with n_images={n_images}, n_subsample={n_subsample}")
     # Load data from file
     data = np.load(file_path)
@@ -521,13 +526,13 @@ def load_data(file_path, n_images=None, n_subsample=None, flip_x=False, flip_y=F
     # Perform subsampling if needed
     if images_to_use < dataset_size:
         if subsample_seed is not None:
-            # Reproducible subsampling with seed
-            np.random.seed(subsample_seed)
             logger.info(f"Using seed {subsample_seed} for reproducible subsampling")
-        
+
+        local_rng = rng if rng is not None else np.random.default_rng(subsample_seed)
+
         # Random subsampling
         all_indices = np.arange(dataset_size)
-        selected_indices = np.random.choice(all_indices, size=images_to_use, replace=False)
+        selected_indices = local_rng.choice(all_indices, size=images_to_use, replace=False)
         selected_indices = np.sort(selected_indices)  # Sort for consistency
         logger.info(f"Randomly subsampled {images_to_use} images")
     else:

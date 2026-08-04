@@ -435,10 +435,23 @@ _TRAINING_INPUTS_BY_OWNER: tuple[
     (
         "inference",
         (
+            "middle_trim",
+            "inference_batch_size",
+            "experiment_number",
+            "pad_eval",
+            "window",
             "patch_weighting",
             "varpro_scaling",
             "log_patch_stats",
             "patch_stats_limit",
+        ),
+    ),
+    (
+        "bridge",
+        (
+            "enable_oversampling",
+            "neighbor_pool_size",
+            "sequential_sampling",
         ),
     ),
     (
@@ -966,6 +979,36 @@ def _require_positive_integer(value: object, field_name: str) -> int:
     return value
 
 
+def _require_exact_nonnegative_integer(
+    value: object,
+    field_name: str,
+) -> int:
+    if type(value) is not int or value < 0:
+        raise ValueError(
+            f"{field_name} must be an exact nonnegative integer, got {value!r}"
+        )
+    return value
+
+
+def _require_exact_positive_integer(
+    value: object,
+    field_name: str,
+) -> int:
+    if type(value) is not int or value <= 0:
+        raise ValueError(
+            f"{field_name} must be an exact positive integer, got {value!r}"
+        )
+    return value
+
+
+def _require_exact_boolean(value: object, field_name: str) -> bool:
+    if type(value) is not bool:
+        raise ValueError(
+            f"{field_name} must be an exact boolean, got {value!r}"
+        )
+    return value
+
+
 def _require_positive_number(value: object, field_name: str) -> object:
     if (
         isinstance(value, bool)
@@ -989,7 +1032,52 @@ def _validate_model_domains(config: ModelConfig) -> None:
 
 
 def _validate_inference_domains(config: InferenceConfig) -> None:
-    _require_positive_integer(config.batch_size, "batch_size")
+    for field_name in ("middle_trim", "window", "experiment_number"):
+        _require_exact_nonnegative_integer(
+            getattr(config, field_name),
+            field_name,
+        )
+    _require_exact_positive_integer(config.batch_size, "batch_size")
+    for field_name in ("pad_eval", "varpro_scaling", "log_patch_stats"):
+        _require_exact_boolean(getattr(config, field_name), field_name)
+    if config.patch_weighting not in {"uniform", "probe"}:
+        raise ValueError(
+            "patch_weighting must be 'uniform' or 'probe', "
+            f"got {config.patch_weighting!r}"
+        )
+    if config.patch_stats_limit is not None:
+        _require_exact_positive_integer(
+            config.patch_stats_limit,
+            "patch_stats_limit",
+        )
+
+
+def _validate_training_bridge_domains(
+    bridge_values: Mapping[str, object],
+    data: DataConfig,
+) -> None:
+    for field_name in ("enable_oversampling", "sequential_sampling"):
+        if field_name in bridge_values:
+            _require_exact_boolean(bridge_values[field_name], field_name)
+
+    neighbor_pool_size = bridge_values.get("neighbor_pool_size")
+    if neighbor_pool_size is not None:
+        neighbor_pool_size = _require_exact_positive_integer(
+            neighbor_pool_size,
+            "neighbor_pool_size",
+        )
+
+    enable_oversampling = bridge_values.get("enable_oversampling", False)
+    if enable_oversampling and data.grid_size != (1, 1):
+        effective_pool_size = (
+            data.K if neighbor_pool_size is None else neighbor_pool_size
+        )
+        if effective_pool_size < data.C:
+            raise ValueError(
+                "enable_oversampling requires neighbor_pool_size or K >= "
+                f"derived C={data.C} for grid_size={data.grid_size}, "
+                f"got {effective_pool_size}"
+            )
 
 
 def _loss_identity(torch_loss_mode: object) -> tuple[str, bool]:
@@ -1206,6 +1294,10 @@ def resolve_training_bundle(
         TRAINING_INPUT_RULES,
         "inference",
     )
+    if "inference_batch_size" in inference_changes:
+        inference_changes["batch_size"] = inference_changes.pop(
+            "inference_batch_size"
+        )
     _prepare_object_policy_changes(normalized, model_changes)
 
     grid_size, channels = _derive_channel_count(
@@ -1312,6 +1404,23 @@ def resolve_training_bundle(
         bridge["n_subsample"] = data.n_subsample
     if "subsample_seed" in normalized.values:
         bridge["subsample_seed"] = data.subsample_seed
+    bridge_values = {
+        name: normalized.values[name]
+        for name in (
+            "enable_oversampling",
+            "neighbor_pool_size",
+            "sequential_sampling",
+        )
+        if name in normalized.values
+    }
+    _validate_training_bridge_domains(bridge_values, data)
+    for name in (
+        "enable_oversampling",
+        "neighbor_pool_size",
+        "sequential_sampling",
+    ):
+        if name in bridge_values:
+            bridge[name] = bridge_values[name]
 
     audit: dict[str, object] = dict(normalized.audit)
     audit.update(

@@ -23,6 +23,7 @@ import numpy as np
 import pytest
 import torch
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 
@@ -177,7 +178,7 @@ class TestCliRouting:
              patch("ptycho_torch.workflows.components.load_inference_bundle_torch", mock_bundle_loader), \
              patch("ptycho.raw_data.RawData.from_file", return_value=mock_raw_data), \
              patch("ptycho_torch.inference._run_inference_and_reconstruct", uniform_helper), \
-             patch("ptycho_torch.inference._run_barycentric_inference_and_reconstruct", barycentric_helper), \
+             patch("ptycho_torch.inference.reconstruct_npz_barycentric", barycentric_helper), \
              patch("ptycho_torch.inference.save_individual_reconstructions", MagicMock()):
             from ptycho_torch.inference import cli_main
 
@@ -207,7 +208,9 @@ class TestCliRouting:
         """--patch-weighting probe routes to the barycentric helper, knob threaded."""
         uniform_helper = MagicMock()
         barycentric_helper = MagicMock(
-            return_value=(np.zeros((8, 8)), np.zeros((8, 8)))
+            return_value=SimpleNamespace(
+                amplitude=np.zeros((8, 8)), phase=np.zeros((8, 8))
+            )
         )
 
         argv = cli_paths["base_args"] + ["--patch-weighting", "probe", "--quiet"]
@@ -227,7 +230,9 @@ class TestCliRouting:
         """--varpro-scaling routes to the barycentric helper, knob threaded."""
         uniform_helper = MagicMock()
         barycentric_helper = MagicMock(
-            return_value=(np.zeros((8, 8)), np.zeros((8, 8)))
+            return_value=SimpleNamespace(
+                amplitude=np.zeros((8, 8)), phase=np.zeros((8, 8))
+            )
         )
 
         argv = cli_paths["base_args"] + ["--varpro-scaling", "--quiet"]
@@ -320,110 +325,165 @@ class TestUniformPathUnchanged:
         assert presenter.call_count == 1
 
 
-# ---------------------------------------------------------------------------
-# Barycentric helper: knob forwarding and fail-fast preconditions
-# ---------------------------------------------------------------------------
+class TestPublicWorkflowCliDelegation:
+    def test_unified_parser_exposes_barycentric_runtime_knobs(self, monkeypatch):
+        from scripts.inference import inference
 
-class TestBarycentricHelper:
-    def _run_helper(self, model, pt_inference_config, cli_paths):
-        from ptycho_torch.inference import (
-            _run_barycentric_inference_and_reconstruct,
+        monkeypatch.setattr(
+            "sys.argv",
+            [
+                "inference.py",
+                "--patch-weighting",
+                "probe",
+                "--varpro-scaling",
+                "--groups-per-center",
+                "3",
+            ],
         )
+        args = inference.parse_arguments()
+        assert args.patch_weighting == "probe"
+        assert args.varpro_scaling is True
+        assert args.groups_per_center == 3
 
-        canvas = torch.complex(torch.zeros(1, 32, 32), torch.zeros(1, 32, 32))
-        mock_recon = MagicMock(return_value=(canvas, MagicMock(), [0.0, 0.0, {}]))
-        mock_dataset_cls = MagicMock(return_value=MagicMock())
+    def test_native_barycentric_cli_delegates_without_preloading_bundle(
+        self, cli_paths, monkeypatch
+    ):
+        """The public workflow owns the one strict model load."""
+        from types import SimpleNamespace
+        from ptycho_torch import inference
 
-        presenter = MagicMock(
-            return_value=(np.zeros((32, 32)), np.zeros((32, 32)))
+        mock_factory, _, _ = _cli_stub_stack()
+        public = MagicMock(
+            return_value=SimpleNamespace(
+                amplitude=np.zeros((8, 8)),
+                phase=np.zeros((8, 8)),
+            )
+        )
+        monkeypatch.setattr(
+            inference, "reconstruct_npz_barycentric", public, raising=False
+        )
+        monkeypatch.setattr(
+            "sys.argv",
+            [
+                "inference.py",
+                *cli_paths["base_args"],
+                "--patch-weighting",
+                "probe",
+                "--scale-contract-version",
+                "legacy_v1",
+                "--measurement-domain",
+                "normalized_amplitude",
+                "--quiet",
+            ],
         )
         with patch(
-            "ptycho_torch.reassembly.reconstruct_image_barycentric", mock_recon
-        ), patch("ptycho_torch.dataloader.PtychoDataset", mock_dataset_cls), patch(
-            "ptycho_torch.inference.present_reconstruction_canvas", presenter
+            "ptycho_torch.cli.shared.validate_paths", MagicMock()
+        ), patch(
+            "ptycho_torch.config_factory.create_inference_payload", mock_factory
+        ), patch(
+            "ptycho_torch.workflows.components.load_inference_bundle_torch",
+            side_effect=AssertionError("CLI preloaded the bundle"),
+        ), patch(
+            "ptycho_torch.inference.save_individual_reconstructions", MagicMock()
         ):
-            amplitude, phase = _run_barycentric_inference_and_reconstruct(
-                model=model,
-                test_data_path=cli_paths["test_file"],
-                pt_inference_config=pt_inference_config,
-                execution_config=None,
-                device="cpu",
-                output_dir=cli_paths["output_dir"],
-                quiet=True,
+            assert inference.cli_main() == 0
+
+        public.assert_called_once()
+        assert public.call_args.args[:2] == (
+            cli_paths["model_dir"],
+            cli_paths["test_file"],
+        )
+        assert public.call_args.kwargs["scale_contract_version"] == "legacy_v1"
+        assert (
+            public.call_args.kwargs["measurement_domain"]
+            == "normalized_amplitude"
+        )
+
+    def test_unified_barycentric_cli_delegates_without_legacy_loader(
+        self, tmp_path, monkeypatch
+    ):
+        from types import SimpleNamespace
+        from scripts.inference import inference
+        from ptycho_torch import inference as torch_inference
+
+        model_dir = tmp_path / "training"
+        model_dir.mkdir()
+        test_npz = tmp_path / "test.npz"
+        test_npz.touch()
+        output_dir = tmp_path / "output"
+        config = SimpleNamespace(
+            backend="pytorch",
+            model_path=model_dir,
+            test_data_file=test_npz,
+            output_dir=output_dir,
+        )
+        args = SimpleNamespace(
+            config=None,
+            debug_dump=None,
+            comparison_plot=False,
+            phase_vmin=None,
+            phase_vmax=None,
+            patch_weighting="probe",
+            varpro_scaling=False,
+            groups_per_center=1,
+            torch_accelerator="cpu",
+            torch_num_workers=0,
+            torch_inference_batch_size=2,
+        )
+        execution_request = SimpleNamespace(explicit_fields=frozenset())
+        execution_config = SimpleNamespace(
+            accelerator="cpu", num_workers=0, inference_batch_size=2,
+            precision="32-true",
+        )
+        runtime = SimpleNamespace(
+            config=execution_config,
+            notices=(),
+            audit_dict=lambda: {},
+        )
+        public = MagicMock(
+            return_value=SimpleNamespace(
+                amplitude=np.ones((8, 8)),
+                phase=np.zeros((8, 8)),
             )
-        return amplitude, phase, mock_recon, mock_dataset_cls, presenter
-
-    def test_forwards_probe_patch_weighting(self, cli_paths):
+        )
+        monkeypatch.setattr(inference, "parse_arguments", lambda: args)
+        monkeypatch.setattr(
+            inference, "setup_inference_configuration", lambda *_args: config
+        )
+        monkeypatch.setattr(
+            torch_inference, "reconstruct_npz_barycentric", public, raising=False
+        )
+        monkeypatch.setattr(
+            "ptycho_torch.cli.shared.build_execution_request_from_args",
+            lambda *_args, **_kwargs: execution_request,
+        )
+        monkeypatch.setattr(
+            "ptycho_torch.execution_request.resolve_runtime_execution_request",
+            lambda *_args, **_kwargs: runtime,
+        )
         from ptycho_torch.config_params import InferenceConfig as PTInferenceConfig
-
-        pt_inference_config = PTInferenceConfig(
-            patch_weighting="probe", varpro_scaling=False
-        )
-        amplitude, phase, mock_recon, _, presenter = self._run_helper(
-            _ModelStub(), pt_inference_config, cli_paths
-        )
-
-        assert mock_recon.call_count == 1
-        forwarded = mock_recon.call_args.args[5]
-        assert forwarded.patch_weighting == "probe"
-        assert forwarded.varpro_scaling is False
-        assert amplitude.shape == (32, 32)
-        assert phase.shape == (32, 32)
-        assert presenter.call_count == 1
-
-    def test_forwards_varpro_scaling(self, cli_paths):
-        from ptycho_torch.config_params import InferenceConfig as PTInferenceConfig
-
-        pt_inference_config = PTInferenceConfig(
-            patch_weighting="uniform", varpro_scaling=True
-        )
-        _, _, mock_recon, _, _ = self._run_helper(
-            _ModelStub(), pt_inference_config, cli_paths
+        monkeypatch.setattr(
+            "ptycho_torch.config_factory.create_inference_payload",
+            lambda **_kwargs: SimpleNamespace(
+                pt_inference_config=PTInferenceConfig(
+                    patch_weighting="probe", varpro_scaling=False
+                )
+            ),
         )
 
-        assert mock_recon.call_count == 1
-        forwarded = mock_recon.call_args.args[5]
-        assert forwarded.varpro_scaling is True
+        with patch.object(
+            inference,
+            "load_inference_bundle_with_backend",
+            side_effect=AssertionError("unified CLI preloaded the bundle"),
+        ), patch.object(
+            inference,
+            "load_data",
+            side_effect=AssertionError("unified CLI loaded legacy RawData"),
+        ), patch.object(
+            inference, "save_reconstruction_images"
+        ) as save, pytest.raises(SystemExit) as exit_info:
+            inference.main()
 
-    def test_uses_checkpoint_configs_for_dataset(self, cli_paths):
-        """The grouped dataset must be built from the checkpoint's own configs."""
-        from ptycho_torch.config_params import InferenceConfig as PTInferenceConfig
-
-        model = _ModelStub()
-        pt_inference_config = PTInferenceConfig(
-            patch_weighting="probe", varpro_scaling=True
-        )
-        _, _, mock_recon, mock_dataset_cls, _ = self._run_helper(
-            model, pt_inference_config, cli_paths
-        )
-
-        dataset_args = mock_dataset_cls.call_args
-        assert dataset_args.args[1] is model.model_config
-        assert dataset_args.args[2] is model.data_config
-        # Staged NPZ directory contains exactly the test file copy.
-        staged_dir = Path(dataset_args.args[0])
-        assert [p.name for p in staged_dir.iterdir()] == [
-            cli_paths["test_file"].name
-        ]
-        # And the reassembly call receives the same checkpoint configs.
-        assert mock_recon.call_args.args[3] is model.data_config
-        assert mock_recon.call_args.args[4] is model.model_config
-
-    def test_missing_checkpoint_configs_raises_valueerror(self, cli_paths):
-        """Opaque checkpoints cannot satisfy the knobs: fail fast, name the knob."""
-        from ptycho_torch.config_params import InferenceConfig as PTInferenceConfig
-
-        pt_inference_config = PTInferenceConfig(
-            patch_weighting="uniform", varpro_scaling=True
-        )
-        with pytest.raises(ValueError, match="varpro_scaling"):
-            self._run_helper(_BareModelStub(), pt_inference_config, cli_paths)
-
-    def test_missing_configs_error_names_patch_weighting(self, cli_paths):
-        from ptycho_torch.config_params import InferenceConfig as PTInferenceConfig
-
-        pt_inference_config = PTInferenceConfig(
-            patch_weighting="probe", varpro_scaling=False
-        )
-        with pytest.raises(ValueError, match="patch_weighting"):
-            self._run_helper(_BareModelStub(), pt_inference_config, cli_paths)
+        assert exit_info.value.code == 0
+        public.assert_called_once()
+        save.assert_called_once()
