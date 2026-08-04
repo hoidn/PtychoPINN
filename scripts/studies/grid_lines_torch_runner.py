@@ -1083,6 +1083,9 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
         nepochs=cfg.epochs,
         batch_size=cfg.batch_size,
         backend='pytorch',
+        # Preserve the qualified Torch model contract instead of inheriting
+        # the compatibility default that trains the forward intensity scale.
+        intensity_scale_trainable=False,
     )
     training_config.log_grad_norm = cfg.log_grad_norm
     training_config.grad_norm_log_freq = cfg.grad_norm_log_freq
@@ -1414,6 +1417,9 @@ def run_torch_training(
             )
 
     lightning_overrides = {
+        # Learning rate is Torch-owned and must reach the resolved payload
+        # explicitly rather than falling back to the factory default.
+        "learning_rate": cfg.learning_rate,
         "training_patch_weighting": cfg.training_patch_weighting,
         "physics_forward_mode": cfg.physics_forward_mode,
         "cnn_output_mode": cfg.cnn_output_mode,

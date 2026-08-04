@@ -217,6 +217,7 @@ class TestCITrainingHandoff:
             torch_loss_mode="poisson",
             scale_contract_version=CI_SCALE_CONTRACT,
             measurement_domain=COUNT_INTENSITY,
+            learning_rate=2e-4,
         )
         train_data = load_cached_dataset(train_path)
         test_data = load_cached_dataset(test_path)
@@ -224,6 +225,7 @@ class TestCITrainingHandoff:
 
         def fake_train(train_container, test_container, config, execution_config=None, overrides=None):
             captured["test_container"] = test_container
+            captured["overrides"] = overrides
             return {
                 "history": {"train_loss": []},
                 "models": {"diffraction_to_obj": MagicMock()},
@@ -238,6 +240,7 @@ class TestCITrainingHandoff:
 
         prepared = result["_ci_inference_container"]
         assert prepared is captured["test_container"]
+        assert captured["overrides"]["learning_rate"] == 2e-4
         assert prepared["X"] is not test_data["diffraction"]
         np.testing.assert_allclose(
             prepared["X"],
