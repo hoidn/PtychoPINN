@@ -6,8 +6,8 @@ import tempfile
 import shutil
 import os
 import zipfile
+import dill
 from pathlib import Path
-import numpy as np
 import tensorflow as tf
 from unittest.mock import patch, MagicMock
 
@@ -17,8 +17,8 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from ptycho import params
-from ptycho.workflows.components import (
+from ptycho import params  # noqa: E402
+from ptycho.workflows.components import (  # noqa: E402
     DiffractionToObjectAdapter,
     load_inference_bundle,
     load_inference_bundle_explicit,
@@ -90,7 +90,10 @@ class TestLoadInferenceBundle(unittest.TestCase):
             
             # Verify ModelManager was called correctly
             expected_path = str(self.model_dir / "wts.h5")
-            mock_load.assert_called_once_with(expected_path)
+            mock_load.assert_called_once_with(
+                expected_path,
+                model_names=["diffraction_to_obj"],
+            )
 
     def test_explicit_load_returns_archived_config_without_mutating_ambient_params(self):
         """Modern reload callers receive archive values without global authority."""
@@ -99,7 +102,8 @@ class TestLoadInferenceBundle(unittest.TestCase):
         params.cfg.clear()
         params.cfg.update(ambient)
 
-        def load_and_restore_archive(_path):
+        def load_and_restore_archive(_path, *, model_names):
+            self.assertEqual(model_names, ["diffraction_to_obj"])
             params.cfg.clear()
             params.cfg.update(
                 {
@@ -166,6 +170,23 @@ class TestLoadInferenceBundle(unittest.TestCase):
                 load_inference_bundle(self.model_dir)
                 
             self.assertIn("diffraction_to_obj", str(context.exception))
+
+    def test_real_archive_missing_diffraction_model_raises_key_error(self):
+        """Selective loading preserves the workflow's missing-role contract."""
+        zip_path = self.model_dir / "wts.h5.zip"
+        with zipfile.ZipFile(zip_path, "w") as archive:
+            archive.writestr(
+                "manifest.dill",
+                dill.dumps(
+                    {
+                        "models": ["autoencoder"],
+                        "version": "1.0",
+                    }
+                ),
+            )
+
+        with self.assertRaisesRegex(KeyError, "diffraction_to_obj"):
+            load_inference_bundle(self.model_dir)
             
     def test_path_conversion(self):
         """Test that string paths are converted to Path objects."""
@@ -199,7 +220,8 @@ class TestLoadInferenceBundle(unittest.TestCase):
         params.cfg.clear()
         params.cfg.update(ambient)
 
-        def fail_after_archive_mutation(_path):
+        def fail_after_archive_mutation(_path, *, model_names):
+            self.assertEqual(model_names, ["diffraction_to_obj"])
             params.cfg.clear()
             params.cfg.update({"N": 64, "gridsize": 2})
             raise RuntimeError("archive reconstruction failed")

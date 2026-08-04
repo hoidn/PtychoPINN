@@ -23,7 +23,9 @@ Key Components:
 
 File Format:
     Dual-format combining TensorFlow SavedModel with dill-serialized metadata in zip
-    archives, ensuring compatibility and Python object preservation.
+    archives, ensuring compatibility and Python object preservation. New Keras 3
+    saves keep the internal model role in model_metadata.dill, separate from the
+    archived physics parameters.
 
 Usage Example:
     # Training - save with full context
@@ -39,7 +41,6 @@ import h5py
 import dill
 import tempfile
 import zipfile
-import shutil
 import numpy as np
 import tensorflow as tf
 from typing import Dict, List, Any, Optional
@@ -50,6 +51,29 @@ from ptycho.config.legacy_state import (
 )
 
 class ModelManager:
+    _KNOWN_MODEL_ROLES = frozenset({
+        "autoencoder",
+        "diffraction_to_obj",
+    })
+    _MODEL_METADATA_FILENAME = "model_metadata.dill"
+
+    @staticmethod
+    def _infer_model_role(
+        model: tf.keras.Model,
+        model_dir: str,
+    ) -> Optional[str]:
+        """Infer the internal role without adding it to the physics params."""
+        directory_role = os.path.basename(os.path.normpath(model_dir))
+        if directory_role in ModelManager._KNOWN_MODEL_ROLES:
+            return directory_role
+
+        output_signature = tuple(getattr(model, "output_names", ()) or ())
+        if output_signature == ("trimmed_obj",):
+            return "diffraction_to_obj"
+        if "pred_intensity" in output_signature:
+            return "autoencoder"
+        return None
+
     @staticmethod
     def save_model(model: tf.keras.Model, model_dir: str, custom_objects: Dict[str, Any], intensity_scale: float) -> None:
         """
@@ -64,6 +88,10 @@ class ModelManager:
         model_file = os.path.join(model_dir, "model.h5")
         custom_objects_path = os.path.join(model_dir, "custom_objects.dill")
         params_path = os.path.join(model_dir, "params.dill")
+        model_metadata_path = os.path.join(
+            model_dir,
+            ModelManager._MODEL_METADATA_FILENAME,
+        )
         
         try:
             os.makedirs(model_dir, exist_ok=True)
@@ -74,6 +102,17 @@ class ModelManager:
             # Save custom objects
             with open(custom_objects_path, 'wb') as f:
                 dill.dump(custom_objects, f)
+
+            with open(model_metadata_path, 'wb') as f:
+                dill.dump(
+                    {
+                        "_model_role": ModelManager._infer_model_role(
+                            model,
+                            model_dir,
+                        ),
+                    },
+                    f,
+                )
             
             # Save parameters including intensity_scale
             params_dict = params.cfg.copy()
@@ -89,6 +128,42 @@ class ModelManager:
         except Exception as e:
             print(f"Error saving model to {model_dir}: {str(e)}")
             raise
+
+    @staticmethod
+    def _select_keras3_candidate_by_output_signature(
+        loaded_model: tf.keras.Model,
+        candidates: Dict[str, tf.keras.Model],
+        *,
+        artifact_name: str,
+    ) -> tf.keras.Model:
+        """Select the unique reconstructed model matching a Keras 3 graph."""
+        loaded_signature = tuple(loaded_model.output_names)
+        matching_candidates = [
+            (role, candidate)
+            for role, candidate in candidates.items()
+            if tuple(candidate.output_names) == loaded_signature
+        ]
+
+        if len(matching_candidates) == 1:
+            return matching_candidates[0][1]
+
+        candidate_signatures = {
+            role: tuple(candidate.output_names)
+            for role, candidate in candidates.items()
+        }
+        if not matching_candidates:
+            raise ValueError(
+                "No reconstructed model matches Keras 3 output signature "
+                f"{loaded_signature!r} for artifact {artifact_name!r}; "
+                f"candidate signatures: {candidate_signatures!r}"
+            )
+
+        matching_roles = tuple(role for role, _ in matching_candidates)
+        raise ValueError(
+            "Multiple reconstructed models match Keras 3 output signature "
+            f"{loaded_signature!r} for artifact {artifact_name!r}: "
+            f"{matching_roles!r}"
+        )
 
     @staticmethod
     def load_model(model_dir: str) -> tf.keras.Model:
@@ -122,7 +197,7 @@ class ModelManager:
                 loaded_params = dill.load(f)
             
             # Check version and handle any necessary migrations
-            version = loaded_params.pop('_version', '1.0')
+            loaded_params.pop('_version', '1.0')
             
             # Extract gridsize and N from loaded parameters
             gridsize = loaded_params.get('gridsize')
@@ -185,9 +260,6 @@ class ModelManager:
             # Import model factory after parameters are loaded
             from ptycho.model import create_model_with_gridsize
             
-            # Enable unsafe deserialization for Lambda layers in Keras 3
-            tf.keras.config.enable_unsafe_deserialization()
-            
             # Create blank models with correct architecture
             autoencoder, diffraction_to_obj = create_model_with_gridsize(gridsize, N)
             
@@ -198,7 +270,18 @@ class ModelManager:
             }
             
             # Determine current model name from model_dir path
-            model_name = os.path.basename(model_dir)
+            model_name = os.path.basename(os.path.normpath(model_dir))
+            model_metadata_path = os.path.join(
+                model_dir,
+                ModelManager._MODEL_METADATA_FILENAME,
+            )
+            persisted_model_role = None
+            if os.path.exists(model_metadata_path):
+                with open(model_metadata_path, "rb") as f:
+                    model_metadata = dill.load(f)
+                persisted_model_role = model_metadata.get("_model_role")
+                if persisted_model_role not in models_dict:
+                    persisted_model_role = None
             
             # Select the correct blank model
             if model_name in models_dict:
@@ -212,10 +295,37 @@ class ModelManager:
             keras_model_path = os.path.join(model_dir, "model.keras")
 
             if os.path.exists(keras_model_path):
-                # Load from Keras 3 format (compile=False to avoid loss function serialization issues)
-                loaded_model = tf.keras.models.load_model(keras_model_path, custom_objects=custom_objects, compile=False)
-                # Copy weights to the blank model
-                model.set_weights(loaded_model.get_weights())
+                if model_name in models_dict:
+                    model.load_weights(keras_model_path)
+                elif persisted_model_role is not None:
+                    model = models_dict[persisted_model_role]
+                    model.load_weights(keras_model_path)
+                else:
+                    matching_candidates = {}
+                    for candidate_role, candidate in models_dict.items():
+                        try:
+                            candidate.load_weights(keras_model_path)
+                        except Exception:
+                            continue
+                        matching_candidates[candidate_role] = candidate
+
+                    if len(matching_candidates) == 1:
+                        model = next(iter(matching_candidates.values()))
+                    else:
+                        # Legacy arbitrary directory names may have neither a
+                        # unique weight topology nor persisted role metadata.
+                        tf.keras.config.enable_unsafe_deserialization()
+                        loaded_model = tf.keras.models.load_model(
+                            keras_model_path,
+                            custom_objects=custom_objects,
+                            compile=False,
+                        )
+                        model = ModelManager._select_keras3_candidate_by_output_signature(
+                            loaded_model,
+                            models_dict,
+                            artifact_name=model_name,
+                        )
+                        model.set_weights(loaded_model.get_weights())
             elif os.path.exists(os.path.join(model_dir, "saved_model.pb")):
                 # Load from SavedModel format
                 # The saved model contains the full model, so we need to load it and extract weights
@@ -410,7 +520,9 @@ class ModelManager:
                 # Validate requested models exist
                 missing = set(model_names) - set(available_models)
                 if missing:
-                    raise ValueError(f"Requested models not found in archive: {missing}")
+                    raise KeyError(
+                        f"Requested models not found in archive: {missing}"
+                    )
             
             # Load each requested model
             loaded_models = {}
