@@ -22,6 +22,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from ptycho.workflows.grid_lines_workflow import (  # noqa: E402
     GridLinesConfig,
+    _apply_execution_seed,
     apply_probe_mask,
     configure_legacy_params,
     load_probe_guess,
@@ -49,12 +50,14 @@ def main() -> None:
         probe_smoothing_sigma=0.5,
         probe_scale_mode="pad_extrapolate",
         set_phi=True,
+        seed=3,
     )
 
     probe = load_probe_guess(cfg.probe_npz)
     probe = scale_probe(probe, cfg.N, cfg.probe_smoothing_sigma, cfg.probe_scale_mode)
     probe = apply_probe_mask(probe, cfg.probe_mask_diameter)
 
+    _apply_execution_seed(cfg.seed)
     simulation = simulate_grid_data(cfg, probe)
     config = configure_legacy_params(cfg, probe)
     for split in ("train", "test"):

@@ -11,28 +11,30 @@
     "torch_loss_mode": "poisson",
     "ci_probe_provenance": "simulated",
     "nimgs_train": 1,
-    "n_train_patterns": 4489
+    "n_train_patterns": 4489,
+    "train_diffraction_sha256": "35a3202f5a8015802130d4c676718441d5a4ecd1d2ce70f1e1f987e0b077750e",
+    "test_diffraction_sha256": "297a73a9e68fa9c11a13b22bf4620acaa6e69c5a411e339bec114db3bed4a389"
   },
   "reference": {
-    "source_commit": "a455b49faf307c25ef333002c478cee868f9bd12",
-    "source_role": "main FFNO model source with one-group integration calibration",
-    "checkpoint_sha256": "656ca7a728d8dc4a356a9fac361c8013dfea6c2c2aa491d1561dde37d64affcd"
+    "source_commit": "7c388081186e02dba1564ebb2b6d5ef08e4651a0",
+    "source_role": "fno-stable FFNO model source with seed-3 input sealed by diffraction hashes",
+    "checkpoint_sha256": "94b91872e5119703b8022436aa2ed40512917219015defd722d991254d10e850"
   },
   "metrics": {
     "mae": [
-      0.17984698712825775,
-      0.14671303373350614
+      0.1885412633419037,
+      0.15722667085559783
     ],
     "ssim": [
-      0.520342697588406,
-      0.8854946851947426
+      0.4956325597404,
+      0.8692812920183649
     ]
   },
   "loss": {
-    "train": 199.52207946777344,
-    "validation": 165.8410186767578
+    "train": 219.38475036621094,
+    "validation": 182.10398864746094
   },
-  "raw_amplitude_mean_ratio": 1.0351791381835938,
+  "raw_amplitude_mean_ratio": 1.0412002801895142,
   "tolerances": {
     "mae_amp": 0.015,
     "mae_phase": 0.025,

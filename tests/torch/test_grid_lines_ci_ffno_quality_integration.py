@@ -1,4 +1,4 @@
-"""Slow visual-quality gate for main's corrected CI probe and scale chain."""
+"""Slow visual-quality gate for the corrected CI probe and scale chain."""
 
 from __future__ import annotations
 
@@ -19,6 +19,13 @@ DATASET_BUILDER_PATH = REPO_ROOT / "tests/torch/_grid_lines_ci_dataset_builder.p
 TORCH_RUNNER_PATH = REPO_ROOT / "scripts/studies/grid_lines_torch_runner.py"
 TRAIN_GROUPS = 1
 TRAIN_PATTERNS = 4_489
+DATASET_SEED = 3
+TRAIN_DIFFRACTION_SHA256 = (
+    "35a3202f5a8015802130d4c676718441d5a4ecd1d2ce70f1e1f987e0b077750e"
+)
+TEST_DIFFRACTION_SHA256 = (
+    "297a73a9e68fa9c11a13b22bf4620acaa6e69c5a411e339bec114db3bed4a389"
+)
 
 pytestmark = [pytest.mark.slow]
 
@@ -83,6 +90,10 @@ def _ensure_dataset(scratch_root: Path) -> tuple[Path, Path]:
     with np.load(train_npz, allow_pickle=True) as train_data:
         metadata = json.loads(train_data["_metadata"].item())
         assert metadata["additional_parameters"]["nimgs_train"] == TRAIN_GROUPS
+        assert (
+            metadata["additional_parameters"]["simulation_config"]["seed"]
+            == DATASET_SEED
+        )
         assert train_data["coords_nominal"].shape[0] == TRAIN_PATTERNS
         assert train_data["YY_full"].shape[0] == TRAIN_GROUPS
     return train_npz, test_npz
@@ -98,7 +109,12 @@ def test_ensure_dataset_consumes_builder_dataset_paths_manifest(
 
     def fake_builder(*args: object) -> None:
         expected_dir.mkdir(parents=True)
-        metadata = {"additional_parameters": {"nimgs_train": TRAIN_GROUPS}}
+        metadata = {
+            "additional_parameters": {
+                "nimgs_train": TRAIN_GROUPS,
+                "simulation_config": {"seed": DATASET_SEED},
+            }
+        }
         np.savez(
             expected_train,
             _metadata=json.dumps(metadata),
@@ -126,7 +142,7 @@ def test_ensure_dataset_consumes_builder_dataset_paths_manifest(
 
 def _load_baseline() -> dict:
     assert BASELINE_PATH.is_file(), (
-        "A fresh five-epoch main/FFNO CI run must establish "
+        "A fresh five-epoch FFNO CI run must establish "
         f"{BASELINE_PATH}; do not reuse the Hybrid ResNet calibration."
     )
     baseline = json.loads(BASELINE_PATH.read_text(encoding="utf-8"))
@@ -143,6 +159,8 @@ def _load_baseline() -> dict:
         "ci_probe_provenance": "simulated",
         "nimgs_train": TRAIN_GROUPS,
         "n_train_patterns": TRAIN_PATTERNS,
+        "train_diffraction_sha256": TRAIN_DIFFRACTION_SHA256,
+        "test_diffraction_sha256": TEST_DIFFRACTION_SHA256,
     }
     return baseline
 
@@ -253,7 +271,7 @@ def _render_truth_recon_error_grid(
 def test_grid_lines_ffno_ci_nll_five_epoch_quality_and_visual(
     grid_lines_ffno_ci_scratch_root: Path,
 ) -> None:
-    """Protect the corrected CI probe gauge with a learned main-native FFNO run."""
+    """Protect the corrected CI probe gauge with a learned FFNO run."""
     torch = pytest.importorskip("torch")
     if not torch.cuda.is_available():
         pytest.skip("the N=128 five-epoch FFNO CI integration gate requires CUDA")
@@ -261,11 +279,23 @@ def test_grid_lines_ffno_ci_nll_five_epoch_quality_and_visual(
         pytest.skip("Run1084 probe fixture is unavailable")
 
     train_npz, test_npz = _ensure_dataset(grid_lines_ffno_ci_scratch_root)
+    from ptycho.simulation.identity import array_sha256
+
     for split_path in (train_npz, test_npz):
         with np.load(split_path, allow_pickle=True) as split:
             assert "probe_simulated" in split.files
             assert split["probe_simulated"].shape == (128, 128)
             assert split["probe_simulated"].dtype == np.complex64
+    with np.load(train_npz, allow_pickle=True) as split:
+        assert (
+            array_sha256(split["diffraction"].astype(np.float32))
+            == TRAIN_DIFFRACTION_SHA256
+        )
+    with np.load(test_npz, allow_pickle=True) as split:
+        assert (
+            array_sha256(split["diffraction"].astype(np.float32))
+            == TEST_DIFFRACTION_SHA256
+        )
 
     baseline = _load_baseline()
     output_root = grid_lines_ffno_ci_scratch_root / "ci_nll_5ep"
