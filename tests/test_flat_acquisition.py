@@ -22,9 +22,13 @@ from ptycho.config.config import (
 from ptycho.workflows.synthetic_config import resolve_synthetic_workflow
 
 
-def _small_request(seed: int) -> dict[str, object]:
+def _small_request(
+    seed: int,
+    *,
+    profile: str = "synthetic-lines",
+) -> dict[str, object]:
     return {
-        "profile": "synthetic-lines",
+        "profile": profile,
         "file_values": {
             "simulation": {
                 "N": 64,
@@ -48,10 +52,17 @@ def _load_arrays(path: Path) -> dict[str, np.ndarray]:
         return {name: np.array(archive[name], copy=True) for name in archive.files}
 
 
-def _run_worker(tmp_path: Path, *, name: str, seed: int) -> Path:
+def _run_worker(
+    tmp_path: Path,
+    *,
+    name: str,
+    seed: int,
+    profile: str = "synthetic-lines",
+) -> Path:
     request_path = tmp_path / f"{name}.json"
     request_path.write_text(
-        json.dumps(_small_request(seed), sort_keys=True), encoding="utf-8"
+        json.dumps(_small_request(seed, profile=profile), sort_keys=True),
+        encoding="utf-8",
     )
     output_root = tmp_path / name
     environment = dict(os.environ)
@@ -622,3 +633,305 @@ def test_atomic_publication_never_clobbers_a_racing_destination(
 
     assert destination.read_bytes() == b"competitor"
     assert list(tmp_path.glob(".manifest.json.*.tmp")) == []
+
+
+AMPLITUDE_BASELINE = {
+    "train_diff3d": "b735bf05518d7010c82145a787b98b6c69ce408d5c3e48b14f93b3a232a7d8cf",
+    "test_diff3d": "de17d8b8f5b6a487fb6d6cdbc831cc4c44f4c49092c93133207aa7f1581379f7",
+    "probe": "c4f029239d37aaeb5ab97c921a95f19e3c7e01d1311dfc29ba759b5b5e92c0d8",
+}
+
+
+def _small_resolved(seed=5, *, profile="synthetic-lines"):
+    return resolve_synthetic_workflow(
+        profile=profile,
+        file_values={
+            "simulation": {
+                "N": 64,
+                "seed": seed,
+                "train_patterns": 2,
+                "test_patterns": 2,
+            },
+            "training": {
+                "train_raw_selection": 2,
+                "training_groups": 2,
+                "validation_groups": 2,
+                "neighbor_count": 1,
+                "neighbor_pool_size": 1,
+            },
+        },
+    )
+
+
+def test_amplitude_contract_arrays_are_sealed_before_count_support(tmp_path: Path):
+    from ptycho.simulation.identity import array_sha256
+
+    dataset_root = _run_worker(tmp_path, name="sealed-amplitude", seed=5)
+    train = _load_arrays(dataset_root / "train.npz")
+    test = _load_arrays(dataset_root / "test.npz")
+    manifest = json.loads(
+        (dataset_root / "manifest.json").read_text(encoding="utf-8")
+    )
+
+    assert array_sha256(train["diff3d"]) == AMPLITUDE_BASELINE["train_diff3d"]
+    assert array_sha256(test["diff3d"]) == AMPLITUDE_BASELINE["test_diff3d"]
+    assert array_sha256(train["probeGuess"]) == AMPLITUDE_BASELINE["probe"]
+    assert manifest["probe"]["transformed_probe_sha256"] == (
+        AMPLITUDE_BASELINE["probe"]
+    )
+    assert "physical_probe_sha256" not in manifest["probe"]
+    assert "count_amplitude_scale" not in manifest["probe"]
+
+
+def test_count_amplitude_scale_matches_the_torch_reference_helper():
+    from ptycho.simulation import flat_acquisition
+    from ptycho_torch.helper import derive_intensity_scale_from_amplitudes
+
+    assert hasattr(flat_acquisition, "derive_count_amplitude_scale")
+    rng = np.random.default_rng(0)
+    amplitudes = rng.random((7, 16, 16)).astype(np.float32)
+    expected = float(
+        derive_intensity_scale_from_amplitudes(amplitudes, 1e9).item()
+    )
+
+    assert flat_acquisition.derive_count_amplitude_scale(
+        amplitudes, 1e9
+    ) == pytest.approx(expected, rel=1e-6)
+
+
+def test_count_contract_uses_one_train_scale_for_counts_and_physical_probe():
+    from ptycho.simulation import flat_acquisition
+    from ptycho.simulation.identity import array_sha256
+
+    assert hasattr(flat_acquisition, "_apply_count_intensity_contract")
+    train_amplitudes = np.asarray(
+        [
+            [[1.0, 2.0], [3.0, 4.0]],
+            [[2.0, 3.0], [4.0, 5.0]],
+        ],
+        dtype=np.float32,
+    )
+    test_amplitudes = np.asarray(
+        [[[0.5, 1.0], [1.5, 2.0]]],
+        dtype=np.float32,
+    )
+    probe = np.asarray(
+        [[1.0 + 2.0j, 2.0 - 1.0j], [0.5 + 0.25j, -1.0j]],
+        dtype=np.complex64,
+    )
+    payloads = {
+        "train": {"diff3d": train_amplitudes.copy(), "probeGuess": probe.copy()},
+        "test": {"diff3d": test_amplitudes.copy(), "probeGuess": probe.copy()},
+    }
+    lineage = {"transformed_probe_sha256": array_sha256(probe)}
+    nphotons = 1000.0
+    scale = flat_acquisition.derive_count_amplitude_scale(
+        train_amplitudes,
+        nphotons,
+    )
+
+    physical_probe = flat_acquisition._apply_count_intensity_contract(
+        payloads,
+        probe_guess=probe,
+        nphotons=nphotons,
+        probe_lineage=lineage,
+    )
+
+    np.testing.assert_allclose(
+        payloads["train"]["diff3d"],
+        np.square(train_amplitudes.astype(np.float64) * scale).astype(np.float32),
+    )
+    np.testing.assert_allclose(
+        payloads["test"]["diff3d"],
+        np.square(test_amplitudes.astype(np.float64) * scale).astype(np.float32),
+    )
+    np.testing.assert_array_equal(
+        physical_probe,
+        (probe.astype(np.complex128) * scale).astype(np.complex64),
+    )
+    np.testing.assert_array_equal(payloads["train"]["probeGuess"], physical_probe)
+    np.testing.assert_array_equal(payloads["test"]["probeGuess"], physical_probe)
+    assert float(
+        payloads["train"]["diff3d"].astype(np.float64).sum(axis=(1, 2)).mean()
+    ) == pytest.approx(nphotons, rel=1e-6)
+    assert lineage["physical_probe_sha256"] == array_sha256(physical_probe)
+    assert lineage["count_amplitude_scale"] == {
+        "value": scale,
+        "split": "train",
+        "nphotons": nphotons,
+        "method": "derive_intensity_scale_from_amplitudes",
+    }
+
+
+def test_count_profile_emits_counts_at_the_requested_training_dose(tmp_path: Path):
+    from ptycho.simulation.flat_acquisition import generate_flat_acquisitions
+
+    resolved = _small_resolved(profile="cnn-lines-ci")
+    result = generate_flat_acquisitions(resolved, tmp_path / "ci")
+    train = _load_arrays(result.train_path)
+
+    counts = train["diff3d"]
+    assert counts.dtype == np.float32
+    assert np.isfinite(counts).all()
+    assert np.all(counts >= 0)
+    assert float(counts.astype(np.float64).sum(axis=(1, 2)).mean()) == (
+        pytest.approx(
+            resolved.simulation.train.detector.photons_per_pattern,
+            rel=1e-5,
+        )
+    )
+
+
+def test_count_profile_records_measurement_and_physical_probe_identity(
+    tmp_path: Path,
+):
+    from ptycho.simulation.flat_acquisition import generate_flat_acquisitions
+    from ptycho.simulation.identity import array_sha256
+
+    resolved = _small_resolved(profile="cnn-lines-ci")
+    result = generate_flat_acquisitions(resolved, tmp_path / "ci")
+    source = _load_arrays(result.source_path)
+    train = _load_arrays(result.train_path)
+    test = _load_arrays(result.test_path)
+
+    assert result.manifest["measurement_identity"] == {
+        "measurement_domain": "count_intensity",
+        "scale_contract_version": "ci_intensity_v2",
+    }
+    for split in ("train", "test"):
+        identity = result.manifest["splits"][split]["measurement_identity"]
+        assert identity["measurement_domain"] == "count_intensity"
+        assert identity["scale_contract_version"] == "ci_intensity_v2"
+
+    probe_record = result.manifest["probe"]
+    assert probe_record["count_amplitude_scale"]["split"] == "train"
+    assert probe_record["count_amplitude_scale"]["value"] > 0
+    assert probe_record["physical_probe_sha256"] == array_sha256(
+        train["probeGuess"]
+    )
+    assert probe_record["physical_probe_sha256"] != (
+        probe_record["transformed_probe_sha256"]
+    )
+    np.testing.assert_array_equal(source["probeGuess"], train["probeGuess"])
+    np.testing.assert_array_equal(test["probeGuess"], train["probeGuess"])
+
+
+def test_count_profile_generation_is_deterministic(tmp_path: Path):
+    from ptycho.simulation.flat_acquisition import generate_flat_acquisitions
+    from ptycho.simulation.identity import array_sha256
+
+    identities = []
+    for name in ("first", "second"):
+        result = generate_flat_acquisitions(
+            _small_resolved(profile="cnn-lines-ci"),
+            tmp_path / name,
+        )
+        train = _load_arrays(result.train_path)
+        identities.append(
+            (
+                array_sha256(train["diff3d"]),
+                array_sha256(train["probeGuess"]),
+            )
+        )
+
+    assert identities[0] == identities[1]
+
+
+def test_count_profile_artifacts_pass_pipeline_manifest_verification(
+    tmp_path: Path,
+):
+    from ptycho.workflows import synthetic_pipeline as pipeline
+
+    dataset_root = _run_worker(
+        tmp_path,
+        name="ci-worker",
+        seed=5,
+        profile="cnn-lines-ci",
+    )
+    resolved = _small_resolved(seed=5, profile="cnn-lines-ci")
+    manifest_path = dataset_root / "manifest.json"
+    manifest = pipeline._load_matching_dataset_manifest(
+        manifest_path,
+        resolved,
+    )
+
+    for split in ("train", "test"):
+        pipeline._verify_split_artifact(
+            dataset_root / f"{split}.npz",
+            manifest=manifest,
+            manifest_path=manifest_path,
+            resolved=resolved,
+            split=split,
+        )
+    truth = pipeline._load_verified_source_truth(
+        dataset_root / "source.npz",
+        manifest=manifest,
+        manifest_path=manifest_path,
+    )
+    assert truth.shape == (392, 392)
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("value", float("inf"), "value.*positive and finite"),
+        ("split", "test", "split.*train"),
+        ("nphotons", 1.0, "nphotons.*mismatch"),
+        ("method", "unknown", "method.*mismatch"),
+    ],
+)
+def test_count_profile_manifest_rejects_invalid_count_scale_metadata(
+    tmp_path: Path,
+    field: str,
+    value: object,
+    message: str,
+):
+    from ptycho.workflows import synthetic_pipeline as pipeline
+
+    dataset_root = _run_worker(
+        tmp_path,
+        name=f"invalid-scale-{field}",
+        seed=5,
+        profile="cnn-lines-ci",
+    )
+    manifest_path = dataset_root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["probe"]["count_amplitude_scale"][field] = value
+    manifest_path.write_text(
+        json.dumps(manifest, allow_nan=True),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match=message):
+        pipeline._load_matching_dataset_manifest(
+            manifest_path,
+            _small_resolved(seed=5, profile="cnn-lines-ci"),
+        )
+
+
+def test_amplitude_manifest_rejects_stray_count_probe_fields(tmp_path: Path):
+    from ptycho.workflows import synthetic_pipeline as pipeline
+
+    dataset_root = _run_worker(
+        tmp_path,
+        name="amplitude-with-count-fields",
+        seed=5,
+    )
+    manifest_path = dataset_root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["probe"]["physical_probe_sha256"] = manifest["probe"][
+        "transformed_probe_sha256"
+    ]
+    manifest["probe"]["count_amplitude_scale"] = {
+        "value": 1.0,
+        "split": "train",
+        "nphotons": 1e9,
+        "method": "derive_intensity_scale_from_amplitudes",
+    }
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="only defined.*count-intensity"):
+        pipeline._load_matching_dataset_manifest(
+            manifest_path,
+            _small_resolved(seed=5),
+        )

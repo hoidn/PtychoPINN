@@ -12,6 +12,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, fields
 from datetime import datetime, timezone
 import json
+import math
 import os
 from pathlib import Path
 import shlex
@@ -925,7 +926,61 @@ def _load_matching_dataset_manifest(
             probe_record.get(name),
             label=f"dataset manifest probe.{name}",
         )
+    if resolved.simulation.measurement_domain == "count_intensity":
+        _require_sha256(
+            probe_record.get("physical_probe_sha256"),
+            label="dataset manifest probe.physical_probe_sha256",
+        )
+        scale = probe_record.get("count_amplitude_scale")
+        expected_scale_fields = {"value", "split", "nphotons", "method"}
+        if not isinstance(scale, Mapping) or set(scale) != expected_scale_fields:
+            raise ValueError(
+                "dataset manifest probe.count_amplitude_scale fields must be "
+                f"{sorted(expected_scale_fields)!r} for the count-intensity contract"
+            )
+        value = scale.get("value")
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(float(value))
+            or float(value) <= 0
+        ):
+            raise ValueError(
+                "dataset manifest probe.count_amplitude_scale.value must be "
+                "positive and finite"
+            )
+        expected_nphotons = float(
+            resolved.simulation.train.detector.photons_per_pattern
+        )
+        if scale.get("split") != "train":
+            raise ValueError(
+                "dataset manifest probe.count_amplitude_scale.split must be 'train'"
+            )
+        if scale.get("nphotons") != expected_nphotons:
+            raise ValueError(
+                "dataset manifest probe.count_amplitude_scale.nphotons mismatch"
+            )
+        if scale.get("method") != "derive_intensity_scale_from_amplitudes":
+            raise ValueError(
+                "dataset manifest probe.count_amplitude_scale.method mismatch"
+            )
+    elif any(
+        name in probe_record
+        for name in ("physical_probe_sha256", "count_amplitude_scale")
+    ):
+        raise ValueError(
+            "dataset manifest count-intensity probe fields are only defined "
+            "for the count-intensity contract"
+        )
     return manifest
+
+
+def _stored_probe_digest_field(resolved: ResolvedSyntheticWorkflow) -> str:
+    """Return the manifest digest field for the probe stored in each NPZ."""
+
+    if resolved.simulation.measurement_domain == "count_intensity":
+        return "physical_probe_sha256"
+    return "transformed_probe_sha256"
 
 
 def _require_sha256(value: Any, *, label: str) -> str:
@@ -1093,7 +1148,8 @@ def _verify_split_artifact(
         raise ValueError(
             f"dataset manifest splits.{split}.objectGuess lineage mismatch"
         )
-    if hashes.get("probeGuess") != probe_record.get("transformed_probe_sha256"):
+    stored_probe_field = _stored_probe_digest_field(resolved)
+    if hashes.get("probeGuess") != probe_record.get(stored_probe_field):
         raise ValueError(f"dataset manifest splits.{split}.probeGuess lineage mismatch")
     dataset_identity = {
         "split_recipe_sha256": split_recipe_sha256,
@@ -1147,8 +1203,19 @@ def _load_verified_source_truth(
     probe_record = manifest.get("probe")
     if not isinstance(probe_record, Mapping):
         raise ValueError("dataset manifest probe must be an object")
-    if probe_record.get("transformed_probe_sha256") != array_sha256(probe):
-        raise ValueError("dataset manifest probe.transformed_probe_sha256 mismatch")
+    measurement = manifest.get("measurement_identity")
+    domain = (
+        measurement.get("measurement_domain")
+        if isinstance(measurement, Mapping)
+        else None
+    )
+    stored_probe_field = (
+        "physical_probe_sha256"
+        if domain == "count_intensity"
+        else "transformed_probe_sha256"
+    )
+    if probe_record.get(stored_probe_field) != array_sha256(probe):
+        raise ValueError(f"dataset manifest probe.{stored_probe_field} mismatch")
     return truth
 
 
