@@ -774,6 +774,34 @@ def _count_diagnostics_are_legacy_not_applicable(record: Any) -> bool:
     return status == "not_applicable" and reason == "legacy_normalized_amplitude"
 
 
+def _validate_fitted_count_diagnostics(record: Any) -> None:
+    """Require finite fitted count evidence for count-intensity evaluation."""
+
+    def value(name: str) -> Any:
+        if isinstance(record, Mapping):
+            if name not in record:
+                raise MetricError(
+                    f"count_intensity diagnostics are missing {name}; the CI "
+                    "count metrics did not run"
+                )
+            return record[name]
+        if not hasattr(record, name):
+            raise MetricError(
+                f"count_intensity diagnostics are missing {name}; the CI "
+                "count metrics did not run"
+            )
+        return getattr(record, name)
+
+    for name in ("relative_l2_intensity_error", "mean_raw_poisson_nll"):
+        number = float(value(name))
+        if not math.isfinite(number):
+            raise MetricError(f"count_intensity diagnostics {name} must be finite")
+    for name in ("n_samples", "n_pixels"):
+        number = int(value(name))
+        if number <= 0:
+            raise MetricError(f"count_intensity diagnostics {name} must be positive")
+
+
 def _validate_channel_indices(
     channel_indices: Any,
     *,
@@ -1101,8 +1129,14 @@ def evaluate_reconstruction_quality(
     groups_per_center: int,
     output_dir: str | os.PathLike[str],
     expected_channels: int = 4,
+    measurement_domain: str = "normalized_amplitude",
 ) -> ReconstructionEvaluationResult:
     """Score raw arrays, render diagnostics, and publish two stage artifacts."""
+    if measurement_domain not in {"normalized_amplitude", "count_intensity"}:
+        raise MetricError(
+            "measurement_domain must be 'normalized_amplitude' or "
+            f"'count_intensity'; got {measurement_domain!r}"
+        )
     if isinstance(groups_per_center, bool) or not isinstance(groups_per_center, int):
         raise MetricError("groups_per_center must be a positive integer")
     if groups_per_center <= 0:
@@ -1134,9 +1168,10 @@ def evaluate_reconstruction_quality(
         raise MetricError("VarPro s1/s2 must be finite")
     if _record_field(reassembly, "effective_precision") != "32-true":
         raise MetricError("quality evaluation requires effective precision 32-true")
-    if not _count_diagnostics_are_legacy_not_applicable(
-        _record_field(reassembly, "count_metrics")
-    ):
+    count_record = _record_field(reassembly, "count_metrics")
+    if measurement_domain == "count_intensity":
+        _validate_fitted_count_diagnostics(count_record)
+    elif not _count_diagnostics_are_legacy_not_applicable(count_record):
         raise MetricError("legacy count diagnostics must be explicitly not_applicable")
 
     prepared = prepare_anchor_aligned(canvas, weights, canvas_anchor, target)
