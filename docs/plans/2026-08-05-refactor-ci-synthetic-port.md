@@ -1,153 +1,298 @@
 # Port the CI Synthetic-Generation Surface to `refactor`
 
-**Status:** DRAFT — pending user approval. Goal: make the validated
-five-epoch CI recipe (documented on the `fno-stable` line in
-`scripts/simulation/README.md`, "Validated five-epoch CI example") runnable
-verbatim on this branch, so its example + flag table can be ported as-is.
+**Status:** APPROVED AND IN PROGRESS — revised 2026-08-05 after the user
+selected the public-CNN option. The public `refactor` branch keeps its existing
+generator boundary: this port does not add `hybrid_resnet` or describe a CNN
+run using hybrid quality evidence.
 
-**Source material:** the `fno-stable` branch in this same repository (both
-branches share the object store; consult reference implementations with
-`git show fno-stable:<path>` — do not cherry-pick, since this branch's
-structures deliberately diverge). Key references:
-`ptycho/simulation/flat_acquisition.py` (CI contract,
-`_apply_count_intensity_contract`), `ptycho/workflows/synthetic_config.py`
-(profile registry, `hybrid-resnet-lines-ci`),
-`scripts/simulation/synthetic_pipeline.py` (contract CLI flags),
-`ptycho_torch/reconstruction_evaluation.py` (`measurement_domain` keyword),
-and the design that governs the gauge semantics,
-`fno-stable:docs/plans/2026-08-04-ci-gauge-invariant-scaling.md`.
+**Goal:** Make the public synthetic runner generate, train on, reconstruct, and
+evaluate the count-intensity contract through a new `cnn-lines-ci` profile,
+while keeping the existing `synthetic-lines-v1` workflow byte-identical.
 
-**What already exists on `refactor` (do not rebuild):** the Torch `ci`
-profile (`config_factory.py`, locks `ci_intensity_v2` + `count_intensity` +
-`rectangular_scaled` + Poisson), the `rect_s1s2_init` ModelConfig field with
-the dose-closure solve, the strict `rect-s1s2-initialization-v1` startup
-record, `validate_rect_s1s2_initialization_contract`, the public
-`ptycho_synthetic` runner with stage manifests v2, and the mmap barycentric
-reconstruction/evaluation workflow. The gap is purely the **synthetic
-generation side of CI** plus its CLI/profile plumbing.
+**Architecture:** Add the count-intensity acquisition contract and a second
+synthetic profile around the already registered `cnn` generator. Reuse the
+existing Torch CI validation and dose-closure implementation, preserve raw
+grouped detector counts at the training boundary, and make reconstruction
+evaluation validate diagnostics for the resolved measurement domain.
+
+**Source material:** Curate the applicable contract implementation from the
+local `fno-stable` branch with `git show`; do not cherry-pick because the public
+resolver and workflow structure differs. Relevant references are:
+
+- `ptycho/simulation/flat_acquisition.py` for count emission and physical-probe
+  manifest identity;
+- `ptycho/workflows/synthetic_config.py` for coherent CI field locking;
+- `scripts/simulation/synthetic_pipeline.py` for explicit CLI overrides;
+- `ptycho/workflows/training.py` and
+  `ptycho_torch/workflows/components.py` for the raw-count container bridge;
+- `ptycho_torch/reconstruction_evaluation.py` for measurement-domain-specific
+  diagnostic validation;
+- `fno-stable:docs/plans/2026-08-04-ci-gauge-invariant-scaling.md` for the
+  acquisition-gauge and dose-closure semantics.
+
+The applicable public documentation routes from `README.md`,
+`scripts/simulation/README.md`, `docs/CONFIGURATION.md`, and
+`docs/workflows/pytorch.md`. This branch intentionally has no `docs/index.md`,
+so this port must not recreate the pruned documentation hub.
 
 ---
 
-## 1. Gap inventory (verified against this branch's code)
+## 1. Corrected gap inventory
 
-| Missing piece | Where it lives on `fno-stable` | `refactor` state |
+| Missing piece | `refactor` state | Required result |
 |---|---|---|
-| Count-intensity emission (counts on disk; CI-scaled `probeGuess`; `count_amplitude_scale`; physical-probe digest) | `flat_acquisition.py` `_apply_count_intensity_contract` | `flat_acquisition.py` exists, legacy-amplitude only |
-| `hybrid-resnet-lines-ci` profile | `synthetic_config.py` profile registry | Single hard-rejecting `_PROFILE_NAME = "synthetic-lines"` (`synthetic_config.py:75,1244`) |
-| Contract CLI flags: `--scale-contract-version`, `--measurement-domain`, `--physics-forward-mode`, `--cnn-output-mode`, `--torch-loss-mode`, `--rect-s1s2-init` | `synthetic_pipeline.py` | Absent |
-| Training-stage bridge: synthetic CI profile → Torch `ci` profile with `rect_s1s2_init=dose_closure` default | resolver `_resolve_model` + workflow wiring | Absent (Torch `ci` profile reachable only programmatically) |
-| Evaluator count-domain acceptance | `reconstruction_evaluation.py` `measurement_domain` keyword | Absent |
+| Count-intensity flat acquisitions | Amplitude only | Poisson-realized counts, one training-derived count scale, CI-scaled physical `probeGuess`, and strict manifest fields |
+| Public CI synthetic profile | Only `synthetic-lines` | Add `cnn-lines-ci`; keep `synthetic-lines-v1` bytes and digest unchanged |
+| Contract CLI overrides | Six fields absent | Expose `--scale-contract-version`, `--measurement-domain`, `--physics-forward-mode`, `--cnn-output-mode`, `--torch-loss-mode`, and `--rect-s1s2-init` |
+| Raw detector-count training bridge | `generate_grouped_data()` returns raw `grouped["diffraction"]`, but `_materialize_backend_container()` discards it when constructing the backend container | Attach exact grouped values as `raw_grouped_diffraction` and use them for CI Poisson training while preserving the legacy path |
+| Count-domain evaluation | Assumes amplitude-domain marker | Require fitted, finite count diagnostics in count mode and retain the explicit legacy marker in amplitude mode |
+| Pipeline manifest verification | Does not know the CI probe/count fields | Verify the physical-probe digest and count scale for CI; reject stray CI fields from amplitude artifacts |
 
-Present already (verified): `--probe-transform`, `--train-raw-selection`,
-`--training-groups`/`--validation-groups`, `--neighbor-count`/`--neighbor-pool-size`,
-`--groups-per-center`, `--photons-per-pattern`, `--gradient-clip-*`,
-`--plateau-*`, execution flags. The example uses no raster layout, so the
-scan-geometry capability is **not** part of this port.
+The synthetic workflow already forwards `DataConfig`, `ModelConfig`, and
+training fields through `_synthetic_factory_overrides()` into
+`resolve_training_payload()`. It must not pass a redundant `profile="ci"`:
+the resolved synthetic snapshot is already the authority, and the shared Torch
+factory validates its coherence.
 
-## 2. Port design
+## 2. Contract design
 
-Follow this branch's established porting discipline: curated, coherent
-commits adapted to `refactor`'s structures and stricter public contracts —
-not patch transplants. Per-area decisions:
+### 2.1 Flat acquisition
 
-1. **`flat_acquisition` CI contract.** Add the count-intensity emission path
-   mirroring `fno-stable` semantics: for `measurement_domain=count_intensity`,
-   diffraction is stored as Poisson-realized counts and `probeGuess` is
-   OVERWRITTEN with the CI-scaled physical probe (`probe_unscaled × S`,
-   `S = derive_count_amplitude_scale(...)`), with `count_amplitude_scale`
-   and the physical-probe digest recorded in the dataset manifest. Carry the
-   contract docstring stating that for flat_acquisition data `probeGuess`
-   **is** the CI-scaled physical probe — this convention was the subject of
-   an entire RCA bug class (see the gauge design doc §1); it must be
-   explicit, and the solved startup gauge is its runtime diagnostic.
-2. **Profile registry.** Generalize the single-profile check into a
-   two-entry registry: `synthetic-lines` (unchanged, byte-identical
-   identity) and `hybrid-resnet-lines-ci`. The CI profile selects the
-   count-intensity generation path, the coherent contract set, the
-   `hybrid_resnet` model family fields used by the validated recipe, and
-   `rect_s1s2_init=dose_closure` as its default (matching the Torch `ci`
-   profile's field-locking style: contradicting a locked contract field
-   fails closed; `dose_closure` itself remains overridable via
-   `--rect-s1s2-init ones`).
-3. **CLI flags.** Add the six contract flags to `synthetic_pipeline.py`
-   with the same pairing rules as `fno-stable` (the units triple is
-   inseparable; partial combinations rejected naming the offending field).
-   `--rect-s1s2-init {ones,dose_closure}` threads to the model config and
-   must compose with `validate_rect_s1s2_initialization_contract` (already
-   on this branch — the validator is the port's ally, not new work).
-4. **Training-stage bridge.** The CI profile's training stage resolves
-   through the existing Torch `ci` profile path
-   (`resolve_training_payload(..., profile="ci")` semantics) so contract
-   locking, the dose-closure solve, and the strict startup record all come
-   from code this branch already tests. The stage-manifest v2 training
-   entry already requires `training_summary.json` with a mode-matched
-   record — reuse rules apply unchanged.
-5. **Evaluator.** Add the `measurement_domain` keyword to
-   `reconstruction_evaluation` (count-domain runs must not require legacy
-   amplitude diagnostics), mirroring `fno-stable:afc2f6674`'s behavior.
-6. **Identity/digests.** The CI profile mints its own workflow/simulation
-   digests. The sealed `synthetic-lines-v1` identity (recipe digest, stage
-   manifests, any pinned hashes in tests) must remain byte-identical — the
-   registry change is additive. Follow this branch's rule that
-   `rect_s1s2_init` is part of workflow identity (both modes hash
-   differently), already established by the gauge-fix port.
+For `measurement_domain="count_intensity"`:
 
-## 3. Validation plan
+1. derive one scale from the normalized-amplitude training split,
+   `S = sqrt(nphotons / mean(sum(amplitude**2)))`;
+2. transform every split to detector counts, `(amplitude * S) ** 2`;
+3. store `probeGuess = probe_unscaled * S` as the CI-scaled physical forward
+   probe, not the normalized model-input probe;
+4. persist `count_amplitude_scale` and a digest of that stored physical probe;
+5. apply the transformation before writing source/train/test artifacts so all
+   persisted surfaces agree.
 
-CPU first (TDD, adapt `fno-stable`'s batteries to this branch's test idioms):
-1. `flat_acquisition` CI tests: counts realized at `photons-per-pattern`
-   scale; `probeGuess` equals `probe_unscaled × S` exactly; manifest fields
-   present; legacy path byte-unchanged.
-2. Profile tests: registry resolves both names; unknown profiles still fail
-   closed; contract-triple pairing rules; `hybrid-resnet-lines-ci` defaults
-   (including `dose_closure`) and their override behavior.
-3. CLI tests: flag plumbing, help discoverability, rejection messages.
-4. Identity tests: sealed `synthetic-lines` digests byte-identical; CI
-   profile digests stable and distinct per `rect_s1s2_init` mode.
-5. Evaluator tests: `measurement_domain="count_intensity"` accepted without
-   legacy amplitude diagnostics.
-6. Full existing CPU suite green (this branch's focused batteries as run in
-   root-merge sessions).
+This fixes a deterministic acquisition gauge; it does not claim identifiable
+physical calibration. The existing dose-closure startup record remains the
+runtime diagnostic for a probe/object decomposition mismatch.
 
-GPU acceptance (the point of the port):
-7. Run the **verbatim** validated recipe — the exact command from
-   `fno-stable:scripts/simulation/README.md`'s "Validated five-epoch CI
-   example" (`ptycho_synthetic --profile hybrid-resnet-lines-ci ...
-   --rect-s1s2-init dose_closure`, seed 3, 5 epochs). Acceptance: amplitude
-   SSIM ≥ 0.78, phase ≥ 0.93; expect ≈0.815/0.939 with
-   `solved_gauge ≈ 3.12` in the startup record (same data recipe and seed;
-   allow the band, not the exact figures, across branch lineage).
-8. Control: `--rect-s1s2-init ones` on the same recipe reproduces the slow
-   baseline (≈0.70 amplitude SSIM) — demonstrating the port carries the
-   mechanism, not just the numbers.
+The legacy `legacy_v1` / `normalized_amplitude` path must remain byte-identical,
+including its sealed array hashes and workflow identity.
 
-Docs (after 7 passes):
-9. Port the example + non-obvious-flag table verbatim from `fno-stable`
-   into this branch's `scripts/simulation/README.md`; reconcile
-   `docs/CONFIGURATION.md`'s "Dose-closure initialization example" (keep the
-   programmatic form, drop the cross-branch pointer, link the now-native CLI
-   example); update the CI-profile sections and `docs/index.md` routing.
+### 2.2 Profile and CLI
 
-## 4. Non-goals
+Replace the single-profile hard rejection with a registry containing:
 
-- No raster/`--scan-position-layout` port (the example doesn't use it).
-- No changes to the sealed `synthetic-lines-v1` identity or its tests.
-- No changes to protected physics modules; the dose-closure solve and
-  validator are consumed as-is.
-- No new quality-gate test sealing in this port (a CI five-epoch sealed
-  gate is a separate decision, on either branch).
-- No pushes beyond the local repository.
+- `synthetic-lines`: the unchanged `synthetic-lines-v1` amplitude recipe;
+- `cnn-lines-ci`: the exact new recipe version `cnn-lines-ci-v1`, using
+  `architecture="cnn"` and the coherent
+  contract set:
 
-## 5. Risks
+  ```text
+  simulation.scale_contract_version = ci_intensity_v2
+  simulation.measurement_domain      = count_intensity
+  model.architecture                 = cnn
+  model.physics_forward_mode         = rectangular_scaled
+  model.cnn_output_mode              = real_imag
+  model.loss_function                = Poisson
+  model.rect_s1s2_init               = dose_closure
+  training.torch_loss_mode           = poisson
+  training.nll                       = true
+  training.gradient_clip_val         = 1.0
+  training.gradient_clip_algorithm   = norm
+  ```
 
-- **Structural drift:** this branch's `synthetic_config.py` is a rewrite;
-  the profile registry must be built in its idiom, not transplanted —
-  budget review time for resolver-shape differences.
-- **Digest movement:** any accidental change to `synthetic-lines` identity
-  fails the port; test 4 is the guard and should be written first.
-- **Probe-convention ambiguity:** the CI `probeGuess`-is-physical convention
-  is exactly the trap from the RCA; the contract docstring and a
-  solved-gauge sanity note in docs are mandatory, not optional polish.
-- **Acceptance variance:** cross-branch lineage may shift the five-epoch
-  number within the band; the ≥0.78/≥0.93 floors (not the point values) are
-  the gate.
+For `cnn-lines-ci`, `architecture`, `scale_contract_version`,
+`measurement_domain`, `physics_forward_mode`, `cnn_output_mode`,
+`loss_function`, `torch_loss_mode`, and `nll` are profile locks: explicit
+matching values are accepted and contradictions fail closed. This prevents a
+complete amplitude override from retaining a misleading CI profile identity.
+`rect_s1s2_init` remains an overridable profile default so `ones` is available
+as a control. The six CLI flags apply as explicit overrides and use the same
+resolver validation as structured YAML/TOML/JSON input.
+
+The new profile receives its own recipe and workflow digest. No new field may
+appear in the serialized `synthetic-lines-v1` snapshot.
+
+### 2.3 Training and evaluation
+
+`RawData.generate_grouped_data()` already returns the unnormalized grouped
+detector values as `grouped["diffraction"]`. The loss occurs in
+`ptycho.workflows.training._materialize_backend_container()`, which must attach
+an exact copy as `container.raw_grouped_diffraction` alongside normalized
+`container.X`. `ptycho_torch.workflows.components._build_lightning_dataloaders()`
+selects those raw values only when the resolved data contract is
+`ci_intensity_v2` / `count_intensity`, and uses the training-derived
+normalization statistics when adapting validation data. All legacy consumers
+continue receiving their existing normalized representation.
+
+Evaluation takes the resolved `measurement_domain` explicitly:
+
+- count mode requires fitted, finite `relative_l2_intensity_error` and
+  `mean_raw_poisson_nll` diagnostics with positive sample/pixel counts;
+- amplitude mode retains its explicit `not_applicable` legacy diagnostic
+  marker;
+- unknown domains and legacy/deferred markers in count mode fail closed.
+
+## 3. TDD and implementation sequence
+
+- [x] Seal current `synthetic-lines-v1` 50-epoch and five-epoch payload bytes
+  and digests before broadening accepted types.
+- [ ] Complete count-scale, count-emission, stored-probe, manifest, and
+  amplitude-regression tests in `tests/test_flat_acquisition.py`; implement in
+  `ptycho/simulation/flat_acquisition.py` and verify through
+  `ptycho/workflows/synthetic_pipeline.py`.
+- [ ] Add resolver tests for both profiles, fail-closed mixed contracts,
+  overrides, and distinct CI identities in
+  `tests/test_synthetic_workflow_config.py`; implement the registry and widened
+  literals in `ptycho/workflows/synthetic_config.py`.
+- [ ] Add CLI help/plumbing/rejection tests in
+  `tests/scripts/test_synthetic_pipeline_cli.py`; implement the six flags in
+  `scripts/simulation/synthetic_pipeline.py`.
+- [ ] Add raw-count boundary tests in `tests/torch/test_ci_container_bridge.py`
+  and a workflow-level preservation test in
+  `tests/test_training_workflow_initialization_summary.py`; implement the
+  attachment in `ptycho.workflows.training._materialize_backend_container()`
+  and contract-selective selection in
+  `ptycho_torch.workflows.components._build_lightning_dataloaders()`.
+- [ ] Add count-domain evaluator tests in
+  `tests/torch/test_reconstruction_evaluation.py`; implement the keyword and
+  pipeline forwarding in `ptycho_torch/reconstruction_evaluation.py` and
+  `ptycho/workflows/synthetic_pipeline.py`.
+- [ ] Run the focused CPU batteries after each TDD slice, then the complete
+  supported CPU suite once the tree is settled.
+- [ ] Run a fresh five-epoch CUDA `cnn-lines-ci` workflow with
+  `rect_s1s2_init=dose_closure`, then a matching `ones` control.
+- [ ] Update public runner/configuration/workflow documentation only after the
+  executable contract is verified.
+
+## 4. Acceptance evidence
+
+### CPU contract gate
+
+The following focused battery must pass freshly:
+
+```bash
+python -m pytest \
+  tests/test_flat_acquisition.py \
+  tests/test_synthetic_workflow_config.py \
+  tests/scripts/test_synthetic_pipeline_cli.py \
+  tests/torch/test_ci_container_bridge.py \
+  tests/torch/test_reconstruction_evaluation.py -q
+```
+
+Then run the branch's complete supported CPU suite according to
+`docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md` when those
+files are present. Collection failures must be classified against this
+branch's supported surface rather than silently deleted or bypassed.
+
+### GPU functional gate
+
+CNN CI end-to-end completion is an open feasibility prerequisite because this
+branch has no validated short-run CNN CI baseline. First run this reduced fresh
+CUDA smoke test:
+
+```bash
+ptycho_synthetic \
+  --profile cnn-lines-ci \
+  --output-root .artifacts/integration/cnn-lines-ci-smoke \
+  --gridsize 1 --epochs 1 --batch-size 16 --seed 3 \
+  --probe-source custom \
+  --probe-path datasets/Run1084_recon3_postPC_shrunk_3.npz \
+  --probe-transform 'pad_extrapolate:128|smooth:0.5' \
+  --train-patterns 256 --test-patterns 64 \
+  --train-raw-selection 256 --training-groups 256 --validation-groups 64 \
+  --neighbor-count 1 --neighbor-pool-size 1 --groups-per-center 1 \
+  --photons-per-pattern 1e9 \
+  --rect-s1s2-init dose_closure \
+  --gradient-clip-val 1.0 --gradient-clip-algorithm norm \
+  --plateau-factor 0.5 --plateau-patience 2 --plateau-threshold 0.0 \
+  --accelerator cuda --devices 1 --precision 32-true --workers 0 \
+  --logger csv --deterministic
+```
+
+If this fails because the stock CNN cannot produce an evaluable
+reconstruction, record that as the missing CNN capability and stop; do not
+weaken the reconstruction/evaluation contract or import hybrid evidence. If it
+passes, run the exact five-epoch functional recipe:
+
+```bash
+ptycho_synthetic \
+  --profile cnn-lines-ci \
+  --output-root .artifacts/integration/cnn-lines-ci-5ep-dose-closure \
+  --gridsize 1 --epochs 5 --batch-size 16 --seed 3 \
+  --probe-source custom \
+  --probe-path datasets/Run1084_recon3_postPC_shrunk_3.npz \
+  --probe-transform 'pad_extrapolate:128|smooth:0.5' \
+  --train-patterns 4489 --test-patterns 729 \
+  --train-raw-selection 4489 --training-groups 4489 --validation-groups 729 \
+  --neighbor-count 1 --neighbor-pool-size 1 --groups-per-center 1 \
+  --photons-per-pattern 1e9 \
+  --rect-s1s2-init dose_closure \
+  --gradient-clip-val 1.0 --gradient-clip-algorithm norm \
+  --plateau-factor 0.5 --plateau-patience 2 --plateau-threshold 0.0 \
+  --accelerator cuda --devices 1 --precision 32-true --workers 0 \
+  --logger csv --deterministic
+```
+
+Acceptance requires:
+
+- exit code zero and all four stage-manifest-v2 stages freshly complete;
+- resolved `cnn` architecture and coherent CI contract persisted;
+- count-domain dataset and evaluation diagnostics finite and mode-matched;
+- a strict `rect-s1s2-initialization-v1` record with mode `dose_closure`, a
+  positive finite solved gauge, and 256 sampled patterns;
+- reload/reconstruction completes from the saved bundle without contract drift.
+
+Run the same five-epoch command into
+`.artifacts/integration/cnn-lines-ci-5ep-ones`, changing only
+`--rect-s1s2-init ones`. Acceptance requires an explicit `ones`
+initialization record (`solved_gauge=1`, zero sampled patterns) and successful
+completion.
+
+There is deliberately **no SSIM floor or expected solved-gauge value** for
+these CNN runs. The public guide already records that short N=128 count-Poisson
+CNN training is collapse-prone without the complete TF-parity preset, and this
+port does not expose that separate runtime preset. The hybrid-resnet
+0.78/0.93 floors and approximately 0.815/0.939 results are not evidence for
+the CNN profile. Establishing and sealing a CNN quality baseline is separate,
+user-gated work.
+
+## 5. Documentation gate
+
+After executable verification:
+
+- document `cnn-lines-ci`, its six explicit overrides, the count-domain NPZ
+  meaning, and the two initialization modes in `scripts/simulation/README.md`;
+- update the synthetic examples and routing in `README.md`;
+- replace the cross-branch CI recipe pointer in `docs/CONFIGURATION.md` with
+  the native CNN functional example and its no-quality-baseline caveat;
+- reconcile `docs/workflows/pytorch.md` so the data-contract section admits
+  both legacy amplitudes and count-intensity NPZs and does not imply the CNN
+  functional run inherits hybrid quality;
+- perform a focused text sweep for stale current claims involving
+  `hybrid-resnet-lines-ci`, the public generator emitting amplitudes only, or
+  the old cross-branch recipe.
+
+## 6. Non-goals and guardrails
+
+- No `hybrid_resnet` or other excluded architecture port.
+- No raster/`--scan-position-layout` work.
+- No changes to protected physics modules.
+- No change to the sealed `synthetic-lines-v1` identity or legacy arrays.
+- No CNN quality threshold or quality-gate pin.
+- No push beyond the local repository.
+- No recreation of documentation files intentionally absent from public
+  `refactor`.
+
+## 7. Risks
+
+- **Legacy identity drift:** widening live literals or adding registry data can
+  accidentally alter serialization. The committed byte/digest tests are the
+  first gate.
+- **Raw/count ambiguity:** using normalized `container.X` for CI makes the
+  Poisson objective numerically wrong even when config resolution looks
+  coherent. The bridge tests must inspect the actual attached values.
+- **Probe convention ambiguity:** `probeGuess` is the scaled physical
+  acquisition probe for these flat CI artifacts, not the normalized model
+  input. Tests and user docs must say so explicitly.
+- **CNN convergence:** a functional five-epoch run may be low quality. That is
+  expected under the current public runtime surface and cannot be promoted to
+  a quality claim without a separately validated preset and predeclared gate.
