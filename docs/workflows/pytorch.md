@@ -26,6 +26,31 @@ Key properties:
 - **Data contract** is identical to TensorFlow: the same standalone NPZ format
   consumed by the TensorFlow workflows (see §2).
 
+### Training entry-point convergence
+
+Entry points own source-specific validation and translate their inputs into a
+neutral, resolved training request. They do not invoke one another. Training
+behavior converges on `ptycho.workflows.training.run_training_workflow`:
+
+```text
+ptycho_synthetic ── simulate + verify manifest ─┐
+                                                │
+ptycho_train ───── validate supplied NPZs ─────┼─> Shared training service
+                                                │      ├─ group data once
+study adapter ──── validate cached dataset ─────┘      ├─ select memory/mmap rail
+                                                       ├─ resolve model/runtime
+                                                       └─ train + save bundle
+```
+
+At this boundary, `ptycho_synthetic` owns simulation, manifest identity, and
+stage lifecycle; `ptycho_train` owns caller-supplied standalone NPZ inputs; and
+study adapters own any specialized cached-data translation. The shared service
+owns grouping, data-residency selection, model/runtime resolution, training,
+and bundle persistence. A compatibility entry point that still performs any of
+those shared steps locally is transitional and should converge by delegating to
+the service, not by calling another CLI or passing CLI-specific arguments into
+the shared core.
+
 ## 2. Prerequisites
 
 - `pip install .` installs torch ≥ 2.2, `lightning`, and `tensordict` automatically.
