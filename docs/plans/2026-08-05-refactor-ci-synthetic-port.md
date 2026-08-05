@@ -260,7 +260,7 @@ user-gated work.
 
 ### Recorded execution evidence (2026-08-05)
 
-The focused contract battery passed with `202 passed` in 84.26 seconds. The
+The final focused contract battery passed with `202 passed` in 88.17 seconds. The
 supported integration selection passed with `3 passed, 10 skipped, 3136
 deselected` in 180.20 seconds after two independently required cleanup fixes:
 the unsupported external-orchestrator runtime test was retired, and the
@@ -278,6 +278,14 @@ The fresh CUDA runs completed all four `synthetic-stage-manifest-v2` stages:
 The two five-epoch runs used byte-identical train and test NPZs, so their only
 intended contract difference was initialization. These measurements are
 functional evidence, not a quality baseline.
+
+After correcting the evaluation serializer to retain fitted count evidence
+instead of emitting the legacy not-applicable marker, a fresh repeat of the
+one-epoch smoke completed all four stages at
+`.artifacts/integration/cnn-lines-ci-smoke-metric-validity`. Its persisted
+`metric_validity.count_diagnostics` has `status=complete` and exactly matches
+the finite error, NLL, sample-count, and pixel-count values validated from
+`reassembly.count_metrics`.
 
 The unfiltered branch suite completed with `2956 passed, 154 failed, 27
 skipped, 11 xfailed, 1 xpassed` in 679.99 seconds. None of the failures exercises

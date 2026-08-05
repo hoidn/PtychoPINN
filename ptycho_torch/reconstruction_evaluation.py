@@ -774,8 +774,8 @@ def _count_diagnostics_are_legacy_not_applicable(record: Any) -> bool:
     return status == "not_applicable" and reason == "legacy_normalized_amplitude"
 
 
-def _validate_fitted_count_diagnostics(record: Any) -> None:
-    """Require finite fitted count evidence for count-intensity evaluation."""
+def _validate_fitted_count_diagnostics(record: Any) -> dict[str, Any]:
+    """Require and summarize fitted count evidence for CI evaluation."""
 
     def value(name: str) -> Any:
         if isinstance(record, Mapping):
@@ -792,14 +792,23 @@ def _validate_fitted_count_diagnostics(record: Any) -> None:
             )
         return getattr(record, name)
 
+    float_values: dict[str, float] = {}
     for name in ("relative_l2_intensity_error", "mean_raw_poisson_nll"):
         number = float(value(name))
         if not math.isfinite(number):
             raise MetricError(f"count_intensity diagnostics {name} must be finite")
+        float_values[name] = number
+    int_values: dict[str, int] = {}
     for name in ("n_samples", "n_pixels"):
         number = int(value(name))
         if number <= 0:
             raise MetricError(f"count_intensity diagnostics {name} must be positive")
+        int_values[name] = number
+    return {
+        "status": "complete",
+        **float_values,
+        **int_values,
+    }
 
 
 def _validate_channel_indices(
@@ -1170,9 +1179,14 @@ def evaluate_reconstruction_quality(
         raise MetricError("quality evaluation requires effective precision 32-true")
     count_record = _record_field(reassembly, "count_metrics")
     if measurement_domain == "count_intensity":
-        _validate_fitted_count_diagnostics(count_record)
+        count_diagnostics = _validate_fitted_count_diagnostics(count_record)
     elif not _count_diagnostics_are_legacy_not_applicable(count_record):
         raise MetricError("legacy count diagnostics must be explicitly not_applicable")
+    else:
+        count_diagnostics = {
+            "status": "not_applicable",
+            "reason": "legacy_normalized_amplitude",
+        }
 
     prepared = prepare_anchor_aligned(canvas, weights, canvas_anchor, target)
     prescale_prepared = prepare_anchor_aligned(
@@ -1263,10 +1277,7 @@ def evaluate_reconstruction_quality(
         "groups_per_center": groups_per_center,
         "effective_precision": "32-true",
         "varpro": {"s1": s1, "s2": s2},
-        "count_diagnostics": {
-            "status": "not_applicable",
-            "reason": "legacy_normalized_amplitude",
-        },
+        "count_diagnostics": count_diagnostics,
     }
     output_root = Path(output_dir)
     output_root.mkdir(parents=True, exist_ok=True)

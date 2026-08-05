@@ -700,6 +700,13 @@ def test_count_contract_evaluation_accepts_fitted_count_diagnostics(tmp_path):
 
     assert Path(result.metrics_path).is_file()
     assert Path(result.comparison_path).is_file()
+    assert result.metric_validity["count_diagnostics"] == {
+        "status": "complete",
+        "relative_l2_intensity_error": 0.031,
+        "mean_raw_poisson_nll": 1234.5,
+        "n_samples": 8,
+        "n_pixels": 8 * 16384,
+    }
 
 
 def test_count_contract_evaluation_rejects_legacy_not_applicable(tmp_path):
