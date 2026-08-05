@@ -198,7 +198,9 @@ identity required by every selected stage.
 The public `synthetic-lines-v1` generator emits legacy normalized amplitudes,
 so YAML or TOML overrides do not turn it into a count-intensity generator. It
 uses `model.rect_s1s2_init=ones`; use the Torch `ci` profile with existing
-count-intensity inputs when opting into `dose_closure`. Training writes the strict
+count-intensity inputs when opting into `dose_closure`. A worked
+`dose_closure` example with field explanations is in
+`docs/CONFIGURATION.md` under "Named CI Profile". Training writes the strict
 `rect-s1s2-initialization-v1` record to
 `OUTPUT/training/training_summary.json`, and the current
 `synthetic-stage-manifest-v2` training entry requires that file alongside the
