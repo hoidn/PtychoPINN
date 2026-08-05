@@ -245,7 +245,8 @@ def to_training_config(
         training: PyTorch TrainingConfig instance (provides epochs, batch_size, nll)
         overrides: Optional dict with flat field names that override defaults.
             Supported keys: train_data_file, test_data_file, nphotons, n_groups,
-            n_subsample, subsample_seed, output_dir.
+            n_subsample, subsample_seed, enable_oversampling,
+            neighbor_pool_size, sequential_sampling, output_dir.
 
     Returns:
         TensorFlow TrainingConfig instance with translated fields
@@ -264,6 +265,8 @@ def to_training_config(
     n_subsample = overrides.get('n_subsample', None)
     subsample_seed = overrides.get('subsample_seed', getattr(data, 'subsample_seed', None))
     output_dir = overrides.get('output_dir', training.output_dir)
+    enable_oversampling = overrides.get('enable_oversampling', False)
+    neighbor_pool_size = overrides.get('neighbor_pool_size', None)
     sequential_sampling = overrides.get('sequential_sampling', False)
     mae_weight = overrides.get('mae_weight', 0.0)
     realspace_mae_weight = overrides.get('realspace_mae_weight', 0.0)
@@ -334,6 +337,8 @@ def to_training_config(
             n_subsample=n_subsample,
             subsample_seed=subsample_seed,
             neighbor_count=data.K,
+            enable_oversampling=enable_oversampling,
+            neighbor_pool_size=neighbor_pool_size,
             sequential_sampling=sequential_sampling,
         ),
         loss=TFLossConfig(
