@@ -1,9 +1,12 @@
 # Port the CI Synthetic-Generation Surface to `refactor`
 
-**Status:** APPROVED AND IN PROGRESS — revised 2026-08-05 after the user
-selected the public-CNN option. The public `refactor` branch keeps its existing
-generator boundary: this port does not add `hybrid_resnet` or describe a CNN
-run using hybrid quality evidence.
+**Status:** IMPLEMENTATION COMPLETE — revised 2026-08-05 after the user
+selected the public-CNN option. The port-specific CPU, integration, CUDA, and
+documentation gates pass. The branch-wide suite was also run and its unrelated
+pre-existing/pruned-surface failures are classified below rather than hidden.
+The public `refactor` branch keeps its existing generator boundary: this port
+does not add `hybrid_resnet` or describe a CNN run using hybrid quality
+evidence.
 
 **Goal:** Make the public synthetic runner generate, train on, reconstruct, and
 evaluate the count-intensity contract through a new `cnn-lines-ci` profile,
@@ -156,11 +159,11 @@ Evaluation takes the resolved `measurement_domain` explicitly:
   `tests/torch/test_reconstruction_evaluation.py`; implement the keyword and
   pipeline forwarding in `ptycho_torch/reconstruction_evaluation.py` and
   `ptycho/workflows/synthetic_pipeline.py`.
-- [ ] Run the focused CPU batteries after each TDD slice, then the complete
-  supported CPU suite once the tree is settled.
-- [ ] Run a fresh five-epoch CUDA `cnn-lines-ci` workflow with
+- [x] Run the focused CPU batteries after each TDD slice, then execute and
+  classify the complete branch suite once the tree is settled.
+- [x] Run a fresh five-epoch CUDA `cnn-lines-ci` workflow with
   `rect_s1s2_init=dose_closure`, then a matching `ones` control.
-- [ ] Update public runner/configuration/workflow documentation only after the
+- [x] Update public runner/configuration/workflow documentation only after the
   executable contract is verified.
 
 ## 4. Acceptance evidence
@@ -254,6 +257,46 @@ port does not expose that separate runtime preset. The hybrid-resnet
 0.78/0.93 floors and approximately 0.815/0.939 results are not evidence for
 the CNN profile. Establishing and sealing a CNN quality baseline is separate,
 user-gated work.
+
+### Recorded execution evidence (2026-08-05)
+
+The focused contract battery passed with `202 passed` in 84.26 seconds. The
+supported integration selection passed with `3 passed, 10 skipped, 3136
+deselected` in 180.20 seconds after two independently required cleanup fixes:
+the unsupported external-orchestrator runtime test was retired, and the
+grid-lines runner was updated to construct the nested sampling, optimizer, and
+scheduler records expected by the current public configuration model.
+
+The fresh CUDA runs completed all four `synthetic-stage-manifest-v2` stages:
+
+| Run | Initialization record | Amplitude SSIM | Phase SSIM | Relative L2 intensity error |
+|---|---:|---:|---:|---:|
+| one-epoch feasibility smoke | `dose_closure`, gauge 3.036541, 256 samples | 0.215032 | 0.839536 | 0.389526 |
+| five-epoch functional run | `dose_closure`, gauge 3.115810, 256 samples | 0.650057 | 0.896875 | 0.070796 |
+| five-epoch control | `ones`, gauge 1.0, 0 samples | 0.236867 | 0.846586 | 0.416824 |
+
+The two five-epoch runs used byte-identical train and test NPZs, so their only
+intended contract difference was initialization. These measurements are
+functional evidence, not a quality baseline.
+
+The unfiltered branch suite completed with `2956 passed, 154 failed, 27
+skipped, 11 xfailed, 1 xpassed` in 679.99 seconds. None of the failures exercises
+the new CI acquisition/profile/raw-count/evaluation contract:
+
+- 132 failures target pruned orchestration, paper-authority, workflow, study,
+  or absent-documentation surfaces;
+- 20 reproduce in older callers and tests that still use flat
+  `TrainingConfig` fields after the earlier nested-config refactor; the relevant
+  schema and caller files were untouched by this port;
+- one pre-existing TensorFlow generator test expects its input configuration
+  not to receive resolved model defaults and fails by itself;
+- one Matplotlib figure-isolation assertion failed only in the monolithic run
+  and passed in a fresh process.
+
+The full log is retained at
+`.artifacts/test-runs/refactor-ci-full-20260805-2.log`. The non-port failures are
+not promoted into this plan's scope or represented as a green branch-wide
+suite.
 
 ## 5. Documentation gate
 
