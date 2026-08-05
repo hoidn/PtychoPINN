@@ -104,3 +104,26 @@ def test_collate_reuses_ordinary_contiguous_mmap_and_scaling_storage(
     assert torch.equal(output["mmap_backed"], mmap_backed)
     assert torch.equal(output_probe, probe)
     assert torch.equal(output_scaling, scaling)
+
+
+def test_collate_cpu_skips_redundant_device_transfer(monkeypatch) -> None:
+    tensor_dict = TensorDict(
+        {"images": torch.ones(2, 3)},
+        batch_size=[2],
+    )
+    probe = torch.ones(2, 1)
+    scaling = torch.ones(2, 1)
+
+    def fail_if_called(*_args, **_kwargs):
+        raise AssertionError("CPU collation requested a redundant device transfer")
+
+    monkeypatch.setattr(TensorDict, "to", fail_if_called)
+    monkeypatch.setattr(torch.Tensor, "to", fail_if_called)
+
+    output, output_probe, output_scaling = Collate(device="cpu")(
+        (tensor_dict, probe, scaling)
+    )
+
+    assert output["images"].data_ptr() == tensor_dict["images"].data_ptr()
+    assert output_probe is probe
+    assert output_scaling is scaling

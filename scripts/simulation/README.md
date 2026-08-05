@@ -134,7 +134,7 @@ The only initial named profile is `synthetic-lines`, recipe
 | Probe | Ideal source, scale 0.7, `smooth:0.5|pad_preserve:128`; simulation mask off |
 | Raw frames | 4,096 train, 1,024 test; normalized-amplitude `legacy_v1` |
 | Sampling | 4,096 selected train frames; 1,024 train groups; 1,024 validation groups; neighbor/pool size 4; oversampling off |
-| Model | Unsupervised `cnn`, real/imaginary output, model mask off, geometry-derived layout, derived amplitude physics gain |
+| Model | Unsupervised `cnn`, real/imaginary output, model mask off, geometry-derived layout, derived amplitude physics gain, exact-one rectangular-scale initialization |
 | Training | 50 epochs, batch 16, Adam `2e-4`, plateau scheduler, MAE with prediction-L2 matching |
 | Inference | Batch 16, probe-weighted barycentric assembly, VarPro on, `groups_per_center=1` |
 | Execution | One auto-selected device, deterministic FP32, zero workers, CSV logger, one best checkpoint |
@@ -195,6 +195,15 @@ scientific identity. Downstream-only settings therefore do not redefine an
 already complete simulation, but an exact replay must retain the complete
 identity required by every selected stage.
 
+The public `synthetic-lines` profile uses
+`model.rect_s1s2_init=ones`. Training writes the strict
+`rect-s1s2-initialization-v1` record to
+`OUTPUT/training/training_summary.json`, and the current
+`synthetic-stage-manifest-v2` training entry requires that file alongside the
+model bundle. Reuse reparses the record and requires its mode to match the
+resolved workflow. Historical `synthetic-stage-manifest-v1` roots lack this
+contract; use a new output root or retrain them.
+
 ### Reconstruction and stitching
 
 The workflow always disables the older generic `do_stitching` route. That path
@@ -223,6 +232,7 @@ OUTPUT/
     manifest.json
   training/
     wts.h5.zip
+    training_summary.json
     effective_runtime.json
     checkpoints/
       <monitored-best>.ckpt

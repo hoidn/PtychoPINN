@@ -27,10 +27,13 @@ from ptycho.workflows.synthetic_config import (
     resolve_synthetic_workflow,
     synthetic_workflow_to_dict,
 )
+from ptycho_torch.rect_s1s2_initialization import (
+    RectS1S2InitializationRecord,
+)
 
 
 STAGE_ORDER = ("simulate", "train", "reconstruct", "evaluate")
-STAGE_MANIFEST_SCHEMA = "synthetic-stage-manifest-v1"
+STAGE_MANIFEST_SCHEMA = "synthetic-stage-manifest-v2"
 DIAGNOSTICS_SCHEMA = "synthetic-reconstruction-diagnostics-v1"
 METRIC_CONTRACT_VERSION = "synthetic-quality-metrics-v1"
 RECONSTRUCTION_SCHEMA = "synthetic-barycentric-reconstruction-v1"
@@ -49,7 +52,10 @@ _STAGE_ARTIFACTS = {
         "datasets/test.npz",
         "datasets/manifest.json",
     ),
-    "train": ("training/wts.h5.zip",),
+    "train": (
+        "training/wts.h5.zip",
+        "training/training_summary.json",
+    ),
     "reconstruct": (
         "reconstruction/reconstruction.npz",
         "reconstruction/diagnostics.json",
@@ -196,6 +202,17 @@ class SimulationStageResult:
 @dataclass(frozen=True)
 class TrainingStageResult:
     bundle_path: Path
+    training_summary_path: Path
+    rect_s1s2_initialization: RectS1S2InitializationRecord
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "rect_s1s2_initialization",
+            RectS1S2InitializationRecord.from_mapping(
+                self.rect_s1s2_initialization
+            ),
+        )
 
 
 @dataclass(frozen=True)
@@ -293,6 +310,48 @@ def _read_json_object(path: Path, *, artifact: str) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise ValueError(f"invalid {artifact} at {path}: expected a JSON object")
     return payload
+
+
+def _read_training_summary_record(
+    path: Path,
+    *,
+    expected_mode: str | None = None,
+) -> RectS1S2InitializationRecord:
+    payload = _read_json_object(path, artifact="training summary")
+    record = RectS1S2InitializationRecord.from_mapping(payload)
+    if expected_mode is not None and record.mode != expected_mode:
+        raise ValueError(
+            f"training summary mode {record.mode!r} disagrees with resolved "
+            f"rect_s1s2_init {expected_mode!r}"
+        )
+    return record
+
+
+def _validate_training_stage_result(
+    result: TrainingStageResult,
+    resolved: ResolvedSyntheticWorkflow,
+) -> RectS1S2InitializationRecord:
+    if not isinstance(result, TrainingStageResult):
+        raise TypeError("training executor must return TrainingStageResult")
+    expected_mode = resolved.model.rect_s1s2_init
+    backend_record = RectS1S2InitializationRecord.from_mapping(
+        result.rect_s1s2_initialization
+    )
+    persisted_record = _read_training_summary_record(
+        Path(result.training_summary_path),
+        expected_mode=expected_mode,
+    )
+    if persisted_record != backend_record:
+        raise ValueError(
+            "persisted rect_s1s2 initialization record does not match backend "
+            "training result"
+        )
+    if backend_record.mode != expected_mode:
+        raise ValueError(
+            f"backend rect_s1s2 initialization mode {backend_record.mode!r} "
+            f"disagrees with resolved rect_s1s2_init {expected_mode!r}"
+        )
+    return backend_record
 
 
 def _compact_log_text(value: Any, *, limit: int = _STAGE_LOG_STREAM_LIMIT) -> str:
@@ -484,6 +543,8 @@ def _validate_manifest_entry(root: Path, stage: str, entry: Any) -> None:
         )
         if not expected_path.resolve().is_relative_to(root.resolve()):
             raise ValueError(f"unmanaged stage artifact path {relative!r}")
+    if stage == "train":
+        _read_training_summary_record(root / "training" / "training_summary.json")
 
 
 def _load_stage_manifest(path: Path, root: Path) -> dict[str, Any]:
@@ -494,7 +555,14 @@ def _load_stage_manifest(path: Path, root: Path) -> dict[str, Any]:
             "stages": {},
         }
     payload = _read_json_object(path, artifact="stage manifest")
-    if payload.get("schema_version") != STAGE_MANIFEST_SCHEMA:
+    schema_version = payload.get("schema_version")
+    if schema_version == "synthetic-stage-manifest-v1":
+        raise ValueError(
+            "historical synthetic-stage-manifest-v1 outputs do not carry the "
+            "versioned training-summary contract; use a new output root or "
+            "retrain before stage reuse"
+        )
+    if schema_version != STAGE_MANIFEST_SCHEMA:
         raise ValueError(
             f"stage_manifest.schema_version must be {STAGE_MANIFEST_SCHEMA!r}"
         )
@@ -615,7 +683,10 @@ def _simulation_result_paths(result: SimulationStageResult) -> tuple[Path, ...]:
 def _training_result_paths(result: TrainingStageResult) -> tuple[Path, ...]:
     if not isinstance(result, TrainingStageResult):
         raise TypeError("training executor must return TrainingStageResult")
-    return (Path(result.bundle_path),)
+    return (
+        Path(result.bundle_path),
+        Path(result.training_summary_path),
+    )
 
 
 def _reconstruction_result_paths(
@@ -749,7 +820,21 @@ def execute_training_stage(request: TrainingStageRequest) -> TrainingStageResult
     )
     if result.bundle_path is None:
         raise FileNotFoundError("shared training workflow did not return a bundle path")
-    return TrainingStageResult(bundle_path=Path(result.bundle_path))
+    if result.training_summary_path is None:
+        raise FileNotFoundError(
+            "shared training workflow did not return a training summary path"
+        )
+    if result.rect_s1s2_initialization is None:
+        raise ValueError(
+            "shared training workflow did not return rect_s1s2 initialization"
+        )
+    stage_result = TrainingStageResult(
+        bundle_path=Path(result.bundle_path),
+        training_summary_path=Path(result.training_summary_path),
+        rect_s1s2_initialization=result.rect_s1s2_initialization,
+    )
+    _validate_training_stage_result(stage_result, request.resolved_workflow)
+    return stage_result
 
 
 def _load_matching_dataset_manifest(
@@ -1477,6 +1562,7 @@ def _execute_pipeline_stage(
                 dataset_manifest_path=output_root / "datasets" / "manifest.json",
             )
         )
+        _validate_training_stage_result(stage_result, resolved)
         return _validate_exact_artifacts(
             output_root,
             stage,
@@ -1656,6 +1742,12 @@ def run_synthetic_pipeline(
             manifest["metric_contract_version"] = METRIC_CONTRACT_VERSION
             manifest_pruned = True
             completed_before = manifest["stages"]
+
+    if "train" in completed_before:
+        _read_training_summary_record(
+            output_root / "training" / "training_summary.json",
+            expected_mode=resolved.model.rect_s1s2_init,
+        )
 
     for stage in stages:
         for prerequisite in _required_predecessors(stage):
