@@ -6,6 +6,40 @@ from unittest.mock import MagicMock
 import numpy as np
 
 
+def test_materialize_backend_container_preserves_exact_grouped_raw_counts():
+    from ptycho.config import ModelConfig, TrainingConfig
+    from ptycho.workflows import training as training_workflow
+
+    counts = np.arange(2 * 8 * 8, dtype=np.float32).reshape(2, 8, 8, 1)
+    grouped = {
+        "diffraction": counts,
+        "X_full": np.full_like(counts, 0.25),
+        "Y": None,
+        "coords_relative": np.zeros((2, 1, 2, 1), dtype=np.float32),
+        "coords_offsets": np.zeros((2, 1, 2, 1), dtype=np.float64),
+        "nn_indices": np.arange(2, dtype=np.int32).reshape(-1, 1),
+    }
+    raw = argparse.Namespace(
+        probeGuess=np.ones((8, 8), dtype=np.complex64),
+        metadata=None,
+    )
+    config = TrainingConfig(
+        model=ModelConfig(N=8, gridsize=1),
+        backend="pytorch",
+    )
+
+    container = training_workflow._materialize_backend_container(
+        grouped,
+        raw,
+        config,
+    )
+
+    np.testing.assert_array_equal(container.raw_grouped_diffraction, counts)
+    assert container.raw_grouped_diffraction.flags.c_contiguous
+    torch_x = container.X.detach().cpu().numpy()
+    np.testing.assert_array_equal(torch_x, grouped["X_full"])
+
+
 def test_pytorch_workflow_returns_initialization_and_summary_path(
     tmp_path,
     monkeypatch,
@@ -42,9 +76,19 @@ def test_pytorch_workflow_returns_initialization_and_summary_path(
         def generate_grouped_data(self, **_kwargs):
             return {
                 "nn_indices": np.zeros((1, 1), dtype=np.int32),
-                "diffraction": np.ones((1, 64, 64, 1), dtype=np.float32),
+                "diffraction": np.full(
+                    (1, 64, 64, 1), 7.0, dtype=np.float32
+                ),
                 "Y": None,
-                "X_full": np.ones((1, 64, 64, 1), dtype=np.float32),
+                "X_full": np.full(
+                    (1, 64, 64, 1), 0.25, dtype=np.float32
+                ),
+                "coords_relative": np.zeros(
+                    (1, 1, 2, 1), dtype=np.float32
+                ),
+                "coords_offsets": np.zeros(
+                    (1, 1, 2, 1), dtype=np.float64
+                ),
             }
 
     payload = argparse.Namespace(
@@ -78,11 +122,6 @@ def test_pytorch_workflow_returns_initialization_and_summary_path(
     monkeypatch.setattr(training_workflow, "load_data", lambda *_a, **_k: FakeRaw())
     monkeypatch.setattr(
         training_workflow,
-        "_materialize_backend_container",
-        lambda grouped, *_args: grouped,
-    )
-    monkeypatch.setattr(
-        training_workflow,
         "_legacy_execution_and_patch",
         lambda *_args: (None, {}),
     )
@@ -110,3 +149,12 @@ def test_pytorch_workflow_returns_initialization_and_summary_path(
 
     assert result.rect_s1s2_initialization == initialization
     assert result.training_summary_path == training_summary_path
+    dispatched_train_container = dispatch.call_args.args[0]
+    np.testing.assert_array_equal(
+        dispatched_train_container.raw_grouped_diffraction,
+        np.full((1, 64, 64, 1), 7.0, dtype=np.float32),
+    )
+    np.testing.assert_array_equal(
+        dispatched_train_container.X.detach().cpu().numpy(),
+        np.full((1, 64, 64, 1), 0.25, dtype=np.float32),
+    )

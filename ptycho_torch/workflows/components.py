@@ -673,6 +673,137 @@ class NormalizedAmplitudeCIDictAdapter:
         return statistics
 
 
+def _get_container_tensor_required(container, name: str):
+    import numpy as np
+    import torch
+
+    value = getattr(container, name, None)
+    if value is None:
+        raise ValueError(f"CI container adaptation requires {name!r}.")
+    if not isinstance(value, torch.Tensor):
+        value = torch.as_tensor(np.asarray(value))
+    return value
+
+
+def attach_container_ci_fields(
+    container,
+    *,
+    N: int,
+    probe_scale: float = 4.0,
+    statistics: Optional[CIExperimentStatistics] = None,
+    probe_mask: bool = False,
+    probe_mask_sigma: float = 1.0,
+    probe_mask_diameter: Optional[float] = None,
+) -> CIExperimentStatistics:
+    """Publish physical count fields on an in-memory Torch data container.
+
+    ``RawData.generate_grouped_data`` places its normalized network input in
+    ``container.X``. The physical count measurement retained by the shared
+    training service is therefore the only valid source for CI images and the
+    Poisson target. The stored probe is already the CI-scaled physical probe.
+    """
+
+    import torch
+
+    from ptycho_torch import helper as hh
+
+    if getattr(container, "raw_grouped_diffraction", None) is None:
+        raise ValueError(
+            "CI count-intensity training requires 'raw_grouped_diffraction'; "
+            "container.X is normalized and cannot be the Poisson target"
+        )
+    measured_intensity = _get_container_tensor_required(
+        container,
+        "raw_grouped_diffraction",
+    )
+    if not torch.is_floating_point(measured_intensity):
+        measured_intensity = measured_intensity.to(torch.float32)
+    if measured_intensity.ndim != 4:
+        raise ValueError(
+            "CI raw_grouped_diffraction must have shape (B, H, W, C); got "
+            f"{tuple(measured_intensity.shape)}"
+        )
+    if not bool(torch.isfinite(measured_intensity).all()):
+        raise ValueError("CI raw_grouped_diffraction must contain finite values")
+    if bool((measured_intensity < 0).any()):
+        raise ValueError("CI raw_grouped_diffraction must contain nonnegative counts")
+
+    probe = _get_container_tensor_required(container, "probe")
+    probe_physical = _canonicalize_ci_probe_modes(
+        probe.to(device=measured_intensity.device),
+        N,
+    )
+    statistics = statistics or derive_ci_experiment_statistics(
+        measured_intensity.permute(0, 3, 1, 2),
+        N,
+    )
+
+    probe_training_np, probe_normalization = hh.normalize_probe_like_tf(
+        probe_physical.detach().cpu().numpy(),
+        probe_scale=probe_scale,
+        probe_mask=probe_mask,
+        probe_mask_sigma=probe_mask_sigma,
+        probe_mask_diameter=probe_mask_diameter,
+    )
+    probe_training = torch.as_tensor(
+        probe_training_np,
+        device=probe_physical.device,
+    ).to(probe_physical.dtype)
+    probe_normalization_tensor = measured_intensity.new_tensor(
+        probe_normalization
+    )
+
+    container.X = measured_intensity
+    container.measured_intensity = measured_intensity
+    container.observed_images = measured_intensity
+    container.probe = probe_physical
+    container.probe_physical = probe_physical
+    container.probe_training = probe_training
+    container.probe_normalization = probe_normalization_tensor
+    container.scaling_constant = probe_normalization_tensor.view(1, 1, 1)
+    container.rms_input_scale = statistics.rms_input_scale
+    container.mean_measured_intensity = statistics.mean_measured_intensity
+
+    for legacy_name in ("rms_scaling_constant", "physics_scaling_constant"):
+        if hasattr(container, legacy_name):
+            try:
+                delattr(container, legacy_name)
+            except AttributeError:
+                setattr(container, legacy_name, None)
+
+    container.get_ci_statistics = lambda: {
+        "rms_input_scale": statistics.rms_input_scale,
+        "mean_measured_intensity": statistics.mean_measured_intensity,
+    }
+    return statistics
+
+
+def _adapt_container_for_ci(
+    container,
+    *,
+    data_config,
+    model_config,
+    statistics: Optional[CIExperimentStatistics] = None,
+) -> Optional[CIExperimentStatistics]:
+    """Adapt only the in-memory container path to the named CI batch fields."""
+
+    if container is None or isinstance(container, dict):
+        return None
+    if isinstance(container, PtychoDataset):
+        return None
+    if getattr(container, "measured_intensity", None) is not None:
+        return None
+    return attach_container_ci_fields(
+        container,
+        N=int(data_config.N),
+        probe_scale=float(getattr(data_config, "probe_scale", 4.0)),
+        statistics=statistics,
+        probe_mask=bool(getattr(model_config, "probe_mask", False)),
+        probe_mask_sigma=float(getattr(model_config, "probe_mask_sigma", 1.0)),
+        probe_mask_diameter=getattr(model_config, "probe_mask_diameter", None),
+    )
+
+
 def run_cdi_example_torch(
     train_data: Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch'],
     test_data: Optional[Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch']],
@@ -1067,6 +1198,19 @@ def _build_lightning_dataloaders(
         resolved_scale_contract is not None
         and resolved_scale_contract.version == CI_SCALE_CONTRACT
     )
+    if ci_dict_active:
+        training_ci_statistics = _adapt_container_for_ci(
+            train_container,
+            data_config=data_config,
+            model_config=validation_model_config,
+        )
+        if training_ci_statistics is not None:
+            _adapt_container_for_ci(
+                test_container,
+                data_config=data_config,
+                model_config=validation_model_config,
+                statistics=training_ci_statistics,
+            )
 
     model_config = None
     if payload and hasattr(payload, "pt_model_config"):
