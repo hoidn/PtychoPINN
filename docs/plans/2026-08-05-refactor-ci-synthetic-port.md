@@ -135,24 +135,24 @@ Evaluation takes the resolved `measurement_domain` explicitly:
 
 - [x] Seal current `synthetic-lines-v1` 50-epoch and five-epoch payload bytes
   and digests before broadening accepted types.
-- [ ] Complete count-scale, count-emission, stored-probe, manifest, and
+- [x] Complete count-scale, count-emission, stored-probe, manifest, and
   amplitude-regression tests in `tests/test_flat_acquisition.py`; implement in
   `ptycho/simulation/flat_acquisition.py` and verify through
   `ptycho/workflows/synthetic_pipeline.py`.
-- [ ] Add resolver tests for both profiles, fail-closed mixed contracts,
+- [x] Add resolver tests for both profiles, fail-closed mixed contracts,
   overrides, and distinct CI identities in
   `tests/test_synthetic_workflow_config.py`; implement the registry and widened
   literals in `ptycho/workflows/synthetic_config.py`.
-- [ ] Add CLI help/plumbing/rejection tests in
+- [x] Add CLI help/plumbing/rejection tests in
   `tests/scripts/test_synthetic_pipeline_cli.py`; implement the six flags in
   `scripts/simulation/synthetic_pipeline.py`.
-- [ ] Add raw-count boundary tests in `tests/torch/test_ci_container_bridge.py`
+- [x] Add raw-count boundary tests in `tests/torch/test_ci_container_bridge.py`
   and a workflow-level preservation test in
   `tests/test_training_workflow_initialization_summary.py`; implement the
   attachment in `ptycho.workflows.training._materialize_backend_container()`
   and contract-selective selection in
   `ptycho_torch.workflows.components._build_lightning_dataloaders()`.
-- [ ] Add count-domain evaluator tests in
+- [x] Add count-domain evaluator tests in
   `tests/torch/test_reconstruction_evaluation.py`; implement the keyword and
   pipeline forwarding in `ptycho_torch/reconstruction_evaluation.py` and
   `ptycho/workflows/synthetic_pipeline.py`.
@@ -190,7 +190,7 @@ branch has no validated short-run CNN CI baseline. First run this reduced fresh
 CUDA smoke test:
 
 ```bash
-ptycho_synthetic \
+python -m scripts.simulation.synthetic_pipeline \
   --profile cnn-lines-ci \
   --output-root .artifacts/integration/cnn-lines-ci-smoke \
   --gridsize 1 --epochs 1 --batch-size 16 --seed 3 \
@@ -214,7 +214,7 @@ weaken the reconstruction/evaluation contract or import hybrid evidence. If it
 passes, run the exact five-epoch functional recipe:
 
 ```bash
-ptycho_synthetic \
+python -m scripts.simulation.synthetic_pipeline \
   --profile cnn-lines-ci \
   --output-root .artifacts/integration/cnn-lines-ci-5ep-dose-closure \
   --gridsize 1 --epochs 5 --batch-size 16 --seed 3 \
