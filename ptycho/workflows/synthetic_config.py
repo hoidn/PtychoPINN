@@ -51,6 +51,9 @@ from ptycho.config.strict_types import (
     _StrictPositiveInt,
 )
 from ptycho_torch.config_params import DataConfig, ModelConfig as TorchModelConfig
+from ptycho_torch.scaling_contract import (
+    validate_rect_s1s2_initialization_contract,
+)
 
 
 __all__ = [
@@ -945,12 +948,6 @@ def _resolve_model(
         candidate["amplitude_physics_gain_provenance"] = "explicit"
 
     model = _adapt_model(candidate)
-    if model.rect_s1s2_init == "dose_closure":
-        raise ValueError(
-            "model.rect_s1s2_init='dose_closure' is unavailable in the public "
-            "synthetic-lines profile, which is fixed to the legacy amplitude "
-            "contract"
-        )
     if model.architecture == "neuralop_uno":
         if N != 128:
             raise ValueError(
@@ -1223,6 +1220,7 @@ def _validate_resolved_workflow(resolved: ResolvedSyntheticWorkflow) -> None:
         training=training,
     )
     _validate_loss_identity(model, training)
+    validate_rect_s1s2_initialization_contract(simulation, model, training)
 
     data = _adapt_data(_record_values(resolved.data))
     _raise_first_record_difference("data", resolved.data, data)
@@ -1292,6 +1290,7 @@ def resolve_synthetic_workflow(
         training=training,
     )
     _validate_loss_identity(model, training)
+    validate_rect_s1s2_initialization_contract(simulation, model, training)
 
     data = _derive_data_snapshot(
         simulation,

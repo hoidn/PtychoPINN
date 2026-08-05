@@ -658,6 +658,24 @@ def test_ci_count_intensity_profile_is_not_exposed_by_the_v1_resolver():
     "boundary_name",
     ["synthetic_workflow_to_dict", "materialize_data_config"],
 )
+def test_public_boundaries_revalidate_rect_s1s2_initialization_contract(
+    boundary_name,
+):
+    api = _api()
+    resolved = _resolve()
+    invalid = replace(
+        resolved,
+        model=replace(resolved.model, rect_s1s2_init="dose_closure"),
+    )
+
+    with pytest.raises(ValueError, match="rect_s1s2_init.*requires.*coherent"):
+        getattr(api, boundary_name)(invalid)
+
+
+@pytest.mark.parametrize(
+    "boundary_name",
+    ["synthetic_workflow_to_dict", "materialize_data_config"],
+)
 def test_public_boundaries_revalidate_replaced_data_snapshots(boundary_name):
     api = _api()
     resolved = _resolve()
@@ -895,8 +913,8 @@ def test_explicit_custom_probe_transform_is_validated_and_preserved(
     assert resolved.simulation.train.probe.transform_pipeline == pipeline
 
 
-def test_public_amplitude_profile_rejects_dose_closure_initialization():
-    with pytest.raises(ValueError, match="synthetic-lines.*legacy amplitude"):
+def test_dose_closure_rejects_an_incomplete_ci_contract():
+    with pytest.raises(ValueError, match="rect_s1s2_init.*requires.*coherent"):
         _resolve(
             cli_values={"model": {"rect_s1s2_init": "dose_closure"}},
         )

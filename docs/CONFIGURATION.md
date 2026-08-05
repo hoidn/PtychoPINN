@@ -484,12 +484,13 @@ It also supplies these profile defaults:
 |---|---|
 | `amplitude_physics_gain` | `1.0` |
 | `rect_s1s2_trainable` | `True` |
-| `rect_s1s2_init` | `data` |
+| `rect_s1s2_init` | `ones` |
 | `cnn_output_mode` | `real_imag` |
 
 An explicit contradiction of a locked contract field fails closed. Non-contract
 profile defaults follow normal override precedence, then the downstream scaling
-and model validators enforce coherence.
+and model validators enforce coherence. `dose_closure` is an opt-in
+initialization and requires the complete CI contract.
 
 ## Parameter Reference
 
