@@ -75,6 +75,19 @@ def build_parser() -> argparse.ArgumentParser:
     simulation.add_argument("--outer-offset-test", type=int)
     simulation.add_argument("--photons-per-pattern", type=float)
     simulation.add_argument("--beamstop-diameter", type=float)
+    simulation.add_argument(
+        "--scale-contract-version",
+        choices=("legacy_v1", "ci_intensity_v2"),
+        help=(
+            "Measurement units contract; pair with --measurement-domain and "
+            "--physics-forward-mode"
+        ),
+    )
+    simulation.add_argument(
+        "--measurement-domain",
+        choices=("normalized_amplitude", "count_intensity"),
+        help="Domain stored in the simulated detector arrays",
+    )
     simulation.add_argument("--probe-source", choices=("ideal", "custom"))
     simulation.add_argument("--probe-path", type=Path)
     simulation.add_argument("--probe-transform")
@@ -94,6 +107,21 @@ def build_parser() -> argparse.ArgumentParser:
     model.add_argument("--fno-blocks", type=int)
     model.add_argument("--fno-cnn-blocks", type=int)
     model.add_argument("--generator-output-mode")
+    model.add_argument(
+        "--physics-forward-mode",
+        choices=("amplitude", "rectangular_scaled"),
+        help="Training forward model; rectangular_scaled requires CI counts",
+    )
+    model.add_argument(
+        "--cnn-output-mode",
+        choices=("amp_phase", "real_imag"),
+        help="CNN complex-output parameterization",
+    )
+    model.add_argument(
+        "--rect-s1s2-init",
+        choices=("ones", "dose_closure"),
+        help="Rectangular-forward startup gauge initialization",
+    )
 
     training = parser.add_argument_group("training")
     training.add_argument("--train-raw-selection", type=int)
@@ -125,6 +153,11 @@ def build_parser() -> argparse.ArgumentParser:
     training.add_argument(
         "--gradient-clip-algorithm",
         choices=("norm", "value", "agc"),
+    )
+    training.add_argument(
+        "--torch-loss-mode",
+        choices=("mae", "poisson"),
+        help="Primary Torch loss; also resolves model.loss_function and nll",
     )
 
     inference = parser.add_argument_group("inference")
@@ -213,6 +246,8 @@ _ARG_PATHS: dict[str, tuple[str, ...]] = {
     "outer_offset_train": ("simulation", "scan", "outer_offset_train"),
     "outer_offset_test": ("simulation", "scan", "outer_offset_test"),
     "photons_per_pattern": ("simulation", "detector", "photons_per_pattern"),
+    "scale_contract_version": ("simulation", "scale_contract_version"),
+    "measurement_domain": ("simulation", "measurement_domain"),
     "beamstop_diameter": ("simulation", "detector", "beamstop_diameter"),
     "probe_source": ("simulation", "probe", "source"),
     "probe_path": ("simulation", "probe", "source_path"),
@@ -228,6 +263,9 @@ _ARG_PATHS: dict[str, tuple[str, ...]] = {
     "fno_blocks": ("model", "fno_blocks"),
     "fno_cnn_blocks": ("model", "fno_cnn_blocks"),
     "generator_output_mode": ("model", "generator_output_mode"),
+    "physics_forward_mode": ("model", "physics_forward_mode"),
+    "cnn_output_mode": ("model", "cnn_output_mode"),
+    "rect_s1s2_init": ("model", "rect_s1s2_init"),
     "train_raw_selection": ("training", "train_raw_selection"),
     "training_groups": ("training", "training_groups"),
     "validation_groups": ("training", "validation_groups"),
@@ -253,6 +291,7 @@ _ARG_PATHS: dict[str, tuple[str, ...]] = {
     "accum_steps": ("training", "accum_steps"),
     "gradient_clip_val": ("training", "gradient_clip_val"),
     "gradient_clip_algorithm": ("training", "gradient_clip_algorithm"),
+    "torch_loss_mode": ("training", "torch_loss_mode"),
     "groups_per_center": ("inference", "groups_per_center"),
     "inference_batch_size": ("inference", "batch_size"),
     "varpro": ("inference", "varpro_scaling"),
@@ -290,6 +329,13 @@ def _cli_values(args: argparse.Namespace) -> dict[str, Any]:
     if "object_size" in values:
         size = values["object_size"]
         _put(patch, ("simulation", "object", "image_size"), (size, size))
+    if "torch_loss_mode" in values:
+        loss_function, nll = {
+            "mae": ("MAE", False),
+            "poisson": ("Poisson", True),
+        }[values["torch_loss_mode"]]
+        _put(patch, ("model", "loss_function"), loss_function)
+        _put(patch, ("training", "nll"), nll)
     return patch
 
 
