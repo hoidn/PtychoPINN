@@ -461,12 +461,73 @@ Other configuration families retain their entry-point-specific source rules:
 - Unknown simulation keys and conflicting compatibility aliases are errors.
 - Not every dataclass field has a CLI flag.
 
-### Named CI Profile
+### Profiles Are Starting Bundles
+
+This section is the conceptual authority for profile/preset semantics,
+locks/defaults, and the training-only `ci` profile. The simulation guide owns
+operational commands, public flags, and exact stage-reuse mechanics.
+
+A profile is a resolver-registered named bundle of starting values. The
+resolver expands it before ordinary configuration-object construction and
+validation. "Preset" is informal and may also describe an unregistered
+combination of runtime controls, such as the TF-parity preset. There is no
+separate generic preset registry or resolver, and profiles do not bypass
+downstream validation.
+
+The synthetic runner registers these bundles:
+
+| Profile | Recipe | Measurement path |
+|---|---|---|
+| `synthetic-lines` | `synthetic-lines-v1` | Default legacy normalized amplitude |
+| `cnn-lines-ci` | `cnn-lines-ci-v1` | Count-intensity CNN |
+
+With no selection, `ptycho_synthetic` uses `synthetic-lines`. A YAML, TOML, or
+JSON workflow may set root `profile`; explicit `--profile` wins. The remaining
+value precedence is selected profile, then file values, then explicit CLI
+values for overrideable fields. A selected profile's locked fields may only be
+restated equally; contradictions fail. A config filename or path never selects
+a profile.
+
+`cnn-lines-ci` locks `scale_contract_version=ci_intensity_v2`,
+`measurement_domain=count_intensity`, `architecture=cnn`,
+`physics_forward_mode=rectangular_scaled`, `cnn_output_mode=real_imag`,
+`loss_function=Poisson`, `torch_loss_mode=poisson`, and `nll=true`. Matching
+restatements are accepted; contradictions fail. Its
+`rect_s1s2_init=dose_closure` and gradient-clipping settings are overrideable
+defaults. `synthetic-lines` has no profile-specific locks, but its final
+resolved values still pass all normal validators.
+
+The resulting `ResolvedSyntheticWorkflow`, including `profile`,
+`recipe_version`, and all resolved values, is written to
+`resolved_workflow.json`. Persisted identity includes `measurement_domain` and
+`scale_contract_version`, preventing detector-domain drift. Stage reuse consumes
+the relevant resolved identity and verifies NPZ content separately; see
+[Stage identity and reuse](../scripts/simulation/README.md#stage-identity-and-reuse)
+for the exact namespace and digest mechanics.
+
+This five-epoch invocation is a functional contract example:
+
+```bash
+ptycho_synthetic --profile cnn-lines-ci \
+  --output-root outputs/synthetic-cnn-ci-contract \
+  --epochs 5 \
+  --rect-s1s2-init dose_closure
+```
+
+It demonstrates resolution and execution of the CI contract; it is not a
+validated CNN quality threshold or baseline. See the
+[simulation workflow guide](../scripts/simulation/README.md) for profile and
+NPZ details.
+
+### Torch Training-Only `ci` Profile
 
 Use `resolve_training_payload(..., profile="ci")` on the modern programmatic
 path, `create_training_payload(..., profile="ci")` at the compatibility
 boundary, or the Torch training CLI's `--profile ci` instead of assembling a
-partial count-intensity configuration by hand.
+partial count-intensity configuration by hand. This `ci` profile applies only
+to Torch training with supplied NPZs; it is separate from the synthetic
+runner's `cnn-lines-ci` profile. With `profile=None`, the factory follows
+ordinary resolution without applying a named bundle.
 
 The profile locks these coherent contract fields:
 
@@ -478,7 +539,7 @@ The profile locks these coherent contract fields:
 | `torch_loss_mode` | `poisson` |
 | `loss_function` | `Poisson` |
 
-It also supplies these profile defaults:
+It also supplies these non-contract defaults, which callers may override:
 
 | Field | Default |
 |---|---|
@@ -492,11 +553,14 @@ profile defaults follow normal override precedence, then the downstream scaling
 and model validators enforce coherence. `dose_closure` is an opt-in
 initialization and requires the complete CI contract.
 
+The profile name is an authoring convenience, not an inference selector. The
+persisted resolved model, data, training, and bundle identity is authoritative
+when the model is loaded; inference does not require selecting `ci` again.
+
 #### Dose-closure initialization example
 
-On this branch `dose_closure` is selected programmatically against existing
-count-intensity NPZs (the public synthetic generator emits legacy normalized
-amplitudes and stays on `ones`):
+For an existing count-intensity NPZ, select `dose_closure` as a non-contract
+override of the training-only profile:
 
 ```python
 from ptycho_torch.config_factory import resolve_training_payload
@@ -524,11 +588,10 @@ The non-obvious pieces:
 | `n_groups` / `gridsize` | Required grouping identity: number of sampled groups and frames per group axis. `gridsize=1` degenerates grouping to single-frame groups. |
 | Startup record | Training persists the strict `rect-s1s2-initialization-v1` record (`solved_gauge`, `method`, `mode`, `sampled_patterns`) in `training_summary.json`; a solved gauge far from 1 signals that the data's probe/object decomposition convention disagrees with the forward model. |
 
-For reference, the end-to-end synthetic CI recipe with the CLI flag
-`--rect-s1s2-init dose_closure` lives on the `fno-stable` line
-(`scripts/simulation/README.md` there documents the validated five-epoch run:
-amplitude/phase SSIM 0.8155 / 0.9387, solved gauge ≈ 3.12, versus ≈ 0.70
-amplitude SSIM with `ones`).
+For end-to-end generation and training, use
+`ptycho_synthetic --profile cnn-lines-ci`; that synthetic profile selects
+`dose_closure` by default. The [simulation workflow guide](../scripts/simulation/README.md)
+documents the runnable command and count-domain data meaning.
 
 ## Parameter Reference
 
