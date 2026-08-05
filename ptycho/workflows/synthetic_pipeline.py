@@ -1541,6 +1541,9 @@ def execute_evaluation_stage(
         groups_per_center=(request.resolved_workflow.inference.groups_per_center),
         output_dir=request.output_root / "reconstruction",
         expected_channels=int(request.resolved_workflow.data.C),
+        measurement_domain=(
+            request.resolved_workflow.simulation.measurement_domain
+        ),
     )
     return EvaluationStageResult(
         metrics_path=Path(result.metrics_path),
