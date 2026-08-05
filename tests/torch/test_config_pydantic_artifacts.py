@@ -257,6 +257,7 @@ def test_portable_v1_is_an_exact_explicit_projection_and_decodes():
     assert model.object_layout == "grouped_patches"
     assert model.training_canvas == "relative_overlap"
     assert model.training_patch_weighting == "probe"
+    assert model.rect_s1s2_init == "data"
     assert decoded.data_config.neighbor_function == "4_quadrant"
     assert decoded.data_config.scan_pattern == "Rectangular"
     assert decoded.training_config.scheduler == "WarmupCosine"

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+from pathlib import Path
 import subprocess
 import sys
 from types import SimpleNamespace
@@ -668,3 +669,107 @@ for prefix in ('scripts.studies', 'matplotlib', 'tensorflow'):
         text=True,
     )
     assert completed.returncode == 0, completed.stderr
+
+
+# --- Count-intensity (CI) contract ------------------------------------------
+
+
+def _fitted_count_metrics(**overrides):
+    values = {
+        "relative_l2_intensity_error": 0.031,
+        "mean_raw_poisson_nll": 1234.5,
+        "n_samples": 8,
+        "n_pixels": 8 * 16384,
+        "effective_mask_digest": "a" * 64,
+    }
+    values.update(overrides)
+    return SimpleNamespace(**values)
+
+
+def test_count_contract_evaluation_accepts_fitted_count_diagnostics(tmp_path):
+    from ptycho_torch.reconstruction_evaluation import evaluate_reconstruction_quality
+
+    values = _evaluation_inputs()
+    values["reassembly"] = _reassembly(count_metrics=_fitted_count_metrics())
+
+    result = evaluate_reconstruction_quality(
+        **values,
+        output_dir=tmp_path,
+        measurement_domain="count_intensity",
+    )
+
+    assert Path(result.metrics_path).is_file()
+    assert Path(result.comparison_path).is_file()
+    assert result.metric_validity["count_diagnostics"] == {
+        "status": "complete",
+        "relative_l2_intensity_error": 0.031,
+        "mean_raw_poisson_nll": 1234.5,
+        "n_samples": 8,
+        "n_pixels": 8 * 16384,
+    }
+
+
+def test_count_contract_evaluation_rejects_legacy_not_applicable(tmp_path):
+    """A CI run whose count diagnostics never ran must fail closed."""
+
+    from ptycho_torch.reconstruction_evaluation import (
+        MetricError,
+        evaluate_reconstruction_quality,
+    )
+
+    values = _evaluation_inputs()
+
+    with pytest.raises(MetricError, match="count"):
+        evaluate_reconstruction_quality(
+            **values,
+            output_dir=tmp_path,
+            measurement_domain="count_intensity",
+        )
+
+
+def test_count_contract_evaluation_rejects_deferred_count_diagnostics(tmp_path):
+    from ptycho_torch.reconstruction_evaluation import (
+        MetricError,
+        evaluate_reconstruction_quality,
+    )
+
+    values = _evaluation_inputs()
+    values["reassembly"] = _reassembly(
+        count_metrics=SimpleNamespace(status="not_evaluated")
+    )
+
+    with pytest.raises(MetricError, match="count"):
+        evaluate_reconstruction_quality(
+            **values,
+            output_dir=tmp_path,
+            measurement_domain="count_intensity",
+        )
+
+
+def test_amplitude_contract_still_rejects_fitted_count_diagnostics(tmp_path):
+    """The legacy gate is unchanged: amplitude runs must not carry CI metrics."""
+
+    from ptycho_torch.reconstruction_evaluation import (
+        MetricError,
+        evaluate_reconstruction_quality,
+    )
+
+    values = _evaluation_inputs()
+    values["reassembly"] = _reassembly(count_metrics=_fitted_count_metrics())
+
+    with pytest.raises(MetricError, match="not_applicable"):
+        evaluate_reconstruction_quality(**values, output_dir=tmp_path)
+
+
+def test_evaluation_rejects_an_unknown_measurement_domain(tmp_path):
+    from ptycho_torch.reconstruction_evaluation import (
+        MetricError,
+        evaluate_reconstruction_quality,
+    )
+
+    with pytest.raises(MetricError, match="measurement_domain"):
+        evaluate_reconstruction_quality(
+            **_evaluation_inputs(),
+            output_dir=tmp_path,
+            measurement_domain="photons",
+        )

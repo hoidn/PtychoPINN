@@ -62,6 +62,34 @@ def _isolate_effective_runtime_artifacts(monkeypatch):
     )
 
 
+@pytest.fixture
+def rect_s1s2_init_spy(monkeypatch):
+    """Isolate the real initializer when a test substitutes a fake model."""
+    from ptycho_torch.workflows import components
+
+    record = {
+        "schema_version": "rect-s1s2-initialization-v1",
+        "mode": "ones",
+        "solved_gauge": 1.0,
+        "method": "unit_default_no_solve",
+        "sampled_patterns": 0,
+    }
+    calls = []
+
+    def fake_initialize(model, *, mode, training_loader=None, **_kwargs):
+        calls.append(
+            {
+                "model": model,
+                "mode": mode,
+                "training_loader": training_loader,
+            }
+        )
+        return record
+
+    monkeypatch.setattr(components, "_initialize_rect_s1s2", fake_initialize)
+    return SimpleNamespace(calls=calls, record=record)
+
+
 # Add to conftest.py TORCH_OPTIONAL_MODULES if not already present
 # This test must run without torch runtime
 
@@ -379,6 +407,7 @@ class TestWorkflowsComponentsTraining:
         self,
         tmp_path,
         monkeypatch,
+        rect_s1s2_init_spy,
         params_cfg_snapshot,
         automatic_optimization,
         clip_algorithm,
@@ -1144,6 +1173,7 @@ class TestWorkflowsComponentsTraining:
     def test_lightning_training_respects_gridsize(
         self,
         monkeypatch,
+        rect_s1s2_init_spy,
         params_cfg_snapshot,
         dummy_raw_data
     ):
@@ -1905,6 +1935,7 @@ class TestTrainWithLightningRed:
     def test_train_with_lightning_instantiates_module(
         self,
         monkeypatch,
+        rect_s1s2_init_spy,
         params_cfg_snapshot,
         minimal_training_config,
         dummy_raw_data
@@ -2020,6 +2051,7 @@ class TestTrainWithLightningRed:
     def test_train_with_lightning_runs_trainer_fit(
         self,
         monkeypatch,
+        rect_s1s2_init_spy,
         params_cfg_snapshot,
         minimal_training_config,
         dummy_raw_data
@@ -2054,6 +2086,7 @@ class TestTrainWithLightningRed:
         class MockTrainer:
             """Stub Trainer that records fit() calls."""
             def fit(self, module, train_dataloaders=None, val_dataloaders=None, **kwargs):
+                assert len(rect_s1s2_init_spy.calls) == 1
                 trainer_fit_called["called"] = True
                 trainer_fit_called["args"] = (module, train_dataloaders, val_dataloaders)
                 trainer_fit_called["kwargs"] = kwargs
@@ -2103,6 +2136,10 @@ class TestTrainWithLightningRed:
             config=minimal_training_config
         )
 
+        assert rect_s1s2_init_spy.calls[0]["mode"] == "ones"
+        assert rect_s1s2_init_spy.calls[0]["training_loader"] is None
+        assert results["rect_s1s2_initialization"] is rect_s1s2_init_spy.record
+
         # RED PHASE ASSERTION (will fail until Phase B2 implements)
         assert trainer_fit_called["called"], (
             "_train_with_lightning MUST invoke Trainer.fit with dataloaders. "
@@ -2121,6 +2158,7 @@ class TestTrainWithLightningRed:
     def test_train_with_lightning_returns_models_dict(
         self,
         monkeypatch,
+        rect_s1s2_init_spy,
         params_cfg_snapshot,
         minimal_training_config,
         dummy_raw_data
@@ -3222,6 +3260,7 @@ class TestTrainWithLightningGreen:
     def test_execution_config_overrides_trainer(
         self,
         monkeypatch,
+        rect_s1s2_init_spy,
         params_cfg_snapshot,
         minimal_training_config,
         dummy_raw_data
@@ -3327,6 +3366,7 @@ class TestTrainWithLightningGreen:
     def test_execution_config_controls_determinism(
         self,
         monkeypatch,
+        rect_s1s2_init_spy,
         params_cfg_snapshot,
         minimal_training_config,
         dummy_raw_data
@@ -3853,7 +3893,12 @@ class TestLightningExecutionConfig:
         )
         return config
 
-    def test_trainer_receives_accumulation(self, minimal_training_config_with_val, monkeypatch):
+    def test_trainer_receives_accumulation(
+        self,
+        minimal_training_config_with_val,
+        monkeypatch,
+        rect_s1s2_init_spy,
+    ):
         """Manual optimization consumes accumulation inside the model."""
         from ptycho_torch.workflows import components
 
@@ -3918,6 +3963,7 @@ class TestLightningExecutionConfig:
         self,
         minimal_training_config_with_val,
         monkeypatch,
+        rect_s1s2_init_spy,
     ):
         """Canonical precedence must reach the existing Trainer guard."""
         from ptycho_torch.workflows import components

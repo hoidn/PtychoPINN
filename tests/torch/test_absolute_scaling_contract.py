@@ -104,6 +104,24 @@ def test_rectangular_ci_accepts_unsupervised_poisson():
     assert validate_scale_contract(DataConfig(), model_config, training_config) == CI_PROFILE
 
 
+def test_dose_closure_accepts_none_resolved_ci_defaults():
+    data_config = SimpleNamespace(
+        scale_contract_version=None,
+        measurement_domain=None,
+    )
+    model_config = ModelConfig(
+        mode="Unsupervised",
+        physics_forward_mode="rectangular_scaled",
+        rect_s1s2_init="dose_closure",
+    )
+    training_config = TrainingConfig(torch_loss_mode="poisson")
+
+    assert (
+        validate_scale_contract(data_config, model_config, training_config)
+        == CI_PROFILE
+    )
+
+
 @pytest.mark.parametrize(
     ("mode", "torch_loss_mode"),
     [

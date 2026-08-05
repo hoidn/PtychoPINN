@@ -1219,6 +1219,36 @@ class TestConfigBridgeParity:
             "params.cfg['gradient_clip_algorithm'] should be 'agc' after update_legacy_dict"
 
 
+    def test_training_sampling_bridge_fields_roundtrip(self, params_cfg_snapshot):
+        """All sampling bridge fields must survive Torch payload resolution."""
+        from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig
+        from ptycho_torch import config_bridge
+
+        pt_data = DataConfig(nphotons=1e9, K=4, grid_size=(2, 2))
+        pt_model = ModelConfig()
+        pt_train = TrainingConfig()
+
+        tf_model = config_bridge.to_model_config(pt_data, pt_model)
+        tf_train = config_bridge.to_training_config(
+            tf_model,
+            pt_data,
+            pt_model,
+            pt_train,
+            overrides={
+                "train_data_file": Path("train.npz"),
+                "n_groups": 32,
+                "nphotons": 1e9,
+                "enable_oversampling": True,
+                "neighbor_pool_size": 7,
+                "sequential_sampling": True,
+            },
+        )
+
+        assert tf_train.sampling.enable_oversampling is True
+        assert tf_train.sampling.neighbor_pool_size == 7
+        assert tf_train.sampling.sequential_sampling is True
+
+
     def test_training_config_optimizer_roundtrip(self, params_cfg_snapshot):
         """
         Test that optimizer='sgd', momentum=0.9, weight_decay=1e-4 round-trips

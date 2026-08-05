@@ -89,6 +89,8 @@ class TrainingWorkflowResult:
     reconstruction_amplitude: Any | None
     reconstruction_phase: Any | None
     bundle_path: Path | None
+    rect_s1s2_initialization: Mapping[str, Any] | None
+    training_summary_path: Path | None
     pt_data_config: Any | None
     pt_model_config: Any | None
     model_spec: Any | None
@@ -356,6 +358,11 @@ def _materialize_backend_container(
         metadata = getattr(raw_data, "metadata", None)
         if metadata is not None:
             container.metadata = metadata
+        raw_grouped = grouped.get("diffraction")
+        if raw_grouped is not None:
+            container.raw_grouped_diffraction = np.ascontiguousarray(
+                np.asarray(raw_grouped)
+            )
         return container
     from ptycho import loader, params
     from ptycho.config.config import update_legacy_dict
@@ -852,6 +859,19 @@ def run_training_workflow(
         if candidate.is_file():
             bundle_path = candidate
 
+    rect_s1s2_initialization = backend_results.get("rect_s1s2_initialization")
+    if rect_s1s2_initialization is not None:
+        if not isinstance(rect_s1s2_initialization, Mapping):
+            raise TypeError("rect_s1s2_initialization must be a mapping")
+        rect_s1s2_initialization = dict(rect_s1s2_initialization)
+    training_summary_path = backend_results.get("training_summary_path")
+    if training_summary_path is not None:
+        training_summary_path = Path(training_summary_path)
+    elif config.backend == "pytorch":
+        candidate = Path(config.output_dir) / "training_summary.json"
+        if candidate.is_file():
+            training_summary_path = candidate
+
     if gain_record is not None:
         if bundle_path is None or not bundle_path.is_file():
             raise FileNotFoundError(
@@ -875,6 +895,8 @@ def run_training_workflow(
         reconstruction_amplitude=amplitude,
         reconstruction_phase=phase,
         bundle_path=bundle_path,
+        rect_s1s2_initialization=rect_s1s2_initialization,
+        training_summary_path=training_summary_path,
         pt_data_config=(payload.pt_data_config if payload is not None else None),
         pt_model_config=(payload.pt_model_config if payload is not None else None),
         model_spec=(payload.model_spec if payload is not None else None),

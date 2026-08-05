@@ -1029,6 +1029,11 @@ def _validate_model_domains(config: ModelConfig) -> None:
             f"{sorted(SUPPORTED_TORCH_ARCHITECTURES)}, "
             f"got {config.architecture!r}"
         )
+    if config.rect_s1s2_init not in {"ones", "dose_closure"}:
+        raise ValueError(
+            "rect_s1s2_init must be 'ones' or 'dose_closure', "
+            f"got {config.rect_s1s2_init!r}"
+        )
 
 
 def _validate_inference_domains(config: InferenceConfig) -> None:
@@ -1172,10 +1177,10 @@ def _reject_half_configured_ci(
 ) -> None:
     if physics_forward_mode == "rectangular_scaled":
         return
-    if normalized.values.get("rect_s1s2_init") == "data":
+    if normalized.values.get("rect_s1s2_init") == "dose_closure":
         raise ValueError(
-            "rect_s1s2_init='data' is a CI-contract knob (one-batch s1/s2 "
-            "calibration for the rectangular_scaled forward) but "
+            "rect_s1s2_init='dose_closure' is a CI-contract knob (closed-form "
+            "gauge initialization for the rectangular_scaled forward) but "
             f"physics_forward_mode resolved to {physics_forward_mode!r}, "
             "where it is silently ignored. Half-configured CI is fail-closed: "
             "use create_training_payload(..., profile='ci') (or --profile ci "
