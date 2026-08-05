@@ -57,6 +57,7 @@ from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 import io
 import logging
+import math
 from pathlib import Path
 import zipfile
 from typing import Union, Optional, Tuple, Dict, Any
@@ -86,6 +87,10 @@ from ptycho_torch.scaling_contract import (
     validate_scale_contract,
 )
 from ptycho_torch.object_compatibility import resolve_model_object_compatibility
+from ptycho_torch.rect_s1s2_initialization import (
+    RECT_S1S2_DOSE_CLOSURE_PATTERNS,
+    RectS1S2InitializationRecord,
+)
 
 # PyTorch imports (now mandatory per Phase F3.1/F3.2)
 try:
@@ -1662,6 +1667,289 @@ def _move_batch_to_device(batch, device):
     return batch
 
 
+def _slice_batch_prefix(batch, count, batch_size):
+    """Slice tensors carrying the current batch dimension to ``count`` rows."""
+
+    if hasattr(batch, "batch_size") and hasattr(batch, "__getitem__"):
+        return batch[:count]
+    if isinstance(batch, dict):
+        return {
+            key: _slice_batch_prefix(value, count, batch_size)
+            for key, value in batch.items()
+        }
+    if isinstance(batch, (list, tuple)):
+        return type(batch)(
+            _slice_batch_prefix(value, count, batch_size) for value in batch
+        )
+    if hasattr(batch, "ndim") and batch.ndim > 0 and batch.shape[0] == batch_size:
+        return batch[:count]
+    return batch
+
+
+def _deterministic_rect_s1s2_loader(training_loader):
+    """Rebuild a loader over the same dataset without randomized sampling."""
+
+    import torch
+
+    loader_type = (
+        TensorDictDataLoader
+        if isinstance(training_loader, TensorDictDataLoader)
+        else torch.utils.data.DataLoader
+    )
+    return loader_type(
+        training_loader.dataset,
+        batch_size=training_loader.batch_size,
+        shuffle=False,
+        drop_last=False,
+        num_workers=0,
+        pin_memory=False,
+        collate_fn=training_loader.collate_fn,
+    )
+
+
+def _initialize_rect_s1s2_unmanaged(
+    model,
+    *,
+    mode,
+    training_loader=None,
+    sample_patterns=RECT_S1S2_DOSE_CLOSURE_PATTERNS,
+):
+    """Initialize the shared rectangular gauge from a deterministic prefix."""
+
+    import torch
+
+    if mode not in {"ones", "dose_closure"}:
+        raise ValueError(f"unsupported rect_s1s2 initialization mode {mode!r}")
+    forward_model = getattr(getattr(model, "model", None), "forward_model", None)
+    scaler = getattr(forward_model, "rect_scaler", None)
+    if scaler is None:
+        if mode == "ones":
+            return RectS1S2InitializationRecord.ones().to_jsonable()
+        raise ValueError(
+            "rect_s1s2 dose closure requires a model with a rectangular "
+            "physics scaler"
+        )
+    scaler.s1.data.fill_(1.0)
+    scaler.s2.data.fill_(1.0)
+    if mode == "ones":
+        return RectS1S2InitializationRecord.ones().to_jsonable()
+    if training_loader is None:
+        raise ValueError("rect_s1s2 dose closure requires a CI training loader")
+
+    observed_sum = 0.0
+    predicted_sum = 0.0
+    sampled = 0
+    for batch in _deterministic_rect_s1s2_loader(training_loader):
+        fields = batch[0]
+        if "measured_intensity" not in fields:
+            raise ValueError(
+                "rect_s1s2 dose closure requires CI count-intensity batches "
+                "with measured_intensity; legacy normalized-amplitude loaders "
+                "are unsupported"
+            )
+        batch_size = int(fields["images"].shape[0])
+        images = fields["images"]
+        target = fields["measured_intensity"]
+        if (
+            images.ndim != 4
+            or target.ndim != 4
+            or tuple(target.shape[:2]) != tuple(images.shape[:2])
+        ):
+            raise ValueError(
+                "rect_s1s2 dose closure images and measured_intensity must "
+                "share canonical (B, C, H, W) leading axes"
+            )
+        patterns_per_row = int(target.shape[1])
+        if patterns_per_row <= 0:
+            raise ValueError(
+                "rect_s1s2 dose closure batches must contain detector patterns"
+            )
+        remaining = sample_patterns - sampled
+        required_rows = math.ceil(remaining / patterns_per_row)
+        if batch_size > required_rows:
+            batch = _slice_batch_prefix(batch, required_rows, batch_size)
+            fields = batch[0]
+            batch_size = required_rows
+        batch = _move_batch_to_device(batch, scaler.s1.device)
+        fields = batch[0]
+        positions = fields["coords_relative"]
+        experiment_ids = fields["experiment_id"]
+        target = fields["measured_intensity"]
+        probe = fields["probe_training"]
+        probe_normalization = fields["probe_normalization"]
+        output_scale = probe_normalization.reshape(
+            batch_size, 1, 1, 1
+        ).reciprocal()
+        unit_object = torch.ones_like(fields["images"], dtype=torch.complex64)
+        with torch.no_grad():
+            predicted = forward_model(
+                unit_object,
+                target,
+                positions,
+                probe,
+                output_scale,
+                experiment_ids,
+            )
+        if predicted.ndim != 4 or tuple(predicted.shape) != tuple(target.shape):
+            raise ValueError(
+                "rect_s1s2 dose closure predicted intensity must match "
+                "measured_intensity shape (B, C, H, W)"
+            )
+        available_in_batch = batch_size * patterns_per_row
+        take_patterns = min(remaining, available_in_batch)
+        target_patterns = target.to(torch.float64).reshape(
+            available_in_batch,
+            -1,
+        )
+        predicted_patterns = predicted.to(torch.float64).reshape(
+            available_in_batch,
+            -1,
+        )
+        selected_target = target_patterns[:take_patterns]
+        if bool((selected_target < 0).any().item()):
+            raise ValueError(
+                "rect_s1s2 dose closure observed counts must be nonnegative"
+            )
+        observed_sum += float(selected_target.sum().item())
+        predicted_sum += float(
+            predicted_patterns[:take_patterns].sum().item()
+        )
+        sampled += take_patterns
+        if sampled == sample_patterns:
+            break
+
+    if sampled < sample_patterns:
+        raise ValueError(
+            "rect_s1s2 dose closure requires at least "
+            f"{sample_patterns} detector-pattern slots; sampled {sampled}"
+        )
+    if not math.isfinite(observed_sum) or observed_sum <= 0.0:
+        raise ValueError(
+            "rect_s1s2 dose closure observed count sum must be positive and "
+            f"finite; got {observed_sum!r}"
+        )
+    if not math.isfinite(predicted_sum) or predicted_sum <= 0.0:
+        raise ValueError(
+            "rect_s1s2 dose closure predicted intensity sum must be positive "
+            f"and finite; got {predicted_sum!r}"
+        )
+
+    closure = observed_sum / predicted_sum
+    if not math.isfinite(closure) or closure <= 0.0:
+        raise ValueError(
+            "rect_s1s2 dose closure c* must be positive and finite; "
+            f"got {closure!r}"
+        )
+    gauge = math.sqrt(closure)
+    if not math.isfinite(gauge) or gauge <= 0.0:
+        raise ValueError(
+            "rect_s1s2 dose closure gauge must be positive and finite; "
+            f"got {gauge!r}"
+        )
+    scaler.s1.data.fill_(gauge)
+    scaler.s2.data.fill_(gauge)
+    return RectS1S2InitializationRecord.dose_closure(
+        gauge,
+        sampled_patterns=sampled,
+    ).to_jsonable()
+
+
+def _initialize_rect_s1s2(
+    model,
+    *,
+    mode,
+    training_loader=None,
+    sample_patterns=RECT_S1S2_DOSE_CLOSURE_PATTERNS,
+):
+    """Run initialization inference while preserving every module state."""
+
+    if mode != "dose_closure":
+        return _initialize_rect_s1s2_unmanaged(
+            model,
+            mode=mode,
+            training_loader=training_loader,
+            sample_patterns=sample_patterns,
+        )
+    training_states = tuple(
+        (module, bool(module.training)) for module in model.modules()
+    )
+    model.eval()
+    try:
+        return _initialize_rect_s1s2_unmanaged(
+            model,
+            mode=mode,
+            training_loader=training_loader,
+            sample_patterns=sample_patterns,
+        )
+    finally:
+        for module, training in training_states:
+            module.training = training
+
+
+def _write_training_summary_atomic(path, record):
+    """Crash-safe JSON publication for the rank-zero training summary."""
+
+    import json
+    import os
+    import tempfile
+
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    validated = RectS1S2InitializationRecord.from_mapping(record)
+    encoded = (
+        json.dumps(
+            validated.to_jsonable(),
+            indent=2,
+            sort_keys=True,
+            allow_nan=False,
+        )
+        + "\n"
+    ).encode("utf-8")
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.", suffix=".tmp", dir=path.parent
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "wb") as stream:
+            stream.write(encoded)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+        directory = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _publish_training_summary_and_barrier(trainer, path, record):
+    """Publish on global zero, then release every rank from the live strategy."""
+
+    if bool(getattr(trainer, "is_global_zero", False)):
+        _write_training_summary_atomic(path, record)
+    strategy = getattr(trainer, "strategy", None)
+    barrier = getattr(strategy, "barrier", None)
+    if not callable(barrier):
+        raise RuntimeError(
+            "Lightning strategy must expose barrier() while publishing the "
+            "training summary"
+        )
+    barrier("rect_s1s2_training_summary")
+
+
+def _rect_s1s2_training_loader(data_product, train_loader, mode):
+    """Resolve the training source only when dose closure consumes it."""
+
+    if mode == "ones":
+        return None
+    if isinstance(data_product, PrebuiltPtychoDataModule):
+        data_product.setup("fit")
+        return data_product.train_dataloader()
+    return train_loader
+
+
 def _effective_dataloader_settings(
     data_product,
     train_loader,
@@ -1878,6 +2166,7 @@ def _train_with_lightning(
     # C3.A3: Thread execution config values to Trainer kwargs
     output_dir = Path(getattr(config, 'output_dir', './outputs'))
     debug_mode = getattr(config, 'debug', False)
+    training_summary_path = output_dir / "training_summary.json"
 
     # Custom callback to track loss history across epochs
     class _LossHistoryCallback(L.Callback):
@@ -1913,8 +2202,32 @@ def _train_with_lightning(
 
     loss_history_cb = _LossHistoryCallback()
 
+    class _TrainingSummaryCallback(L.Callback):
+        """Publish initialization identity while the distributed group is live."""
+
+        def __init__(self, path):
+            super().__init__()
+            self.path = Path(path)
+            self.record = None
+
+        def set_record(self, record):
+            self.record = RectS1S2InitializationRecord.from_mapping(record)
+
+        def on_fit_start(self, trainer, pl_module):
+            if self.record is None:
+                raise RuntimeError(
+                    "rect_s1s2 initialization record must be set before fit"
+                )
+            _publish_training_summary_and_barrier(
+                trainer,
+                self.path,
+                self.record,
+            )
+
+    training_summary_cb = _TrainingSummaryCallback(training_summary_path)
+
     # EB1.D: Configure checkpoint/early-stop callbacks (ADR-003 Phase EB1)
-    callbacks: list = [loss_history_cb]
+    callbacks: list = [loss_history_cb, training_summary_cb]
     if execution_config.enable_checkpointing:
         from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 
@@ -2078,21 +2391,21 @@ def _train_with_lightning(
         trainer=trainer,
     )
 
-    rect_s1s2_calibration = None
-    if getattr(pt_model_config, "rect_s1s2_init", "ones") == "data":
-        if isinstance(data_product, PrebuiltPtychoDataModule):
-            data_product.setup("fit")
-            calibration_loader = data_product.train_dataloader()
-        else:
-            calibration_loader = train_loader
-        calibration_batch = _move_batch_to_device(
-            next(iter(calibration_loader)), model.device
-        )
-        rect_s1s2_calibration = model.calibrate_rect_s1s2(calibration_batch)
-        logger.info(
-            "rect_s1s2 data calibration: s1=s2=%s",
-            rect_s1s2_calibration,
-        )
+    rect_s1s2_mode = getattr(pt_model_config, "rect_s1s2_init", "ones")
+    rect_s1s2_initialization = _initialize_rect_s1s2(
+        model,
+        mode=rect_s1s2_mode,
+        training_loader=_rect_s1s2_training_loader(
+            data_product,
+            train_loader,
+            rect_s1s2_mode,
+        ),
+    )
+    logger.info(
+        "rect_s1s2 initialization: %s",
+        rect_s1s2_initialization,
+    )
+    training_summary_cb.set_record(rect_s1s2_initialization)
 
     # B2.6: Execute training cycle
     logger.info(
@@ -2134,7 +2447,8 @@ def _train_with_lightning(
         "history": history,
         "train_container": train_container,
         "test_container": test_container,
-        "rect_s1s2_calibration": rect_s1s2_calibration,
+        "rect_s1s2_initialization": rect_s1s2_initialization,
+        "training_summary_path": training_summary_path,
         "execution_config": execution_config,
         "effective_runtime": effective_runtime,
         "models": {

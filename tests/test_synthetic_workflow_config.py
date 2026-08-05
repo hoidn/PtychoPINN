@@ -895,6 +895,13 @@ def test_explicit_custom_probe_transform_is_validated_and_preserved(
     assert resolved.simulation.train.probe.transform_pipeline == pipeline
 
 
+def test_public_amplitude_profile_rejects_dose_closure_initialization():
+    with pytest.raises(ValueError, match="synthetic-lines.*legacy amplitude"):
+        _resolve(
+            cli_values={"model": {"rect_s1s2_init": "dose_closure"}},
+        )
+
+
 def test_unknown_profile_fails_with_the_profile_name():
     with pytest.raises(ValueError, match="missing-profile"):
         _api().resolve_synthetic_workflow(profile="missing-profile")

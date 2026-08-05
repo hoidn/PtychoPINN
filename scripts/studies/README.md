@@ -160,6 +160,32 @@ python scripts/studies/grid_lines_torch_runner.py \
 - `--output-mode {real_imag,amp_phase_logits,amp_phase}`: Output interpretation mode.
 - `--grad-clip`: Gradient clip max norm (<=0 disables clipping).
 - `--probe-source {custom,ideal_disk}`: Optional expected probe source (warns if metadata differs).
+- `--rect-s1s2-init {ones,dose_closure}`: Keep exact unit initialization
+  (the default) or initialize rectangular scales from dose closure over the
+  deterministic first 256 detector-pattern slots (B/C flattened).
+- `--count-scale-mode {off,auto}`: Apply count-amplitude conversion only on the
+  legacy/non-CI dictionary path. The CI adapter derives
+  `ci_count_amplitude_scale` independently and ignores this flag.
+
+The runner writes the strict initialization record to
+`<output-dir>/training_summary.json`. The same record and root-level path are
+embedded in `<artifact-root>/runs/<model-id>/config.json`. A `dose_closure`
+value is a startup gauge under a unit-object convention, not a physical probe
+calibration; final learned `s1`/`s2`, optional dataset refit, and inference
+VarPro are separate operations.
+
+```bash
+python scripts/studies/grid_lines_torch_runner.py \
+  --train-npz outputs/.../train.npz \
+  --test-npz outputs/.../test.npz \
+  --output-dir outputs/ci_torch_run \
+  --architecture ffno \
+  --physics-forward-mode rectangular_scaled \
+  --torch-loss-mode poisson \
+  --scale-contract-version ci_intensity_v2 \
+  --measurement-domain count_intensity \
+  --rect-s1s2-init dose_closure
+```
 
 ### `runbooks/run_nersc_scan807_cameraman_study.py` and `runbooks/run_nersc_scan807_cameraman_study_n256.py`
 NERSC orchestration runbooks for paired-HDF5 scan807+cameraman studies that combine:

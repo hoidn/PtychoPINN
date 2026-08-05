@@ -164,7 +164,7 @@ class TorchRunnerConfig:
     training_patch_weighting: str = "central_mask"
     physics_forward_mode: str = "amplitude"
     rect_s1s2_trainable: bool = True
-    rect_s1s2_init: str = "ones"
+    rect_s1s2_init: Literal["ones", "dose_closure"] = "ones"
     rect_s1s2_refit: str = "off"
     N: int = 64
     gridsize: int = 1
@@ -1258,6 +1258,7 @@ def run_torch_training(
         PTModelConfig(
             mode="Supervised" if cfg.training_procedure == "supervised" else "Unsupervised",
             physics_forward_mode=cfg.physics_forward_mode,
+            rect_s1s2_init=cfg.rect_s1s2_init,
         ),
         PTTrainingConfig(torch_loss_mode=cfg.torch_loss_mode),
     )
@@ -2090,8 +2091,12 @@ def save_run_artifacts(
         "ci_count_amplitude_scale_test"
     )
     config_payload["nphotons"] = count_scale_provenance.get("nphotons")
-    config_payload["rect_s1s2_calibration"] = results.get(
-        "rect_s1s2_calibration"
+    config_payload["rect_s1s2_initialization"] = results.get(
+        "rect_s1s2_initialization"
+    )
+    training_summary_path = results.get("training_summary_path")
+    config_payload["training_summary_path"] = (
+        str(training_summary_path) if training_summary_path is not None else None
     )
     ci_probe_provenance = results.get("ci_probe_provenance")
     if ci_probe_provenance is not None:
@@ -2506,6 +2511,12 @@ def run_grid_lines_torch(
             'position_reassembly_runtime_contract': position_reassembly_runtime_contract,
             'randomness_contract': randomness_contract,
         }
+        rect_s1s2_initialization = results.get("rect_s1s2_initialization")
+        if rect_s1s2_initialization is not None:
+            result_dict["rect_s1s2_initialization"] = rect_s1s2_initialization
+        training_summary_path = results.get("training_summary_path")
+        if training_summary_path is not None:
+            result_dict["training_summary_path"] = str(training_summary_path)
         if rect_s1s2_refit_block is not None:
             result_dict['rect_s1s2_refit'] = rect_s1s2_refit_block
         result_dict['paper_row_payload'] = _build_paper_row_payload(
@@ -2638,9 +2649,14 @@ def main(argv=None) -> None:
     )
     parser.add_argument(
         "--rect-s1s2-init",
-        choices=["ones", "data"],
+        choices=["ones", "dose_closure"],
         default="ones",
-        help="Initialize rectangular scales at one or from one training batch.",
+        help=(
+            "Initialize rectangular scales at one or by CI dose closure. The "
+            "CI dictionary adapter derives its count-amplitude scale "
+            "independently; --count-scale-mode is legacy/non-CI only and is "
+            "ignored by the CI path."
+        ),
     )
     parser.add_argument(
         "--rect-s1s2-refit",
@@ -2677,10 +2693,12 @@ def main(argv=None) -> None:
         help=(
             "'auto' attaches an absolute photon-count physics scale "
             "(physics_scaling_constant=S, S≈328.7 convention, per split) to "
-            "the dict-container training path so the Poisson NLL operates on "
-            "genuine counts; opt-in only, because it is not outcome-preserving "
-            "(changes training trajectories -- see POISSON-SCALE-001). "
-            "'off' (default) preserves pre-fix behavior (physics_scale=1.0)."
+            "the legacy/non-CI dict-container training path so the Poisson NLL "
+            "operates on genuine counts; opt-in only, because it is not "
+            "outcome-preserving (changes training trajectories -- see "
+            "POISSON-SCALE-001). The CI adapter derives its own scale and "
+            "ignores this flag. 'off' (default) preserves pre-fix legacy "
+            "behavior (physics_scale=1.0)."
         ),
     )
     parser.add_argument(

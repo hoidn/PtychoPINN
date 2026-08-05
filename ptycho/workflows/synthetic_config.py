@@ -945,6 +945,12 @@ def _resolve_model(
         candidate["amplitude_physics_gain_provenance"] = "explicit"
 
     model = _adapt_model(candidate)
+    if model.rect_s1s2_init == "dose_closure":
+        raise ValueError(
+            "model.rect_s1s2_init='dose_closure' is unavailable in the public "
+            "synthetic-lines profile, which is fixed to the legacy amplitude "
+            "contract"
+        )
     if model.architecture == "neuralop_uno":
         if N != 128:
             raise ValueError(

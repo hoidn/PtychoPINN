@@ -676,6 +676,8 @@ def validate_contract_coherence(
       loss — this covers ``measurement_domain='count_intensity'`` combined
       with ``torch_loss_mode='mae'`` under the rectangular forward, because
       ``count_intensity`` only resolves inside the CI profile;
+    - ``rect_s1s2_init='dose_closure'`` outside the complete rectangular
+      ``ci_intensity_v2``/``count_intensity``/Poisson contract;
     - a non-1.0 ``amplitude_physics_gain`` wherever the contract forbids it
       (every rectangular/CI mode; validated in every mode for finiteness).
 
@@ -708,7 +710,14 @@ def validate_scale_contract(
     §3.3): finite and > 0, and exactly 1.0 for rectangular_scaled/CI modes.
     """
     validate_amplitude_physics_gain(model_config)
+    rect_s1s2_init = getattr(model_config, "rect_s1s2_init", "ones")
     if not ci_scaling_active(model_config):
+        if rect_s1s2_init == "dose_closure":
+            raise ValueError(
+                "rect_s1s2_init='dose_closure' requires the coherent "
+                "ci_intensity_v2/count_intensity rectangular-scaled contract; "
+                "physics_forward_mode must be 'rectangular_scaled'."
+            )
         return None
 
     resolved = resolve_scale_contract(
@@ -716,6 +725,12 @@ def validate_scale_contract(
         getattr(data_config, "measurement_domain", None),
     )
     if resolved.version != CI_SCALE_CONTRACT:
+        if rect_s1s2_init == "dose_closure":
+            raise ValueError(
+                "rect_s1s2_init='dose_closure' requires the coherent "
+                "ci_intensity_v2/count_intensity contract; got "
+                f"{resolved.version!r}/{resolved.measurement_domain!r}."
+            )
         return resolved
 
     mode = getattr(model_config, "mode", None)

@@ -111,9 +111,8 @@ CI_PROFILE_CONTRACT_FIELDS: Dict[str, Any] = {
 }
 
 # Full coherent bundle. Non-contract entries are profile defaults a user may
-# override: rect_s1s2_init='data' per docs/model_baselines.md (one-batch s1/s2
-# calibration; required for bounded-head CNN CI arms), rect_s1s2_trainable=True
-# (trainable s1/s2 own the training scale), amplitude_physics_gain=1.0 (the
+# override: rect_s1s2_init='ones', rect_s1s2_trainable=True (trainable s1/s2
+# own the training scale), amplitude_physics_gain=1.0 (the
 # rectangular contract rejects anything else fail-closed), and
 # cnn_output_mode='real_imag' (cnn architecture only; other generators already
 # default generator_output_mode='real_imag').
@@ -121,7 +120,7 @@ CI_PROFILE_BUNDLE: Dict[str, Any] = {
     **CI_PROFILE_CONTRACT_FIELDS,
     "amplitude_physics_gain": 1.0,
     "rect_s1s2_trainable": True,
-    "rect_s1s2_init": "data",
+    "rect_s1s2_init": "ones",
     "cnn_output_mode": "real_imag",
 }
 
