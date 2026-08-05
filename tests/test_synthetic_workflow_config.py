@@ -638,20 +638,96 @@ def test_gain_provenance_is_unconditionally_derived_from_final_gain_contract():
     )
 
 
-def test_ci_count_intensity_profile_is_not_exposed_by_the_v1_resolver():
-    with pytest.raises(ValueError, match=re.escape("simulation.scale_contract_version")):
-        _resolve(
+def test_cnn_ci_profile_resolves_the_complete_locked_contract():
+    resolved = _api().resolve_synthetic_workflow(profile="cnn-lines-ci")
+
+    assert resolved.profile == "cnn-lines-ci"
+    assert resolved.recipe_version == "cnn-lines-ci-v1"
+    assert resolved.simulation.scale_contract_version == "ci_intensity_v2"
+    assert resolved.simulation.measurement_domain == "count_intensity"
+    assert resolved.model.architecture == "cnn"
+    assert resolved.model.physics_forward_mode == "rectangular_scaled"
+    assert resolved.model.cnn_output_mode == "real_imag"
+    assert resolved.model.loss_function == "Poisson"
+    assert resolved.model.rect_s1s2_init == "dose_closure"
+    assert resolved.model.amplitude_physics_gain == 1.0
+    assert (
+        resolved.model.amplitude_physics_gain_provenance
+        == "scale_contract_fixed"
+    )
+    assert resolved.training.torch_loss_mode == "poisson"
+    assert resolved.training.nll is True
+    assert resolved.training.gradient_clip_val == 1.0
+    assert resolved.data.scale_contract_version == "ci_intensity_v2"
+    assert resolved.data.measurement_domain == "count_intensity"
+
+
+@pytest.mark.parametrize("source_name", ("file_values", "cli_values"))
+def test_cnn_ci_profile_rejects_a_contradicting_architecture(source_name):
+    with pytest.raises(ValueError, match="model.architecture.*cnn-lines-ci"):
+        _api().resolve_synthetic_workflow(
+            profile="cnn-lines-ci",
+            **{source_name: {"model": {"architecture": "fno"}}},
+        )
+
+
+def test_cnn_ci_profile_rejects_a_complete_amplitude_relabel():
+    with pytest.raises(ValueError, match="scale_contract_version.*cnn-lines-ci"):
+        _api().resolve_synthetic_workflow(
+            profile="cnn-lines-ci",
             file_values={
                 "simulation": {
-                    "scale_contract_version": "ci_intensity_v2",
-                    "measurement_domain": "count_intensity",
+                    "scale_contract_version": "legacy_v1",
+                    "measurement_domain": "normalized_amplitude",
                 },
                 "model": {
-                    "physics_forward_mode": "rectangular_scaled",
-                    "loss_function": "Poisson",
+                    "physics_forward_mode": "amplitude",
+                    "cnn_output_mode": "amp_phase",
+                    "loss_function": "MAE",
+                    "rect_s1s2_init": "ones",
                 },
-                "training": {"torch_loss_mode": "poisson", "nll": True},
-            }
+                "training": {"torch_loss_mode": "mae", "nll": False},
+            },
+        )
+
+
+def test_cnn_ci_profile_accepts_matching_explicit_locks_and_ones_control():
+    api = _api()
+    dose_closure = api.resolve_synthetic_workflow(profile="cnn-lines-ci")
+    ones = api.resolve_synthetic_workflow(
+        profile="cnn-lines-ci",
+        cli_values={
+            "simulation": {
+                "scale_contract_version": "ci_intensity_v2",
+                "measurement_domain": "count_intensity",
+            },
+            "model": {
+                "architecture": "cnn",
+                "physics_forward_mode": "rectangular_scaled",
+                "cnn_output_mode": "real_imag",
+                "loss_function": "Poisson",
+                "rect_s1s2_init": "ones",
+            },
+            "training": {"torch_loss_mode": "poisson", "nll": True},
+        },
+    )
+
+    assert ones.model.rect_s1s2_init == "ones"
+    assert api.synthetic_workflow_sha256(ones) != (
+        api.synthetic_workflow_sha256(dose_closure)
+    )
+
+
+def test_cnn_ci_profile_rejects_supervised_mode_with_ones_initialization():
+    with pytest.raises(ValueError, match="model.mode.*Unsupervised"):
+        _api().resolve_synthetic_workflow(
+            profile="cnn-lines-ci",
+            file_values={
+                "model": {
+                    "mode": "Supervised",
+                    "rect_s1s2_init": "ones",
+                }
+            },
         )
 
 
@@ -959,3 +1035,16 @@ def test_sealed_synthetic_lines_v1_identity_is_unchanged(epochs):
     assert resolved.recipe_version == "synthetic-lines-v1"
     assert api.synthetic_workflow_sha256(resolved) == expected["digest"]
     assert len(encoded) == expected["payload_bytes"]
+
+
+def test_cnn_lines_ci_v1_identity_is_distinct_and_round_trips():
+    api = _api()
+    resolved = api.resolve_synthetic_workflow(profile="cnn-lines-ci")
+    payload = api.synthetic_workflow_to_dict(resolved)
+
+    assert api.synthetic_workflow_sha256(resolved) not in {
+        item["digest"] for item in SEALED_SYNTHETIC_LINES_IDENTITY.values()
+    }
+    assert api.synthetic_workflow_sha256(payload) == (
+        api.synthetic_workflow_sha256(resolved)
+    )
