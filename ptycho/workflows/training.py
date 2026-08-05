@@ -359,6 +359,11 @@ def _materialize_backend_container(
         metadata = getattr(raw_data, "metadata", None)
         if metadata is not None:
             container.metadata = metadata
+        raw_grouped = grouped.get("diffraction")
+        if raw_grouped is not None:
+            container.raw_grouped_diffraction = np.ascontiguousarray(
+                np.asarray(raw_grouped)
+            )
         return container
     from ptycho import loader, params
     from ptycho.config.config import update_legacy_dict
