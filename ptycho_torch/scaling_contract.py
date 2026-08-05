@@ -627,6 +627,37 @@ def ci_scaling_active(model_config: Any) -> bool:
     return getattr(model_config, "physics_forward_mode", "amplitude") == "rectangular_scaled"
 
 
+def validate_rect_s1s2_initialization_contract(
+    data_config: Any,
+    model_config: Any,
+    training_config: Any,
+) -> None:
+    """Require the complete CI contract whenever dose closure is selected."""
+
+    if getattr(model_config, "rect_s1s2_init", "ones") != "dose_closure":
+        return
+    coherent = ci_scaling_active(model_config)
+    if coherent:
+        resolved = resolve_scale_contract(
+            getattr(data_config, "scale_contract_version", None),
+            getattr(data_config, "measurement_domain", None),
+        )
+        coherent = (
+            resolved.version == CI_SCALE_CONTRACT
+            and resolved.measurement_domain == COUNT_INTENSITY
+            and getattr(model_config, "mode", None) == "Unsupervised"
+            and getattr(training_config, "torch_loss_mode", None) == "poisson"
+        )
+    if not coherent:
+        raise ValueError(
+            "rect_s1s2_init='dose_closure' requires the coherent CI contract: "
+            "physics_forward_mode='rectangular_scaled', "
+            "scale_contract_version='ci_intensity_v2', "
+            "measurement_domain='count_intensity', mode='Unsupervised', and "
+            "torch_loss_mode='poisson'."
+        )
+
+
 def validate_amplitude_physics_gain(model_config: Any) -> float:
     """Validate ``ModelConfig.amplitude_physics_gain`` (PROBE-RANK-001 §3.3).
 
@@ -710,14 +741,12 @@ def validate_scale_contract(
     §3.3): finite and > 0, and exactly 1.0 for rectangular_scaled/CI modes.
     """
     validate_amplitude_physics_gain(model_config)
-    rect_s1s2_init = getattr(model_config, "rect_s1s2_init", "ones")
     if not ci_scaling_active(model_config):
-        if rect_s1s2_init == "dose_closure":
-            raise ValueError(
-                "rect_s1s2_init='dose_closure' requires the coherent "
-                "ci_intensity_v2/count_intensity rectangular-scaled contract; "
-                "physics_forward_mode must be 'rectangular_scaled'."
-            )
+        validate_rect_s1s2_initialization_contract(
+            data_config,
+            model_config,
+            training_config,
+        )
         return None
 
     resolved = resolve_scale_contract(
@@ -725,12 +754,11 @@ def validate_scale_contract(
         getattr(data_config, "measurement_domain", None),
     )
     if resolved.version != CI_SCALE_CONTRACT:
-        if rect_s1s2_init == "dose_closure":
-            raise ValueError(
-                "rect_s1s2_init='dose_closure' requires the coherent "
-                "ci_intensity_v2/count_intensity contract; got "
-                f"{resolved.version!r}/{resolved.measurement_domain!r}."
-            )
+        validate_rect_s1s2_initialization_contract(
+            data_config,
+            model_config,
+            training_config,
+        )
         return resolved
 
     mode = getattr(model_config, "mode", None)
