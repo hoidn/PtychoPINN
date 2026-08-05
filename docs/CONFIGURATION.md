@@ -492,6 +492,44 @@ profile defaults follow normal override precedence, then the downstream scaling
 and model validators enforce coherence. `dose_closure` is an opt-in
 initialization and requires the complete CI contract.
 
+#### Dose-closure initialization example
+
+On this branch `dose_closure` is selected programmatically against existing
+count-intensity NPZs (the public synthetic generator emits legacy normalized
+amplitudes and stays on `ones`):
+
+```python
+from ptycho_torch.config_factory import resolve_training_payload
+
+payload = resolve_training_payload(
+    train_data_file=train_npz,      # count-intensity data (diffraction = counts)
+    output_dir=output_dir,
+    profile="ci",                   # locks the coherent CI contract set
+    overrides={
+        "rect_s1s2_init": "dose_closure",
+        "gridsize": 1,
+        "N": 128,
+        "n_groups": 4489,
+        "batch_size": 16,
+    },
+)
+```
+
+The non-obvious pieces:
+
+| Piece | Meaning |
+|---|---|
+| `profile="ci"` | Locks `ci_intensity_v2` + `count_intensity` + `rectangular_scaled` + Poisson as an inseparable set; contradicting any locked field fails closed. |
+| `rect_s1s2_init="dose_closure"` | Before fitting, one shared `s1=s2` startup gauge is solved from the actual forward with a unit object over the deterministic first 256 detector-pattern slots. It fixes startup conditioning when the stored probe's global scalar does not match the recorded counts; it does not calibrate the probe or identify physical object units. |
+| `n_groups` / `gridsize` | Required grouping identity: number of sampled groups and frames per group axis. `gridsize=1` degenerates grouping to single-frame groups. |
+| Startup record | Training persists the strict `rect-s1s2-initialization-v1` record (`solved_gauge`, `method`, `mode`, `sampled_patterns`) in `training_summary.json`; a solved gauge far from 1 signals that the data's probe/object decomposition convention disagrees with the forward model. |
+
+For reference, the end-to-end synthetic CI recipe with the CLI flag
+`--rect-s1s2-init dose_closure` lives on the `fno-stable` line
+(`scripts/simulation/README.md` there documents the validated five-epoch run:
+amplitude/phase SSIM 0.8155 / 0.9387, solved gauge ≈ 3.12, versus ≈ 0.70
+amplitude SSIM with `ones`).
+
 ## Parameter Reference
 
 The tables below are representative. The dataclass definitions in
