@@ -105,7 +105,7 @@ def _training_payload(N: int, batch_size: int) -> SimpleNamespace:
 def test_auto_mode_exposes_physics_scale_matching_closed_form(tmp_path, params_cfg_snapshot):
     """(a) auto exposes physics_scale=S, matching the closed form both from
     the helper's return value and from the collated dataloader batch."""
-    N = 16
+    N = 64
     batch_size = 4
     n_samples = batch_size * 2
 
@@ -138,7 +138,7 @@ def test_auto_mode_exposes_physics_scale_matching_closed_form(tmp_path, params_c
 def test_off_mode_yields_exactly_one(tmp_path, params_cfg_snapshot):
     """(b) off leaves physics_scaling_constant absent; collation defaults it
     to 1.0, byte-identical to today's behavior."""
-    N = 16
+    N = 64
     batch_size = 4
     n_samples = batch_size * 2
 
@@ -196,7 +196,7 @@ def test_both_sides_lift_identity(tmp_path, params_cfg_snapshot):
     and the batch-wired physics_scale equals the closed-form S. Does NOT
     assert L(auto)/L(off) == S**2 (Task 7 §4b: operating-point dependent).
     """
-    N = 16
+    N = 64
     batch_size = 4
     n_samples = batch_size * 2
 

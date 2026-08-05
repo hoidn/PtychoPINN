@@ -360,7 +360,12 @@ def to_training_config(
             ),
         ),
         scheduler=TFSchedulerConfig(
-            kind=getattr(training, 'scheduler', 'Default'),
+            # Torch-only schedulers (MultiStage, Adaptive) have no public-config
+            # equivalent; fall back to 'Default' so the public record stays valid.
+            kind=getattr(training, 'scheduler', 'Default')
+            if getattr(training, 'scheduler', 'Default') in {
+                'Default', 'Exponential', 'WarmupCosine', 'ReduceLROnPlateau'
+            } else 'Default',
             lr_warmup_epochs=getattr(training, 'lr_warmup_epochs', 0),
             lr_min_ratio=getattr(training, 'lr_min_ratio', 0.1),
         ),

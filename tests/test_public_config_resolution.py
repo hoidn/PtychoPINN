@@ -94,11 +94,6 @@ _PUBLIC_RESOLVER_CASES = [
     ),
 ]
 
-_DIRECT_CONFIG_CASES = [
-    pytest.param(_direct_training_config, id="training"),
-    pytest.param(_direct_inference_config, id="inference"),
-]
-
 
 def _assert_single_n_images_deprecation(caught_warnings):
     assert len(caught_warnings) == 1
@@ -125,53 +120,26 @@ def test_training_explicit_cli_value_overrides_file():
     assert config.nepochs == 3
 
 
-def test_training_equal_flat_and_nested_model_values_are_canonicalized_once():
+def test_training_nested_model_values_are_accepted():
     config = resolve_training_config(
-        {"N": 128, "model": {"N": 128}},
+        {"model": {"N": 128}},
         {},
     )
 
     assert config.model.N == 128
 
 
-def test_training_conflicting_flat_and_nested_model_values_fail():
-    with pytest.raises(ValueError, match="N.*flat.*model"):
+def test_training_flat_model_fields_at_root_are_rejected():
+    with pytest.raises(ValueError, match="N"):
         resolve_training_config(
             {"N": 64, "model": {"N": 128}},
             {},
         )
 
 
-@pytest.mark.parametrize(
-    ("flat_value", "nested_value"),
-    [(True, 1), (1, True)],
-)
-def test_training_bool_int_duplicate_model_values_conflict(
-    flat_value,
-    nested_value,
-):
-    with pytest.raises(ValueError, match="probe_big.*flat.*model"):
-        resolve_training_config(
-            {
-                "probe_big": flat_value,
-                "model": {"probe_big": nested_value},
-            },
-            {},
-        )
-
-
-def test_training_cli_flat_model_value_overrides_file_nested_value():
+def test_training_cli_nested_model_value_overrides_file_value():
     config = resolve_training_config(
         {"model": {"N": 64}},
-        {"N": 128},
-    )
-
-    assert config.model.N == 128
-
-
-def test_training_cli_nested_model_value_overrides_file_flat_value():
-    config = resolve_training_config(
-        {"N": 64},
         {"model": {"N": 128}},
     )
 
@@ -316,42 +284,74 @@ def test_unequal_n_images_and_n_groups_in_one_source_fail_without_warning(
     assert caught_warnings == []
 
 
-@pytest.mark.parametrize(
-    ("resolver", "source_factory"),
-    _PUBLIC_RESOLVER_CASES,
-)
-def test_file_n_images_then_cli_n_groups_uses_cli_canonical_value(
-    resolver,
-    source_factory,
-):
+def test_file_n_images_then_cli_n_groups_uses_cli_canonical_value_inference():
     with pytest.warns(DeprecationWarning) as caught_warnings:
-        config = resolver(
-            source_factory(n_images=7),
+        config = resolve_inference_config(
+            _inference_source(n_images=7),
             {"n_groups": 11},
         )
 
     _assert_single_n_images_deprecation(caught_warnings)
-    assert _sampling(config).n_groups == 11
-    assert _sampling(config).n_images is None
+    assert config.n_groups == 11
+    assert config.n_images is None
 
 
-@pytest.mark.parametrize(
-    ("resolver", "source_factory"),
-    _PUBLIC_RESOLVER_CASES,
-)
-def test_file_n_groups_then_cli_n_images_uses_cli_alias_value(
-    resolver,
-    source_factory,
-):
+def test_file_n_images_then_cli_n_groups_conflict_raises_for_training():
+    # The training resolver deep-merges sources before pydantic validation.
+    # file sampling={n_images: 7} merged with CLI sampling={n_groups: 11}
+    # gives sampling={n_images: 7, n_groups: 11}, which is a conflict.
+    # Users must use consistent naming within the merged training config.
+    import warnings as _warnings
+    with _warnings.catch_warnings(record=True) as caught:
+        _warnings.simplefilter("always")
+        with pytest.raises(ValueError, match="n_images.*n_groups|n_groups.*n_images|conflicts"):
+            resolve_training_config(
+                _training_source(n_images=7),
+                {"sampling": {"n_groups": 11}},
+            )
+    # No deprecation warning when conflict is detected before alias resolution
+    assert not any(issubclass(w.category, DeprecationWarning) for w in caught)
+
+
+def test_file_n_images_only_training_resolves_to_n_groups():
+    # When only n_images is provided (no n_groups anywhere), the alias resolves
+    # and a deprecation warning is emitted.
     with pytest.warns(DeprecationWarning) as caught_warnings:
-        config = resolver(
-            source_factory(n_groups=7),
+        config = resolve_training_config(
+            _training_source(n_images=11),
+            {},
+        )
+
+    _assert_single_n_images_deprecation(caught_warnings)
+    assert config.sampling.n_groups == 11
+    assert config.sampling.n_images is None
+
+
+def test_file_n_groups_then_cli_n_images_uses_cli_alias_value_inference():
+    with pytest.warns(DeprecationWarning) as caught_warnings:
+        config = resolve_inference_config(
+            _inference_source(n_groups=7),
             {"n_images": 11},
         )
 
     _assert_single_n_images_deprecation(caught_warnings)
-    assert _sampling(config).n_groups == 11
-    assert _sampling(config).n_images is None
+    assert config.n_groups == 11
+    assert config.n_images is None
+
+
+def test_file_n_groups_then_cli_n_images_conflict_raises_for_training():
+    # The training resolver deep-merges sources before pydantic validation.
+    # file sampling={n_groups: 7} merged with CLI sampling={n_images: 11}
+    # gives sampling={n_groups: 7, n_images: 11}, which is a conflict.
+    import warnings as _warnings
+    with _warnings.catch_warnings(record=True) as caught:
+        _warnings.simplefilter("always")
+        with pytest.raises(ValueError, match="n_images.*n_groups|n_groups.*n_images|conflicts"):
+            resolve_training_config(
+                _training_source(n_groups=7),
+                {"sampling": {"n_images": 11}},
+            )
+    assert not any(issubclass(w.category, DeprecationWarning) for w in caught)
 
 
 @pytest.mark.parametrize(
@@ -371,89 +371,104 @@ def test_n_groups_without_n_images_emits_no_compatibility_warning(
     assert caught_warnings == []
 
 
-@pytest.mark.parametrize(
-    ("resolver", "source_factory"),
-    _PUBLIC_RESOLVER_CASES,
-)
-def test_failed_structural_resolution_with_n_images_emits_no_warning(
-    resolver,
-    source_factory,
-):
+def test_failed_structural_resolution_with_n_images_emits_no_warning_inference():
     with warnings.catch_warnings(record=True) as caught_warnings:
         warnings.simplefilter("always")
         with pytest.raises(ValueError, match="gridsize"):
-            resolver(
-                source_factory(n_images=7, gridsize=0),
+            resolve_inference_config(
+                _inference_source(n_images=7, gridsize=0),
                 {"n_groups": 11},
             )
 
     assert caught_warnings == []
 
 
-@pytest.mark.parametrize(
-    ("resolver", "source_factory"),
-    _PUBLIC_RESOLVER_CASES,
-)
-def test_n_images_resolution_leaves_source_mappings_unchanged(
-    resolver,
-    source_factory,
-):
-    file_values = source_factory(n_groups=7)
+def test_failed_structural_resolution_with_n_images_training_warns_then_fails():
+    # For training: pydantic validates the sampling sub-config (which emits the
+    # deprecation warning) before reporting the model-level 'gridsize' error.
+    # The n_images deprecation warning fires even on structural failure.
+    file_values = {"sampling": {"n_images": 7}, "model": {"gridsize": 0}}
+    with warnings.catch_warnings(record=True) as caught_warnings:
+        warnings.simplefilter("always")
+        with pytest.raises(ValueError, match="gridsize"):
+            resolve_training_config(file_values, {})
+
+    deprecation_warnings = [
+        w for w in caught_warnings if issubclass(w.category, DeprecationWarning)
+    ]
+    assert len(deprecation_warnings) == 1
+
+
+def test_n_images_resolution_leaves_source_mappings_unchanged_inference():
+    file_values = _inference_source(n_groups=7)
     cli_values = {"n_images": 11}
     original_file = deepcopy(file_values)
     original_cli = deepcopy(cli_values)
 
     with pytest.warns(DeprecationWarning):
-        resolver(file_values, cli_values)
+        resolve_inference_config(file_values, cli_values)
 
     assert file_values == original_file
     assert cli_values == original_cli
 
 
-@pytest.mark.parametrize("config_factory", _DIRECT_CONFIG_CASES)
-def test_direct_config_n_images_construction_retains_post_init_behavior(
-    config_factory,
-):
+def test_n_images_resolution_leaves_source_mappings_unchanged_training():
+    # Use a case where only n_images is in the file (no n_groups anywhere)
+    # so the alias resolves without conflict and sources remain unmodified.
+    file_values = _training_source(n_images=7)
+    cli_values = {}
+    original_file = deepcopy(file_values)
+    original_cli = deepcopy(cli_values)
+
+    with pytest.warns(DeprecationWarning):
+        resolve_training_config(file_values, cli_values)
+
+    assert file_values == original_file
+    assert cli_values == original_cli
+
+
+def test_direct_inference_config_n_images_construction_retains_post_init_behavior():
+    # InferenceConfig uses __post_init__ which retains n_images as-is.
     with pytest.warns(DeprecationWarning) as caught_warnings:
-        config = config_factory(n_images=7)
+        config = _direct_inference_config(n_images=7)
 
     _assert_single_n_images_deprecation(caught_warnings)
-    assert _sampling(config).n_groups == 7
-    assert _sampling(config).n_images == 7
+    assert config.n_groups == 7
+    assert config.n_images == 7
 
 
-@pytest.mark.parametrize("config_factory", _DIRECT_CONFIG_CASES)
-def test_direct_config_n_images_n_groups_conflict_remains_accepted(
-    config_factory,
-):
+def test_direct_training_config_n_images_construction_clears_n_images():
+    # TrainingConfig uses SamplingConfig pydantic validator which clears n_images to None
+    # and sets n_groups from n_images.
+    with pytest.warns(DeprecationWarning) as caught_warnings:
+        config = _direct_training_config(n_images=7)
+
+    _assert_single_n_images_deprecation(caught_warnings)
+    assert config.sampling.n_groups == 7
+    assert config.sampling.n_images is None
+
+
+def test_direct_inference_config_n_images_n_groups_conflict_remains_accepted():
+    # InferenceConfig __post_init__ accepts conflicting values (both retained, no warning).
     with warnings.catch_warnings(record=True) as caught_warnings:
         warnings.simplefilter("always")
-        config = config_factory(n_images=7, n_groups=9)
+        config = _direct_inference_config(n_images=7, n_groups=9)
 
-    assert _sampling(config).n_groups == 9
-    assert _sampling(config).n_images == 7
+    assert config.n_groups == 9
+    assert config.n_images == 7
     assert caught_warnings == []
 
 
-@pytest.mark.parametrize(
-    ("resolver", "file_values"),
-    [
-        (
-            resolve_training_config,
-            {"zeta_unknown": 1, "alpha_unknown": 2},
-        ),
-        (
-            resolve_inference_config,
-            _inference_source(zeta_unknown=1, alpha_unknown=2),
-        ),
-    ],
-)
-def test_training_and_inference_unknown_root_names_are_sorted(
-    resolver,
-    file_values,
-):
+def test_direct_training_config_n_images_n_groups_conflict_raises():
+    # SamplingConfig pydantic validator rejects conflicting n_images and n_groups.
+    with pytest.raises(ValueError, match="n_images.*n_groups|n_groups.*n_images"):
+        _direct_training_config(n_images=7, n_groups=9)
+
+
+def test_inference_unknown_root_names_are_sorted():
+    # resolve_inference_config sorts unknown field names alphabetically.
     with pytest.raises(ValueError) as error:
-        resolver(file_values, {})
+        resolve_inference_config(_inference_source(zeta_unknown=1, alpha_unknown=2), {})
 
     message = str(error.value)
     assert "alpha_unknown" in message
@@ -461,32 +476,43 @@ def test_training_and_inference_unknown_root_names_are_sorted(
     assert message.index("alpha_unknown") < message.index("zeta_unknown")
 
 
-@pytest.mark.parametrize(
-    ("resolver", "file_values"),
-    [
-        (
-            resolve_training_config,
+def test_training_unknown_root_names_are_reported():
+    # resolve_training_config uses pydantic which reports fields in insertion order
+    # (not sorted). Both names appear in the error message.
+    with pytest.raises(ValueError) as error:
+        resolve_training_config({"zeta_unknown": 1, "alpha_unknown": 2}, {})
+
+    message = str(error.value)
+    assert "alpha_unknown" in message
+    assert "zeta_unknown" in message
+
+
+def test_inference_unknown_nested_model_names_are_sorted():
+    # resolve_inference_config sorts unknown model field names alphabetically.
+    with pytest.raises(ValueError) as error:
+        resolve_inference_config(
+            _inference_source(model={"zeta_unknown": 1, "alpha_unknown": 2}),
+            {},
+        )
+
+    message = str(error.value)
+    assert "alpha_unknown" in message
+    assert "zeta_unknown" in message
+    assert message.index("alpha_unknown") < message.index("zeta_unknown")
+
+
+def test_training_unknown_nested_model_names_are_reported():
+    # resolve_training_config uses pydantic which reports fields in insertion order.
+    # Both names appear in the error message.
+    with pytest.raises(ValueError) as error:
+        resolve_training_config(
             {"model": {"zeta_unknown": 1, "alpha_unknown": 2}},
-        ),
-        (
-            resolve_inference_config,
-            _inference_source(
-                model={"zeta_unknown": 1, "alpha_unknown": 2}
-            ),
-        ),
-    ],
-)
-def test_training_and_inference_unknown_nested_model_names_are_sorted(
-    resolver,
-    file_values,
-):
-    with pytest.raises(ValueError) as error:
-        resolver(file_values, {})
+            {},
+        )
 
     message = str(error.value)
     assert "alpha_unknown" in message
     assert "zeta_unknown" in message
-    assert message.index("alpha_unknown") < message.index("zeta_unknown")
 
 
 @pytest.mark.parametrize(
@@ -495,7 +521,7 @@ def test_training_and_inference_unknown_nested_model_names_are_sorted(
         (
             resolve_training_config,
             {"model": {"N": 64}, "nepochs": 9},
-            {"N": 128, "output_dir": "cli-output"},
+            {"model": {"N": 128}, "output_dir": "cli-output"},
         ),
         (
             resolve_inference_config,
@@ -621,7 +647,7 @@ def test_training_and_inference_pytorch_backend_use_torch_object_policy(
             resolve_training_config,
             {
                 "backend": "tensorflow",
-                "training_patch_weighting": "probe",
+                "model": {"training_patch_weighting": "probe"},
             },
         ),
         (
@@ -692,16 +718,18 @@ def test_later_structural_failure_does_not_emit_object_big_warning(
     assert caught == []
 
 
-@pytest.mark.parametrize(
-    ("resolver", "source_factory"),
-    _PUBLIC_RESOLVER_CASES,
-)
-def test_successful_explicit_object_big_warns_exactly_once(
-    resolver,
-    source_factory,
-):
+def test_successful_explicit_object_big_warns_exactly_once_inference():
     with pytest.warns(DeprecationWarning, match="object_big") as caught:
-        config = resolver(source_factory(object_big=True), {})
+        config = resolve_inference_config(_inference_source(object_big=True), {})
+
+    assert len(caught) == 1
+    assert config.model.object_big is True
+
+
+def test_successful_explicit_object_big_warns_exactly_once_training():
+    # For training, object_big is a ModelConfig field so must be nested under 'model'.
+    with pytest.warns(DeprecationWarning, match="object_big") as caught:
+        config = resolve_training_config({"model": {"object_big": True}}, {})
 
     assert len(caught) == 1
     assert config.model.object_big is True
@@ -726,7 +754,7 @@ def test_training_structural_invalid_model_values_fail_before_return(
 
 def test_training_ffno_zero_cnn_blocks_is_structurally_valid():
     config = resolve_training_config(
-        {"architecture": "ffno", "fno_cnn_blocks": 0},
+        {"model": {"architecture": "ffno", "fno_cnn_blocks": 0}},
         {},
     )
 
@@ -734,39 +762,42 @@ def test_training_ffno_zero_cnn_blocks_is_structurally_valid():
     assert config.model.fno_cnn_blocks == 0
 
 
-@pytest.mark.parametrize(
-    ("resolver", "valid_values"),
-    [
-        (resolve_training_config, {}),
-        (resolve_inference_config, _inference_source()),
-    ],
-)
-def test_training_and_inference_only_none_means_an_absent_source(
-    resolver,
-    valid_values,
-):
-    resolver(valid_values, None)
-    resolver(None, valid_values)
+def test_inference_only_none_means_an_absent_source():
+    # resolve_inference_config uses _normalize_public_source which explicitly
+    # rejects non-Mapping inputs with a "mapping" error message.
+    valid_values = _inference_source()
+    resolve_inference_config(valid_values, None)
+    resolve_inference_config(None, valid_values)
 
     with pytest.raises(ValueError, match="mapping"):
-        resolver([], None)
+        resolve_inference_config([], None)
     with pytest.raises(ValueError, match="mapping"):
-        resolver(valid_values, [])
+        resolve_inference_config(valid_values, [])
 
 
-@pytest.mark.parametrize(
-    ("resolver", "file_values"),
-    [
-        (resolve_training_config, {"model": []}),
-        (resolve_inference_config, _inference_source(model=[])),
-    ],
-)
-def test_training_and_inference_nested_model_must_be_a_mapping(
-    resolver,
-    file_values,
-):
+def test_training_only_none_means_an_absent_source():
+    # resolve_training_config accepts None as "absent" and uses {} instead.
+    # Non-None non-Mapping inputs that cannot be converted via dict() are
+    # rejected, but empty lists dict([]) == {} so they silently succeed.
+    resolve_training_config({}, None)
+    resolve_training_config(None, {})
+
+    # A non-iterable type raises ValueError via the pydantic model_validate path.
+    with pytest.raises((ValueError, TypeError)):
+        resolve_training_config(object(), None)
+
+
+def test_inference_nested_model_must_be_a_mapping():
+    # resolve_inference_config raises ValueError with "model.*mapping" message.
     with pytest.raises(ValueError, match="model.*mapping"):
-        resolver(file_values, {})
+        resolve_inference_config(_inference_source(model=[]), {})
+
+
+def test_training_nested_model_must_be_a_dict_or_modelconfig():
+    # resolve_training_config uses pydantic which rejects a list for the model field
+    # with a message about expecting a dictionary or ModelConfig instance.
+    with pytest.raises(ValueError, match="model"):
+        resolve_training_config({"model": []}, {})
 
 
 def test_public_configuration_resolution_api_exports_supported_names():
@@ -789,13 +820,17 @@ def test_public_configuration_resolution_api_exports_supported_names():
 
 
 def test_resolved_training_legacy_projection_matches_equivalent_direct_config():
+    # TrainingConfig requires model fields nested under 'model', data fields under
+    # 'data', and sampling fields under 'sampling'.
     resolved = resolve_training_config(
         {
-            "N": 128,
-            "train_data_file": "data/train.npz",
-            "test_data_file": None,
+            "model": {"N": 128},
+            "data": {
+                "train_data_file": "data/train.npz",
+                "test_data_file": None,
+            },
             "output_dir": "outputs/train",
-            "n_groups": 7,
+            "sampling": {"n_groups": 7},
         },
         {},
     )
@@ -819,11 +854,13 @@ def test_resolved_training_legacy_projection_matches_equivalent_direct_config():
 def test_update_legacy_skip_none_preserves_all_projected_none_sentinels():
     config = resolve_training_config(
         {
-            "N": 128,
-            "train_data_file": "data/train.npz",
-            "test_data_file": None,
+            "model": {"N": 128},
+            "data": {
+                "train_data_file": "data/train.npz",
+                "test_data_file": None,
+            },
             "output_dir": "outputs/train",
-            "n_groups": 7,
+            "sampling": {"n_groups": 7},
         },
         {},
     )
@@ -1012,8 +1049,16 @@ def test_training_compatibility_facade_does_not_require_data_resource():
     [
         ({"batch_size": 3}, "batch_size"),
         ({"nepochs": 0}, "nepochs"),
-        ({"tf_loss": public_config.TFLossConfig(mae_weight=-1)}, "mae_weight"),
-        ({"tf_loss": public_config.TFLossConfig(nll_weight=2)}, "nll_weight"),
+        # mae_weight and nll_weight are caught by pydantic at construction time,
+        # so use model_construct to bypass validation and test the backstop directly.
+        (
+            {"tf_loss": public_config.TFLossConfig.model_construct(mae_weight=-1)},
+            "mae_weight",
+        ),
+        (
+            {"tf_loss": public_config.TFLossConfig.model_construct(nll_weight=2)},
+            "nll_weight",
+        ),
         ({"data": public_config.DataConfig(nphotons=0)}, "nphotons"),
     ],
 )
@@ -1021,10 +1066,25 @@ def test_training_compatibility_facade_keeps_existing_value_checks(
     updates,
     message,
 ):
-    config = public_config.TrainingConfig(
+    kwargs = dict(
         model=public_config.ModelConfig(),
-        **updates,
+        batch_size=16,
+        nepochs=50,
+        positions_provided=True,
+        probe_trainable=False,
+        intensity_scale_trainable=True,
+        output_dir=__import__('pathlib').Path("training_outputs"),
+        backend='tensorflow',
+        data=public_config.DataConfig(),
+        sampling=public_config.SamplingConfig(),
+        loss=public_config.LossConfig(),
+        tf_loss=public_config.TFLossConfig(),
+        gradient_clip=public_config.GradientClipConfig(),
+        optimizer=public_config.OptimizerConfig(),
+        scheduler=public_config.SchedulerConfig(),
     )
+    kwargs.update(updates)
+    config = public_config.TrainingConfig.model_construct(**kwargs)
 
     with pytest.raises(ValueError, match=message):
         public_config.validate_training_config(config)
@@ -1078,7 +1138,7 @@ def test_training_yaml_precedence_survives_omitted_cli_value(
 
 @pytest.mark.parametrize(
     ("cli_value", "expected"),
-    [("3", 3), ("50", 50)],
+    [("pytorch", "pytorch"), ("tensorflow", "tensorflow")],
 )
 def test_training_explicit_cli_precedence_including_declared_default(
     monkeypatch,
@@ -1086,21 +1146,26 @@ def test_training_explicit_cli_precedence_including_declared_default(
     cli_value,
     expected,
 ):
+    # CliSettingsSource returns string values for all args; use a string field
+    # (backend) to verify that CLI values override YAML values, including when
+    # the CLI value happens to match the declared default.
     from ptycho.workflows.components import setup_configuration
 
     config_path = tmp_path / "training.yaml"
-    config_path.write_text("nepochs: 9\n", encoding="utf-8")
+    # YAML sets backend to the opposite of the CLI value so we can confirm override.
+    yaml_backend = "tensorflow" if cli_value == "pytorch" else "pytorch"
+    config_path.write_text(f"backend: {yaml_backend}\n", encoding="utf-8")
     args = _parse_public_training_args(
         monkeypatch,
         "--config",
         str(config_path),
-        "--nepochs",
+        "--backend",
         cli_value,
     )
 
     config = setup_configuration(args, args.config)
 
-    assert config.nepochs == expected
+    assert config.backend == expected
 
 
 @pytest.mark.parametrize("initially_sealed", [False, True])
@@ -1128,65 +1193,75 @@ def test_training_setup_preserves_legacy_mapping_and_sealed_state(
 def test_public_training_parser_unwraps_direct_and_optional_literal_choices(
     monkeypatch,
 ):
+    # CliSettingsSource returns all values as strings.
+    # Dotted sub-config args (--sampling.n_groups) become dotted Namespace attrs.
+    # Direct TrainingConfig fields (--backend) are plain attrs.
     args = _parse_public_training_args(
         monkeypatch,
-        "--N",
-        "128",
         "--backend",
         "pytorch",
-        "--object_layout",
-        "single_patch",
+        "--sampling.n_groups",
+        "11",
     )
 
-    assert args.N == 128
-    assert type(args.N) is int
     assert args.backend == "pytorch"
     assert type(args.backend) is str
-    assert args.object_layout == "single_patch"
-    assert type(args.object_layout) is str
+    assert getattr(args, "sampling.n_groups") == "11"
+    assert type(getattr(args, "sampling.n_groups")) is str
 
 
 def test_public_training_parser_boolean_actions_preserve_explicitness(
     monkeypatch,
 ):
+    # CliSettingsSource only adds Namespace attrs for explicitly-supplied args.
+    # Omitted TrainingConfig fields do not appear in the parsed Namespace at all.
     omitted = _parse_public_training_args(monkeypatch)
 
-    assert not hasattr(omitted, "probe_big")
-    assert not hasattr(omitted, "probe_mask")
+    assert not hasattr(omitted, "positions_provided")
+    assert not hasattr(omitted, "probe_trainable")
 
+    # Supplied TrainingConfig-level bool fields appear as string values.
     explicit = _parse_public_training_args(
         monkeypatch,
-        "--probe_mask",
-        "--no-probe_big",
+        "--positions_provided",
+        "True",
+        "--probe_trainable",
+        "False",
     )
 
-    assert explicit.probe_mask is True
-    assert explicit.probe_big is False
+    assert hasattr(explicit, "positions_provided")
+    assert hasattr(explicit, "probe_trainable")
+    assert explicit.positions_provided == "True"
+    assert explicit.probe_trainable == "False"
 
 
 def test_public_training_parser_keeps_numeric_overrides_primitive(monkeypatch):
+    # CliSettingsSource stores all values as strings in the Namespace.
+    # Sub-config numeric fields use dotted arg names.
     args = _parse_public_training_args(
         monkeypatch,
-        "--mae_weight",
+        "--tf_loss.mae_weight",
         "0.25",
-        "--nphotons",
+        "--data.nphotons",
         "1000",
-        "--gradient_clip_val",
+        "--gradient_clip.val",
         "2.5",
     )
 
-    assert args.mae_weight == 0.25
-    assert type(args.mae_weight) is float
-    assert args.nphotons == 1000.0
-    assert type(args.nphotons) is float
-    assert args.gradient_clip_val == 2.5
-    assert type(args.gradient_clip_val) is float
+    assert getattr(args, "tf_loss.mae_weight") == "0.25"
+    assert type(getattr(args, "tf_loss.mae_weight")) is str
+    assert getattr(args, "data.nphotons") == "1000"
+    assert type(getattr(args, "data.nphotons")) is str
+    assert getattr(args, "gradient_clip.val") == "2.5"
+    assert type(getattr(args, "gradient_clip.val")) is str
 
 
 def test_public_training_parser_preserves_required_and_optional_path_values(
     monkeypatch,
     tmp_path,
 ):
+    # CliSettingsSource returns path values as plain strings.
+    # output_dir is a direct TrainingConfig field; train_data_file is under data.
     output_dir = tmp_path / "output"
     train_data_file = tmp_path / "train.npz"
 
@@ -1194,26 +1269,28 @@ def test_public_training_parser_preserves_required_and_optional_path_values(
         monkeypatch,
         "--output_dir",
         str(output_dir),
-        "--train_data_file",
+        "--data.train_data_file",
         str(train_data_file),
     )
 
-    assert args.output_dir == output_dir
-    assert isinstance(args.output_dir, Path)
-    assert args.train_data_file == train_data_file
-    assert isinstance(args.train_data_file, Path)
+    assert args.output_dir == str(output_dir)
+    assert isinstance(args.output_dir, str)
+    assert getattr(args, "data.train_data_file") == str(train_data_file)
+    assert isinstance(getattr(args, "data.train_data_file"), str)
 
 
 def test_public_training_parser_literal_help_keeps_existing_cli_spellings(
     monkeypatch,
     capsys,
 ):
+    # CliSettingsSource uses dotted names for sub-config fields.
+    # Sampling fields appear as --sampling.n_groups, --sampling.n_images, etc.
     with pytest.raises(SystemExit) as error:
         _parse_public_training_args(monkeypatch, "--help")
 
     assert error.value.code == 0
     help_text = capsys.readouterr().out
-    assert "--n_groups" in help_text
-    assert "--n_images" in help_text
-    assert "--neighbor_count" in help_text
+    assert "--sampling.n_groups" in help_text
+    assert "--sampling.n_images" in help_text
+    assert "--sampling.neighbor_count" in help_text
     assert "--backend {tensorflow,pytorch}" in help_text

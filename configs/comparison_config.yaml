@@ -1,24 +1,24 @@
 # Shared configuration for PtychoPINN vs Baseline comparison
 # This ensures both models are trained with identical settings for fair comparison
 
-# Model Architecture Parameters (flat, under 'model:' or at root level for model fields)
-N: 64                    # Dimension of input diffraction patterns (64x64 pixels)
-gridsize: 1              # Non-grid data (set to 1)
-n_filters_scale: 2       # Multiplier for number of filters in conv layers
-model_type: "pinn"       # For PtychoPINN model (baseline ignores this)
-amp_activation: "sigmoid" # Activation function for amplitude output
-object_big: true         # Reconstruct large area by stitching patches
-probe_big: false         # Single probe representation
-probe_mask: false        # No circular mask on probe
-gaussian_smoothing_sigma: 0.0  # No smoothing
-stitch_crop_size: 20     # Crop size M for patch stitching (must be 0 < M <= N)
+# Model Architecture Parameters (nested under 'model:')
+model:
+  N: 64                    # Dimension of input diffraction patterns (64x64 pixels)
+  gridsize: 1              # Non-grid data (set to 1)
+  n_filters_scale: 2       # Multiplier for number of filters in conv layers
+  model_type: "pinn"       # For PtychoPINN model (baseline ignores this)
+  amp_activation: "sigmoid" # Activation function for amplitude output
+  object_big: true         # Reconstruct large area by stitching patches
+  probe_big: false         # Single probe representation
+  probe_mask: false        # No circular mask on probe
+  gaussian_smoothing_sigma: 0.0  # No smoothing
+  stitch_crop_size: 20     # Crop size M for patch stitching (must be 0 < M <= N)
 
 # Training Parameters (flat top-level fields)
 nepochs: 50              # Number of training epochs
 batch_size: 16           # Samples per batch (power of 2)
 probe_trainable: true    # Allow model to learn probe function
 intensity_scale_trainable: true  # Allow learning intensity scale
-learning_rate: 0.001     # Learning rate for Adam optimizer
 
 # Sampling sub-config
 sampling:

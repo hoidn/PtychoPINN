@@ -17,7 +17,7 @@ def _make_container(has_relative: bool) -> dict:
 
 
 def test_coords_relative_required_when_object_big_true():
-    config = TrainingConfig(model=ModelConfig(N=4, gridsize=1, object_big=True))
+    config = TrainingConfig(model=ModelConfig(N=64, gridsize=1, object_big=True))
     container = _make_container(has_relative=False)
 
     with pytest.raises(ValueError, match="coords_relative is required"):
@@ -25,7 +25,7 @@ def test_coords_relative_required_when_object_big_true():
 
 
 def test_coords_nominal_allowed_when_object_big_false():
-    config = TrainingConfig(model=ModelConfig(N=4, gridsize=1, object_big=False))
+    config = TrainingConfig(model=ModelConfig(N=64, gridsize=1, object_big=False))
     container = _make_container(has_relative=False)
 
     train_loader, _ = _build_lightning_dataloaders(container, None, config, payload=None)

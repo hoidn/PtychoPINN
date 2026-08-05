@@ -2,7 +2,6 @@
 
 import logging
 import sys
-from dataclasses import replace
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -258,10 +257,9 @@ def main() -> None:
 
     if metadata_nphotons is not None:
         original_nphotons = config.data.nphotons
-        config = replace(
-            config,
-            data=replace(config.data, nphotons=metadata_nphotons),
-        )
+        config = config.model_copy(update={
+            "data": config.data.model_copy(update={"nphotons": metadata_nphotons})
+        })
         logger.info(
             "Overriding nphotons from config "
             f"({original_nphotons:.1e}) with value from dataset metadata: "

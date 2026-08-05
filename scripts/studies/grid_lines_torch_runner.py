@@ -1007,10 +1007,15 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
     """
     from typing import cast, Literal
     from ptycho.config.config import (
+        AdamConfig,
         DataConfig,
         GradientClipConfig,
         LossConfig,
         ModelConfig,
+        OptimizerConfig,
+        SchedulerConfig,
+        SamplingConfig,
+        SgdConfig,
         TrainingConfig,
     )
     from ptycho_torch.execution_request import ExecutionRequest
@@ -1079,6 +1084,22 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
             val=cfg.gradient_clip_val,
             algorithm=cfg.gradient_clip_algorithm,
         ),
+        optimizer=OptimizerConfig(
+            algorithm=cfg.optimizer,
+            weight_decay=cfg.weight_decay,
+            sgd=SgdConfig(momentum=cfg.momentum),
+            adam=AdamConfig(beta1=cfg.adam_beta1, beta2=cfg.adam_beta2),
+        ),
+        scheduler=SchedulerConfig(
+            kind=cfg.scheduler,
+            lr_warmup_epochs=cfg.lr_warmup_epochs,
+            lr_min_ratio=cfg.lr_min_ratio,
+            plateau_factor=cfg.plateau_factor,
+            plateau_patience=cfg.plateau_patience,
+            plateau_min_lr=cfg.plateau_min_lr,
+            plateau_threshold=cfg.plateau_threshold,
+        ),
+        sampling=SamplingConfig(subsample_seed=cfg.seed),
         output_dir=cfg.output_dir,
         nepochs=cfg.epochs,
         batch_size=cfg.batch_size,
@@ -1087,22 +1108,6 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
         # the compatibility default that trains the forward intensity scale.
         intensity_scale_trainable=False,
     )
-    training_config.log_grad_norm = cfg.log_grad_norm
-    training_config.grad_norm_log_freq = cfg.grad_norm_log_freq
-    training_config.subsample_seed = cfg.seed
-    training_config.optimizer = cfg.optimizer
-    training_config.weight_decay = cfg.weight_decay
-    training_config.momentum = cfg.momentum
-    training_config.adam_beta1 = cfg.adam_beta1
-    training_config.adam_beta2 = cfg.adam_beta2
-    training_config.learning_rate = cfg.learning_rate
-    training_config.scheduler = cfg.scheduler
-    training_config.lr_warmup_epochs = cfg.lr_warmup_epochs
-    training_config.lr_min_ratio = cfg.lr_min_ratio
-    training_config.plateau_factor = cfg.plateau_factor
-    training_config.plateau_patience = cfg.plateau_patience
-    training_config.plateau_min_lr = cfg.plateau_min_lr
-    training_config.plateau_threshold = cfg.plateau_threshold
 
     # neuralop_uno relies on upsample_bicubic2d, which lacks a deterministic CUDA
     # backward implementation. Use Lightning's "warn" mode for that architecture so
@@ -1417,9 +1422,11 @@ def run_torch_training(
             )
 
     lightning_overrides = {
-        # Learning rate is Torch-owned and must reach the resolved payload
-        # explicitly rather than falling back to the factory default.
+        # Learning rate and gradient-norm logging are Torch-owned; they reach
+        # the resolved payload through overrides rather than the public config.
         "learning_rate": cfg.learning_rate,
+        "log_grad_norm": cfg.log_grad_norm,
+        "grad_norm_log_freq": cfg.grad_norm_log_freq,
         "training_patch_weighting": cfg.training_patch_weighting,
         "physics_forward_mode": cfg.physics_forward_mode,
         "cnn_output_mode": cfg.cnn_output_mode,
