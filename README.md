@@ -42,35 +42,20 @@ Both backends share the same data pipeline and configuration system, ensuring co
 
 ### Synthetic PyTorch workflow
 
-For new synthetic PyTorch work, use the installed generic runner. With no
-scientific overrides it resolves the coherent `synthetic-lines` profile
-and runs simulation, training, strict reload/reconstruction, and evaluation:
+For new synthetic PyTorch work, use the installed generic runner. The default
+`synthetic-lines` profile retains the legacy normalized-amplitude workflow;
+select `cnn-lines-ci` for the count-intensity CNN workflow:
 
 ```bash
 ptycho_synthetic --output-root outputs/synthetic-cnn
-```
-
-The default is a full 50-epoch run. A grid-size-2 custom-probe run can select
-the simulation and grouping controls explicitly:
-
-```bash
-ptycho_synthetic \
-  --output-root outputs/synthetic-cnn-gs2 \
-  --gridsize 2 \
-  --probe-source custom \
-  --probe-path datasets/custom_probe.npz \
-  --probe-transform 'pad_extrapolate:128|smooth:0.5' \
-  --train-patterns 4096 \
-  --test-patterns 1024 \
-  --train-raw-selection 4096 \
-  --training-groups 4096 \
-  --validation-groups 1024
+ptycho_synthetic --profile cnn-lines-ci --output-root outputs/synthetic-cnn-ci
 ```
 
 See the [simulation workflow guide](./scripts/simulation/README.md) for the
-profile defaults, structured `--config` files, partial-stage replay, output
-artifacts, and the distinction between flat raw acquisitions and grouped model
-samples.
+profile contracts, structured `--config` files, partial-stage replay, and
+output artifacts. For existing count-intensity NPZs, the separate Torch
+training-only `ci` profile is documented in the
+[configuration guide](./docs/CONFIGURATION.md#torch-training-only-ci-profile).
 
 ### Training
 `ptycho_train --train_data_file <train_path.npz> --test_data_file <test_path.npz> --output_dir <my_run>`

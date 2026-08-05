@@ -23,8 +23,9 @@ Key properties:
 - **Training** runs through `PtychoPINN_Lightning` (`ptycho_torch/model.py`) with
   deterministic settings, Lightning checkpointing, and the full physics loss for every
   architecture.
-- **Data contract** is identical to TensorFlow: the same standalone NPZ format
-  consumed by the TensorFlow workflows (see §2).
+- **Data contract** uses the shared standalone NPZ keys and shapes while
+  supporting both legacy normalized-amplitude measurements and CI
+  count-intensity measurements (see §2).
 
 ### Training entry-point convergence
 
@@ -56,10 +57,13 @@ the shared core.
 - `pip install .` installs torch ≥ 2.2, `lightning`, and `tensordict` automatically.
   For a specific CUDA build, install PyTorch manually first
   ([instructions](https://pytorch.org/get-started/locally/)), then `pip install .`
-- Input NPZ files with `diff3d` stored as amplitude (sqrt of intensity),
-  `xcoords`/`ycoords` scan positions, a complex `probeGuess`, and `objectGuess`.
-  The Torch mmap loader also accepts `diffraction` as a compatibility alias;
-  the ordinary `RawData.from_file()` route requires `diff3d`.
+- Input NPZ files with `diff3d`, `xcoords`/`ycoords` scan positions, a complex
+  `probeGuess`, and `objectGuess`. Under the legacy contract, `diff3d` is
+  normalized amplitude (square root of intensity). Under `ci_intensity_v2`, it
+  is Poisson-realized detector counts and `probeGuess` is the CI-scaled physical
+  forward probe. The Torch mmap loader also accepts `diffraction` as a
+  compatibility alias; the ordinary `RawData.from_file()` route requires
+  `diff3d`. The resolved configuration must match the NPZ measurement domain.
 
 ## 3. Configuration
 
@@ -101,6 +105,25 @@ config = TrainingConfig(
 update_legacy_dict(params.cfg, config)   # MANDATORY before data loading
 ```
 
+#### Training-only CI profile
+
+The native Torch CLI accepts `--profile ci`; the training factories accept
+`profile="ci"`. Both select the same named starting bundle for existing
+count-intensity NPZs. It is expanded before normal configuration construction
+and validation. It locks exactly five fields:
+`scale_contract_version=ci_intensity_v2`,
+`measurement_domain=count_intensity`,
+`physics_forward_mode=rectangular_scaled`, `torch_loss_mode=poisson`, and
+`loss_function=Poisson`. Contradictions fail; non-contract defaults remain
+overrideable. With `profile=None`, ordinary resolution applies without a named
+bundle.
+
+This training-only profile is distinct from the synthetic runner's
+`--profile cnn-lines-ci`. The persisted resolved model, data, training, and
+bundle identity controls inference, so a profile name is not reselected when a
+bundle is loaded. See the [configuration guide](../CONFIGURATION.md#torch-training-only-ci-profile)
+for its overrideable defaults.
+
 ### 3.2. Architecture Selection (Generator Registry)
 
 `config.model.architecture` routes through the generator registry
@@ -118,9 +141,9 @@ To implement, configure, train, save, and reload a new architecture, follow the
 [Custom PyTorch CDI Architecture Guide](custom_torch_architecture.md). The
 generator-package README is a lower-level reference for the existing modules.
 
-**Reliability caveat:** the stock `cnn` under the
-count-Poisson recipe at `N=128` collapses to a flat-amplitude output with
-near-certainty unless the TF-parity preset below is applied (§3.6).
+**Reliability caveat:** the stock `cnn` under the count-Poisson recipe at
+`N=128` is collapse-prone and can produce a flat-amplitude output unless the
+complete TF-parity preset below is applied (§3.6).
 
 ### 3.3. Loss, Scheduler, and Sampling
 
@@ -147,7 +170,7 @@ near-certainty unless the TF-parity preset below is applied (§3.6).
 `--probe-mask/--no-probe-mask`, `--probe-mask-sigma`, `--probe-mask-diameter` on both
 native CLIs.
 
-### 3.5. CNN Output / Physics-Forward Knobs (Main-Parity Stack)
+### 3.5. CNN Output and Physics-Forward Knobs
 
 Four torch-`ModelConfig` knobs port the legacy-main CNN representation and physics as
 opt-in modes. All default to the values that keep existing CNN and FNO behavior
@@ -171,7 +194,8 @@ directly when these knobs must take effect.
 ### 3.6. TF-Parity Preset for the Torch CNN (N=128 reliability)
 
 Three knobs on the standard `cnn` close the collapse gap against the TensorFlow
-reference (no separate registry entry):
+reference. Here "preset" describes a bundle of controls, not a named
+configuration profile or registry entry:
 
 | Knob | Where | Parity value | Default |
 |---|---|---|---|
@@ -186,7 +210,12 @@ An additional default-off mechanism, `parity_scale_mode`
 `scripts/studies/varpro_probe_ablation_runner.py`
 (`--cbam-encoder`, `--parity-init-scheme`, `--parity-scale-mode`, `--scheduler`).
 
+These controls, and evidence produced by a hybrid architecture, do not establish
+a quality threshold or baseline for `cnn-lines-ci`; architecture-specific
+claims require evidence from a run under that exact contract.
+
 Cautions:
+
 - Do NOT set `intensity_scale_trainable=True` alongside the parity kwargs — the dead
   `IntensityScalerModule` machinery silently overwrites the input-side parity scale.
 
@@ -286,6 +315,10 @@ window).
   `intensity_scale` is captured (learned value if trainable, else the spec fallback
   `sqrt(nphotons)/(N/2)`) and stored in the bundle's `params.dill`, so inference uses
   the same normalization as training.
+- **Resolved identity:** the bundle's persisted model, data, training, and
+  enclosing artifact identity—including `measurement_domain` and
+  `scale_contract_version`—is authoritative at inference and prevents domain
+  drift. Loading does not rerun or require a named training profile.
 - **Loading:**
 
 ```python
@@ -357,7 +390,7 @@ Validated by `pytest tests/torch/test_backend_selection.py -vv`.
 ## 9. Study Runners
 
 Deep experiment knobs (grid-lines dataset generation, position-reassembly backend
-selection, count-scale modes, structural-search sweeps, parity presets) are owned by
+selection, count-scale modes, structural-search sweeps, parity controls) are owned by
 the study CLIs, not this guide:
 
 - `scripts/studies/grid_lines_torch_runner.py` — grid-lines training/eval for the
@@ -365,7 +398,7 @@ the study CLIs, not this guide:
   validation, reassembly strategy knobs).
 - `scripts/studies/grid_lines_compare_wrapper.py` — TF-vs-torch multi-model
   comparisons (`--architectures`, `--dataset-source`, probe scaling/masking).
-- `scripts/studies/varpro_probe_ablation_runner.py` — parity-preset ablations
+- `scripts/studies/varpro_probe_ablation_runner.py` — parity-control ablations
   (§3.6 flags).
 
 Consult each runner's `--help` and `scripts/studies/README.md`.
@@ -380,7 +413,8 @@ Consult each runner's `--help` and `scripts/studies/README.md`.
   validation. Use PINN mode or generate labeled synthetic data.
 - **Gridsize > 1 support** is architecture-gated in the study runners (only `cnn`
   is ported); other architectures currently reject `gridsize > 1` there.
-- **N=128 CNN collapse** without the parity preset (§3.6).
+- **N=128 count-Poisson CNN is collapse-prone** without the complete TF-parity
+  preset (§3.6).
 - **`intensity_scale_trainable=True`** conflicts with the parity scale path (§3.6).
 - Shape mismatches at load time usually mean the `update_legacy_dict(params.cfg,
   config)` bridge was skipped (§3.1).
