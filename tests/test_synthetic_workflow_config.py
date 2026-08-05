@@ -5,6 +5,7 @@ from __future__ import annotations
 from argparse import Namespace
 from dataclasses import FrozenInstanceError, fields, is_dataclass, replace
 import importlib
+import json
 import re
 
 import numpy as np
@@ -923,3 +924,38 @@ def test_dose_closure_rejects_an_incomplete_ci_contract():
 def test_unknown_profile_fails_with_the_profile_name():
     with pytest.raises(ValueError, match="missing-profile"):
         _api().resolve_synthetic_workflow(profile="missing-profile")
+
+
+SEALED_SYNTHETIC_LINES_IDENTITY = {
+    50: {
+        "digest": "ca3db16f48227e243211d105382108319466d427af5ea8c5ad9f7745600807b9",
+        "payload_bytes": 5037,
+    },
+    5: {
+        "digest": "95ebbc1734d986ec0ceee0dd24803e41fbdbb1be6e77ae3ecacdcdbad0f718f9",
+        "payload_bytes": 5036,
+    },
+}
+
+
+@pytest.mark.parametrize("epochs", (50, 5))
+def test_sealed_synthetic_lines_v1_identity_is_unchanged(epochs):
+    """Adding another profile must not move the established public recipe."""
+
+    api = _api()
+    cli_values = {} if epochs == 50 else {"training": {"epochs": epochs}}
+    resolved = _resolve(cli_values=cli_values)
+    payload = api.synthetic_workflow_to_dict(resolved)
+    payload["workflow"].pop("output_root")
+    encoded = json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    )
+
+    expected = SEALED_SYNTHETIC_LINES_IDENTITY[epochs]
+    assert resolved.profile == "synthetic-lines"
+    assert resolved.recipe_version == "synthetic-lines-v1"
+    assert api.synthetic_workflow_sha256(resolved) == expected["digest"]
+    assert len(encoded) == expected["payload_bytes"]
