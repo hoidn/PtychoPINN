@@ -75,13 +75,17 @@ try:
 except ModuleNotFoundError:  # pragma: no cover - exercised on Python 3.10
     import tomli as tomllib
 from pydantic import (
+    BaseModel,
     BeforeValidator,
     ConfigDict,
+    Field,
     TypeAdapter,
     ValidationError,
     ValidationInfo,
+    model_validator,
     with_config,
 )
+from pydantic_settings import BaseSettings, SettingsConfigDict
 import yaml
 import warnings
 
@@ -564,19 +568,24 @@ def resolve_model_object_policy(
         training_patch_weighting=policy.training_patch_weighting,
     )
 
-@with_config(_DATACLASS_ADAPTER_CONFIG)
-@dataclass
-class DataConfig:
+_SUB_CONFIG_DICT = ConfigDict(
+    extra="forbid",
+    revalidate_instances="always",
+    validate_default=True,
+)
+
+
+class DataConfig(BaseModel):
     """Data source and physics scaling settings."""
+    model_config = _SUB_CONFIG_DICT
     train_data_file: _PublicPath | None = None
     test_data_file: _PublicPath | None = None
     nphotons: _StrictFiniteNonNegativeNumber = 1e9
 
 
-@with_config(_DATACLASS_ADAPTER_CONFIG)
-@dataclass
-class SamplingConfig:
+class SamplingConfig(BaseModel):
     """Group sampling and neighbor selection settings."""
+    model_config = _SUB_CONFIG_DICT
     n_groups: _StrictNonNegativeInt | None = None
     n_images: _StrictNonNegativeInt | None = None  # DEPRECATED: use n_groups
     n_subsample: _StrictNonNegativeInt | None = None
@@ -586,74 +595,87 @@ class SamplingConfig:
     neighbor_pool_size: _StrictPositiveInt | None = None
     sequential_sampling: _StrictBool = False
 
-    def __post_init__(self):
-        if self.n_images is not None and self.n_groups is None:
-            warnings.warn(
-                "Parameter 'n_images' is deprecated and will be removed in a future version. "
-                "Use 'n_groups' instead, which always means the number of groups regardless of gridsize.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            object.__setattr__(self, 'n_groups', self.n_images)
-        if self.n_groups is None:
-            object.__setattr__(self, 'n_groups', 512)
+    @model_validator(mode='before')
+    @classmethod
+    def _handle_n_images(cls, values: Any) -> Any:
+        if not isinstance(values, Mapping):
+            return values
+        n_images = values.get('n_images')
+        n_groups = values.get('n_groups')
+        if n_images is not None:
+            if n_groups is None:
+                warnings.warn(
+                    "Parameter 'n_images' is deprecated and will be removed in a future version. "
+                    "Use 'n_groups' instead, which always means the number of groups regardless of gridsize.",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+                values = {**values, 'n_groups': n_images, 'n_images': None}
+            elif n_images != n_groups:
+                raise ValueError(
+                    f"'n_images' ({n_images}) conflicts with canonical 'n_groups' ({n_groups})"
+                )
+            else:
+                warnings.warn(
+                    "Parameter 'n_images' is deprecated and will be removed in a future version. "
+                    "Use 'n_groups' instead, which always means the number of groups regardless of gridsize.",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+                values = {**values, 'n_images': None}
+        if values.get('n_groups') is None:
+            values = {**values, 'n_groups': 512}
+        return values
 
 
-@with_config(_DATACLASS_ADAPTER_CONFIG)
-@dataclass
-class LossConfig:
+class LossConfig(BaseModel):
     """PyTorch-specific loss settings."""
+    model_config = _SUB_CONFIG_DICT
     torch_loss_mode: Annotated[Literal['poisson', 'mae'], BeforeValidator(_require_exact_str)] = 'poisson'
     torch_mae_pred_l2_match_target: _StrictBool = False
 
 
-@with_config(_DATACLASS_ADAPTER_CONFIG)
-@dataclass
-class TFLossConfig:
+class TFLossConfig(BaseModel):
     """TensorFlow-only loss weights. Will be removed when TF is phased out."""
+    model_config = _SUB_CONFIG_DICT
     mae_weight: _StrictClosedUnitNumber = 0.0
     nll_weight: _StrictClosedUnitNumber = 1.0
     realspace_mae_weight: _StrictClosedUnitNumber = 0.0
     realspace_weight: _StrictClosedUnitNumber = 0.0
 
 
-@with_config(_DATACLASS_ADAPTER_CONFIG)
-@dataclass
-class GradientClipConfig:
+class GradientClipConfig(BaseModel):
     """Gradient clipping settings."""
+    model_config = _SUB_CONFIG_DICT
     val: _StrictFiniteNonNegativeNumber | None = None
     algorithm: Annotated[Literal['norm', 'value', 'agc'], BeforeValidator(_require_exact_str)] = 'norm'
 
 
-@with_config(_DATACLASS_ADAPTER_CONFIG)
-@dataclass
-class AdamConfig:
+class AdamConfig(BaseModel):
     """Adam/AdamW optimizer hyperparameters."""
+    model_config = _SUB_CONFIG_DICT
     beta1: _StrictHalfOpenUnitNumber = 0.9
     beta2: _StrictHalfOpenUnitNumber = 0.999
 
 
-@with_config(_DATACLASS_ADAPTER_CONFIG)
-@dataclass
-class SgdConfig:
+class SgdConfig(BaseModel):
     """SGD optimizer hyperparameters."""
+    model_config = _SUB_CONFIG_DICT
     momentum: _StrictClosedUnitNumber = 0.9
 
 
-@with_config(_DATACLASS_ADAPTER_CONFIG)
-@dataclass
-class OptimizerConfig:
+class OptimizerConfig(BaseModel):
     """Optimizer algorithm and hyperparameter settings."""
+    model_config = _SUB_CONFIG_DICT
     algorithm: Annotated[Literal['adam', 'adamw', 'sgd'], BeforeValidator(_require_exact_str)] = 'adam'
     weight_decay: _StrictFiniteNonNegativeNumber = 0.0
-    sgd: SgdConfig = field(default_factory=SgdConfig)
-    adam: AdamConfig = field(default_factory=AdamConfig)
+    sgd: SgdConfig = Field(default_factory=SgdConfig)
+    adam: AdamConfig = Field(default_factory=AdamConfig)
 
 
-@with_config(_DATACLASS_ADAPTER_CONFIG)
-@dataclass
-class SchedulerConfig:
+class SchedulerConfig(BaseModel):
     """Learning rate scheduler settings."""
+    model_config = _SUB_CONFIG_DICT
     kind: Annotated[Literal['Default', 'Exponential', 'WarmupCosine', 'ReduceLROnPlateau'], BeforeValidator(_require_exact_str)] = 'Default'
     lr_warmup_epochs: _StrictNonNegativeInt = 0
     lr_min_ratio: _StrictClosedUnitNumber = 0.1
@@ -663,11 +685,19 @@ class SchedulerConfig:
     plateau_threshold: _StrictFiniteNonNegativeNumber = 0.0
 
 
-@with_config(_DATACLASS_ADAPTER_CONFIG)
-@dataclass
-class TrainingConfig:
+class TrainingConfig(BaseSettings):
     """Training specific configuration."""
-    model: ModelConfig
+    model_config = SettingsConfigDict(
+        extra="forbid",
+        revalidate_instances="always",
+        validate_default=True,
+    )
+
+    @classmethod
+    def settings_customise_sources(cls, settings_cls, init_settings, **_):
+        return (init_settings,)
+
+    model: ModelConfig = Field(default_factory=ModelConfig)
     batch_size: _StrictNonNegativeInt = 16
     nepochs: _StrictNonNegativeInt = 50
     positions_provided: _StrictBool = True
@@ -675,13 +705,13 @@ class TrainingConfig:
     intensity_scale_trainable: _StrictBool = True
     output_dir: _PublicPath = Path("training_outputs")
     backend: Annotated[Literal['tensorflow', 'pytorch'], BeforeValidator(_require_exact_str)] = 'tensorflow'
-    data: DataConfig = field(default_factory=DataConfig)
-    sampling: SamplingConfig = field(default_factory=SamplingConfig)
-    loss: LossConfig = field(default_factory=LossConfig)
-    tf_loss: TFLossConfig = field(default_factory=TFLossConfig)
-    gradient_clip: GradientClipConfig = field(default_factory=GradientClipConfig)
-    optimizer: OptimizerConfig = field(default_factory=OptimizerConfig)
-    scheduler: SchedulerConfig = field(default_factory=SchedulerConfig)
+    data: DataConfig = Field(default_factory=DataConfig)
+    sampling: SamplingConfig = Field(default_factory=SamplingConfig)
+    loss: LossConfig = Field(default_factory=LossConfig)
+    tf_loss: TFLossConfig = Field(default_factory=TFLossConfig)
+    gradient_clip: GradientClipConfig = Field(default_factory=GradientClipConfig)
+    optimizer: OptimizerConfig = Field(default_factory=OptimizerConfig)
+    scheduler: SchedulerConfig = Field(default_factory=SchedulerConfig)
 
 @with_config(_DATACLASS_ADAPTER_CONFIG)
 @dataclass
@@ -1023,7 +1053,7 @@ def dataclass_to_legacy_dict(obj: Any) -> Dict[str, Any]:
         return d
 
     if isinstance(obj, TrainingConfig):
-        obj = replace(obj, model=resolve_model_object_policy(obj.model))
+        obj = obj.model_copy(update={"model": resolve_model_object_policy(obj.model)})
         return _training_config_to_legacy_dict(obj)
 
     # Generic fallback for other dataclasses (e.g., InferenceConfig)

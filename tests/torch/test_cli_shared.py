@@ -372,7 +372,7 @@ def test_unified_training_patch_has_exact_sixteen_canonical_fields():
         "weight_decay": 0.01,
         "adam_beta1": 0.85,
         "adam_beta2": 0.98,
-        "scheduler": "WarmupCosine",
+        "scheduler.kind": "WarmupCosine",
         "lr_warmup_epochs": 2,
         "lr_min_ratio": 0.2,
         "plateau_factor": 0.4,
@@ -420,7 +420,7 @@ def test_unified_canonical_optimizer_spelling_wins_torch_alias():
     from ptycho_torch.cli.shared import build_training_config_patch_from_args
 
     args = argparse.Namespace(
-        scheduler="WarmupCosine",
+        **{"scheduler.kind": "WarmupCosine"},
         torch_scheduler="Exponential",
         plateau_factor=0.4,
         torch_plateau_factor=0.25,
@@ -430,7 +430,7 @@ def test_unified_canonical_optimizer_spelling_wins_torch_alias():
         args,
         explicit_options=(
             "--torch-scheduler=Exponential",
-            "--scheduler=WarmupCosine",
+            "--scheduler.kind=WarmupCosine",
             "--torch-plateau-factor=0.25",
             "--plateau_factor=0.4",
         ),

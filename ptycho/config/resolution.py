@@ -19,68 +19,14 @@ from .config import (
 
 
 _MODEL_INPUT_NAMES = frozenset(f.name for f in fields(ModelConfig))
-_TRAINING_INPUT_NAMES = frozenset(f.name for f in fields(TrainingConfig)) - {"model"}
+_TRAINING_INPUT_NAMES = frozenset(TrainingConfig.model_fields) - {"model"}
 _INFERENCE_INPUT_NAMES = frozenset(f.name for f in fields(InferenceConfig)) - {"model"}
 
 assert _MODEL_INPUT_NAMES.isdisjoint(_TRAINING_INPUT_NAMES)
 assert _MODEL_INPUT_NAMES.isdisjoint(_INFERENCE_INPUT_NAMES)
 
-# Backward-compat mapping: old flat training field names → (sub_config_name, new_field_name).
-# Allows callers to still pass flat field names that are now nested inside TrainingConfig.
-_TRAINING_FLAT_FIELD_MAP: dict[str, tuple[str, str]] = {
-    "train_data_file": ("data", "train_data_file"),
-    "test_data_file": ("data", "test_data_file"),
-    "nphotons": ("data", "nphotons"),
-    "n_groups": ("sampling", "n_groups"),
-    "n_images": ("sampling", "n_images"),
-    "n_subsample": ("sampling", "n_subsample"),
-    "subsample_seed": ("sampling", "subsample_seed"),
-    "neighbor_count": ("sampling", "neighbor_count"),
-    "enable_oversampling": ("sampling", "enable_oversampling"),
-    "neighbor_pool_size": ("sampling", "neighbor_pool_size"),
-    "sequential_sampling": ("sampling", "sequential_sampling"),
-    "torch_loss_mode": ("loss", "torch_loss_mode"),
-    "torch_mae_pred_l2_match_target": ("loss", "torch_mae_pred_l2_match_target"),
-    "mae_weight": ("tf_loss", "mae_weight"),
-    "nll_weight": ("tf_loss", "nll_weight"),
-    "realspace_mae_weight": ("tf_loss", "realspace_mae_weight"),
-    "realspace_weight": ("tf_loss", "realspace_weight"),
-    "gradient_clip_val": ("gradient_clip", "val"),
-    "gradient_clip_algorithm": ("gradient_clip", "algorithm"),
-}
-
-
-def _lift_flat_training_fields(values: Any) -> Any:
-    """Translate any legacy flat field names to the nested sub-config format.
-
-    Non-mapping values are returned unchanged so that _normalize_public_source
-    can raise the appropriate type error.
-    """
-    if not isinstance(values, Mapping):
-        return values
-    result: dict[str, Any] = {}
-    for key, value in values.items():
-        if key in _TRAINING_FLAT_FIELD_MAP:
-            sub, field_name = _TRAINING_FLAT_FIELD_MAP[key]
-            existing = result.get(sub, {})
-            if not isinstance(existing, dict):
-                existing = {}
-            existing[field_name] = value
-            result[sub] = existing
-        else:
-            result[key] = value
-    return result
-
-
-_N_IMAGES_DEPRECATION_MESSAGE = (
-    "Parameter 'n_images' is deprecated and will be removed in a future "
-    "version. Use 'n_groups' instead, which always means the number of "
-    "groups regardless of gridsize."
-)
-
 
 _MODEL_CONFIG_ADAPTER = TypeAdapter(ModelConfig)
-_TRAINING_CONFIG_ADAPTER = TypeAdapter(TrainingConfig)
 _INFERENCE_CONFIG_ADAPTER = TypeAdapter(InferenceConfig)
 
 
@@ -190,46 +136,21 @@ def _resolve_group_alias(
     *,
     source: str,
 ) -> tuple[dict[str, Any], bool]:
+    """Handle n_images→n_groups alias for flat (InferenceConfig) dicts."""
     resolved = dict(values)
-
-    # For TrainingConfig the group fields are nested inside "sampling".
-    # For InferenceConfig they remain at the top level.
-    if "sampling" in resolved:
-        container = dict(resolved.get("sampling", {}))
-        in_sampling = True
-    else:
-        container = resolved
-        in_sampling = False
-
-    if "n_images" not in container:
+    if "n_images" not in resolved:
         return resolved, False
 
-    legacy = container["n_images"]
-    canonical = container.get("n_groups")
-    if (
-        canonical is not None
-        and legacy is not None
-        and canonical != legacy
-    ):
-        location = "sampling" if in_sampling else "root"
+    legacy = resolved["n_images"]
+    canonical = resolved.get("n_groups")
+    if canonical is not None and legacy is not None and canonical != legacy:
         raise ValueError(
-            f"{source} {location} field 'n_images' conflicts with canonical 'n_groups'"
+            f"{source} field 'n_images' conflicts with canonical 'n_groups'"
         )
     if canonical is None:
-        container["n_groups"] = legacy
-    container["n_images"] = None
-
-    if in_sampling:
-        resolved["sampling"] = container
+        resolved["n_groups"] = legacy
+    resolved["n_images"] = None
     return resolved, legacy is not None
-
-
-def _warn_deprecated_group_alias() -> None:
-    warnings.warn(
-        _N_IMAGES_DEPRECATION_MESSAGE,
-        DeprecationWarning,
-        stacklevel=3,
-    )
 
 
 def _object_policy_backend(backend: Any) -> str:
@@ -252,49 +173,24 @@ def resolve_training_config(
     explicit_cli_patch: Mapping[str, Any] | None,
 ) -> TrainingConfig:
     """Resolve file and explicitly supplied CLI values into a fresh config."""
-
-    file_model, file_training = _normalize_public_source(
-        _lift_flat_training_fields({} if file_mapping is None else file_mapping),
-        source="file",
-        workflow_names=_TRAINING_INPUT_NAMES,
+    merged = _deep_merge(
+        dict(file_mapping) if file_mapping is not None else {},
+        dict(explicit_cli_patch) if explicit_cli_patch is not None else {},
     )
-    cli_model, cli_training = _normalize_public_source(
-        _lift_flat_training_fields({} if explicit_cli_patch is None else explicit_cli_patch),
-        source="explicit CLI",
-        workflow_names=_TRAINING_INPUT_NAMES,
-    )
-    file_training, file_used_alias = _resolve_group_alias(
-        file_training,
-        source="file",
-    )
-    cli_training, cli_used_alias = _resolve_group_alias(
-        cli_training,
-        source="explicit CLI",
-    )
-
-    training_values = _deep_merge(dict(file_training), dict(cli_training))
-    model_values = dict(file_model)
-    model_values.update(cli_model)
-    candidate = _validate_public_structure(
-        _TRAINING_CONFIG_ADAPTER,
-        {"model": model_values, **training_values},
-        root="training",
-        strict=False,
-    )
+    try:
+        candidate = TrainingConfig.model_validate(merged)
+    except ValidationError as error:
+        _raise_public_validation_error(error, root="training")
     raw_model = candidate.model
-    candidate.model = resolve_model_object_policy(
-        raw_model,
-        backend=_object_policy_backend(candidate.backend),
-        warn_deprecated=False,
-    )
+    candidate = candidate.model_copy(update={
+        "model": resolve_model_object_policy(
+            raw_model,
+            backend=_object_policy_backend(candidate.backend),
+            warn_deprecated=False,
+        )
+    })
     validate_training_config_structure(candidate)
-    resolve_model_object_policy(
-        raw_model,
-        backend=_object_policy_backend(candidate.backend),
-        warn_deprecated=True,
-    )
-    if file_used_alias or cli_used_alias:
-        _warn_deprecated_group_alias()
+    resolve_model_object_policy(raw_model, warn_deprecated=True)
     return candidate
 
 
@@ -355,7 +251,13 @@ def resolve_inference_config(
         warn_deprecated=True,
     )
     if file_used_alias or cli_used_alias:
-        _warn_deprecated_group_alias()
+        warnings.warn(
+            "Parameter 'n_images' is deprecated and will be removed in a future "
+            "version. Use 'n_groups' instead, which always means the number of "
+            "groups regardless of gridsize.",
+            DeprecationWarning,
+            stacklevel=3,
+        )
     return candidate
 
 
@@ -404,12 +306,10 @@ def validate_training_config_structure(config: TrainingConfig) -> None:
 
     if not isinstance(config, TrainingConfig):
         raise TypeError("config must be a TrainingConfig")
-    _validate_public_structure(
-        _TRAINING_CONFIG_ADAPTER,
-        config,
-        root="training",
-        strict=True,
-    )
+    try:
+        TrainingConfig.model_validate(config, strict=True, context={"strict_instance": True})
+    except ValidationError as error:
+        _raise_public_validation_error(error, root="training")
     validate_model_config_structure(config.model)
     _validate_sampling_semantics(config)
 

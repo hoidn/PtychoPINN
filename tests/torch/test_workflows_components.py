@@ -424,10 +424,9 @@ class TestWorkflowsComponentsTraining:
                 },
             ),
         )
-        public_config = replace(
-            payload.tf_training_config,
-            output_dir=tmp_path / "out",
-        )
+        public_config = payload.tf_training_config.model_copy(update={
+            "output_dir": tmp_path / "out",
+        })
         captured = {}
 
         class FakeModel:
@@ -2256,7 +2255,7 @@ class TestReassembleCdiImageTorchGreen:
             N=64,
             gridsize=2,
             model_type='pinn',
-            amp_activation='silu',
+            amp_activation='swish',
             n_filters_scale=1,
         )
 
@@ -3838,7 +3837,7 @@ class TestLightningExecutionConfig:
             N=64,
             gridsize=2,
             model_type='pinn',
-            amp_activation='silu',
+            amp_activation='swish',
         )
 
         config = TrainingConfig(

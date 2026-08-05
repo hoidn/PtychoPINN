@@ -106,7 +106,7 @@ def test_inline_dataset_amplitude_mode_documented_probe_raw_scaling(
     ``probe`` must follow the documented per-sample layout (PROBE-RANK-001)
     while ``scaling`` keeps the raw pre-82da7796 passthrough (unread by the
     amplitude-mode loss)."""
-    N = 32
+    N = 64
     batch_size = 4
     n_samples = batch_size * 2
 
@@ -155,7 +155,7 @@ def test_inline_dataset_amplitude_mode_documented_probe_raw_scaling(
 
 @pytest.mark.torch
 def test_amplitude_runner_does_not_invoke_ci_conversion(tmp_path, monkeypatch):
-    N = 32
+    N = 64
     n_samples = 4
     amplitude = torch.linspace(
         0.1,

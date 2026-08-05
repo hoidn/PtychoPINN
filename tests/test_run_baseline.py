@@ -295,10 +295,10 @@ def test_train_leaf_projects_training_values_and_restores_module_and_params(
     from ptycho import baselines, params
     from ptycho.config.legacy_state import legacy_params_scope
 
-    config = replace(
-        _training_config(tmp_path),
-        model=replace(_training_config(tmp_path).model, n_filters_scale=3),
-    )
+    base = _training_config(tmp_path)
+    config = base.model_copy(update={
+        "model": replace(base.model, n_filters_scale=3),
+    })
     previous_filter_scale = 91
     monkeypatch.setattr(baselines, "n_filters_scale", previous_filter_scale)
     observed = {}
