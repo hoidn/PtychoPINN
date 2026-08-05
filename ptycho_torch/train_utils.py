@@ -591,7 +591,10 @@ class PrebuiltPtychoDataModule(L.LightningDataModule):
         nw = self.training_config.num_workers
         if is_spawn_strategy(self.training_config.strategy):
             return dict(num_workers=0, persistent_workers=False)
-        return dict(num_workers=nw, persistent_workers=nw > 0, prefetch_factor=4)
+        worker_kwargs = dict(num_workers=nw, persistent_workers=nw > 0)
+        if nw > 0:
+            worker_kwargs["prefetch_factor"] = 4
+        return worker_kwargs
 
     def train_dataloader(self):
         return TensorDictDataLoader(

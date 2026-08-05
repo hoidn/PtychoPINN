@@ -1803,8 +1803,10 @@ class Collate(nn.Module):
         if self.device and self.device.type == 'cuda':
             outputs = [item.pin_memory() for item in outputs]
             
-        # Move to device if specified
-        if self.device:
+        # Dataset-backed values are already CPU-resident. Avoid a redundant
+        # TensorDict.to("cpu"), which synchronizes CUDA after any earlier CUDA
+        # use in the process despite this being a CPU-only collation path.
+        if self.device and self.device.type != 'cpu':
             outputs = [item.to(self.device) for item in outputs]
             
         return tuple(outputs)

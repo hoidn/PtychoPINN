@@ -23,16 +23,42 @@ python -m scripts.simulation.synthetic_pipeline \
   --output-root outputs/synthetic-cnn
 ```
 
-The default is a real 50-epoch run, not a smoke test. Configuration precedence
-is:
+The default is a real 50-epoch run, not a smoke test.
+
+### Profile selection and precedence
+
+A profile is a resolver-registered named starting bundle. It is expanded before
+ordinary configuration objects are constructed and validated. "Preset" is an
+informal description that may also refer to an unregistered combination of
+runtime controls, such as the TF-parity preset; there is no separate generic
+preset registry or resolver. The runner registers two profiles:
+
+| Profile | Recipe | Purpose |
+|---|---|---|
+| `synthetic-lines` | `synthetic-lines-v1` | Default legacy normalized-amplitude lines workflow |
+| `cnn-lines-ci` | `cnn-lines-ci-v1` | Count-intensity lines workflow with the CNN/Poisson contract |
+
+With no selection, the runner uses `synthetic-lines`. A YAML, TOML, or JSON
+workflow may select a profile with the root `profile` field; an explicit
+`--profile` overrides that field. Value precedence is:
 
 ```text
-explicit CLI values > --config file > named profile
+selected profile < --config file values < explicit CLI values
 ```
 
-The workflow file passed to `ptycho_synthetic` is named `--config` and may be
-YAML, TOML, or JSON. This is different from the simulation-only
+This precedence applies to overrideable fields. A selected profile's locked
+fields may only be restated with equal values; any contradiction fails closed.
+
+The config filename and path never select a profile. The workflow file passed
+to `ptycho_synthetic` is named `--config`; this differs from the simulation-only
 `simulate_and_save.py --simulation-config` interface described later.
+
+A complete count-intensity CNN run is:
+
+```bash
+ptycho_synthetic --profile cnn-lines-ci \
+  --output-root outputs/synthetic-cnn-ci
+```
 
 ### GS2/custom-probe example
 
@@ -121,11 +147,48 @@ ptycho_synthetic --config configs/synthetic-gs2.yaml \
 to be complete under the selected output root, even when that predecessor is
 not selected in the current command.
 
-### Profile defaults
+### Profile contracts and defaults
 
-The only initial named profile is `synthetic-lines`, recipe
-`synthetic-lines-v1`. Every resolved field is written to
-`resolved_workflow.json`; this table highlights the user-facing defaults:
+This is an operational summary of the profile contract and its public flags.
+The [configuration guide](../../docs/CONFIGURATION.md#profiles-are-starting-bundles)
+is the conceptual authority for profile/preset semantics, locks, and defaults.
+
+`cnn-lines-ci` locks the fields that define its count-intensity CNN contract:
+
+| Namespace | Locked values |
+|---|---|
+| Simulation | `scale_contract_version=ci_intensity_v2`, `measurement_domain=count_intensity` |
+| Model | `architecture=cnn`, `physics_forward_mode=rectangular_scaled`, `cnn_output_mode=real_imag`, `loss_function=Poisson` |
+| Training | `torch_loss_mode=poisson`, `nll=true` |
+
+The public CI contract and initialization flags are:
+
+| Flag | Value allowed with `cnn-lines-ci` |
+|---|---|
+| `--scale-contract-version` | `ci_intensity_v2` |
+| `--measurement-domain` | `count_intensity` |
+| `--physics-forward-mode` | `rectangular_scaled` |
+| `--cnn-output-mode` | `real_imag` |
+| `--torch-loss-mode` | `poisson`; also resolves `model.loss_function=Poisson` and `training.nll=true` |
+| `--rect-s1s2-init` | `dose_closure` (default) or `ones` |
+
+For `cnn-lines-ci`, the first five flags may only restate the locked values
+shown above; a contradiction fails closed. `--rect-s1s2-init` selects either
+supported initialization without changing the locked contract. Equal values in
+a workflow file are accepted for the same reason.
+
+The profile's gradient-clipping defaults
+(`gradient_clip_val=1.0`, `gradient_clip_algorithm=norm`) are ordinary
+overrideable defaults. `dose_closure` solves a shared startup gauge from the
+data; `ones` starts `s1=s2=1`.
+
+For this profile, NPZ diffraction (`diff3d`) is Poisson-realized detector
+counts, not square-root intensity. `probeGuess` is the CI-scaled physical
+forward probe in the same count convention.
+
+`synthetic-lines` has no named profile locks, although every final resolved
+configuration still passes the normal cross-field validators. Its main
+user-facing defaults are:
 
 | Area | Default |
 |---|---|
@@ -134,7 +197,7 @@ The only initial named profile is `synthetic-lines`, recipe
 | Probe | Ideal source, scale 0.7, `smooth:0.5|pad_preserve:128`; simulation mask off |
 | Raw frames | 4,096 train, 1,024 test; normalized-amplitude `legacy_v1` |
 | Sampling | 4,096 selected train frames; 1,024 train groups; 1,024 validation groups; neighbor/pool size 4; oversampling off |
-| Model | Unsupervised `cnn`, real/imaginary output, model mask off, geometry-derived layout, derived amplitude physics gain |
+| Model | Unsupervised `cnn`, amplitude/phase output, amplitude forward, model mask off, geometry-derived layout, derived amplitude physics gain |
 | Training | 50 epochs, batch 16, Adam `2e-4`, plateau scheduler, MAE with prediction-L2 matching |
 | Inference | Batch 16, probe-weighted barycentric assembly, VarPro on, `groups_per_center=1` |
 | Execution | One auto-selected device, deterministic FP32, zero workers, CSV logger, one best checkpoint |
@@ -151,10 +214,12 @@ Probe transform defaults are source-aware:
 
 Simulation persists canonical flat acquisitions. Each train/test NPZ contains
 `diff3d` with shape `(M, N, N)`, one `xcoords`/`ycoords` value per frame, the
-transformed `probeGuess`, shared `objectGuess`, and one acquisition/probe
-`scan_index` value per row. `scan_index` may repeat; the manifest's array
-digests and row order pin acquisition identity. Flat storage does **not** imply
-`gridsize=1`.
+contract-appropriate `probeGuess`, shared `objectGuess`, and one
+acquisition/probe `scan_index` value per row. For legacy normalized-amplitude
+data, `probeGuess` is the transformed simulation probe; for CI count data, it
+is the scaled physical forward probe described above. `scan_index` may repeat;
+the manifest's array digests and row order pin acquisition identity. Flat
+storage does **not** imply `gridsize=1`.
 
 The shared loader is the only owner that groups these rows for the model. For
 grid size `g`, each model sample has `C = g ** 2` distinct raw-row/channel
@@ -182,18 +247,34 @@ as raw train selection.
 
 Completed stages are reusable by default. Reuse is fail-closed:
 
-- simulation identity covers the resolved simulation recipe and seed lineage;
-- training additionally covers model/training identity and execution controls;
-- reconstruction/evaluation additionally cover inference identity;
+- every stage compares `schema_version`, `profile`, and `recipe_version`;
+- simulation compares the resolved `simulation` namespace;
+- training compares `simulation`, `model`, and `training`;
+- reconstruction/evaluation also compare `inference`;
+- the `workflow` namespace, including execution controls, is excluded from
+  stage identity;
 - each required stage-manifest entry and artifact path must be complete;
-- a selected consumer verifies the recorded digest of every NPZ it reads;
+- NPZ content is verified separately through recorded array and file digests;
 - a required identity mismatch or a partial artifact requires a new output
   root rather than an in-place overwrite.
+
+The resolved `ResolvedSyntheticWorkflow` is persisted as
+`resolved_workflow.json`, including `profile`, `recipe_version`, and every
+resolved simulation, model, training, inference, and workflow value. Reuse
+compares the stage-specific portions listed above, not the spelling of the
+invocation or config path.
 
 Stage selection, output-root spelling, and the reuse switch itself are not
 scientific identity. Downstream-only settings therefore do not redefine an
 already complete simulation, but an exact replay must retain the complete
 identity required by every selected stage.
+
+Training writes the strict `rect-s1s2-initialization-v1` record to
+`OUTPUT/training/training_summary.json`, and the current
+`synthetic-stage-manifest-v2` training entry requires that file alongside the
+model bundle. Reuse reparses the record and requires its mode to match the
+resolved workflow. Historical `synthetic-stage-manifest-v1` roots lack this
+contract; use a new output root or retrain them.
 
 ### Reconstruction and stitching
 
@@ -223,6 +304,7 @@ OUTPUT/
     manifest.json
   training/
     wts.h5.zip
+    training_summary.json
     effective_runtime.json
     checkpoints/
       <monitored-best>.ckpt

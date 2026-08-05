@@ -56,6 +56,32 @@ def _write(path: Path, payload: bytes = b"artifact") -> Path:
     return path
 
 
+def _initialization_payload(mode="ones", *, gauge=3.25):
+    if mode == "ones":
+        return {
+            "schema_version": "rect-s1s2-initialization-v1",
+            "mode": "ones",
+            "solved_gauge": 1.0,
+            "method": "unit_default_no_solve",
+            "sampled_patterns": 0,
+        }
+    return {
+        "schema_version": "rect-s1s2-initialization-v1",
+        "mode": "dose_closure",
+        "solved_gauge": gauge,
+        "method": "dose_closure_unit_object",
+        "sampled_patterns": 256,
+    }
+
+
+def _write_initialization_summary(path: Path, payload=None) -> Path:
+    record = _initialization_payload() if payload is None else payload
+    return _write(
+        path,
+        (json.dumps(record) + "\n").encode("utf-8"),
+    )
+
+
 def _fixture_object() -> np.ndarray:
     return np.ones((12, 12), dtype=np.complex64)
 
@@ -89,8 +115,14 @@ class _Executors:
 
     def train(self, request):
         self.calls.append("train")
+        initialization = _initialization_payload()
         return TrainingStageResult(
-            bundle_path=_write(request.output_root / "training" / "wts.h5.zip")
+            bundle_path=_write(request.output_root / "training" / "wts.h5.zip"),
+            training_summary_path=_write_initialization_summary(
+                request.output_root / "training" / "training_summary.json",
+                initialization,
+            ),
+            rect_s1s2_initialization=initialization,
         )
 
     def reconstruct(self, request):
@@ -175,7 +207,7 @@ def test_pipeline_runs_stages_in_order_and_publishes_relative_manifest(tmp_path)
     )
 
     manifest = json.loads(result.stage_manifest_path.read_text(encoding="utf-8"))
-    assert manifest["schema_version"] == "synthetic-stage-manifest-v1"
+    assert manifest["schema_version"] == "synthetic-stage-manifest-v2"
     assert manifest["metric_contract_version"] == METRIC_CONTRACT_VERSION
     assert list(manifest["stages"]) == [
         "simulate",
@@ -196,6 +228,20 @@ def test_pipeline_and_evaluator_share_one_metric_contract_version():
     )
 
     assert METRIC_CONTRACT_VERSION == EVALUATION_METRIC_CONTRACT_VERSION
+
+
+def test_historical_v1_stage_manifest_requires_new_root_or_retraining(tmp_path):
+    _run(_request(tmp_path, ("simulate",)), _Executors())
+    manifest_path = tmp_path / "stage_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["schema_version"] = "synthetic-stage-manifest-v1"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(
+        ValueError,
+        match=r"synthetic-stage-manifest-v1.*new output root|retrain",
+    ):
+        _run(_request(tmp_path, ("simulate",)), _Executors())
 
 
 def test_invocation_and_resolution_exist_before_first_expensive_stage(tmp_path):
@@ -234,6 +280,117 @@ def test_complete_matching_stages_are_reused_without_executor_calls(tmp_path):
     assert second.calls == []
     assert result.reused_stages == ("simulate", "train")
     assert result.completed_stages == ("simulate", "train")
+
+
+@pytest.mark.parametrize(
+    ("summary_payload", "message"),
+    [
+        (
+            {
+                **_initialization_payload(),
+                "schema_version": "obsolete-v0",
+            },
+            "schema_version",
+        ),
+        (
+            {
+                name: value
+                for name, value in _initialization_payload().items()
+                if name != "method"
+            },
+            "fields",
+        ),
+        (
+            {
+                **_initialization_payload(),
+                "solved_gauge": -1.0,
+            },
+            "solved_gauge",
+        ),
+    ],
+)
+def test_fresh_training_rejects_malformed_summary_before_manifest_completion(
+    tmp_path,
+    summary_payload,
+    message,
+):
+    _run(_request(tmp_path, ("simulate",)), _Executors())
+
+    class Malformed(_Executors):
+        def train(self, request):
+            self.calls.append("train")
+            initialization = _initialization_payload()
+            return TrainingStageResult(
+                bundle_path=_write(
+                    request.output_root / "training" / "wts.h5.zip"
+                ),
+                training_summary_path=_write_initialization_summary(
+                    request.output_root / "training" / "training_summary.json",
+                    summary_payload,
+                ),
+                rect_s1s2_initialization=initialization,
+            )
+
+    with pytest.raises(ValueError, match=message):
+        _run(_request(tmp_path, ("train",)), Malformed())
+
+    manifest = json.loads((tmp_path / "stage_manifest.json").read_text())
+    assert list(manifest["stages"]) == ["simulate"]
+
+
+def test_fresh_training_rejects_record_mode_that_disagrees_with_resolved_mode(
+    tmp_path,
+):
+    _run(_request(tmp_path, ("simulate",)), _Executors())
+
+    class WrongMode(_Executors):
+        def train(self, request):
+            self.calls.append("train")
+            initialization = _initialization_payload("dose_closure")
+            return TrainingStageResult(
+                bundle_path=_write(
+                    request.output_root / "training" / "wts.h5.zip"
+                ),
+                training_summary_path=_write_initialization_summary(
+                    request.output_root / "training" / "training_summary.json",
+                    initialization,
+                ),
+                rect_s1s2_initialization=initialization,
+            )
+
+    with pytest.raises(ValueError, match="mode.*resolved.*ones"):
+        _run(_request(tmp_path, ("train",)), WrongMode())
+
+    manifest = json.loads((tmp_path / "stage_manifest.json").read_text())
+    assert list(manifest["stages"]) == ["simulate"]
+
+
+def test_training_reuse_parses_summary_and_rejects_malformed_record(tmp_path):
+    _run(_request(tmp_path, ("simulate", "train")), _Executors())
+    summary_path = tmp_path / "training" / "training_summary.json"
+    summary_path.write_text('{"mode": "ones"}\n', encoding="utf-8")
+    replay = _Executors()
+
+    with pytest.raises(ValueError, match="fields"):
+        _run(_request(tmp_path, ("train",)), replay)
+
+    assert replay.calls == []
+
+
+def test_training_reuse_rejects_summary_mode_that_disagrees_with_resolved_mode(
+    tmp_path,
+):
+    _run(_request(tmp_path, ("simulate", "train")), _Executors())
+    _write_initialization_summary(
+        tmp_path / "training" / "training_summary.json",
+        _initialization_payload("dose_closure"),
+    )
+    replay = _Executors()
+
+    with pytest.raises(ValueError, match="mode.*resolved.*ones"):
+        _run(_request(tmp_path, ("train",)), replay)
+
+    assert replay.calls == []
 
 
 def test_inference_only_change_preserves_simulation_and_training_reuse(tmp_path):
@@ -528,8 +685,14 @@ def test_executor_cannot_publish_an_unmanaged_stage_path(tmp_path):
     class Unmanaged(_Executors):
         def train(self, request):
             self.calls.append("train")
+            initialization = _initialization_payload()
             return TrainingStageResult(
-                bundle_path=_write(request.output_root / "outside.zip")
+                bundle_path=_write(request.output_root / "outside.zip"),
+                training_summary_path=_write_initialization_summary(
+                    request.output_root / "training" / "training_summary.json",
+                    initialization,
+                ),
+                rect_s1s2_initialization=initialization,
             )
 
     with pytest.raises(ValueError, match="training/wts.h5.zip"):
@@ -752,11 +915,20 @@ def test_default_training_adapter_uses_shared_training_workflow(tmp_path, monkey
         dataset_manifest_path=manifest_path,
     )
     bundle = _write(tmp_path / "training" / "wts.h5.zip")
+    initialization = _initialization_payload()
+    summary = _write_initialization_summary(
+        tmp_path / "training" / "training_summary.json",
+        initialization,
+    )
     captured = {}
 
     def fake_training(workflow_request):
         captured["request"] = workflow_request
-        return SimpleNamespace(bundle_path=bundle)
+        return SimpleNamespace(
+            bundle_path=bundle,
+            training_summary_path=summary,
+            rect_s1s2_initialization=initialization,
+        )
 
     monkeypatch.setattr(
         synthetic_pipeline,
@@ -772,6 +944,8 @@ def test_default_training_adapter_uses_shared_training_workflow(tmp_path, monkey
     assert shared.output_dir == tmp_path / "training"
     assert shared.do_stitching is False
     assert result.bundle_path == bundle
+    assert result.training_summary_path == summary
+    assert result.rect_s1s2_initialization.to_jsonable() == initialization
 
 
 def test_default_training_adapter_rejects_dataset_drift_before_work(
@@ -1549,8 +1723,14 @@ def test_no_stage_selection_uses_real_default_adapters_in_complete_order(
 
     def train(request):
         calls.append("train")
+        initialization = _initialization_payload()
         return TrainingStageResult(
-            bundle_path=_write(request.output_root / "training" / "wts.h5.zip")
+            bundle_path=_write(request.output_root / "training" / "wts.h5.zip"),
+            training_summary_path=_write_initialization_summary(
+                request.output_root / "training" / "training_summary.json",
+                initialization,
+            ),
+            rect_s1s2_initialization=initialization,
         )
 
     def reconstruct(*_args, **kwargs):
@@ -1631,6 +1811,7 @@ def test_no_stage_selection_uses_real_default_adapters_in_complete_order(
         "datasets/test.npz",
         "datasets/manifest.json",
         "training/wts.h5.zip",
+        "training/training_summary.json",
         "reconstruction/reconstruction.npz",
         "reconstruction/metrics.json",
         "reconstruction/comparison.png",

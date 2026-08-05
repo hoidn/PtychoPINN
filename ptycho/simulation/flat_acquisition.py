@@ -38,6 +38,13 @@ from ptycho.workflows.synthetic_config import (
 
 
 STORAGE_LAYOUT = "flat_acquisition_v1"
+_SUPPORTED_MEASUREMENT_PAIRS = frozenset(
+    {
+        ("legacy_v1", "normalized_amplitude"),
+        ("ci_intensity_v2", "count_intensity"),
+    }
+)
+COUNT_INTENSITY_DOMAIN = "count_intensity"
 MANIFEST_SCHEMA = "flat-acquisition-manifest-v1"
 OBJECT_RECIPE = "lines-object-v1"
 OBJECT_PRODUCER_SYMBOLS = (
@@ -105,6 +112,37 @@ def derive_seed_lineage(base_seed: int) -> dict[str, int]:
             for name, child in zip(SEED_STREAM_NAMES, children, strict=True)
         },
     }
+
+
+def derive_count_amplitude_scale(
+    amplitudes: np.ndarray,
+    nphotons: float,
+) -> float:
+    """Derive the count-amplitude scale from normalized amplitudes.
+
+    The scale follows the Torch CI convention exactly:
+
+    ``S = sqrt(nphotons / mean(sum(amplitude**2)))``.
+
+    This NumPy implementation keeps the CUDA-hidden simulation worker free of
+    Torch imports; its equality to the Torch helper is pinned by tests.
+    """
+
+    samples = np.asarray(amplitudes, dtype=np.float64)
+    if samples.ndim != 3:
+        raise ValueError("amplitudes must have flat shape (M, N, N)")
+    if not np.isfinite(samples).all():
+        raise ValueError("amplitudes must contain only finite values")
+    nphotons = float(nphotons)
+    if not np.isfinite(nphotons) or nphotons <= 0:
+        raise ValueError("nphotons must be positive and finite")
+    mean_intensity = float(np.square(samples).sum(axis=(1, 2)).mean())
+    if not np.isfinite(mean_intensity) or mean_intensity <= 0:
+        raise ValueError("amplitudes have degenerate energy")
+    scale = float(np.sqrt(nphotons / mean_intensity))
+    if not np.isfinite(scale) or scale <= 0:
+        raise ValueError("derived count amplitude scale must be positive and finite")
+    return scale
 
 
 def build_lines_object(rng: np.random.Generator) -> LinesObject:
@@ -422,14 +460,19 @@ def _runtime_environment() -> dict[str, Any]:
 
 def _validate_locked_flat_recipe(resolved: ResolvedSyntheticWorkflow) -> None:
     simulation_namespace = resolved.simulation
-    if simulation_namespace.scale_contract_version != "legacy_v1":
-        raise ValueError(
-            "simulation.scale_contract_version must be 'legacy_v1' for flat-acquisition v1"
+    pair = (
+        simulation_namespace.scale_contract_version,
+        simulation_namespace.measurement_domain,
+    )
+    if pair not in _SUPPORTED_MEASUREMENT_PAIRS:
+        supported = ", ".join(
+            f"{version}/{domain}"
+            for version, domain in sorted(_SUPPORTED_MEASUREMENT_PAIRS)
         )
-    if simulation_namespace.measurement_domain != "normalized_amplitude":
         raise ValueError(
-            "simulation.measurement_domain must be 'normalized_amplitude' "
-            "for flat-acquisition v1"
+            "simulation.scale_contract_version and "
+            "simulation.measurement_domain are one inseparable pair; got "
+            f"{pair[0]!r}/{pair[1]!r}, expected one of {supported}"
         )
     for name, simulation in (
         ("train", simulation_namespace.train),
@@ -526,6 +569,55 @@ def validate_flat_acquisition_workflow(
             )
 
 
+def _apply_count_intensity_contract(
+    split_payloads: dict[str, dict[str, np.ndarray]],
+    *,
+    probe_guess: np.ndarray,
+    nphotons: float,
+    probe_lineage: dict[str, Any],
+) -> np.ndarray:
+    """Convert normalized amplitudes to the CI count-intensity contract.
+
+    The protected detector leaf draws Poisson counts before dividing by its
+    amplitude scale, so the exact post-transform is
+    ``counts = (amplitude * S) ** 2``. One ``S`` is derived from the training
+    split and reused for every split.
+
+    For flat-acquisition CI data, the stored ``probeGuess`` *is* the CI-scaled
+    physical forward probe: ``probe_unscaled * S``. It is not the normalized
+    model-input probe. This establishes a deterministic acquisition gauge, not
+    an identifiable physical calibration; the persisted dose-closure startup
+    solve is the runtime diagnostic for any decomposition mismatch.
+    """
+
+    scale = derive_count_amplitude_scale(
+        split_payloads["train"]["diff3d"],
+        nphotons,
+    )
+    physical_probe = np.ascontiguousarray(
+        np.asarray(probe_guess, dtype=np.complex128) * scale,
+        dtype=np.complex64,
+    )
+    for payload in split_payloads.values():
+        counts = np.square(
+            np.asarray(payload["diff3d"], dtype=np.float64) * scale
+        )
+        payload["diff3d"] = _as_finite_array(
+            counts,
+            name="diff3d",
+            dtype=np.dtype(np.float32),
+        )
+        payload["probeGuess"] = physical_probe
+    probe_lineage["physical_probe_sha256"] = array_sha256(physical_probe)
+    probe_lineage["count_amplitude_scale"] = {
+        "value": scale,
+        "split": "train",
+        "nphotons": float(nphotons),
+        "method": "derive_intensity_scale_from_amplitudes",
+    }
+    return physical_probe
+
+
 def generate_flat_acquisitions(
     resolved: ResolvedSyntheticWorkflow,
     output_root: str | Path,
@@ -561,11 +653,6 @@ def generate_flat_acquisitions(
         "array_sha256": object_hash,
     }
     probe_lineage = dict(probe_identity["probe_lineage"])
-    source_payload = {
-        "objectGuess": lines_object.array,
-        "probeGuess": probe_guess,
-    }
-    _write_npz_atomic(source_path, source_payload)
 
     split_payloads: dict[str, dict[str, np.ndarray]] = {}
     for name, simulation in (
@@ -579,6 +666,21 @@ def generate_flat_acquisitions(
             coordinate_seed=seed_lineage[f"{name}_coordinates"],
             detector_seed=seed_lineage[f"{name}_noise"],
         )
+
+    stored_probe = probe_guess
+    if resolved.simulation.measurement_domain == COUNT_INTENSITY_DOMAIN:
+        stored_probe = _apply_count_intensity_contract(
+            split_payloads,
+            probe_guess=probe_guess,
+            nphotons=float(train_simulation.detector.photons_per_pattern),
+            probe_lineage=probe_lineage,
+        )
+
+    source_payload = {
+        "objectGuess": lines_object.array,
+        "probeGuess": stored_probe,
+    }
+    _write_npz_atomic(source_path, source_payload)
     _write_npz_atomic(train_path, split_payloads["train"])
     _write_npz_atomic(test_path, split_payloads["test"])
 

@@ -51,6 +51,9 @@ from ptycho.config.strict_types import (
     _StrictPositiveInt,
 )
 from ptycho_torch.config_params import DataConfig, ModelConfig as TorchModelConfig
+from ptycho_torch.scaling_contract import (
+    validate_rect_s1s2_initialization_contract,
+)
 
 
 __all__ = [
@@ -70,7 +73,9 @@ __all__ = [
 
 
 _PROFILE_NAME = "synthetic-lines"
+_CI_PROFILE_NAME = "cnn-lines-ci"
 _RECIPE_VERSION = "synthetic-lines-v1"
+_CI_RECIPE_VERSION = "cnn-lines-ci-v1"
 _SCHEMA_VERSION = "synthetic-workflow-v1"
 
 
@@ -97,15 +102,15 @@ _Architecture = Annotated[
     BeforeValidator(_require_exact_str),
 ]
 _ScaleContractVersion = Annotated[
-    Literal["legacy_v1"],
+    Literal["legacy_v1", "ci_intensity_v2"],
     BeforeValidator(_require_exact_str),
 ]
 _MeasurementDomain = Annotated[
-    Literal["normalized_amplitude"],
+    Literal["normalized_amplitude", "count_intensity"],
     BeforeValidator(_require_exact_str),
 ]
 _PhysicsForwardMode = Annotated[
-    Literal["amplitude"],
+    Literal["amplitude", "rectangular_scaled"],
     BeforeValidator(_require_exact_str),
 ]
 _SupportedN = Annotated[
@@ -131,6 +136,7 @@ _GainProvenance = Annotated[
     Literal[
         "pending_training_split_derivation",
         "explicit",
+        "scale_contract_fixed",
     ],
     BeforeValidator(_require_exact_str),
 ]
@@ -536,6 +542,58 @@ _PROFILE_VALUES: dict[str, dict[str, Any]] = {
 }
 
 
+_CI_PROFILE_PATCH: dict[str, dict[str, Any]] = {
+    "simulation": {
+        "scale_contract_version": "ci_intensity_v2",
+        "measurement_domain": "count_intensity",
+    },
+    "model": {
+        "architecture": "cnn",
+        "physics_forward_mode": "rectangular_scaled",
+        "cnn_output_mode": "real_imag",
+        "loss_function": "Poisson",
+        "rect_s1s2_init": "dose_closure",
+    },
+    "training": {
+        "torch_loss_mode": "poisson",
+        "nll": True,
+        "gradient_clip_val": 1.0,
+        "gradient_clip_algorithm": "norm",
+    },
+}
+
+
+def _ci_profile_values() -> dict[str, dict[str, Any]]:
+    """Project the count-intensity CNN profile from the shared lines recipe."""
+
+    return _merged_mapping(_PROFILE_VALUES, _CI_PROFILE_PATCH)
+
+
+_PROFILES: dict[str, tuple[str, Any]] = {
+    _PROFILE_NAME: (_RECIPE_VERSION, lambda: _PROFILE_VALUES),
+    _CI_PROFILE_NAME: (_CI_RECIPE_VERSION, _ci_profile_values),
+}
+
+_PROFILE_LOCKS: dict[str, dict[str, dict[str, Any]]] = {
+    _CI_PROFILE_NAME: {
+        "simulation": {
+            "scale_contract_version": "ci_intensity_v2",
+            "measurement_domain": "count_intensity",
+        },
+        "model": {
+            "architecture": "cnn",
+            "physics_forward_mode": "rectangular_scaled",
+            "cnn_output_mode": "real_imag",
+            "loss_function": "Poisson",
+        },
+        "training": {
+            "torch_loss_mode": "poisson",
+            "nll": True,
+        },
+    },
+}
+
+
 _FLAT_ALIASES: dict[str, tuple[str, ...]] = {
     "N": ("simulation", "N"),
     "gridsize": ("simulation", "gridsize"),
@@ -576,6 +634,27 @@ def _values_equal(left: Any, right: Any) -> bool:
     except Exception:
         return False
     return type(result) is bool and result
+
+
+def _enforce_profile_locks(
+    profile: str,
+    patch: Mapping[str, Any],
+    *,
+    source: str,
+) -> None:
+    """Reject explicit values that would relabel a named contract profile."""
+
+    for namespace, locked_fields in _PROFILE_LOCKS.get(profile, {}).items():
+        supplied = patch.get(namespace)
+        if not isinstance(supplied, Mapping):
+            continue
+        for name, expected in locked_fields.items():
+            if name not in supplied or _values_equal(supplied[name], expected):
+                continue
+            raise ValueError(
+                f"{source} field {namespace}.{name}={supplied[name]!r} "
+                f"contradicts profile {profile!r}; required {expected!r}"
+            )
 
 
 def _put_patch_value(
@@ -936,8 +1015,17 @@ def _resolve_model(
             )
         candidate[name] = expected_value
 
+    forward_mode = candidate["physics_forward_mode"]
     gain = candidate["amplitude_physics_gain"]
-    if gain is None:
+    if forward_mode == "rectangular_scaled":
+        if gain is not None and float(gain) != 1.0:
+            raise ValueError(
+                "model.amplitude_physics_gain must be 1.0 when "
+                "model.physics_forward_mode='rectangular_scaled'"
+            )
+        candidate["amplitude_physics_gain"] = 1.0
+        candidate["amplitude_physics_gain_provenance"] = "scale_contract_fixed"
+    elif gain is None:
         candidate["amplitude_physics_gain_provenance"] = (
             "pending_training_split_derivation"
         )
@@ -1031,6 +1119,67 @@ def _validate_loss_identity(
         raise ValueError(
             f"training.nll must be {expected_nll!r} when "
             f"training.torch_loss_mode={training.torch_loss_mode!r}"
+        )
+
+
+def _validate_scaling(
+    simulation: SyntheticSimulationConfig,
+    model: SyntheticModelConfig,
+    training: SyntheticTrainingConfig,
+    inference: SyntheticInferenceConfig,
+) -> None:
+    """Enforce the inseparable units/forward triple and CI-only constraints."""
+
+    version = simulation.scale_contract_version
+    domain = simulation.measurement_domain
+    mode = model.physics_forward_mode
+    if mode == "amplitude":
+        if domain != "normalized_amplitude":
+            raise ValueError(
+                "simulation.measurement_domain must be 'normalized_amplitude' "
+                "when model.physics_forward_mode='amplitude'"
+            )
+        if version != "legacy_v1":
+            raise ValueError(
+                "simulation.scale_contract_version must be 'legacy_v1' when "
+                "model.physics_forward_mode='amplitude'"
+            )
+        return
+
+    if version != "ci_intensity_v2":
+        raise ValueError(
+            "simulation.scale_contract_version must be 'ci_intensity_v2' when "
+            "model.physics_forward_mode='rectangular_scaled'"
+        )
+    if domain != "count_intensity":
+        raise ValueError(
+            "simulation.measurement_domain must be 'count_intensity' when "
+            "model.physics_forward_mode='rectangular_scaled'"
+        )
+    if model.mode != "Unsupervised":
+        raise ValueError(
+            "model.mode must be 'Unsupervised' for the CI count-intensity "
+            "contract"
+        )
+    if training.torch_loss_mode != "poisson":
+        raise ValueError(
+            "training.torch_loss_mode must be 'poisson' for the CI "
+            "count-intensity rectangular forward"
+        )
+    if model.cnn_output_mode != "real_imag":
+        raise ValueError(
+            "model.cnn_output_mode must be 'real_imag' when "
+            "model.physics_forward_mode='rectangular_scaled'"
+        )
+    if not inference.varpro_scaling:
+        raise ValueError(
+            "inference.varpro_scaling must be true for the CI count-intensity "
+            "contract"
+        )
+    if inference.patch_weighting != "probe":
+        raise ValueError(
+            "inference.patch_weighting must be 'probe' for the CI "
+            "count-intensity contract"
         )
 
 
@@ -1128,16 +1277,22 @@ def _validate_resolved_workflow(resolved: ResolvedSyntheticWorkflow) -> None:
                 f"{name} must be a {expected_type.__name__}, "
                 f"got {type(observed).__name__}"
             )
-    for name, expected in (
-        ("schema_version", _SCHEMA_VERSION),
-        ("profile", _PROFILE_NAME),
-        ("recipe_version", _RECIPE_VERSION),
-    ):
-        observed = getattr(resolved, name)
-        if not _values_equal(observed, expected):
-            raise ValueError(
-                f"{name} must be {expected!r}, got {observed!r}"
-            )
+    if not _values_equal(resolved.schema_version, _SCHEMA_VERSION):
+        raise ValueError(
+            f"schema_version must be {_SCHEMA_VERSION!r}, got "
+            f"{resolved.schema_version!r}"
+        )
+    if resolved.profile not in _PROFILES:
+        expected = ", ".join(repr(name) for name in sorted(_PROFILES))
+        raise ValueError(
+            f"profile must be one of {expected}, got {resolved.profile!r}"
+        )
+    expected_recipe = _PROFILES[resolved.profile][0]
+    if not _values_equal(resolved.recipe_version, expected_recipe):
+        raise ValueError(
+            f"recipe_version must be {expected_recipe!r}, got "
+            f"{resolved.recipe_version!r}"
+        )
 
     simulation = _adapt(
         _SIMULATION_NAMESPACE_ADAPTER,
@@ -1217,6 +1372,8 @@ def _validate_resolved_workflow(resolved: ResolvedSyntheticWorkflow) -> None:
         training=training,
     )
     _validate_loss_identity(model, training)
+    _validate_scaling(simulation, model, training, inference)
+    validate_rect_s1s2_initialization_contract(simulation, model, training)
 
     data = _adapt_data(_record_values(resolved.data))
     _raise_first_record_difference("data", resolved.data, data)
@@ -1237,22 +1394,26 @@ def resolve_synthetic_workflow(
 ) -> ResolvedSyntheticWorkflow:
     """Resolve explicit CLI values over file values over a named profile."""
 
-    if profile != _PROFILE_NAME:
+    if profile not in _PROFILES:
+        expected = ", ".join(repr(name) for name in sorted(_PROFILES))
         raise ValueError(
-            f"unknown synthetic workflow profile {profile!r}; expected "
-            f"{_PROFILE_NAME!r}"
+            f"unknown synthetic workflow profile {profile!r}; expected one of "
+            f"{expected}"
         )
+    recipe_version, profile_values = _PROFILES[profile]
     file_patch = _normalize_source(
         file_values,
         source="file",
         omit_unset=False,
     )
+    _enforce_profile_locks(profile, file_patch, source="file")
     cli_patch = _normalize_source(
         cli_values,
         source="explicit CLI",
         omit_unset=True,
     )
-    merged = _merged_mapping(_PROFILE_VALUES, file_patch)
+    _enforce_profile_locks(profile, cli_patch, source="explicit CLI")
+    merged = _merged_mapping(profile_values(), file_patch)
     merged = _merged_mapping(merged, cli_patch)
 
     simulation = _resolve_simulation(merged["simulation"])
@@ -1286,6 +1447,8 @@ def resolve_synthetic_workflow(
         training=training,
     )
     _validate_loss_identity(model, training)
+    _validate_scaling(simulation, model, training, inference)
+    validate_rect_s1s2_initialization_contract(simulation, model, training)
 
     data = _derive_data_snapshot(
         simulation,
@@ -1295,8 +1458,8 @@ def resolve_synthetic_workflow(
     )
     resolved = ResolvedSyntheticWorkflow(
         schema_version=_SCHEMA_VERSION,
-        profile=_PROFILE_NAME,
-        recipe_version=_RECIPE_VERSION,
+        profile=profile,
+        recipe_version=recipe_version,
         simulation=simulation,
         model=model,
         training=training,

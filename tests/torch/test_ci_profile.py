@@ -11,7 +11,7 @@ docs/superpowers/plans/2026-07-14-ci-paper-conformance-audit.md (Theme 3):
 3. Bare-default construction remains valid legacy behavior (design spec
    2026-07-09 §"Amplitude mode does not activate CI even when absent profile
    fields receive CI defaults") while explicitly half-configured CI intent
-   (``rect_s1s2_init='data'`` without the rectangular forward) raises.
+   (``rect_s1s2_init='dose_closure'`` without the rectangular forward) raises.
 4. ``validate_contract_coherence`` is wired into the factory: rectangular +
    count_intensity + mae now fails at payload creation, not at training time.
 """
@@ -36,7 +36,7 @@ CANONICAL_CI_BUNDLE = {
     "loss_function": "Poisson",
     "amplitude_physics_gain": 1.0,
     "rect_s1s2_trainable": True,
-    "rect_s1s2_init": "data",
+    "rect_s1s2_init": "ones",
     "cnn_output_mode": "real_imag",
 }
 
@@ -142,7 +142,7 @@ def test_create_training_payload_ci_profile_resolves_coherent_payload(
     assert payload.pt_data_config.measurement_domain == "count_intensity"
     assert payload.pt_model_config.physics_forward_mode == "rectangular_scaled"
     assert payload.pt_model_config.rect_s1s2_trainable is True
-    assert payload.pt_model_config.rect_s1s2_init == "data"
+    assert payload.pt_model_config.rect_s1s2_init == "ones"
     assert payload.pt_model_config.cnn_output_mode == "real_imag"
     assert payload.pt_model_config.amplitude_physics_gain == 1.0
     assert payload.pt_model_config.loss_function == "Poisson"
@@ -223,9 +223,17 @@ def test_bare_default_legacy_construction_remains_valid(tiny_train_npz, tmp_path
 
 
 def test_half_configured_ci_intent_via_overrides_raises(tiny_train_npz, tmp_path):
-    """rect_s1s2_init='data' is a CI-only knob (docs/model_baselines.md); passing
-    it without the rectangular forward is half-configured CI, not legacy."""
+    """Dose closure without the rectangular forward is half-configured CI."""
     with pytest.raises(ValueError, match=r"profile='ci'"):
+        create_training_payload(
+            train_data_file=tiny_train_npz,
+            output_dir=tmp_path / "out",
+            overrides={"n_groups": 4, "rect_s1s2_init": "dose_closure"},
+        )
+
+
+def test_retired_data_rect_s1s2_init_is_rejected(tiny_train_npz, tmp_path):
+    with pytest.raises(ValueError, match="rect_s1s2_init"):
         create_training_payload(
             train_data_file=tiny_train_npz,
             output_dir=tmp_path / "out",
@@ -262,8 +270,26 @@ def test_validate_contract_coherence_passes_coherent_legacy_and_ci():
     assert (
         validate_contract_coherence(
             PTDataConfig(),
-            PTModelConfig(physics_forward_mode="rectangular_scaled"),
+            PTModelConfig(
+                physics_forward_mode="rectangular_scaled",
+                rect_s1s2_init="dose_closure",
+            ),
             PTTrainingConfig(torch_loss_mode="poisson"),
+        )
+        is None
+    )
+    # Explicit legacy rectangular remains supported with exact-one init.
+    assert (
+        validate_contract_coherence(
+            PTDataConfig(
+                scale_contract_version="legacy_v1",
+                measurement_domain="normalized_amplitude",
+            ),
+            PTModelConfig(
+                physics_forward_mode="rectangular_scaled",
+                rect_s1s2_init="ones",
+            ),
+            PTTrainingConfig(torch_loss_mode="mae"),
         )
         is None
     )
@@ -276,6 +302,23 @@ def test_validate_contract_coherence_rejects_active_ci_with_mae():
         validate_contract_coherence(
             PTDataConfig(),
             PTModelConfig(physics_forward_mode="rectangular_scaled"),
+            PTTrainingConfig(torch_loss_mode="mae"),
+        )
+
+
+def test_validate_contract_coherence_rejects_dose_closure_on_legacy_contract():
+    from ptycho_torch.scaling_contract import validate_contract_coherence
+
+    with pytest.raises(ValueError, match="dose_closure.*ci_intensity_v2"):
+        validate_contract_coherence(
+            PTDataConfig(
+                scale_contract_version="legacy_v1",
+                measurement_domain="normalized_amplitude",
+            ),
+            PTModelConfig(
+                physics_forward_mode="rectangular_scaled",
+                rect_s1s2_init="dose_closure",
+            ),
             PTTrainingConfig(torch_loss_mode="mae"),
         )
 
@@ -383,4 +426,4 @@ def test_cli_profile_reaches_training_execution(tiny_train_npz, tmp_path, monkey
     assert forwarded["scale_contract_version"] == "ci_intensity_v2"
     assert forwarded["measurement_domain"] == "count_intensity"
     assert forwarded["torch_loss_mode"] == "poisson"
-    assert forwarded["rect_s1s2_init"] == "data"
+    assert forwarded["rect_s1s2_init"] == "ones"

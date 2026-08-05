@@ -168,10 +168,20 @@ TRAINING_INPUTS_BY_OWNER = {
         "n_groups",
     },
     "inference": {
+        "middle_trim",
+        "inference_batch_size",
+        "experiment_number",
+        "pad_eval",
+        "window",
         "patch_weighting",
         "varpro_scaling",
         "log_patch_stats",
         "patch_stats_limit",
+    },
+    "bridge": {
+        "enable_oversampling",
+        "neighbor_pool_size",
+        "sequential_sampling",
     },
     "derived_constraint": {
         "C",
@@ -259,7 +269,7 @@ def _aliases_from_rules(rules):
 
 
 def test_training_registry_matches_literal_phase_inventory() -> None:
-    assert len(TRAINING_INPUT_RULES) == 124
+    assert len(TRAINING_INPUT_RULES) == 132
     assert _rules_by_owner(TRAINING_INPUT_RULES) == TRAINING_INPUTS_BY_OWNER
     assert _aliases_from_rules(TRAINING_INPUT_RULES) == TRAINING_ALIASES
 
@@ -894,7 +904,11 @@ def test_conflicting_explicit_loss_constraints_fail(patch) -> None:
             "Unsupported scale contract",
         ),
         ({"amplitude_physics_gain": 0.0}, "amplitude_physics_gain"),
-        ({"rect_s1s2_init": "data"}, "Half-configured CI"),
+        (
+            {"rect_s1s2_init": "data"},
+            "rect_s1s2_init must be 'ones' or 'dose_closure'",
+        ),
+        ({"rect_s1s2_init": "dose_closure"}, "Half-configured CI"),
         (
             {
                 "physics_forward_mode": "rectangular_scaled",
