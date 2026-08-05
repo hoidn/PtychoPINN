@@ -283,12 +283,198 @@ def test_stage_selection_is_validated_by_argparse(stages):
     assert error.value.code == 2
 
 
-def test_partial_count_intensity_switches_are_not_public_flags():
+def test_count_intensity_contract_switches_map_to_owned_namespaces():
+    from scripts.simulation import synthetic_pipeline as cli
+
+    args = cli.parse_arguments(
+        [
+            "--scale-contract-version",
+            "ci_intensity_v2",
+            "--measurement-domain",
+            "count_intensity",
+            "--physics-forward-mode",
+            "rectangular_scaled",
+            "--cnn-output-mode",
+            "real_imag",
+            "--torch-loss-mode",
+            "poisson",
+            "--rect-s1s2-init",
+            "ones",
+        ]
+    )
+
+    assert _plain(cli._cli_values(args)) == {
+        "simulation": {
+            "scale_contract_version": "ci_intensity_v2",
+            "measurement_domain": "count_intensity",
+        },
+        "model": {
+            "physics_forward_mode": "rectangular_scaled",
+            "cnn_output_mode": "real_imag",
+            "loss_function": "Poisson",
+            "rect_s1s2_init": "ones",
+        },
+        "training": {
+            "torch_loss_mode": "poisson",
+            "nll": True,
+        },
+    }
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["--measurement-domain", "photons"],
+        ["--scale-contract-version", "ci_v3"],
+        ["--physics-forward-mode", "rectangular"],
+        ["--cnn-output-mode", "complex"],
+        ["--torch-loss-mode", "mse"],
+        ["--rect-s1s2-init", "calibrate"],
+    ],
+)
+def test_count_contract_switches_reject_unknown_values(argv):
     from scripts.simulation import synthetic_pipeline as cli
 
     with pytest.raises(SystemExit) as error:
-        cli.parse_arguments(["--measurement-domain", "count_intensity"])
+        cli.parse_arguments(argv)
     assert error.value.code == 2
+
+
+def test_partial_count_contract_selection_fails_in_resolution(tmp_path):
+    from scripts.simulation import synthetic_pipeline as cli
+    from ptycho.workflows.synthetic_config import resolve_synthetic_workflow
+
+    request = cli.build_pipeline_request(
+        cli.parse_arguments(
+            [
+                "--output-root",
+                str(tmp_path / "run"),
+                "--measurement-domain",
+                "count_intensity",
+            ]
+        )
+    )
+
+    with pytest.raises(ValueError, match="measurement_domain"):
+        resolve_synthetic_workflow(
+            profile=request.profile,
+            file_values=request.file_values,
+            cli_values=request.cli_values,
+        )
+
+
+def test_cnn_ci_profile_and_ones_control_are_selectable(monkeypatch, tmp_path):
+    from scripts.simulation import synthetic_pipeline as cli
+    from ptycho.workflows.synthetic_config import resolve_synthetic_workflow
+
+    captured = {}
+    monkeypatch.setattr(
+        cli,
+        "_run_pipeline",
+        lambda request: captured.setdefault("request", request),
+    )
+
+    assert cli.main(
+        [
+            "--profile",
+            "cnn-lines-ci",
+            "--output-root",
+            str(tmp_path / "run"),
+            "--rect-s1s2-init",
+            "ones",
+        ]
+    ) == 0
+
+    request = captured["request"]
+    resolved = resolve_synthetic_workflow(
+        profile=request.profile,
+        file_values=request.file_values,
+        cli_values=request.cli_values,
+    )
+    assert resolved.profile == "cnn-lines-ci"
+    assert resolved.simulation.measurement_domain == "count_intensity"
+    assert resolved.model.physics_forward_mode == "rectangular_scaled"
+    assert resolved.model.rect_s1s2_init == "ones"
+
+
+def test_count_contract_flags_are_discoverable_in_help():
+    from scripts.simulation import synthetic_pipeline as cli
+
+    help_text = cli.build_parser().format_help()
+
+    for flag in (
+        "--scale-contract-version",
+        "--measurement-domain",
+        "--physics-forward-mode",
+        "--cnn-output-mode",
+        "--torch-loss-mode",
+        "--rect-s1s2-init",
+    ):
+        assert flag in help_text
+
+
+def test_cnn_ci_yaml_and_equivalent_cli_flags_share_workflow_identity(tmp_path):
+    import yaml
+
+    from scripts.simulation import synthetic_pipeline as cli
+    from ptycho.workflows.synthetic_config import (
+        resolve_synthetic_workflow,
+        synthetic_workflow_sha256,
+    )
+
+    config_path = tmp_path / "ci.yaml"
+    config_path.write_text(
+        yaml.safe_dump(
+            {
+                "profile": "cnn-lines-ci",
+                "simulation": {
+                    "scale_contract_version": "ci_intensity_v2",
+                    "measurement_domain": "count_intensity",
+                },
+                "model": {
+                    "physics_forward_mode": "rectangular_scaled",
+                    "cnn_output_mode": "real_imag",
+                    "rect_s1s2_init": "ones",
+                },
+                "training": {"torch_loss_mode": "poisson", "nll": True},
+            }
+        ),
+        encoding="utf-8",
+    )
+    file_request = cli.build_pipeline_request(
+        cli.parse_arguments(["--config", str(config_path)])
+    )
+    flag_request = cli.build_pipeline_request(
+        cli.parse_arguments(
+            [
+                "--profile",
+                "cnn-lines-ci",
+                "--scale-contract-version",
+                "ci_intensity_v2",
+                "--measurement-domain",
+                "count_intensity",
+                "--physics-forward-mode",
+                "rectangular_scaled",
+                "--cnn-output-mode",
+                "real_imag",
+                "--torch-loss-mode",
+                "poisson",
+                "--rect-s1s2-init",
+                "ones",
+            ]
+        )
+    )
+
+    def digest(request):
+        return synthetic_workflow_sha256(
+            resolve_synthetic_workflow(
+                profile=request.profile,
+                file_values=request.file_values,
+                cli_values=request.cli_values,
+            )
+        )
+
+    assert digest(file_request) == digest(flag_request)
 
 
 def test_structured_config_rejects_unknown_suffix_and_nonobject(tmp_path):
