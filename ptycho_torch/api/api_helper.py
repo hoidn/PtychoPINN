@@ -3,6 +3,7 @@ from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
 from ptycho_torch.api.base_api import PtychoModel, PtychoDataLoader, ConfigManager, Trainer, Datagen
 from typing import Optional, Dict, Any, Tuple, Union, Protocol
 from ptycho_torch.config_params import TrainingConfig, DatagenConfig, DataConfig, ModelConfig, InferenceConfig
+from ptycho_torch.rect_s1s2_initialization import validate_rect_s1s2_initialization_mode
 from ptycho_torch.train_utils import get_training_strategy
 import mlflow
 import torch
@@ -173,6 +174,9 @@ def load_with_mlflow(
     model_uri = f"runs:/{run_id}/model"
 
     model = mlflow.pytorch.load_model(model_uri)
+    validate_rect_s1s2_initialization_mode(
+        model.model_config.rect_s1s2_init
+    )
     run_id = run_id
 
     return model, run_id

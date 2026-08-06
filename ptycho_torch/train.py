@@ -143,9 +143,19 @@ Examples:
         help=(
             "Named configuration profile. 'ci' selects the coherent "
             "PtychoPINN-CI bundle (ci_intensity_v2/count_intensity contract, "
-            "rectangular_scaled forward, Poisson loss, data-calibrated "
+            "rectangular_scaled forward, Poisson loss, dose-closure-initialized "
             "trainable s1/s2, real/imag CNN heads). Explicit flags that "
             "contradict the profile's contract fields fail closed."
+        ),
+    )
+    parser.add_argument(
+        '--rect-s1s2-init',
+        choices=['ones', 'dose_closure'],
+        default=None,
+        help=(
+            'Startup initialization for the rectangular s1/s2 gauge. '
+            'dose_closure solves the initial gauge from training counts; '
+            'this is separate from whether s1/s2 remain trainable.'
         ),
     )
     parser.add_argument(
@@ -430,6 +440,8 @@ Examples:
             overrides['scale_contract_version'] = args.scale_contract_version
         if args.measurement_domain is not None:
             overrides['measurement_domain'] = args.measurement_domain
+        if args.rect_s1s2_init is not None:
+            overrides['rect_s1s2_init'] = args.rect_s1s2_init
         if test_data_file:
             overrides['test_data_file'] = test_data_file
         overrides.update(training_patch)

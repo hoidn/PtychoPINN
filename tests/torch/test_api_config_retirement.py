@@ -4,6 +4,7 @@ from copy import deepcopy
 from collections import UserDict
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -11,6 +12,7 @@ import ptycho.params as params
 from ptycho.config.config import update_legacy_dict
 from ptycho.config.legacy_state import legacy_params_scope
 from ptycho_torch.api import api_helper
+from ptycho_torch.api import base_api
 from ptycho_torch.api.base_api import ConfigManager, PtychoModel
 from ptycho_torch.config_bridge import to_model_config, to_training_config
 from ptycho_torch.config_params import (
@@ -108,6 +110,94 @@ def test_loose_configuration_entry_points_are_removed():
         "update_manager_with_json",
     ):
         assert not hasattr(api_helper, name)
+
+
+def _model_unpickled_with_retired_rect_s1s2_mode():
+    model_config = ModelConfig()
+    model_config.rect_s1s2_init = "data"
+    return SimpleNamespace(model_config=model_config)
+
+
+def test_mlflow_utils_public_loaders_are_importable():
+    from ptycho_torch.api import mlflow_utils
+
+    assert callable(mlflow_utils.load_model_from_mlflow)
+    assert callable(mlflow_utils.load_model_and_configs)
+
+
+@pytest.mark.parametrize(
+    "loader_name",
+    [
+        "api_helper.load_with_mlflow",
+        "PtychoModel.load_from_mlflow",
+        "mlflow_utils.load_model_from_mlflow",
+        "mlflow_utils.load_model_and_configs",
+    ],
+)
+def test_mlflow_whole_model_loaders_revalidate_unpickled_model_config(
+    loader_name,
+    monkeypatch,
+):
+    loaded_model = _model_unpickled_with_retired_rect_s1s2_mode()
+    if loader_name.startswith("mlflow_utils"):
+        from ptycho_torch.api import mlflow_utils
+
+        mlflow_module = mlflow_utils
+    elif loader_name.startswith("PtychoModel"):
+        mlflow_module = base_api
+    else:
+        mlflow_module = api_helper
+    monkeypatch.setattr(
+        mlflow_module.mlflow.pytorch,
+        "load_model",
+        lambda _model_uri: loaded_model,
+    )
+    monkeypatch.setattr(
+        mlflow_module.mlflow,
+        "set_tracking_uri",
+        lambda _tracking_uri: None,
+    )
+
+    if loader_name == "mlflow_utils.load_model_and_configs":
+        monkeypatch.setattr(
+            mlflow_utils,
+            "get_run_id_from_model_version",
+            lambda **_kwargs: "run-123",
+        )
+
+        def unexpected_config_lookup(*_args, **_kwargs):
+            raise AssertionError("validation must precede MLflow config lookup")
+
+        monkeypatch.setattr(
+            mlflow_utils,
+            "load_configs_from_run",
+            unexpected_config_lookup,
+        )
+
+    with pytest.raises(
+        ValueError,
+        match=r"data.*unsupported.*ones.*dose_closure.*historical code or retraining",
+    ):
+        if loader_name == "api_helper.load_with_mlflow":
+            api_helper.load_with_mlflow(
+                run_id="run-123",
+                mlflow_tracking_uri="/tmp/mlruns",
+            )
+        elif loader_name == "PtychoModel.load_from_mlflow":
+            PtychoModel.load_from_mlflow(
+                run_id="run-123",
+                mlflow_tracking_uri="/tmp/mlruns",
+            )
+        elif loader_name == "mlflow_utils.load_model_from_mlflow":
+            mlflow_utils.load_model_from_mlflow(
+                run_id="run-123",
+                model_class=object,
+            )
+        else:
+            mlflow_utils.load_model_and_configs(
+                model_name="ptychopinn",
+                version=1,
+            )
 
 
 def test_save_pytorch_projects_resolved_owners_without_reading_legacy_global(

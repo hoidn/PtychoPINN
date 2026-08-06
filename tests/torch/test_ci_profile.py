@@ -401,34 +401,81 @@ def test_workflow_forwards_torch_overrides_to_lightning(monkeypatch):
     assert captured["overrides"] is overrides
 
 
-def test_cli_profile_reaches_training_execution(tiny_train_npz, tmp_path, monkeypatch):
+def test_cli_help_exposes_rect_s1s2_initialization_modes(capsys, monkeypatch):
     from ptycho_torch.train import cli_main
+
+    monkeypatch.setattr("sys.argv", ["train.py", "--help"])
+
+    with pytest.raises(SystemExit, match="0"):
+        cli_main()
+
+    help_text = " ".join(capsys.readouterr().out.split())
+    assert "--rect-s1s2-init {ones,dose_closure}" in help_text
+    assert "dose-closure-initialized trainable s1/s2" in help_text
+    assert "separate from whether s1/s2 remain trainable" in help_text
+
+
+@pytest.mark.parametrize(
+    "cli_mode,expected_mode",
+    [
+        (None, "dose_closure"),
+        ("ones", "ones"),
+        ("dose_closure", "dose_closure"),
+    ],
+)
+def test_cli_rect_s1s2_initialization_precedence_reaches_training(
+    cli_mode,
+    expected_mode,
+    tiny_train_npz,
+    tmp_path,
+    monkeypatch,
+):
+    from ptycho_torch.train import cli_main
+    from ptycho_torch.config_factory import create_training_payload
     from ptycho_torch.workflows import components
 
     captured = {}
+    factory_calls = []
     monkeypatch.setattr(
         "ptycho.raw_data.RawData.from_file",
         lambda path: object(),
     )
 
+    def spy_factory(**kwargs):
+        factory_calls.append(kwargs)
+        return create_training_payload(**kwargs)
+
     def fake_run(*args, **kwargs):
         captured.update(kwargs)
         return None, None, {"models": {}}
 
+    monkeypatch.setattr(
+        "ptycho_torch.config_factory.create_training_payload",
+        spy_factory,
+    )
     monkeypatch.setattr(components, "run_cdi_example_torch", fake_run)
+    argv = [
+        "train.py",
+        "--train_data_file", str(tiny_train_npz),
+        "--output_dir", str(tmp_path / "outputs"),
+        "--n_images", "4",
+        "--max_epochs", "1",
+        "--profile", "ci",
+    ]
+    if cli_mode is not None:
+        argv.extend(["--rect-s1s2-init", cli_mode])
     monkeypatch.setattr(
         "sys.argv",
-        [
-            "train.py",
-            "--train_data_file", str(tiny_train_npz),
-            "--output_dir", str(tmp_path / "outputs"),
-            "--n_images", "4",
-            "--max_epochs", "1",
-            "--profile", "ci",
-        ],
+        argv,
     )
 
     cli_main()
+
+    authored_overrides = factory_calls[0]["overrides"]
+    if cli_mode is None:
+        assert "rect_s1s2_init" not in authored_overrides
+    else:
+        assert authored_overrides["rect_s1s2_init"] == cli_mode
 
     forwarded = captured["overrides"]
     assert captured["resolved_payload"].execution_config is not None
@@ -437,4 +484,8 @@ def test_cli_profile_reaches_training_execution(tiny_train_npz, tmp_path, monkey
     assert forwarded["scale_contract_version"] == "ci_intensity_v2"
     assert forwarded["measurement_domain"] == "count_intensity"
     assert forwarded["torch_loss_mode"] == "poisson"
-    assert forwarded["rect_s1s2_init"] == "dose_closure"
+    assert forwarded["rect_s1s2_init"] == expected_mode
+    assert (
+        captured["resolved_payload"].pt_model_config.rect_s1s2_init
+        == expected_mode
+    )
