@@ -518,12 +518,14 @@ or advertise `dose_closure` without a working solver.
 - Create: `ptycho_torch/rect_s1s2_initialization.py`
 - Modify: `ptycho_torch/scaling_contract.py`
 - Modify: `ptycho_torch/workflows/components.py`
+- Modify: `ptycho_torch/train_utils.py`
 - Create: `tests/torch/test_rect_s1s2_sampling.py`
 - Extend: `tests/torch/test_rect_s1s2_initialization.py`
 - Modify: `tests/torch/test_workflows_components.py`
 
 **Atomic-transition files:**
 
+- Modify: `ptycho_torch/rect_s1s2_initialization.py`
 - Modify: `ptycho_torch/config_params.py`
 - Modify: `ptycho_torch/config_factory.py`
 - Modify: `ptycho_torch/config_resolution.py`
@@ -532,10 +534,14 @@ or advertise `dose_closure` without a working solver.
 - Modify: `ptycho/workflows/synthetic_config.py`
 - Modify: `ptycho/workflows/training.py`
 - Modify: `scripts/studies/grid_lines_torch_runner.py`
-- Modify: `tests/fixtures/config/generate_pre_migration_fixtures.py`
-- Modify: `tests/fixtures/config/README.md`
+- Create: `tests/torch/test_ci_container_bridge.py`
+- Create: `tests/test_training_workflow_initialization_summary.py`
 - Modify the parent Task 7 config, identity, artifact, workflow-result, and
-  runner tests plus `tests/test_training_workflow_initialization_summary.py`
+  runner tests plus `tests/studies/test_torch_ablation_manifest.py`
+
+The internal branch's frozen fixtures already encode `ones`. Preserve the
+generator, README, and serialized bytes; construct `data` rejection inputs by
+mutating copies in the relevant tests.
 
 - [ ] **Step 1: Port the complete seeded-v2 foundation tests red**
 
@@ -543,7 +549,8 @@ Port the settled pure selection, strict v1/v2 record, selected-row reader,
 real-forward, dictionary, TensorDict, prebuilt mmap, subset/mmap-bound,
 ordering-bias, invalid-input, module-state, and rank-publication tests. The
 internal branch's existing `data` configuration and calibration tests remain
-green in this first slice.
+green in this first slice. Include a real prebuilt-mmap loader with
+`num_workers=0`; fix `train_utils.py` to omit `prefetch_factor` for that case.
 
 ```bash
 python -m pytest \
@@ -565,7 +572,9 @@ training entry wiring, `calibrate_rect_s1s2`, and
 `rect_s1s2_calibration` unchanged. The new helper is complete and directly
 testable but not yet selected by internal configuration. Do not port
 `_slice_batch_prefix`, `_deterministic_rect_s1s2_loader`, or any other prefix
-path.
+path. Add the atomic summary writer/barrier helpers, but defer
+`_TrainingSummaryCallback` until activation so `_train_with_lightning` and its
+callback contract change together.
 
 - [ ] **Step 3: Run the foundation green and commit**
 
@@ -575,9 +584,10 @@ python -m pytest \
   tests/torch/test_rect_s1s2_initialization.py \
   tests/torch/test_workflows_components.py \
   tests/torch/test_rect_scaling.py \
-  tests/torch/test_rectangular_scaled_forward.py -q
+  tests/torch/test_rectangular_scaled_forward.py \
+  tests/torch/test_ci_profile.py -q
 git diff --check
-git add ptycho_torch/rect_s1s2_sampling.py ptycho_torch/rect_s1s2_initialization.py ptycho_torch/scaling_contract.py ptycho_torch/workflows/components.py tests/torch/test_rect_s1s2_sampling.py tests/torch/test_rect_s1s2_initialization.py tests/torch/test_workflows_components.py
+git add ptycho_torch/rect_s1s2_sampling.py ptycho_torch/rect_s1s2_initialization.py ptycho_torch/scaling_contract.py ptycho_torch/workflows/components.py ptycho_torch/train_utils.py tests/torch/test_rect_s1s2_sampling.py tests/torch/test_rect_s1s2_initialization.py tests/torch/test_workflows_components.py
 git commit -m "feat(torch): add seeded gauge runtime"
 ```
 
@@ -587,8 +597,11 @@ Require bare `ones`, CI-profile `dose_closure`, explicit `ones` precedence,
 direct/mapping/ModelSpec/artifact/checkpoint `data` rejection, the
 amplitude-only synthetic profile's `ones` constraint, pre-fit seeded-v2
 initialization, strict summary publication, and shared/grid-runner result
-propagation. Require `calibrate_rect_s1s2` and `rect_s1s2_calibration` to be
-absent after the transition. Keep frozen historical fixture bytes unchanged.
+propagation. Require the shared path to bridge raw grouped diffraction counts
+into the CI container, and change the ablation manifest's valid nondefault mode
+from `data` to `dose_closure`. Require `calibrate_rect_s1s2` and
+`rect_s1s2_calibration` to be absent after the transition. Keep frozen
+historical fixture bytes unchanged.
 
 - [ ] **Step 5: Run the atomic transition red**
 
@@ -603,20 +616,26 @@ python -m pytest \
   tests/torch/test_rect_s1s2_sampling.py \
   tests/torch/test_rect_s1s2_initialization.py \
   tests/torch/test_workflows_components.py \
+  tests/torch/test_ci_container_bridge.py \
   tests/test_synthetic_workflow_config.py \
   tests/test_training_workflow_initialization_summary.py \
-  tests/torch/test_grid_lines_torch_runner.py -q
+  tests/torch/test_grid_lines_torch_runner.py \
+  tests/studies/test_torch_ablation_manifest.py -q
 ```
 
 - [ ] **Step 6: Activate v2 and retire `data` atomically**
 
 Apply the parent contract's common mode validator, profile-only default,
-resolver defense, and frozen-fixture strategy. Wire the already-green seeded-v2
-initializer before `trainer.fit`, publish/return the strict record and summary
-path, remove the old `data` branch and learned-model calibration method, and
-propagate the new result through the shared workflow and grid runner. Keep the
-standalone runner default `ones`, inference refit, and amplitude-only synthetic
-contract unchanged. Do not add a compatibility alias or prefix fallback.
+resolver defense, and frozen-fixture strategy. Add the summary callback and
+wire the already-green seeded-v2 initializer before `trainer.fit`,
+publish/return the strict record and summary path, remove the old `data` branch,
+learned-model calibration method, `_last_calibration_means`, and obsolete loss
+target. Preserve raw grouped diffraction counts in the shared container and
+adapt them to `measured_intensity` at the CI boundary; do not estimate closure
+from normalized `X`. Propagate the new result through the shared workflow and
+grid runner. Keep the standalone runner default `ones`, inference refit, and
+amplitude-only synthetic contract unchanged. Do not add a compatibility alias
+or prefix fallback.
 
 - [ ] **Step 7: Run green and commit the atomic transition**
 
@@ -633,12 +652,14 @@ python -m pytest \
   tests/torch/test_workflows_components.py \
   tests/torch/test_rect_scaling.py \
   tests/torch/test_rectangular_scaled_forward.py \
+  tests/torch/test_ci_container_bridge.py \
   tests/test_synthetic_workflow_config.py \
   tests/test_training_workflow_initialization_summary.py \
-  tests/torch/test_grid_lines_torch_runner.py -q
+  tests/torch/test_grid_lines_torch_runner.py \
+  tests/studies/test_torch_ablation_manifest.py -q
 rg -n 'calibrate_rect_s1s2|rect_s1s2_calibration' ptycho ptycho_torch scripts tests
 git diff --check
-git add ptycho_torch/config_params.py ptycho_torch/config_factory.py ptycho_torch/config_resolution.py ptycho_torch/model.py ptycho_torch/workflows/components.py ptycho/workflows/synthetic_config.py ptycho/workflows/training.py scripts/studies/grid_lines_torch_runner.py tests/fixtures/config/generate_pre_migration_fixtures.py tests/fixtures/config/README.md tests/torch/test_ci_profile.py tests/torch/test_config_resolution_internal_transaction.py tests/torch/test_model_spec.py tests/torch/test_artifact_schema.py tests/torch/test_artifact_schema_v2.py tests/torch/test_config_pydantic_artifacts.py tests/torch/test_rect_s1s2_initialization.py tests/torch/test_workflows_components.py tests/test_synthetic_workflow_config.py tests/test_training_workflow_initialization_summary.py tests/torch/test_grid_lines_torch_runner.py
+git add ptycho_torch/rect_s1s2_initialization.py ptycho_torch/config_params.py ptycho_torch/config_factory.py ptycho_torch/config_resolution.py ptycho_torch/model.py ptycho_torch/workflows/components.py ptycho/workflows/synthetic_config.py ptycho/workflows/training.py scripts/studies/grid_lines_torch_runner.py tests/torch/test_ci_profile.py tests/torch/test_config_resolution_internal_transaction.py tests/torch/test_model_spec.py tests/torch/test_artifact_schema.py tests/torch/test_artifact_schema_v2.py tests/torch/test_config_pydantic_artifacts.py tests/torch/test_rect_s1s2_initialization.py tests/torch/test_workflows_components.py tests/torch/test_ci_container_bridge.py tests/test_synthetic_workflow_config.py tests/test_training_workflow_initialization_summary.py tests/torch/test_grid_lines_torch_runner.py tests/studies/test_torch_ablation_manifest.py
 git commit -m "fix(torch): replace data calibration with seeded dose closure"
 ```
 
