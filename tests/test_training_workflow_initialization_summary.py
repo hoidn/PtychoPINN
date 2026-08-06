@@ -10,7 +10,7 @@ def test_materialize_backend_container_preserves_exact_grouped_raw_counts():
     from ptycho.config import ModelConfig, TrainingConfig
     from ptycho.workflows import training as training_workflow
 
-    counts = np.arange(2 * 8 * 8, dtype=np.float32).reshape(2, 8, 8, 1)
+    counts = np.arange(2 * 64 * 64, dtype=np.float32).reshape(2, 64, 64, 1)
     grouped = {
         "diffraction": counts,
         "X_full": np.full_like(counts, 0.25),
@@ -20,11 +20,11 @@ def test_materialize_backend_container_preserves_exact_grouped_raw_counts():
         "nn_indices": np.arange(2, dtype=np.int32).reshape(-1, 1),
     }
     raw = argparse.Namespace(
-        probeGuess=np.ones((8, 8), dtype=np.complex64),
+        probeGuess=np.ones((64, 64), dtype=np.complex64),
         metadata=None,
     )
     config = TrainingConfig(
-        model=ModelConfig(N=8, gridsize=1),
+        model=ModelConfig(N=64, gridsize=1),
         backend="pytorch",
     )
 
