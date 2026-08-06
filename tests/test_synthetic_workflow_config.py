@@ -227,6 +227,14 @@ def test_unknown_or_user_authored_derived_fields_fail_closed(values):
         _resolve(file_values=values)
 
 
+def test_authored_historical_data_initialization_is_rejected():
+    with pytest.raises(
+        ValueError,
+        match=r"model\.rect_s1s2_init.*(?:ones.*dose_closure|dose_closure.*ones)",
+    ):
+        _resolve(file_values={"model": {"rect_s1s2_init": "data"}})
+
+
 def test_conflicting_duplicate_declarations_fail():
     with pytest.raises(ValueError, match=r"training\.epochs.*conflict|conflict.*training\.epochs"):
         _resolve(

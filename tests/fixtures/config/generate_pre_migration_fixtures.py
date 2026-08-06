@@ -123,7 +123,7 @@ def _configuration_identity():
         training_patch_weighting="probe",
         physics_forward_mode="amplitude",
         rect_s1s2_trainable=False,
-        rect_s1s2_init="data",
+        rect_s1s2_init="ones",
         amplitude_physics_gain=1.5,
         pad_object=False,
         gaussian_smoothing_sigma=0.75,
@@ -321,7 +321,7 @@ def build_fixture_payloads() -> dict[str, dict[str, Any]]:
         inference=inference,
         spec=spec,
     )
-    return {
+    current_payloads = {
         PORTABLE_V1_FIXTURE: portable_v1,
         PORTABLE_V2_FIXTURE: portable_v2,
         TENSOR_MASK_FIXTURE: _tensor_mask_payload(
@@ -330,6 +330,13 @@ def build_fixture_payloads() -> dict[str, dict[str, Any]]:
             model=model,
         ),
     }
+    historical_payloads = {
+        name: to_json_payload(payload)
+        for name, payload in current_payloads.items()
+    }
+    for payload in historical_payloads.values():
+        payload["model_spec"]["model_config"]["rect_s1s2_init"] = "data"
+    return historical_payloads
 
 
 def canonical_json(payload: Mapping[str, Any]) -> str:

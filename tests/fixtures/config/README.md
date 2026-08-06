@@ -13,6 +13,15 @@ python tests/fixtures/config/generate_pre_migration_fixtures.py --stdout
 Each fixture is compact canonical JSON followed by one newline. The SHA-256
 digests cover that exact UTF-8 byte stream, including the final newline.
 
+The historical payloads record `rect_s1s2_init="data"`, a retired mode that
+current code intentionally rejects. To preserve these exact pre-migration
+bytes while keeping the generator executable, it first constructs and validates
+a current model with `rect_s1s2_init="ones"`, encodes the serialized payload,
+and changes only that encoded field back to the historical `"data"` spelling.
+Loading these fixtures therefore requires historical code or retraining. Tests
+of the tensor tag use a copied payload changed to `"ones"`; the frozen fixture
+itself remains byte-for-byte unchanged.
+
 | Fixture | SHA-256 |
 | --- | --- |
 | `pydantic_pre_migration_portable_v1.json` | `3851004d18c298bf7f3cc3e01883f8a4fc50c9443f6c64750df2c840b33af9a4` |

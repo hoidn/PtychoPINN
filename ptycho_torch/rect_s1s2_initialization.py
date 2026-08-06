@@ -11,6 +11,7 @@ from typing import Any
 
 RECT_S1S2_INITIALIZATION_SCHEMA = "rect-s1s2-initialization-v1"
 RECT_S1S2_DOSE_CLOSURE_PATTERNS = 256
+RECT_S1S2_INITIALIZATION_MODES = ("ones", "dose_closure")
 
 _FIELDS = {
     "schema_version",
@@ -23,6 +24,23 @@ _MODE_METHODS = {
     "ones": "unit_default_no_solve",
     "dose_closure": "dose_closure_unit_object",
 }
+
+
+def validate_rect_s1s2_initialization_mode(mode: Any) -> str:
+    """Return one supported initialization mode or reject it actionably."""
+
+    if mode in RECT_S1S2_INITIALIZATION_MODES:
+        return mode
+    if mode == "data":
+        raise ValueError(
+            "rect_s1s2_init='data' is unsupported; rect_s1s2_init must be "
+            "'ones' or 'dose_closure'; historical data artifacts require "
+            "historical code or retraining."
+        )
+    raise ValueError(
+        "rect_s1s2_init must be 'ones' or 'dose_closure', "
+        f"got {mode!r}"
+    )
 
 
 def _validated_values(payload: Mapping[str, Any]) -> dict[str, Any]:
@@ -39,12 +57,7 @@ def _validated_values(payload: Mapping[str, Any]) -> dict[str, Any]:
             "rect_s1s2 initialization schema_version must be "
             f"{RECT_S1S2_INITIALIZATION_SCHEMA!r}"
         )
-    mode = payload["mode"]
-    if mode not in _MODE_METHODS:
-        raise ValueError(
-            "rect_s1s2 initialization mode must be 'ones' or "
-            f"'dose_closure', got {mode!r}"
-        )
+    mode = validate_rect_s1s2_initialization_mode(payload["mode"])
     solved_gauge = payload["solved_gauge"]
     if isinstance(solved_gauge, bool) or not isinstance(solved_gauge, Real):
         raise TypeError("rect_s1s2 initialization solved_gauge must be a number")
@@ -155,6 +168,8 @@ class RectS1S2InitializationRecord:
 
 __all__ = [
     "RECT_S1S2_DOSE_CLOSURE_PATTERNS",
+    "RECT_S1S2_INITIALIZATION_MODES",
     "RECT_S1S2_INITIALIZATION_SCHEMA",
     "RectS1S2InitializationRecord",
+    "validate_rect_s1s2_initialization_mode",
 ]

@@ -3,6 +3,10 @@ import math
 from pathlib import Path
 from typing import Tuple, Optional, Literal, Union, List
 
+from ptycho_torch.rect_s1s2_initialization import (
+    validate_rect_s1s2_initialization_mode,
+)
+
 # PyTorch is now a mandatory dependency (Phase F3.1 gate)
 # Per plans/active/INTEGRATE-PYTORCH-001/phase_f_torch_mandatory.md F3.2
 try:
@@ -210,6 +214,7 @@ class ModelConfig:
             raise ValueError("invalid spectral_bottleneck_gate_mode")
         if not math.isfinite(float(self.spectral_bottleneck_gate_init)):
             raise ValueError("spectral_bottleneck_gate_init must be finite")
+        validate_rect_s1s2_initialization_mode(self.rect_s1s2_init)
 
 
 @dataclass

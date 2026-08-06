@@ -1964,8 +1964,9 @@ def _initialize_rect_s1s2_unmanaged(
 
     if sampled < sample_patterns:
         raise ValueError(
-            "rect_s1s2 dose closure requires at least "
-            f"{sample_patterns} detector-pattern slots; sampled {sampled}"
+            "rect_s1s2 dose closure has insufficient detector-pattern slots: "
+            f"sampled {sampled}, required {sample_patterns}. Provide enough "
+            "training patterns or use '--rect-s1s2-init ones'."
         )
     if not math.isfinite(observed_sum) or observed_sum <= 0.0:
         raise ValueError(

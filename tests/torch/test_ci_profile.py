@@ -36,7 +36,7 @@ CANONICAL_CI_BUNDLE = {
     "loss_function": "Poisson",
     "amplitude_physics_gain": 1.0,
     "rect_s1s2_trainable": True,
-    "rect_s1s2_init": "ones",
+    "rect_s1s2_init": "dose_closure",
     "cnn_output_mode": "real_imag",
 }
 
@@ -77,6 +77,16 @@ def test_resolve_ci_profile_returns_exact_canonical_bundle():
 
     assert resolve_ci_profile() == CANONICAL_CI_BUNDLE
     assert resolve_ci_profile(None) == CANONICAL_CI_BUNDLE
+
+
+def test_bare_model_config_keeps_ones_default_and_rejects_historical_data():
+    assert PTModelConfig().rect_s1s2_init == "ones"
+
+    with pytest.raises(
+        ValueError,
+        match=r"data.*unsupported.*ones.*dose_closure.*historical code or retraining",
+    ):
+        PTModelConfig(rect_s1s2_init="data")
 
 
 def test_resolve_ci_profile_passes_through_non_contract_overrides():
@@ -142,7 +152,8 @@ def test_create_training_payload_ci_profile_resolves_coherent_payload(
     assert payload.pt_data_config.measurement_domain == "count_intensity"
     assert payload.pt_model_config.physics_forward_mode == "rectangular_scaled"
     assert payload.pt_model_config.rect_s1s2_trainable is True
-    assert payload.pt_model_config.rect_s1s2_init == "ones"
+    assert payload.pt_model_config.rect_s1s2_init == "dose_closure"
+    assert payload.model_spec.to_model_config().rect_s1s2_init == "dose_closure"
     assert payload.pt_model_config.cnn_output_mode == "real_imag"
     assert payload.pt_model_config.amplitude_physics_gain == 1.0
     assert payload.pt_model_config.loss_function == "Poisson"
@@ -426,4 +437,4 @@ def test_cli_profile_reaches_training_execution(tiny_train_npz, tmp_path, monkey
     assert forwarded["scale_contract_version"] == "ci_intensity_v2"
     assert forwarded["measurement_domain"] == "count_intensity"
     assert forwarded["torch_loss_mode"] == "poisson"
-    assert forwarded["rect_s1s2_init"] == "ones"
+    assert forwarded["rect_s1s2_init"] == "dose_closure"

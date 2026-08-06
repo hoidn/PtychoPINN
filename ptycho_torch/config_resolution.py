@@ -22,6 +22,9 @@ from ptycho_torch.execution_request import (
 from ptycho_torch.object_compatibility import (
     resolve_torch_model_object_policy,
 )
+from ptycho_torch.rect_s1s2_initialization import (
+    validate_rect_s1s2_initialization_mode,
+)
 from ptycho_torch.scaling_contract import (
     resolve_scale_contract,
     validate_amplitude_physics_gain,
@@ -1029,11 +1032,7 @@ def _validate_model_domains(config: ModelConfig) -> None:
             f"{sorted(SUPPORTED_TORCH_ARCHITECTURES)}, "
             f"got {config.architecture!r}"
         )
-    if config.rect_s1s2_init not in {"ones", "dose_closure"}:
-        raise ValueError(
-            "rect_s1s2_init must be 'ones' or 'dose_closure', "
-            f"got {config.rect_s1s2_init!r}"
-        )
+    validate_rect_s1s2_initialization_mode(config.rect_s1s2_init)
 
 
 def _validate_inference_domains(config: InferenceConfig) -> None:

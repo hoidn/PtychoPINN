@@ -151,7 +151,10 @@ def test_initialization_record_constructor_cannot_bypass_validation():
         (lambda value: value.update(schema_version="obsolete-v0"), "schema_version"),
         (lambda value: value.pop("method"), "fields"),
         (lambda value: value.update(extra=True), "fields"),
-        (lambda value: value.update(mode="data"), "mode"),
+        (
+            lambda value: value.update(mode="data"),
+            "data.*unsupported.*ones.*dose_closure.*historical code or retraining",
+        ),
         (lambda value: value.update(solved_gauge=float("nan")), "solved_gauge"),
         (lambda value: value.update(solved_gauge=0.0), "solved_gauge"),
         (lambda value: value.update(sampled_patterns=True), "sampled_patterns"),
@@ -611,7 +614,10 @@ def test_dose_closure_fails_clearly_when_fewer_than_256_patterns_exist():
 
     model, loader, _ = _known_gauge_loader(patterns=255)
 
-    with pytest.raises(ValueError, match="at least 256.*255"):
+    with pytest.raises(
+        ValueError,
+        match=r"sampled 255.*required 256.*--rect-s1s2-init ones",
+    ):
         components._initialize_rect_s1s2(
             model,
             mode="dose_closure",
@@ -628,7 +634,10 @@ def test_dose_closure_reports_detector_pattern_count_for_short_grouped_loader():
         batch_size=7,
     )
 
-    with pytest.raises(ValueError, match="at least 256.*sampled 252"):
+    with pytest.raises(
+        ValueError,
+        match=r"sampled 252.*required 256.*--rect-s1s2-init ones",
+    ):
         components._initialize_rect_s1s2(
             model,
             mode="dose_closure",
@@ -752,7 +761,10 @@ def test_dose_closure_preserves_nested_train_eval_state():
     assert model.model.forward_model.rect_scaler.training is False
 
 
-def _resolved_training_case(tmp_path, *, mode="dose_closure"):
+_OMIT_INIT_OVERRIDE = object()
+
+
+def _resolved_training_case(tmp_path, *, mode=_OMIT_INIT_OVERRIDE):
     from ptycho_torch.config_factory import create_training_payload
     from ptycho_torch.execution_request import ExecutionRequest
 
@@ -773,17 +785,19 @@ def _resolved_training_case(tmp_path, *, mode="dose_closure"):
         xcoords=np.arange(patterns, dtype=np.float32),
         ycoords=np.arange(patterns, dtype=np.float32),
     )
+    overrides = {
+        "n_groups": patterns,
+        "batch_size": 4,
+        "gridsize": 1,
+        "object_big": False,
+        "architecture": "cnn",
+    }
+    if mode is not _OMIT_INIT_OVERRIDE:
+        overrides["rect_s1s2_init"] = mode
     payload = create_training_payload(
         train_data_file=train_path,
         output_dir=tmp_path / "output",
-        overrides={
-            "n_groups": patterns,
-            "batch_size": 4,
-            "gridsize": 1,
-            "object_big": False,
-            "architecture": "cnn",
-            "rect_s1s2_init": mode,
-        },
+        overrides=overrides,
         execution_config=ExecutionRequest(
             values={"accelerator": "cpu"},
             explicit_fields=frozenset({"accelerator"}),
@@ -843,6 +857,26 @@ def test_training_entry_initializes_before_fit_and_persists_same_summary_record(
     assert results["training_summary_path"] == summary_path
     assert json.loads(summary_path.read_text(encoding="utf-8")) == record
     assert str(record) in caplog.text
+
+
+def test_explicit_ones_training_resolution_does_not_forward_a_loader(tmp_path):
+    from ptycho_torch.workflows import components
+
+    _, payload = _resolved_training_case(tmp_path, mode="ones")
+
+    class _ExplodingLoader:
+        def __iter__(self):
+            raise AssertionError("explicit ones must not consume the training loader")
+
+    assert payload.pt_model_config.rect_s1s2_init == "ones"
+    assert (
+        components._rect_s1s2_training_loader(
+            object(),
+            _ExplodingLoader(),
+            payload.pt_model_config.rect_s1s2_init,
+        )
+        is None
+    )
 
 
 def test_supervised_training_publishes_ones_record_without_rectangular_scaler(
