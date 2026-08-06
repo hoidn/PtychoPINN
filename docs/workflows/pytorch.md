@@ -181,7 +181,30 @@ unchanged:
 | `cnn_output_mode` | `'amp_phase'` | `'real_imag'` (Unsupervised-only) | CNN emits `(real, imag)` via `ScaledTanh` boxes (real ∈ (−0.8, 1.2), imag ∈ (−1.2, 1.2)); prerequisite for `rectangular_scaled`. Representability limit: unit-amplitude objects near `|phase| → π` are unreconstructable in this mode. |
 | `use_shared_decoder` | `False` | `True` | Single shared decoder emitting `2*C_out` channels, split per branch; architecture-only knob. |
 | `training_patch_weighting` | `'central_mask'` | `'probe'` (or `'uniform'`) | Training-forward reassembly weighting: binary center mask vs `Σ|probe|²`-weighted (`'uniform'` isolates the code-path change without probe weighting). Distinct from the inference-only `InferenceConfig.patch_weighting`. |
-| `physics_forward_mode` | `'amplitude'` | `'rectangular_scaled'` | Routes patches through `RectangularScaledDiffraction` (analytic real/imag intensity model with per-dataset trainable `s1`/`s2` unless `rect_s1s2_trainable=False`). Requires `cnn_output_mode='real_imag'`; the matching intensity-domain losses (`RectangularPoissonLoss` / `RectangularMAELoss`) are selected automatically. |
+| `physics_forward_mode` | `'amplitude'` | `'rectangular_scaled'` | Routes patches through `RectangularScaledDiffraction` (analytic real/imag intensity model with per-dataset trainable `s1`/`s2` unless `rect_s1s2_trainable=False`). Requires an effective `real_imag` generator output; for the CNN, select `cnn_output_mode='real_imag'`. Matching intensity-domain losses are selected automatically. |
+
+`cnn_output_mode` and `physics_forward_mode` are coupled but are not aliases.
+The first controls how the CNN decoder parameterizes the object. Other
+architectures use `generator_output_mode` for the equivalent generator-output
+contract. Either representation is normalized to one complex object before the
+second control selects the differentiable diffraction calculation and detector
+prediction domain:
+
+```text
+generator output representation       complex object       physics forward
+amp/phase or real/imaginary  ────────► x              ────► amplitude or intensity
+```
+
+The supported combinations are:
+
+| Effective generator output | `physics_forward_mode='amplitude'` | `physics_forward_mode='rectangular_scaled'` |
+|---|---|---|
+| `amp_phase` | Supported legacy amplitude-domain path | Rejected: independent real/imaginary scaling would not match the generator heads |
+| `real_imag` | Supported representation ablation using the amplitude-domain forward | Supported rectangular intensity path used by CI |
+
+The CI profiles select `real_imag` and `rectangular_scaled` together because
+that is their coherent scientific contract, not because the two fields have
+the same meaning.
 
 Two further knobs are **inference-only** (`InferenceConfig.patch_weighting`,
 `InferenceConfig.varpro_scaling`): they affect only

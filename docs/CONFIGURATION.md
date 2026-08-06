@@ -531,22 +531,30 @@ ordinary resolution without applying a named bundle.
 
 The profile locks these coherent contract fields:
 
-| Field | Required value |
-|---|---|
-| `scale_contract_version` | `ci_intensity_v2` |
-| `measurement_domain` | `count_intensity` |
-| `physics_forward_mode` | `rectangular_scaled` |
-| `torch_loss_mode` | `poisson` |
-| `loss_function` | `Poisson` |
+| Field | Required value | Meaning |
+|---|---|---|
+| `scale_contract_version` | `ci_intensity_v2` | Selects the versioned scaling and units contract persisted with the resolved model and artifact. It is an identity tag, not a numerical multiplier. |
+| `measurement_domain` | `count_intensity` | Declares that NPZ diffraction contains detector counts/intensity rather than normalized amplitude. |
+| `physics_forward_mode` | `rectangular_scaled` | Selects the real/imaginary intensity forward with per-dataset `s1`/`s2` gauge factors. |
+| `torch_loss_mode` | `poisson` | Selects the primary Torch/Lightning Poisson objective that compares predicted intensity with measured counts. |
+| `loss_function` | `Poisson` | Keeps the shared/legacy model loss identity aligned; it does not override `torch_loss_mode` in Lightning. |
 
 It also supplies these non-contract defaults, which callers may override:
 
-| Field | Default |
-|---|---|
-| `amplitude_physics_gain` | `1.0` |
-| `rect_s1s2_trainable` | `True` |
-| `rect_s1s2_init` | `ones` |
-| `cnn_output_mode` | `real_imag` |
+| Field | Default | Meaning |
+|---|---|---|
+| `amplitude_physics_gain` | `1.0` | Adds no legacy amplitude-forward gain. Normal validation requires exactly `1.0` while the rectangular forward is active. |
+| `rect_s1s2_trainable` | `True` | Lets the optimizer update the per-dataset real/imaginary gauge factors after initialization. |
+| `rect_s1s2_init` | `ones` | Starts `s1=s2=1` without inspecting detector data. `dose_closure` is the data-derived opt-in described below. |
+| `cnn_output_mode` | `real_imag` | Makes CNN heads represent real and imaginary object components. Non-CNN generators use their `generator_output_mode` contract. |
+
+`cnn_output_mode` and `physics_forward_mode` are coupled but not aliases: the
+first chooses the CNN's object representation, while the second chooses the
+downstream diffraction/scaling calculation and its prediction domain. The CI
+profile selects both because `rectangular_scaled` requires an effective
+real/imaginary generator output; real/imaginary output can also be used with the
+amplitude forward. See the
+[PyTorch output/forward compatibility matrix](workflows/pytorch.md#35-cnn-output-and-physics-forward-knobs).
 
 An explicit contradiction of a locked contract field fails closed. Non-contract
 profile defaults follow normal override precedence, then the downstream scaling
