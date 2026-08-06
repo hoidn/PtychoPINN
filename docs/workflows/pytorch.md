@@ -118,6 +118,16 @@ and validation. It locks exactly five fields:
 overrideable. With `profile=None`, ordinary resolution applies without a named
 bundle.
 
+The profile's overrideable `rect_s1s2_init` default is `dose_closure`. A bare
+`ModelConfig` remains `ones`, and an explicit `ones` override wins over the
+profile. On the native CLI, omitting `--rect-s1s2-init` authors no override, so
+`--profile ci` retains `dose_closure`.
+
+Fresh dose-closure runs write `rect-s1s2-initialization-v2`; strict historical
+v1 records remain readable without being rewritten. See the
+[configuration guide](../CONFIGURATION.md#dose-closure-initialization) for the
+selection identity, record method, and failure semantics.
+
 This training-only profile is distinct from the synthetic runner's
 `--profile cnn-lines-ci`. The persisted resolved model, data, training, and
 bundle identity controls inference, so a profile name is not reselected when a
@@ -271,11 +281,29 @@ CUDA_VISIBLE_DEVICES="0" python -m ptycho_torch.train \
   --accelerator cuda --logger csv --quiet
 ```
 
+For a count-intensity run, omission keeps the `ci` profile's dose-closure
+default; pass `ones` only when unit initialization is intentional:
+
+```bash
+python -m ptycho_torch.train \
+  --train_data_file datasets/counts_train.npz \
+  --output_dir outputs/ci_run \
+  --profile ci
+
+python -m ptycho_torch.train \
+  --train_data_file datasets/counts_train.npz \
+  --output_dir outputs/ci_unit_init \
+  --profile ci --rect-s1s2-init ones
+```
+
+These two flags belong to the native Torch CLI; the unified `ptycho_train`
+command does not expose `--profile ci` or `--rect-s1s2-init`.
+
 Flags (`python -m ptycho_torch.train --help` is authoritative):
 
 | Group | Flags |
 |---|---|
-| Data/model | `--train_data_file`, `--test_data_file`, `--output_dir`, `--n_images` (number of groups), `--gridsize`, `--batch_size`, `--max_epochs`, `--config <yaml>` |
+| Data/model | `--train_data_file`, `--test_data_file`, `--output_dir`, `--n_images` (number of groups), `--gridsize`, `--batch_size`, `--max_epochs`, `--profile {ci}`, `--rect-s1s2-init {ones,dose_closure}` |
 | Runtime | `--accelerator {auto,cuda,cpu,tpu,mps}`, `--deterministic/--no-deterministic`, `--num-workers`, `--quiet` |
 | Optimization | `--learning-rate`, `--scheduler {Default,Exponential,MultiStage,Adaptive}`, `--accumulate-grad-batches` |
 | Checkpointing | `--enable-checkpointing/--disable-checkpointing`, `--checkpoint-save-top-k`, `--checkpoint-monitor` (default `val_loss`, auto-aliased to the model's actual metric, e.g. `poisson_val_loss`), `--checkpoint-mode`, `--early-stop-patience` |

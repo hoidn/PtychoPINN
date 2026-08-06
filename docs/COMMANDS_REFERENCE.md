@@ -108,6 +108,31 @@ ptycho_train --train_data_file dataset.npz --n_subsample 5000 --n_groups 1000 --
 ptycho_train --train_data_file dataset.npz --n_subsample 3000 --n_groups 500 --subsample_seed 42 --output_dir my_run
 ```
 
+### Native Torch count-intensity profile
+
+The native Torch CLI owns the CI profile and rectangular-gauge flag. Omitting
+the flag authors no override, so the profile resolves to `dose_closure`; an
+explicit `ones` wins:
+
+```bash
+# Fixed representative dose closure (the ci profile default)
+python -m ptycho_torch.train \
+  --train_data_file counts_train.npz \
+  --output_dir ci_run \
+  --profile ci
+
+# Keep exact unit initialization instead
+python -m ptycho_torch.train \
+  --train_data_file counts_train.npz \
+  --output_dir ci_unit_init \
+  --profile ci --rect-s1s2-init ones
+```
+
+Do not pass `--rect-s1s2-init` to the unified `ptycho_train` command; it does
+not expose that flag. The
+[configuration guide](CONFIGURATION.md#dose-closure-initialization) defines
+dose-closure sampling and failure behavior.
+
 ### 📊 NEW: Independent Sampling Control
 
 The project now supports **independent control** of data subsampling and neighbor grouping:

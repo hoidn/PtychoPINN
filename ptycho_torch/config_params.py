@@ -171,8 +171,8 @@ class ModelConfig:
     # (only consulted when physics_forward_mode='rectangular_scaled').
     rect_s1s2_trainable: bool = True
     # Initialization of s1/s2. 'ones' preserves unit initialization;
-    # CI-only 'dose_closure' solves a shared gauge from the deterministic first
-    # 256 detector-pattern slots presented by the training loader.
+    # CI-only 'dose_closure' solves a shared gauge from a pinned uniform sample
+    # of 256 logical detector slots across the resolved training dataset.
     rect_s1s2_init: Literal['ones', 'dose_closure'] = 'ones'
     # PROBE-RANK-001 (design 2026-07-12 §3.3): explicit amplitude physics
     # gain. The banned flat (B, H, W) probe layout used to multiply the

@@ -545,7 +545,7 @@ It also supplies these non-contract defaults, which callers may override:
 |---|---|---|
 | `amplitude_physics_gain` | `1.0` | Adds no legacy amplitude-forward gain. Normal validation requires exactly `1.0` while the rectangular forward is active. |
 | `rect_s1s2_trainable` | `True` | Lets the optimizer update the per-dataset real/imaginary gauge factors after initialization. |
-| `rect_s1s2_init` | `ones` | Starts `s1=s2=1` without inspecting detector data. `dose_closure` is the data-derived opt-in described below. |
+| `rect_s1s2_init` | `dose_closure` | Solves the shared startup gauge from the resolved training data. Explicit `ones` keeps exact unit initialization without inspecting the loader. |
 | `cnn_output_mode` | `real_imag` | Makes CNN heads represent real and imaginary object components. Non-CNN generators use their `generator_output_mode` contract. |
 
 `cnn_output_mode` and `physics_forward_mode` are coupled but not aliases: the
@@ -558,17 +558,19 @@ amplitude forward. See the
 
 An explicit contradiction of a locked contract field fails closed. Non-contract
 profile defaults follow normal override precedence, then the downstream scaling
-and model validators enforce coherence. `dose_closure` is an opt-in
-initialization and requires the complete CI contract.
+and model validators enforce coherence. Omitting an initialization override
+therefore keeps the profile's `dose_closure` default; an explicit `ones` wins.
+A bare `ModelConfig` still defaults to `ones`, because it has no resolved CI
+training dataset. `dose_closure` requires the complete CI contract.
 
 The profile name is an authoring convenience, not an inference selector. The
 persisted resolved model, data, training, and bundle identity is authoritative
 when the model is loaded; inference does not require selecting `ci` again.
 
-#### Dose-closure initialization example
+#### Dose-closure initialization
 
-For an existing count-intensity NPZ, select `dose_closure` as a non-contract
-override of the training-only profile:
+For an existing count-intensity NPZ, select the training-only profile and omit
+the initialization field to use its `dose_closure` default:
 
 ```python
 from ptycho_torch.config_factory import resolve_training_payload
@@ -578,7 +580,6 @@ payload = resolve_training_payload(
     output_dir=output_dir,
     profile="ci",                   # locks the coherent CI contract set
     overrides={
-        "rect_s1s2_init": "dose_closure",
         "gridsize": 1,
         "N": 128,
         "n_groups": 4489,
@@ -592,9 +593,22 @@ The non-obvious pieces:
 | Piece | Meaning |
 |---|---|
 | `profile="ci"` | Locks `ci_intensity_v2` + `count_intensity` + `rectangular_scaled` + Poisson as an inseparable set; contradicting any locked field fails closed. |
-| `rect_s1s2_init="dose_closure"` | Before fitting, one shared `s1=s2` startup gauge is solved from the actual forward with a unit object over the deterministic first 256 detector-pattern slots. It fixes startup conditioning when the stored probe's global scalar does not match the recorded counts; it does not calibrate the probe or identify physical object units. |
+| `rect_s1s2_init="dose_closure"` | Before fitting, one shared `s1=s2` startup gauge is solved from the actual forward with a unit object. Exactly 256 logical `(row, channel)` detector slots are selected uniformly without replacement across the complete resolved training dataset using fixed seed `20260806` and policy `splitmix64_rejection_v1`. It fixes startup conditioning when the stored probe's global scalar does not match the recorded counts; it does not calibrate the probe or identify physical object units. |
 | `n_groups` / `gridsize` | Required grouping identity: number of sampled groups and frames per group axis. `gridsize=1` degenerates grouping to single-frame groups. |
-| Startup record | Training persists the strict `rect-s1s2-initialization-v1` record (`solved_gauge`, `method`, `mode`, `sampled_patterns`) in `training_summary.json`; a solved gauge far from 1 signals that the data's probe/object decomposition convention disagrees with the forward model. |
+| Startup record | Fresh training persists a strict `rect-s1s2-initialization-v2` record (`solved_gauge`, `method`, `mode`, `sampled_patterns`) in `training_summary.json`; the dose method is `dose_closure_seeded_uniform_unit_object`. Readers accept valid historical v1 prefix-era records without rewriting them. A solved gauge far from 1 signals that the data's probe/object decomposition convention disagrees with the forward model. |
+
+The [representative-sampling design](superpowers/specs/2026-08-06-ci-dose-closure-representative-sampling-design.md#sampling-contract)
+defines the pinned draw and logical-slot mapping.
+
+The sample size, seed, and policy are fixed rather than user-configurable. If
+the resolved training population has fewer than 256 detector slots or cannot
+produce a valid gauge, initialization fails; it does not use a prefix, reduce
+the sample size, or fall back to `ones`. To request unit initialization, set
+`overrides={"rect_s1s2_init": "ones", ...}` explicitly.
+
+The only supported values are `ones` and `dose_closure`. Historical
+`rect_s1s2_init="data"` configuration and artifacts are not migrated or
+translated; use historical code or retrain them.
 
 For end-to-end generation and training, use
 `ptycho_synthetic --profile cnn-lines-ci`; that synthetic profile selects

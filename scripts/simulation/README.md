@@ -180,7 +180,9 @@ a workflow file are accepted for the same reason.
 The profile's gradient-clipping defaults
 (`gradient_clip_val=1.0`, `gradient_clip_algorithm=norm`) are ordinary
 overrideable defaults. `dose_closure` solves a shared startup gauge from the
-data; `ones` starts `s1=s2=1`.
+training data; `ones` starts `s1=s2=1`. The
+[configuration guide](../../docs/CONFIGURATION.md#dose-closure-initialization)
+owns the selection identity and retirement rules.
 
 For this profile, NPZ diffraction (`diff3d`) is Poisson-realized detector
 counts, not square-root intensity. `probeGuess` is the CI-scaled physical
@@ -269,12 +271,15 @@ scientific identity. Downstream-only settings therefore do not redefine an
 already complete simulation, but an exact replay must retain the complete
 identity required by every selected stage.
 
-Training writes the strict `rect-s1s2-initialization-v1` record to
-`OUTPUT/training/training_summary.json`, and the current
+Fresh training writes the strict `rect-s1s2-initialization-v2` record to
+`OUTPUT/training/training_summary.json`; dose closure records method
+`dose_closure_seeded_uniform_unit_object`. The current
 `synthetic-stage-manifest-v2` training entry requires that file alongside the
 model bundle. Reuse reparses the record and requires its mode to match the
-resolved workflow. Historical `synthetic-stage-manifest-v1` roots lack this
-contract; use a new output root or retrain them.
+resolved workflow. Strict historical prefix-era v1 initialization records
+remain readable and reusable without being rewritten. Historical
+`synthetic-stage-manifest-v1` roots lack the initialization-record contract;
+use a new output root or retrain them.
 
 ### Reconstruction and stitching
 
