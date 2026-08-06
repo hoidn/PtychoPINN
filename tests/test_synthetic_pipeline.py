@@ -56,20 +56,29 @@ def _write(path: Path, payload: bytes = b"artifact") -> Path:
     return path
 
 
-def _initialization_payload(mode="ones", *, gauge=3.25):
+def _initialization_payload(
+    mode="ones",
+    *,
+    gauge=3.25,
+    schema_version="rect-s1s2-initialization-v2",
+):
     if mode == "ones":
         return {
-            "schema_version": "rect-s1s2-initialization-v1",
+            "schema_version": schema_version,
             "mode": "ones",
             "solved_gauge": 1.0,
             "method": "unit_default_no_solve",
             "sampled_patterns": 0,
         }
     return {
-        "schema_version": "rect-s1s2-initialization-v1",
+        "schema_version": schema_version,
         "mode": "dose_closure",
         "solved_gauge": gauge,
-        "method": "dose_closure_unit_object",
+        "method": (
+            "dose_closure_seeded_uniform_unit_object"
+            if schema_version == "rect-s1s2-initialization-v2"
+            else "dose_closure_unit_object"
+        ),
         "sampled_patterns": 256,
     }
 
@@ -283,10 +292,32 @@ def test_complete_matching_stages_are_reused_without_executor_calls(tmp_path):
 
 
 def test_matching_historical_v1_initialization_record_remains_reusable(tmp_path):
-    _run(_request(tmp_path, ("simulate", "train")), _Executors())
+    historical_record = _initialization_payload(
+        "ones",
+        schema_version="rect-s1s2-initialization-v1",
+    )
+
+    class HistoricalExecutors(_Executors):
+        def train(self, request):
+            self.calls.append("train")
+            return TrainingStageResult(
+                bundle_path=_write(
+                    request.output_root / "training" / "wts.h5.zip"
+                ),
+                training_summary_path=_write_initialization_summary(
+                    request.output_root / "training" / "training_summary.json",
+                    historical_record,
+                ),
+                rect_s1s2_initialization=historical_record,
+            )
+
+    _run(
+        _request(tmp_path, ("simulate", "train")),
+        HistoricalExecutors(),
+    )
     summary_path = tmp_path / "training" / "training_summary.json"
     historical_summary = summary_path.read_bytes()
-    assert json.loads(historical_summary) == _initialization_payload("ones")
+    assert json.loads(historical_summary) == historical_record
     manifest = json.loads((tmp_path / "stage_manifest.json").read_text())
     assert manifest["schema_version"] == "synthetic-stage-manifest-v2"
     replay = _Executors()

@@ -58,6 +58,7 @@ from dataclasses import asdict, dataclass
 import io
 import logging
 import math
+from numbers import Integral
 from pathlib import Path
 import zipfile
 from typing import Union, Optional, Tuple, Dict, Any
@@ -90,6 +91,11 @@ from ptycho_torch.object_compatibility import resolve_model_object_compatibility
 from ptycho_torch.rect_s1s2_initialization import (
     RECT_S1S2_DOSE_CLOSURE_PATTERNS,
     RectS1S2InitializationRecord,
+)
+from ptycho_torch.rect_s1s2_sampling import (
+    SelectedDoseClosureRow,
+    _base_row_for_logical,
+    build_dose_closure_sample_plan,
 )
 
 # PyTorch imports (now mandatory per Phase F3.1/F3.2)
@@ -1811,44 +1817,342 @@ def _move_batch_to_device(batch, device):
     return batch
 
 
-def _slice_batch_prefix(batch, count, batch_size):
-    """Slice tensors carrying the current batch dimension to ``count`` rows."""
+@dataclass(frozen=True, slots=True)
+class _RectS1S2IndexedRows:
+    value: Any
+    access_rows: tuple[SelectedDoseClosureRow, ...]
 
-    if hasattr(batch, "batch_size") and hasattr(batch, "__getitem__"):
-        return batch[:count]
-    if isinstance(batch, dict):
-        return {
-            key: _slice_batch_prefix(value, count, batch_size)
-            for key, value in batch.items()
-        }
-    if isinstance(batch, (list, tuple)):
-        return type(batch)(
-            _slice_batch_prefix(value, count, batch_size) for value in batch
+
+@dataclass(frozen=True, slots=True)
+class _RectS1S2SelectedBatch:
+    value: Any
+    access_rows: tuple[SelectedDoseClosureRow, ...]
+
+
+_RECT_S1S2_IDENTITY_FIELD = "__rect_s1s2_logical_row_identity__"
+
+
+def _rect_s1s2_attach_identities(value, access_rows, *, batched_indexing):
+    import torch
+
+    if not isinstance(value, (list, tuple)) or not value:
+        raise ValueError(
+            "rect_s1s2 selected indexing must return a sequence whose first "
+            "item is the batch field mapping"
         )
-    if hasattr(batch, "ndim") and batch.ndim > 0 and batch.shape[0] == batch_size:
-        return batch[:count]
-    return batch
+    fields = value[0]
+    if _RECT_S1S2_IDENTITY_FIELD in fields:
+        raise ValueError(
+            "rect_s1s2 reserved identity field collides with dataset fields"
+        )
+    if isinstance(fields, dict):
+        identified_fields = dict(fields)
+    elif hasattr(fields, "batch_size") and callable(
+        getattr(fields, "clone", None)
+    ):
+        identified_fields = fields.clone(recurse=False)
+    else:
+        raise ValueError(
+            "rect_s1s2 selected indexing requires mutable mapping fields"
+        )
+    logical_rows = torch.tensor(
+        [row.logical_row for row in access_rows],
+        dtype=torch.int64,
+    )
+    identity = logical_rows if batched_indexing else logical_rows[0]
+    identified_fields[_RECT_S1S2_IDENTITY_FIELD] = identity
+    if isinstance(value, tuple):
+        return (identified_fields, *value[1:])
+    return [identified_fields, *value[1:]]
 
 
-def _deterministic_rect_s1s2_loader(training_loader):
-    """Rebuild a loader over the same dataset without randomized sampling."""
+def _rect_s1s2_verify_collated_identities(batch, access_rows):
+    import torch
+
+    try:
+        fields = batch[0]
+        identity = fields[_RECT_S1S2_IDENTITY_FIELD]
+        collated_logical_rows = tuple(
+            int(value)
+            for value in torch.as_tensor(identity).reshape(-1).tolist()
+        )
+    except Exception as error:
+        raise ValueError(
+            "rect_s1s2 maintained collation must preserve row identity"
+        ) from error
+    expected_logical_rows = tuple(row.logical_row for row in access_rows)
+    if (
+        len(collated_logical_rows) != len(expected_logical_rows)
+        or set(collated_logical_rows) != set(expected_logical_rows)
+    ):
+        raise ValueError(
+            "rect_s1s2 maintained collation has missing or extra identity "
+            "coverage"
+        )
+    if collated_logical_rows != expected_logical_rows:
+        raise ValueError(
+            "rect_s1s2 maintained collation has reordered identity coverage"
+        )
+    try:
+        del fields[_RECT_S1S2_IDENTITY_FIELD]
+    except Exception as error:
+        raise ValueError(
+            "rect_s1s2 maintained collation must expose removable row identity"
+        ) from error
+
+
+class _RectS1S2SelectedDataset:
+    """Index only the immutable logical rows selected for dose closure."""
+
+    def __init__(self, dataset, access_rows, *, batched_indexing):
+        self.dataset = dataset
+        self.access_rows = tuple(access_rows)
+        self.batched_indexing = bool(batched_indexing)
+
+    def __len__(self):
+        return len(self.access_rows)
+
+    def __getitem__(self, index):
+        import torch
+
+        if self.batched_indexing:
+            if isinstance(index, torch.Tensor):
+                indices = index.reshape(-1).tolist()
+            elif isinstance(index, (list, tuple)):
+                indices = index
+            else:
+                raise TypeError(
+                    "rect_s1s2 TensorDict selected indexing requires a batch "
+                    "of integer indices"
+                )
+            rows = tuple(self.access_rows[int(value)] for value in indices)
+            try:
+                value = self.dataset[[row.logical_row for row in rows]]
+            except Exception as error:
+                raise ValueError(
+                    "rect_s1s2 selected TensorDict dataset does not support "
+                    "maintained batched indexing"
+                ) from error
+            value = _rect_s1s2_attach_identities(
+                value,
+                rows,
+                batched_indexing=True,
+            )
+            return _RectS1S2IndexedRows(value=value, access_rows=rows)
+
+        if isinstance(index, bool) or not isinstance(index, Integral):
+            raise TypeError(
+                "rect_s1s2 selected dataset requires an integer index"
+            )
+        row = self.access_rows[int(index)]
+        try:
+            value = self.dataset[row.logical_row]
+        except Exception as error:
+            raise ValueError(
+                "rect_s1s2 selected dataset does not support logical-row "
+                "indexing"
+            ) from error
+        value = _rect_s1s2_attach_identities(
+            value,
+            (row,),
+            batched_indexing=False,
+        )
+        return _RectS1S2IndexedRows(value=value, access_rows=(row,))
+
+
+class _RectS1S2MaintainedCollation:
+    def __init__(self, collate_fn, *, batched_indexing):
+        self.collate_fn = collate_fn
+        self.batched_indexing = bool(batched_indexing)
+
+    def __call__(self, indexed):
+        if self.batched_indexing:
+            if not isinstance(indexed, _RectS1S2IndexedRows):
+                raise ValueError(
+                    "rect_s1s2 selected TensorDict indexing returned an "
+                    "unsupported value"
+                )
+            values = indexed.value
+            access_rows = indexed.access_rows
+        else:
+            if not isinstance(indexed, list) or not all(
+                isinstance(value, _RectS1S2IndexedRows) for value in indexed
+            ):
+                raise ValueError(
+                    "rect_s1s2 selected dataset indexing returned an "
+                    "unsupported value"
+                )
+            values = [value.value for value in indexed]
+            access_rows = tuple(
+                row for value in indexed for row in value.access_rows
+            )
+        try:
+            batch = self.collate_fn(values)
+        except Exception as error:
+            raise ValueError(
+                "rect_s1s2 selected rows could not use the maintained "
+                "training-loader collation"
+            ) from error
+        _rect_s1s2_verify_collated_identities(batch, access_rows)
+        return _RectS1S2SelectedBatch(value=batch, access_rows=access_rows)
+
+
+def _rect_s1s2_indexable_dataset(training_loader):
+    dataset = getattr(training_loader, "dataset", None)
+    if not callable(getattr(dataset, "__len__", None)) or not callable(
+        getattr(dataset, "__getitem__", None)
+    ):
+        raise TypeError(
+            "rect_s1s2 dose closure requires an indexable training-loader "
+            "dataset"
+        )
+    try:
+        len(dataset)
+    except Exception as error:
+        raise ValueError(
+            "rect_s1s2 dose-closure dataset must have a valid length"
+        ) from error
+    return dataset
+
+
+def _rebuild_rect_s1s2_loader(
+    training_loader,
+    *,
+    access_rows,
+    batch_size,
+):
+    """Rebuild one loader over selected logical rows without ambient state."""
 
     import torch
 
-    loader_type = (
-        TensorDictDataLoader
-        if isinstance(training_loader, TensorDictDataLoader)
-        else torch.utils.data.DataLoader
+    dataset = _rect_s1s2_indexable_dataset(training_loader)
+    if isinstance(batch_size, bool) or not isinstance(batch_size, Integral):
+        raise TypeError("rect_s1s2 selected batch size must be a positive integer")
+    batch_size = int(batch_size)
+    if batch_size <= 0:
+        raise ValueError("rect_s1s2 selected batch size must be a positive integer")
+    collate_fn = getattr(training_loader, "collate_fn", None)
+    if not callable(collate_fn):
+        raise ValueError(
+            "rect_s1s2 dose closure requires maintained callable collation"
+        )
+    rows = tuple(access_rows)
+    if not all(isinstance(row, SelectedDoseClosureRow) for row in rows):
+        raise TypeError(
+            "rect_s1s2 selected access rows must be immutable selection values"
+        )
+    if isinstance(training_loader, TensorDictDataLoader):
+        loader_type = TensorDictDataLoader
+        batched_indexing = True
+    elif isinstance(training_loader, torch.utils.data.DataLoader):
+        loader_type = torch.utils.data.DataLoader
+        batched_indexing = False
+    else:
+        raise TypeError(
+            "rect_s1s2 dose closure supports ordinary DataLoader or "
+            "TensorDictDataLoader instances"
+        )
+    selected_dataset = _RectS1S2SelectedDataset(
+        dataset,
+        rows,
+        batched_indexing=batched_indexing,
     )
+    local_generator = torch.Generator()
+    local_generator.manual_seed(0)
     return loader_type(
-        training_loader.dataset,
-        batch_size=training_loader.batch_size,
+        selected_dataset,
+        batch_size=batch_size,
         shuffle=False,
         drop_last=False,
         num_workers=0,
         pin_memory=False,
-        collate_fn=training_loader.collate_fn,
+        collate_fn=_RectS1S2MaintainedCollation(
+            collate_fn,
+            batched_indexing=batched_indexing,
+        ),
+        generator=local_generator,
     )
+
+
+def _rect_s1s2_batch_axes(batch, *, inspected_channels=None):
+    try:
+        fields = batch[0]
+    except Exception as error:
+        raise ValueError(
+            "rect_s1s2 dose closure requires maintained batch collation"
+        ) from error
+    if "measured_intensity" not in fields:
+        raise ValueError(
+            "rect_s1s2 dose closure requires CI count-intensity batches "
+            "with measured_intensity; legacy normalized-amplitude loaders "
+            "are unsupported"
+        )
+    try:
+        images = fields["images"]
+        target = fields["measured_intensity"]
+    except Exception as error:
+        raise ValueError(
+            "rect_s1s2 dose closure images and measured_intensity must share "
+            "canonical (B, C, H, W) leading axes"
+        ) from error
+    if (
+        images.ndim != 4
+        or target.ndim != 4
+        or tuple(target.shape[:2]) != tuple(images.shape[:2])
+    ):
+        raise ValueError(
+            "rect_s1s2 dose closure images and measured_intensity must share "
+            "canonical (B, C, H, W) leading axes"
+        )
+    batch_size = int(target.shape[0])
+    channels = int(target.shape[1])
+    if channels <= 0:
+        raise ValueError(
+            "rect_s1s2 dose closure requires a positive inspected channel count"
+        )
+    if inspected_channels is not None and channels != inspected_channels:
+        raise ValueError(
+            "rect_s1s2 selected row channel count "
+            f"{channels} must match inspected channel count {inspected_channels}"
+        )
+    return fields, batch_size, channels
+
+
+def _inspect_rect_s1s2_channels(training_loader):
+    dataset = _rect_s1s2_indexable_dataset(training_loader)
+    if len(dataset) == 0:
+        raise ValueError("rect_s1s2 dose closure requires a non-empty dataset")
+    access_row = SelectedDoseClosureRow(
+        logical_row=0,
+        base_row=_base_row_for_logical(dataset, 0),
+        channels=(),
+    )
+    loader = _rebuild_rect_s1s2_loader(
+        training_loader,
+        access_rows=(access_row,),
+        batch_size=1,
+    )
+    iterator = iter(loader)
+    try:
+        selected_batch = next(iterator)
+    except StopIteration as error:
+        raise ValueError(
+            "rect_s1s2 row-zero inspection produced no batch"
+        ) from error
+    if not isinstance(selected_batch, _RectS1S2SelectedBatch):
+        raise ValueError("rect_s1s2 row-zero inspection lost identity coverage")
+    if selected_batch.access_rows != (access_row,):
+        raise ValueError("rect_s1s2 row-zero inspection reordered identity coverage")
+    _, batch_size, channels = _rect_s1s2_batch_axes(selected_batch.value)
+    if batch_size != 1:
+        raise ValueError(
+            "rect_s1s2 row-zero inspection must collate exactly one logical row"
+        )
+    try:
+        next(iterator)
+    except StopIteration:
+        return channels
+    raise ValueError("rect_s1s2 row-zero inspection produced extra batches")
 
 
 def _initialize_rect_s1s2_unmanaged(
@@ -1856,9 +2160,8 @@ def _initialize_rect_s1s2_unmanaged(
     *,
     mode,
     training_loader=None,
-    sample_patterns=RECT_S1S2_DOSE_CLOSURE_PATTERNS,
 ):
-    """Initialize the shared rectangular gauge from a deterministic prefix."""
+    """Initialize the shared rectangular gauge from the fixed uniform sample."""
 
     import torch
 
@@ -1879,42 +2182,59 @@ def _initialize_rect_s1s2_unmanaged(
         return RectS1S2InitializationRecord.ones().to_jsonable()
     if training_loader is None:
         raise ValueError("rect_s1s2 dose closure requires a CI training loader")
-
-    observed_sum = 0.0
-    predicted_sum = 0.0
-    sampled = 0
-    for batch in _deterministic_rect_s1s2_loader(training_loader):
-        fields = batch[0]
-        if "measured_intensity" not in fields:
+    dataset = _rect_s1s2_indexable_dataset(training_loader)
+    channels = _inspect_rect_s1s2_channels(training_loader)
+    available_patterns = len(dataset) * channels
+    if available_patterns < RECT_S1S2_DOSE_CLOSURE_PATTERNS:
+        raise ValueError(
+            "rect_s1s2 dose closure has insufficient detector-pattern slots: "
+            f"sampled {available_patterns}, required "
+            f"{RECT_S1S2_DOSE_CLOSURE_PATTERNS}. Provide enough training "
+            "patterns or use '--rect-s1s2-init ones'."
+        )
+    plan = build_dose_closure_sample_plan(dataset, channels=channels)
+    selected_loader = _rebuild_rect_s1s2_loader(
+        training_loader,
+        access_rows=plan.access_rows,
+        batch_size=getattr(training_loader, "batch_size", None),
+    )
+    selected_iterator = iter(selected_loader)
+    expected_chunks = tuple(
+        plan.access_rows[offset : offset + selected_loader.batch_size]
+        for offset in range(0, len(plan.access_rows), selected_loader.batch_size)
+    )
+    observed_pattern_sums = []
+    predicted_pattern_sums = []
+    contributed_flat_slots = []
+    for expected_rows in expected_chunks:
+        try:
+            selected_batch = next(selected_iterator)
+        except StopIteration as error:
             raise ValueError(
-                "rect_s1s2 dose closure requires CI count-intensity batches "
-                "with measured_intensity; legacy normalized-amplitude loaders "
-                "are unsupported"
-            )
-        batch_size = int(fields["images"].shape[0])
-        images = fields["images"]
-        target = fields["measured_intensity"]
-        if (
-            images.ndim != 4
-            or target.ndim != 4
-            or tuple(target.shape[:2]) != tuple(images.shape[:2])
-        ):
+                "rect_s1s2 selected loader has missing identity coverage"
+            ) from error
+        if not isinstance(selected_batch, _RectS1S2SelectedBatch):
             raise ValueError(
-                "rect_s1s2 dose closure images and measured_intensity must "
-                "share canonical (B, C, H, W) leading axes"
+                "rect_s1s2 selected loader returned unsupported identity coverage"
             )
-        patterns_per_row = int(target.shape[1])
-        if patterns_per_row <= 0:
+        if selected_batch.access_rows != expected_rows:
             raise ValueError(
-                "rect_s1s2 dose closure batches must contain detector patterns"
+                "rect_s1s2 selected loader has reordered identity coverage"
             )
-        remaining = sample_patterns - sampled
-        required_rows = math.ceil(remaining / patterns_per_row)
-        if batch_size > required_rows:
-            batch = _slice_batch_prefix(batch, required_rows, batch_size)
-            fields = batch[0]
-            batch_size = required_rows
-        batch = _move_batch_to_device(batch, scaler.s1.device)
+        fields, batch_size, selected_channels = _rect_s1s2_batch_axes(
+            selected_batch.value,
+            inspected_channels=channels,
+        )
+        if batch_size != len(expected_rows):
+            raise ValueError(
+                "rect_s1s2 selected batch cardinality must match its exact "
+                "identity chunk"
+            )
+        if selected_channels != channels:
+            raise ValueError(
+                "rect_s1s2 selected batch channel count changed unexpectedly"
+            )
+        batch = _move_batch_to_device(selected_batch.value, scaler.s1.device)
         fields = batch[0]
         positions = fields["coords_relative"]
         experiment_ids = fields["experiment_id"]
@@ -1939,35 +2259,54 @@ def _initialize_rect_s1s2_unmanaged(
                 "rect_s1s2 dose closure predicted intensity must match "
                 "measured_intensity shape (B, C, H, W)"
             )
-        available_in_batch = batch_size * patterns_per_row
-        take_patterns = min(remaining, available_in_batch)
-        target_patterns = target.to(torch.float64).reshape(
-            available_in_batch,
-            -1,
+        mask = torch.zeros(
+            (batch_size, channels),
+            dtype=torch.bool,
+            device=target.device,
         )
-        predicted_patterns = predicted.to(torch.float64).reshape(
-            available_in_batch,
-            -1,
-        )
-        selected_target = target_patterns[:take_patterns]
+        for row_index, access_row in enumerate(expected_rows):
+            for channel in access_row.channels:
+                flat_slot = access_row.logical_row * channels + channel
+                contributed_flat_slots.append(flat_slot)
+                mask[row_index, channel] = True
+        selected_target = target.to(torch.float64)[mask]
+        selected_predicted = predicted.to(torch.float64)[mask]
+        expected_selected = sum(len(row.channels) for row in expected_rows)
+        if int(mask.sum().item()) != expected_selected:
+            raise ValueError(
+                "rect_s1s2 selected channel masks have duplicate or missing "
+                "flat-slot coverage"
+            )
         if bool((selected_target < 0).any().item()):
             raise ValueError(
                 "rect_s1s2 dose closure observed counts must be nonnegative"
             )
-        observed_sum += float(selected_target.sum().item())
-        predicted_sum += float(
-            predicted_patterns[:take_patterns].sum().item()
+        observed_pattern_sums.append(
+            selected_target.reshape(expected_selected, -1).sum(dim=1)
         )
-        sampled += take_patterns
-        if sampled == sample_patterns:
-            break
-
-    if sampled < sample_patterns:
+        predicted_pattern_sums.append(
+            selected_predicted.reshape(expected_selected, -1).sum(dim=1)
+        )
+    try:
+        next(selected_iterator)
+    except StopIteration:
+        pass
+    else:
         raise ValueError(
-            "rect_s1s2 dose closure has insufficient detector-pattern slots: "
-            f"sampled {sampled}, required {sample_patterns}. Provide enough "
-            "training patterns or use '--rect-s1s2-init ones'."
+            "rect_s1s2 selected loader has extra identity coverage"
         )
+    if (
+        len(contributed_flat_slots) != RECT_S1S2_DOSE_CLOSURE_PATTERNS
+        or len(set(contributed_flat_slots))
+        != RECT_S1S2_DOSE_CLOSURE_PATTERNS
+        or set(contributed_flat_slots) != set(plan.flat_slots)
+    ):
+        raise ValueError(
+            "rect_s1s2 selected channel masks have missing, extra, or "
+            "duplicate flat-slot coverage"
+        )
+    observed_sum = float(torch.cat(observed_pattern_sums).sum().item())
+    predicted_sum = float(torch.cat(predicted_pattern_sums).sum().item())
     if not math.isfinite(observed_sum) or observed_sum <= 0.0:
         raise ValueError(
             "rect_s1s2 dose closure observed count sum must be positive and "
@@ -1993,10 +2332,7 @@ def _initialize_rect_s1s2_unmanaged(
         )
     scaler.s1.data.fill_(gauge)
     scaler.s2.data.fill_(gauge)
-    return RectS1S2InitializationRecord.dose_closure(
-        gauge,
-        sampled_patterns=sampled,
-    ).to_jsonable()
+    return RectS1S2InitializationRecord.dose_closure(gauge).to_jsonable()
 
 
 def _initialize_rect_s1s2(
@@ -2004,7 +2340,6 @@ def _initialize_rect_s1s2(
     *,
     mode,
     training_loader=None,
-    sample_patterns=RECT_S1S2_DOSE_CLOSURE_PATTERNS,
 ):
     """Run initialization inference while preserving every module state."""
 
@@ -2013,7 +2348,6 @@ def _initialize_rect_s1s2(
             model,
             mode=mode,
             training_loader=training_loader,
-            sample_patterns=sample_patterns,
         )
     training_states = tuple(
         (module, bool(module.training)) for module in model.modules()
@@ -2024,7 +2358,6 @@ def _initialize_rect_s1s2(
             model,
             mode=mode,
             training_loader=training_loader,
-            sample_patterns=sample_patterns,
         )
     finally:
         for module, training in training_states:

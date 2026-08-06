@@ -68,7 +68,7 @@ def rect_s1s2_init_spy(monkeypatch):
     from ptycho_torch.workflows import components
 
     record = {
-        "schema_version": "rect-s1s2-initialization-v1",
+        "schema_version": "rect-s1s2-initialization-v2",
         "mode": "ones",
         "solved_gauge": 1.0,
         "method": "unit_default_no_solve",
@@ -88,6 +88,41 @@ def rect_s1s2_init_spy(monkeypatch):
 
     monkeypatch.setattr(components, "_initialize_rect_s1s2", fake_initialize)
     return SimpleNamespace(calls=calls, record=record)
+
+
+def test_rect_s1s2_runtime_replaces_prefix_loader_helpers():
+    from ptycho_torch.workflows import components
+
+    assert not hasattr(components, "_slice_batch_prefix")
+    assert not hasattr(components, "_deterministic_rect_s1s2_loader")
+    assert hasattr(components, "_rebuild_rect_s1s2_loader")
+
+
+@pytest.mark.parametrize(
+    ("loader", "batch_size", "message"),
+    [
+        (SimpleNamespace(dataset=object(), collate_fn=lambda value: value), 1, "indexable"),
+        (
+            SimpleNamespace(dataset=[1], collate_fn=lambda value: value),
+            0,
+            "positive integer",
+        ),
+        (SimpleNamespace(dataset=[1], collate_fn=None), 1, "collation"),
+    ],
+)
+def test_rect_s1s2_loader_rebuild_rejects_unsupported_contracts(
+    loader,
+    batch_size,
+    message,
+):
+    from ptycho_torch.workflows import components
+
+    with pytest.raises((TypeError, ValueError), match=message):
+        components._rebuild_rect_s1s2_loader(
+            loader,
+            access_rows=(),
+            batch_size=batch_size,
+        )
 
 
 # Add to conftest.py TORCH_OPTIONAL_MODULES if not already present

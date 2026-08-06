@@ -41,6 +41,8 @@ def _assert_numpy_random_states_equal(before, after):
 
 
 def test_sampling_identity_and_public_plan_api_are_fixed():
+    import ptycho_torch.rect_s1s2_sampling as sampling
+
     signature = inspect.signature(build_dose_closure_sample_plan)
 
     assert RECT_S1S2_DOSE_CLOSURE_PATTERNS == 256
@@ -48,6 +50,17 @@ def test_sampling_identity_and_public_plan_api_are_fixed():
     assert RECT_S1S2_DOSE_CLOSURE_SAMPLE_POLICY == "splitmix64_rejection_v1"
     assert tuple(signature.parameters) == ("dataset", "channels")
     assert signature.parameters["channels"].kind is inspect.Parameter.KEYWORD_ONLY
+    assert "DataLoader(" not in inspect.getsource(sampling)
+
+
+@pytest.mark.parametrize(("rows", "channels"), [(1024, 1), (30, 9)])
+def test_plan_masks_exactly_256_flat_slots(rows, channels):
+    plan = build_dose_closure_sample_plan(
+        _IdentityDataset(rows),
+        channels=channels,
+    )
+
+    assert sum(len(row.channels) for row in plan.access_rows) == 256
 
 
 def test_v2_selection_vector_is_pinned_and_plan_is_immutable():

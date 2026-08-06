@@ -99,7 +99,7 @@ def test_pytorch_workflow_returns_initialization_and_summary_path(
         model_spec=object(),
     )
     initialization = {
-        "schema_version": "rect-s1s2-initialization-v1",
+        "schema_version": "rect-s1s2-initialization-v2",
         "mode": "ones",
         "solved_gauge": 1.0,
         "method": "unit_default_no_solve",

@@ -1,5 +1,6 @@
 """Focused closed-form gauge initialization tests for rectangular CI physics."""
 
+import inspect
 import json
 from types import SimpleNamespace
 
@@ -132,7 +133,7 @@ def _initialization_payload(
     mode="dose_closure",
     *,
     gauge=3.25,
-    schema_version="rect-s1s2-initialization-v1",
+    schema_version="rect-s1s2-initialization-v2",
     sampled_patterns=None,
 ):
     if mode == "ones":
@@ -173,9 +174,18 @@ def test_initialization_record_is_frozen_versioned_and_round_trips_strictly():
 @pytest.mark.parametrize(
     "payload",
     [
-        _initialization_payload(sampled_patterns=256),
-        _initialization_payload(sampled_patterns=512),
-        _initialization_payload("ones"),
+        _initialization_payload(
+            schema_version="rect-s1s2-initialization-v1",
+            sampled_patterns=256,
+        ),
+        _initialization_payload(
+            schema_version="rect-s1s2-initialization-v1",
+            sampled_patterns=512,
+        ),
+        _initialization_payload(
+            "ones",
+            schema_version="rect-s1s2-initialization-v1",
+        ),
         _initialization_payload(
             schema_version="rect-s1s2-initialization-v2",
         ),
@@ -195,7 +205,7 @@ def test_initialization_record_round_trips_both_strict_schema_versions(payload):
     assert record_type.from_mapping(record).to_jsonable() == payload
 
 
-def test_fresh_initialization_factories_remain_v1_until_runtime_switch():
+def test_fresh_initialization_factories_emit_exact_v2_runtime_identity():
     from ptycho_torch.rect_s1s2_initialization import (
         RECT_S1S2_INITIALIZATION_SCHEMA,
         RECT_S1S2_INITIALIZATION_SCHEMA_V1,
@@ -204,11 +214,15 @@ def test_fresh_initialization_factories_remain_v1_until_runtime_switch():
 
     record_type = _record_type()
 
-    assert RECT_S1S2_INITIALIZATION_SCHEMA == RECT_S1S2_INITIALIZATION_SCHEMA_V1
+    assert RECT_S1S2_INITIALIZATION_SCHEMA == RECT_S1S2_INITIALIZATION_SCHEMA_V2
+    assert RECT_S1S2_INITIALIZATION_SCHEMA_V1 == "rect-s1s2-initialization-v1"
     assert RECT_S1S2_INITIALIZATION_SCHEMA_V2 == "rect-s1s2-initialization-v2"
     assert record_type.ones().to_jsonable() == _initialization_payload("ones")
     assert record_type.dose_closure(3.25).to_jsonable() == (
         _initialization_payload()
+    )
+    assert tuple(inspect.signature(record_type.dose_closure).parameters) == (
+        "solved_gauge",
     )
 
 
@@ -219,7 +233,7 @@ def test_initialization_record_constructor_cannot_bypass_validation():
         record_type(
             mode="dose_closure",
             solved_gauge=3.25,
-            method="dose_closure_unit_object",
+            method="dose_closure_seeded_uniform_unit_object",
             sampled_patterns=1,
         )
 
@@ -352,11 +366,18 @@ class _ReadyBatchDataset(torch.utils.data.Dataset):
         self.fields = fields
         self.outer_probe = outer_probe
         self.outer_scale = outer_scale
+        self.read_indices = []
 
     def __len__(self):
         return self.fields["images"].shape[0]
 
     def __getitem__(self, index):
+        if isinstance(index, (list, tuple)):
+            self.read_indices.extend(int(value) for value in index)
+        elif isinstance(index, torch.Tensor) and index.ndim > 0:
+            self.read_indices.extend(int(value) for value in index.tolist())
+        else:
+            self.read_indices.append(int(index))
         return (
             {name: value[index] for name, value in self.fields.items()},
             self.outer_probe[index],
@@ -405,7 +426,12 @@ class _RealRectBoundary(torch.nn.Module):
 
 
 def _known_gauge_loader(
-    *, patterns=300, batch_size=73, gauge=3.25, channels=1
+    *,
+    patterns=300,
+    batch_size=73,
+    gauge=3.25,
+    channels=1,
+    varying_probe_normalization=True,
 ):
     model = _RealRectBoundary(channels=channels)
     forward_model = model.model.forward_model
@@ -423,9 +449,12 @@ def _known_gauge_loader(
         detector_size,
         dtype=torch.complex64,
     )
-    probe_normalization = torch.linspace(0.75, 1.25, patterns).view(
-        patterns, 1, 1, 1, 1
-    )
+    if varying_probe_normalization:
+        probe_normalization = torch.linspace(0.75, 1.25, patterns).view(
+            patterns, 1, 1, 1, 1
+        )
+    else:
+        probe_normalization = torch.ones(patterns, 1, 1, 1, 1)
     output_scale = probe_normalization.reshape(patterns, 1, 1, 1).reciprocal()
     unit_object = torch.ones_like(images, dtype=torch.complex64)
 
@@ -442,16 +471,6 @@ def _known_gauge_loader(
         ).detach()
         scaler.s1.data.fill_(1.0)
         scaler.s2.data.fill_(1.0)
-
-    # Detector-pattern slots beyond the representative prefix deliberately use
-    # another dose. A row-counted, shuffled, or overlong solve cannot pass.
-    measured_patterns = measured.reshape(
-        patterns * channels,
-        detector_size,
-        detector_size,
-    )
-    if measured_patterns.shape[0] > 256:
-        measured_patterns[256:] *= 9.0
 
     fields = {
         "images": images,
@@ -606,25 +625,199 @@ def test_dose_closure_recovers_known_gauge_with_real_multibatch_forward():
     )
 
     scaler = model.model.forward_model.rect_scaler
-    assert record["schema_version"] == "rect-s1s2-initialization-v1"
+    assert record["schema_version"] == "rect-s1s2-initialization-v2"
     assert record["mode"] == "dose_closure"
     assert record["solved_gauge"] == pytest.approx(3.25)
-    assert record["method"] == "dose_closure_unit_object"
+    assert record["method"] == "dose_closure_seeded_uniform_unit_object"
     assert record["sampled_patterns"] == 256
     assert torch.equal(scaler.s1.detach(), torch.full_like(scaler.s1, 3.25))
     assert torch.equal(scaler.s2.detach(), torch.full_like(scaler.s2, 3.25))
 
 
-def test_dose_closure_counts_exact_detector_patterns_across_group_channels():
-    """The 256-pattern prefix is flattened across B/C, not 256 group rows."""
+def test_representative_sample_defeats_blocked_prefix_ordering_bias():
+    from ptycho_torch.rect_s1s2_sampling import build_dose_closure_sample_plan
     from ptycho_torch.workflows import components
 
-    model, loader, _ = _known_gauge_loader(
+    model, loader, dataset = _known_gauge_loader(
+        patterns=1024,
+        batch_size=37,
+        gauge=1.0,
+        varying_probe_normalization=False,
+    )
+    dataset.fields["measured_intensity"][256:] *= 16.0
+    plan = build_dose_closure_sample_plan(dataset, channels=1)
+    early = sum(flat_slot < 256 for flat_slot in plan.flat_slots)
+    late = len(plan.flat_slots) - early
+
+    record = components._initialize_rect_s1s2(
+        model,
+        mode="dose_closure",
+        training_loader=loader,
+    )
+
+    prefix_gauge = 1.0
+    full_population_gauge = 3.5
+    assert (early, late) == (63, 193)
+    assert record["solved_gauge"] == pytest.approx(
+        3.508360550171547,
+        rel=2e-6,
+    )
+    assert abs(record["solved_gauge"] - full_population_gauge) < abs(
+        prefix_gauge - full_population_gauge
+    )
+
+
+@pytest.mark.parametrize(
+    ("batch_size", "shuffle", "num_workers", "seed", "rank"),
+    [
+        (1, False, 0, 11, 0),
+        (73, True, 0, 29, 3),
+        (257, True, 2, 47, 7),
+    ],
+)
+def test_dose_closure_is_independent_of_original_loader_and_rng_settings(
+    batch_size,
+    shuffle,
+    num_workers,
+    seed,
+    rank,
+):
+    import random
+
+    from ptycho_torch.workflows import components
+
+    class TrackingDistributedSampler(torch.utils.data.DistributedSampler):
+        def __iter__(self):
+            self.iterations = getattr(self, "iterations", 0) + 1
+            return super().__iter__()
+
+    model, _, dataset = _known_gauge_loader(patterns=400, gauge=3.25)
+    dataset.current_rank = rank
+    generator = torch.Generator().manual_seed(seed)
+    sampler = TrackingDistributedSampler(
+        dataset,
+        num_replicas=8,
+        rank=rank,
+        shuffle=shuffle,
+        seed=seed,
+    )
+    loader = torch.utils.data.DataLoader(
+        dataset,
+        batch_size=batch_size,
+        sampler=sampler,
+        num_workers=num_workers,
+        generator=generator,
+    )
+    generator_before = generator.get_state().clone()
+    sampler_generator = getattr(loader.sampler, "generator", None)
+    sampler_generator_before = (
+        sampler_generator.get_state().clone()
+        if sampler_generator is not None
+        else None
+    )
+    random.seed(seed * 101)
+    np.random.seed(seed * 103)
+    torch.manual_seed(seed * 107)
+    python_before = random.getstate()
+    numpy_before = np.random.get_state()
+    torch_before = torch.random.get_rng_state().clone()
+
+    record = components._initialize_rect_s1s2(
+        model,
+        mode="dose_closure",
+        training_loader=loader,
+    )
+
+    assert record["solved_gauge"] == pytest.approx(3.25, rel=2e-6)
+    assert getattr(sampler, "iterations", 0) == 0
+    assert torch.equal(generator.get_state(), generator_before)
+    if sampler_generator_before is not None:
+        assert torch.equal(sampler_generator.get_state(), sampler_generator_before)
+    assert random.getstate() == python_before
+    numpy_after = np.random.get_state()
+    assert numpy_after[0] == numpy_before[0]
+    np.testing.assert_array_equal(numpy_after[1], numpy_before[1])
+    assert numpy_after[2:] == numpy_before[2:]
+    assert torch.equal(torch.random.get_rng_state(), torch_before)
+
+
+def test_dose_closure_bounds_reads_to_inspection_plus_selected_logical_rows():
+    from ptycho_torch.rect_s1s2_sampling import build_dose_closure_sample_plan
+    from ptycho_torch.workflows import components
+
+    model, loader, dataset = _known_gauge_loader(patterns=1024, gauge=2.5)
+    plan = build_dose_closure_sample_plan(dataset, channels=1)
+    dataset.read_indices.clear()
+
+    record = components._initialize_rect_s1s2(
+        model,
+        mode="dose_closure",
+        training_loader=loader,
+    )
+
+    assert record["solved_gauge"] == pytest.approx(2.5, rel=2e-6)
+    assert len(dataset.read_indices) <= 1 + len(plan.access_rows)
+    assert sorted(dataset.read_indices[1:]) == sorted(
+        row.logical_row for row in plan.access_rows
+    )
+
+
+def test_dose_closure_rejects_collation_that_reorders_selected_identities():
+    from ptycho_torch.workflows import components
+
+    model, _, dataset = _known_gauge_loader(patterns=400, gauge=2.5)
+
+    def reversing_collation(samples):
+        batch_size = len(samples)
+        batch = torch.utils.data.default_collate(samples)
+
+        def reverse(value):
+            if isinstance(value, dict):
+                return {name: reverse(item) for name, item in value.items()}
+            if isinstance(value, (list, tuple)):
+                return type(value)(reverse(item) for item in value)
+            if (
+                isinstance(value, torch.Tensor)
+                and value.ndim > 0
+                and value.shape[0] == batch_size
+            ):
+                return value.flip(0)
+            return value
+
+        return reverse(batch)
+
+    loader = torch.utils.data.DataLoader(
+        dataset,
+        batch_size=23,
+        shuffle=False,
+        collate_fn=reversing_collation,
+    )
+
+    with pytest.raises(ValueError, match=r"reordered identity coverage"):
+        components._initialize_rect_s1s2(
+            model,
+            mode="dose_closure",
+            training_loader=loader,
+        )
+
+
+def test_dose_closure_counts_exact_detector_patterns_across_group_channels():
+    """Exactly 256 immutable flat-slot masks contribute across grouped rows."""
+    from ptycho_torch.rect_s1s2_sampling import build_dose_closure_sample_plan
+    from ptycho_torch.workflows import components
+
+    model, loader, dataset = _known_gauge_loader(
         patterns=30,
         channels=9,
         batch_size=7,
         gauge=2.25,
     )
+    plan = build_dose_closure_sample_plan(dataset, channels=9)
+    selected = set(plan.flat_slots)
+    measured = dataset.fields["measured_intensity"].reshape(30 * 9, 8, 8)
+    for flat_slot in range(30 * 9):
+        if flat_slot not in selected:
+            measured[flat_slot] *= 100.0
 
     record = components._initialize_rect_s1s2(
         model,
@@ -675,11 +868,152 @@ def test_dose_closure_preserves_tensordict_loader_batch_indexing_contract():
     assert record["sampled_patterns"] == 256
 
 
+class _LoggingSubset(torch.utils.data.Subset):
+    def __init__(self, dataset, indices):
+        super().__init__(dataset, indices)
+        self.requests = []
+
+    def __getitem__(self, index):
+        self.requests.append(index)
+        return super().__getitem__(index)
+
+
+@pytest.mark.parametrize("loader_kind", ["ordinary", "tensordict"])
+def test_dose_closure_preserves_nested_subset_membership_and_multiplicity(
+    loader_kind,
+):
+    from ptycho_torch.dataloader import TensorDictDataLoader
+    from ptycho_torch.rect_s1s2_sampling import build_dose_closure_sample_plan
+    from ptycho_torch.workflows import components
+
+    model, _, base = _known_gauge_loader(patterns=400, gauge=3.25)
+    inner = _LoggingSubset(base, list(range(400)))
+    outer_indices = list(range(300))
+    preliminary = build_dose_closure_sample_plan(
+        torch.utils.data.Subset(inner, outer_indices),
+        channels=1,
+    )
+    duplicate_logical_rows = tuple(
+        row.logical_row
+        for row in preliminary.access_rows
+        if row.logical_row != 0
+    )[:2]
+    for logical_row in duplicate_logical_rows:
+        outer_indices[logical_row] = 391
+    nested = _LoggingSubset(inner, outer_indices)
+    plan = build_dose_closure_sample_plan(nested, channels=1)
+    loader_type = (
+        TensorDictDataLoader
+        if loader_kind == "tensordict"
+        else torch.utils.data.DataLoader
+    )
+    collate_fn = (lambda batch: batch) if loader_kind == "tensordict" else None
+    loader = loader_type(
+        nested,
+        batch_size=41,
+        shuffle=True,
+        generator=torch.Generator().manual_seed(314159),
+        collate_fn=collate_fn,
+    )
+    base.read_indices.clear()
+    nested.requests.clear()
+    inner.requests.clear()
+
+    record = components._initialize_rect_s1s2(
+        model,
+        mode="dose_closure",
+        training_loader=loader,
+    )
+
+    assert record["solved_gauge"] == pytest.approx(3.25, rel=2e-6)
+    duplicate_rows = [row for row in plan.access_rows if row.base_row == 391]
+    assert {row.logical_row for row in duplicate_rows} == set(
+        duplicate_logical_rows
+    )
+    assert base.read_indices.count(391) == len(duplicate_rows)
+    if loader_kind == "tensordict":
+        assert all(isinstance(request, list) for request in nested.requests)
+        assert [
+            logical_row
+            for request in nested.requests
+            for logical_row in request
+        ] == [0, *(row.logical_row for row in plan.access_rows)]
+
+
+class _InconsistentChannelDataset(torch.utils.data.Dataset):
+    def __init__(self, base, inconsistent_row):
+        self.base = base
+        self.inconsistent_row = inconsistent_row
+
+    def __len__(self):
+        return len(self.base)
+
+    def __getitem__(self, index):
+        fields, probe, scale = self.base[index]
+        if int(index) != self.inconsistent_row:
+            return fields, probe, scale
+        fields = dict(fields)
+        fields["images"] = fields["images"].expand(2, -1, -1).clone()
+        fields["measured_intensity"] = fields["measured_intensity"].expand(
+            2, -1, -1
+        ).clone()
+        return fields, probe, scale
+
+
+def test_channel_inspection_does_not_scan_an_inconsistent_unselected_row():
+    from ptycho_torch.rect_s1s2_sampling import build_dose_closure_sample_plan
+    from ptycho_torch.workflows import components
+
+    model, _, base = _known_gauge_loader(patterns=400, gauge=2.5)
+    selected_rows = {
+        row.logical_row
+        for row in build_dose_closure_sample_plan(base, channels=1).access_rows
+    }
+    unselected = next(row for row in range(1, len(base)) if row not in selected_rows)
+    dataset = _InconsistentChannelDataset(base, unselected)
+    loader = torch.utils.data.DataLoader(dataset, batch_size=17, shuffle=True)
+
+    record = components._initialize_rect_s1s2(
+        model,
+        mode="dose_closure",
+        training_loader=loader,
+    )
+
+    assert record["solved_gauge"] == pytest.approx(2.5, rel=2e-6)
+    assert unselected not in base.read_indices
+
+
+def test_selected_row_channel_count_must_match_inspected_row_zero():
+    from ptycho_torch.rect_s1s2_sampling import build_dose_closure_sample_plan
+    from ptycho_torch.workflows import components
+
+    model, _, base = _known_gauge_loader(patterns=400, gauge=2.5)
+    selected = next(
+        row.logical_row
+        for row in build_dose_closure_sample_plan(base, channels=1).access_rows
+        if row.logical_row != 0
+    )
+    dataset = _InconsistentChannelDataset(base, selected)
+    loader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False)
+
+    with pytest.raises(ValueError, match=r"selected row.*channel count.*1"):
+        components._initialize_rect_s1s2(
+            model,
+            mode="dose_closure",
+            training_loader=loader,
+        )
+
+
 def test_dose_closure_uses_real_prebuilt_mmap_data_module_and_loader(
     tmp_path,
+    monkeypatch,
 ):
     from ptycho_torch.config_params import TrainingConfig
     from ptycho_torch.dataloader import PtychoDataset, TensorDictDataLoader
+    from ptycho_torch.rect_s1s2_sampling import (
+        _base_row_for_logical,
+        build_dose_closure_sample_plan,
+    )
     from ptycho_torch.train_utils import PrebuiltPtychoDataModule
     from ptycho_torch.workflows import components
 
@@ -737,6 +1071,22 @@ def test_dose_closure_uses_real_prebuilt_mmap_data_module_and_loader(
 
     assert isinstance(loader, TensorDictDataLoader)
     assert isinstance(loader.dataset.dataset, PtychoDataset)
+    plan = build_dose_closure_sample_plan(loader.dataset, channels=1)
+    mmap_dataset = loader.dataset.dataset
+    physical_reads = []
+    original_getitem = PtychoDataset.__getitem__
+
+    def tracked_getitem(self, index):
+        if self is mmap_dataset:
+            if isinstance(index, torch.Tensor):
+                physical_reads.extend(int(value) for value in index.reshape(-1))
+            elif isinstance(index, (list, tuple)):
+                physical_reads.extend(int(value) for value in index)
+            else:
+                physical_reads.append(int(index))
+        return original_getitem(self, index)
+
+    monkeypatch.setattr(PtychoDataset, "__getitem__", tracked_getitem)
     record = components._initialize_rect_s1s2(
         model,
         mode="dose_closure",
@@ -745,6 +1095,9 @@ def test_dose_closure_uses_real_prebuilt_mmap_data_module_and_loader(
 
     assert record["solved_gauge"] == pytest.approx(gauge, rel=2e-6)
     assert record["sampled_patterns"] == 256
+    assert len(physical_reads) <= 1 + len(plan.access_rows)
+    assert physical_reads[0] == _base_row_for_logical(loader.dataset, 0)
+    assert physical_reads[1:] == [row.base_row for row in plan.access_rows]
 
 
 def test_dose_closure_rejects_legacy_normalized_amplitude_loader():
@@ -780,6 +1133,54 @@ def test_ones_resets_exact_units_without_consuming_training_data():
     assert record == _initialization_payload("ones")
     assert torch.equal(scaler.s1.detach(), torch.ones_like(scaler.s1))
     assert torch.equal(scaler.s2.detach(), torch.ones_like(scaler.s2))
+
+
+def test_runtime_entry_points_do_not_accept_sampling_policy_overrides():
+    from ptycho_torch.workflows import components
+
+    assert tuple(
+        inspect.signature(components._initialize_rect_s1s2_unmanaged).parameters
+    ) == ("model", "mode", "training_loader")
+    assert tuple(inspect.signature(components._initialize_rect_s1s2).parameters) == (
+        "model",
+        "mode",
+        "training_loader",
+    )
+
+
+def test_dose_closure_rejects_empty_indexable_dataset_clearly():
+    from ptycho_torch.workflows import components
+
+    model, _, dataset = _known_gauge_loader(patterns=300)
+    loader = torch.utils.data.DataLoader(
+        torch.utils.data.Subset(dataset, []),
+        batch_size=17,
+    )
+
+    with pytest.raises(ValueError, match=r"empty.*dataset"):
+        components._initialize_rect_s1s2(
+            model,
+            mode="dose_closure",
+            training_loader=loader,
+        )
+
+
+def test_dose_closure_requires_positive_inspected_channel_count():
+    from ptycho_torch.workflows import components
+
+    model, _, dataset = _known_gauge_loader(patterns=300)
+    dataset.fields["images"] = dataset.fields["images"][:, :0]
+    dataset.fields["measured_intensity"] = dataset.fields[
+        "measured_intensity"
+    ][:, :0]
+    loader = torch.utils.data.DataLoader(dataset, batch_size=13)
+
+    with pytest.raises(ValueError, match=r"positive.*channel count"):
+        components._initialize_rect_s1s2(
+            model,
+            mode="dose_closure",
+            training_loader=loader,
+        )
 
 
 def test_dose_closure_fails_clearly_when_fewer_than_256_patterns_exist():
@@ -818,11 +1219,19 @@ def test_dose_closure_reports_detector_pattern_count_for_short_grouped_loader():
         )
 
 
+def _first_selected_row_and_channel(dataset, channels=1):
+    from ptycho_torch.rect_s1s2_sampling import build_dose_closure_sample_plan
+
+    selected = build_dose_closure_sample_plan(dataset, channels=channels).access_rows[0]
+    return selected.logical_row, selected.channels[0]
+
+
 def test_dose_closure_rejects_nonfinite_observed_counts():
     from ptycho_torch.workflows import components
 
     model, loader, dataset = _known_gauge_loader()
-    dataset.fields["measured_intensity"][0, 0, 0, 0] = torch.nan
+    row, channel = _first_selected_row_and_channel(dataset)
+    dataset.fields["measured_intensity"][row, channel, 0, 0] = torch.nan
 
     with pytest.raises(ValueError, match="observed count sum.*finite"):
         components._initialize_rect_s1s2(
@@ -850,7 +1259,8 @@ def test_dose_closure_rejects_negative_observed_count_with_positive_sum():
     from ptycho_torch.workflows import components
 
     model, loader, dataset = _known_gauge_loader()
-    dataset.fields["measured_intensity"][0, 0, 0, 0] = -1.0
+    row, channel = _first_selected_row_and_channel(dataset)
+    dataset.fields["measured_intensity"][row, channel, 0, 0] = -1.0
 
     with pytest.raises(ValueError, match="observed counts.*nonnegative"):
         components._initialize_rect_s1s2(
@@ -897,7 +1307,8 @@ def test_dose_closure_rejects_nonfinite_predicted_intensity():
     from ptycho_torch.workflows import components
 
     model, loader, dataset = _known_gauge_loader()
-    dataset.fields["probe_training"][0, 0, 0, 0, 0] = torch.complex(
+    row, _ = _first_selected_row_and_channel(dataset)
+    dataset.fields["probe_training"][row, 0, 0, 0, 0] = torch.complex(
         torch.tensor(float("nan")), torch.tensor(0.0)
     )
 

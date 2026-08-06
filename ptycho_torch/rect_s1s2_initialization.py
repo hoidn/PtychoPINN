@@ -11,7 +11,7 @@ from typing import Any
 
 RECT_S1S2_INITIALIZATION_SCHEMA_V1 = "rect-s1s2-initialization-v1"
 RECT_S1S2_INITIALIZATION_SCHEMA_V2 = "rect-s1s2-initialization-v2"
-RECT_S1S2_INITIALIZATION_SCHEMA = RECT_S1S2_INITIALIZATION_SCHEMA_V1
+RECT_S1S2_INITIALIZATION_SCHEMA = RECT_S1S2_INITIALIZATION_SCHEMA_V2
 RECT_S1S2_DOSE_CLOSURE_PATTERNS = 256
 RECT_S1S2_DOSE_CLOSURE_SAMPLE_SEED = 20260806
 RECT_S1S2_DOSE_CLOSURE_SAMPLE_POLICY = "splitmix64_rejection_v1"
@@ -176,7 +176,6 @@ class RectS1S2InitializationRecord:
     def dose_closure(
         cls,
         solved_gauge: float,
-        sampled_patterns: int = RECT_S1S2_DOSE_CLOSURE_PATTERNS,
     ) -> "RectS1S2InitializationRecord":
         return cls.from_mapping(
             {
@@ -186,7 +185,7 @@ class RectS1S2InitializationRecord:
                 "method": _SCHEMA_MODE_METHODS[
                     (RECT_S1S2_INITIALIZATION_SCHEMA, "dose_closure")
                 ],
-                "sampled_patterns": sampled_patterns,
+                "sampled_patterns": RECT_S1S2_DOSE_CLOSURE_PATTERNS,
             }
         )
 

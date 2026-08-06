@@ -129,10 +129,10 @@ def test_runner_exposes_and_persists_training_initialization(
     summary_path = output_dir / "training_summary.json"
     summary_path.parent.mkdir(parents=True)
     initialization = {
-        "schema_version": "rect-s1s2-initialization-v1",
+        "schema_version": "rect-s1s2-initialization-v2",
         "mode": "dose_closure",
         "solved_gauge": 3.25,
-        "method": "dose_closure_unit_object",
+        "method": "dose_closure_seeded_uniform_unit_object",
         "sampled_patterns": 256,
     }
     summary_path.write_text(json.dumps(initialization), encoding="utf-8")
