@@ -67,7 +67,10 @@ invocation history. Neither satisfies the reproducibility contract.
 2. Determine the constant channel count `C` from the canonical
    `measured_intensity` channel axis of a private one-row, single-process
    inspection after collation (`B, C, H, W`). The inspection does not consume
-   the original loader or its RNG.
+   the original loader or its RNG. Every selected row must match this `C` when
+   read. The solver does not scan unselected detector rows solely to prove
+   dataset-wide consistency; maintained tensor-backed datasets already have a
+   fixed channel dimension.
 3. Treat each `(logical_row, channel)` pair as one detector-pattern slot. For
    `0 <= logical_row < len(training_dataset)` and `0 <= channel < C`, define
    `flat_slot = logical_row * C + channel`. Invert with
@@ -211,7 +214,8 @@ Dose closure continues to fail closed for incoherent CI configuration, missing
 count-intensity fields, invalid shapes or values, fewer than 256 slots, or
 non-positive/non-finite sums and gauge. It additionally fails clearly when:
 
-- the dataset has no rows or a non-positive/inconsistent channel count;
+- the dataset has no rows, the inspection has a non-positive channel count, or
+  a selected row disagrees with the inspected channel count;
 - a selected logical row cannot be mapped through a supported nested subset;
 - a rebuilt loader yields rows or channels inconsistent with the selection;
   or
