@@ -69,10 +69,13 @@ Construct two nested `torch.utils.data.Subset` objects whose outer logical rows
 include two distinct paths to one base row. Require:
 
 ```python
-assert plan.rows_are_from_logical_population
-assert all(row.logical_row in range(len(outer_subset)) for row in plan.rows)
-assert validation_only_base_rows.isdisjoint(plan.selected_base_rows)
-assert duplicate_logical_members_keep_separate_masks(plan)
+assert all(
+    row.logical_row in range(len(outer_subset))
+    for row in plan.access_rows
+)
+selected_base_rows = {row.base_row for row in plan.access_rows}
+assert validation_only_base_rows.isdisjoint(selected_base_rows)
+assert duplicate_logical_members_keep_separate_masks(plan.access_rows)
 assert plan.access_rows == tuple(
     sorted(plan.access_rows, key=lambda row: (row.base_row, row.logical_row))
 )
@@ -136,9 +139,9 @@ RECT_S1S2_DOSE_CLOSURE_SAMPLE_POLICY = "splitmix64_rejection_v1"
 ```
 
 Leave the existing `RECT_S1S2_INITIALIZATION_SCHEMA` alias pointing to v1 in
-this task; Task 2 switches fresh production to v2 together with dual-version
-validation. Export only constants needed by the sampler/tests. Do not add
-config or CLI fields.
+this task; Task 2 adds dual-version decoding, and Task 3 switches fresh
+production to v2 atomically with the representative runtime. Export only
+constants needed by the sampler/tests. Do not add config or CLI fields.
 
 - [ ] **Step 6: Run green and commit**
 
@@ -149,30 +152,30 @@ git add ptycho_torch/rect_s1s2_sampling.py ptycho_torch/rect_s1s2_initialization
 git commit -m "feat(torch): select representative dose samples"
 ```
 
-### Task 2: Version the initialization record on `refactor`
+### Task 2: Add strict dual-version record decoding on `refactor`
 
 **Files:**
 
 - Modify: `ptycho_torch/rect_s1s2_initialization.py`
 - Modify: `tests/torch/test_rect_s1s2_initialization.py`
-- Modify: `tests/torch/test_workflows_components.py`
-- Modify: `tests/test_training_workflow_initialization_summary.py`
 - Modify: `tests/test_synthetic_pipeline.py`
-- Modify: `tests/torch/test_grid_lines_torch_runner_s1s2_init.py`
 
 - [ ] **Step 1: Write v1/v2 record tests**
 
-Require strict version-specific methods and counts:
+Require strict version-specific decoding while the existing constructors still
+produce v1:
 
 ```python
-assert RectS1S2InitializationRecord.ones().schema_version.endswith("-v2")
-assert RectS1S2InitializationRecord.dose_closure(2.0).to_jsonable() == {
+assert RectS1S2InitializationRecord.ones().schema_version.endswith("-v1")
+assert RectS1S2InitializationRecord.dose_closure(2.0).schema_version.endswith("-v1")
+v2 = RectS1S2InitializationRecord.from_mapping({
     "schema_version": "rect-s1s2-initialization-v2",
     "mode": "dose_closure",
     "solved_gauge": 2.0,
     "method": "dose_closure_seeded_uniform_unit_object",
     "sampled_patterns": 256,
-}
+})
+assert v2.schema_version.endswith("-v2")
 ```
 
 Add historical v1 round trips for `sampled_patterns=256` and `512`. Reject v1
@@ -186,31 +189,29 @@ unknown schemas, missing/extra fields, and non-finite gauges. Both versions of
 python -m pytest tests/torch/test_rect_s1s2_initialization.py -k "record" -q
 ```
 
-- [ ] **Step 3: Implement strict dual-version decoding and v2 production**
+- [ ] **Step 3: Implement strict dual-version decoding only**
 
 Make `_validated_values()` choose the allowed method/count by
-`(schema_version, mode)`. Keep the five-field set unchanged. `ones()` and
-`dose_closure()` produce v2; `from_mapping()` accepts both versions and never
-rewrites v1.
+`(schema_version, mode)`. Keep the five-field set unchanged. `from_mapping()`
+accepts both versions and never rewrites v1. Keep
+`RECT_S1S2_INITIALIZATION_SCHEMA`, `ones()`, and `dose_closure()` producing v1
+until Task 3 changes the runtime atomically.
 
-- [ ] **Step 4: Update exact record fixtures at maintained consumers**
+- [ ] **Step 4: Add historical reuse coverage without changing fresh fixtures**
 
-Change fresh-result fixtures to v2/new method in the listed test files. Add at
-least one synthetic-manifest reuse test that accepts an unchanged historical v1
-record whose mode matches the resolved configuration.
+Add a synthetic-manifest reuse test that accepts an unchanged historical v1
+record whose mode matches the resolved configuration. Do not convert any
+fresh-result fixture to v2 in this task.
 
 - [ ] **Step 5: Run green and commit**
 
 ```bash
 python -m pytest \
   tests/torch/test_rect_s1s2_initialization.py \
-  tests/torch/test_workflows_components.py \
-  tests/test_training_workflow_initialization_summary.py \
-  tests/test_synthetic_pipeline.py \
-  tests/torch/test_grid_lines_torch_runner_s1s2_init.py -q
+  tests/test_synthetic_pipeline.py -q
 git diff --check
-git add ptycho_torch/rect_s1s2_initialization.py tests/torch/test_rect_s1s2_initialization.py tests/torch/test_workflows_components.py tests/test_training_workflow_initialization_summary.py tests/test_synthetic_pipeline.py tests/torch/test_grid_lines_torch_runner_s1s2_init.py
-git commit -m "feat(torch): version dose-closure sampling records"
+git add ptycho_torch/rect_s1s2_initialization.py tests/torch/test_rect_s1s2_initialization.py tests/test_synthetic_pipeline.py
+git commit -m "feat(torch): decode dose-closure record v2"
 ```
 
 ### Task 3: Integrate selected-row reading and masked closure on `refactor`
@@ -219,8 +220,13 @@ git commit -m "feat(torch): version dose-closure sampling records"
 
 - Modify: `ptycho_torch/rect_s1s2_sampling.py`
 - Modify: `ptycho_torch/workflows/components.py`
+- Modify: `ptycho_torch/rect_s1s2_initialization.py`
 - Modify: `tests/torch/test_rect_s1s2_sampling.py`
 - Modify: `tests/torch/test_rect_s1s2_initialization.py`
+- Modify: `tests/torch/test_workflows_components.py`
+- Modify: `tests/test_training_workflow_initialization_summary.py`
+- Modify: `tests/test_synthetic_pipeline.py`
+- Modify: `tests/torch/test_grid_lines_torch_runner_s1s2_init.py`
 
 - [ ] **Step 1: Write row-reader adapter tests**
 
@@ -229,6 +235,30 @@ batch sizes, and shuffled original loaders. Require the adapter to inspect row
 zero privately, yield `(logical_rows, batch)` pairs in physical-read order, use
 `num_workers=0`, and leave the original sampler/generator unconsumed. Verify the
 inspection plus selected logical rows is the only dataset access.
+
+Implement and test exactly this private surface in
+`ptycho_torch.rect_s1s2_sampling`:
+
+```python
+class DoseClosureRowReader:
+    @classmethod
+    def from_loader(cls, training_loader) -> "DoseClosureRowReader": ...
+
+    @property
+    def dataset(self): ...
+
+    def inspect_batch(self): ...
+
+    def iter_selected_batches(
+        self,
+        plan: DoseClosureSamplePlan,
+    ) -> Iterator[tuple[tuple[SelectedDoseClosureRow, ...], object]]: ...
+```
+
+`inspect_batch()` reads logical row zero once through the maintained collation
+contract. Each tuple returned by `iter_selected_batches()` contains the exact
+`SelectedDoseClosureRow` identities represented by that batch, in batch row
+order; the workflow builds masks only from those identities.
 
 - [ ] **Step 2: Replace prefix-dependent fixtures with red representative tests**
 
@@ -247,6 +277,15 @@ Add assertions for:
   plan, not hard-coded row zero;
 - simulated rank values do not affect the plan; and
 - selected logical duplicates retain multiplicity.
+
+Also require fresh constructors and workflow results to switch together:
+
+```python
+assert RectS1S2InitializationRecord.ones().schema_version.endswith("-v2")
+assert RectS1S2InitializationRecord.dose_closure(2.0).method == (
+    "dose_closure_seeded_uniform_unit_object"
+)
+```
 
 - [ ] **Step 3: Run the runtime tests red**
 
@@ -281,15 +320,24 @@ In `_initialize_rect_s1s2_unmanaged()`:
 Keep scaler reset, train/eval restoration, gauge validation, rank publication,
 barrier, and the no-loader `ones` path unchanged.
 
+In the same implementation step, switch
+`RECT_S1S2_INITIALIZATION_SCHEMA`, `ones()`, and `dose_closure()` to fresh v2
+production and update every listed fresh-result fixture to the v2 schema/new
+method. This atomic boundary prevents a prefix solve from ever being labeled
+v2. Retain the v1 reuse case added in Task 2 unchanged.
+
 - [ ] **Step 6: Run focused green and commit**
 
 ```bash
 python -m pytest \
   tests/torch/test_rect_s1s2_sampling.py \
   tests/torch/test_rect_s1s2_initialization.py \
-  tests/torch/test_workflows_components.py -q
+  tests/torch/test_workflows_components.py \
+  tests/test_training_workflow_initialization_summary.py \
+  tests/test_synthetic_pipeline.py \
+  tests/torch/test_grid_lines_torch_runner_s1s2_init.py -q
 git diff --check
-git add ptycho_torch/rect_s1s2_sampling.py ptycho_torch/workflows/components.py tests/torch/test_rect_s1s2_sampling.py tests/torch/test_rect_s1s2_initialization.py
+git add ptycho_torch/rect_s1s2_sampling.py ptycho_torch/rect_s1s2_initialization.py ptycho_torch/workflows/components.py tests/torch/test_rect_s1s2_sampling.py tests/torch/test_rect_s1s2_initialization.py tests/torch/test_workflows_components.py tests/test_training_workflow_initialization_summary.py tests/test_synthetic_pipeline.py tests/torch/test_grid_lines_torch_runner_s1s2_init.py
 git commit -m "fix(torch): sample dose closure across training data"
 ```
 
@@ -366,7 +414,11 @@ record-compatibility sections may retain explicitly labeled v1 wording.
 - Modify: `ptycho_torch/workflows/components.py`
 - Create: `tests/torch/test_rect_s1s2_sampling.py`
 - Modify: `tests/torch/test_rect_s1s2_initialization.py`
-- Modify branch-local record consumers and runner tests
+- Modify: `tests/torch/test_workflows_components.py`
+- Modify: `tests/test_synthetic_pipeline.py`
+- Modify: `tests/scripts/test_synthetic_pipeline_cli.py`
+- Modify: `tests/scripts/test_training_backend_selector.py`
+- Modify: `tests/torch/test_grid_lines_torch_runner.py`
 - Modify: `docs/specs/spec-ptycho-core.md`
 - Modify: `docs/DATA_NORMALIZATION_GUIDE.md`
 - Modify: `docs/CONFIGURATION.md`
@@ -393,6 +445,9 @@ python -m pytest \
   tests/torch/test_rect_s1s2_sampling.py \
   tests/torch/test_rect_s1s2_initialization.py \
   tests/torch/test_workflows_components.py \
+  tests/test_synthetic_pipeline.py \
+  tests/scripts/test_synthetic_pipeline_cli.py \
+  tests/scripts/test_training_backend_selector.py \
   tests/torch/test_grid_lines_torch_runner.py -k "rect_s1s2 or training_summary" -q
 ```
 
@@ -406,9 +461,12 @@ python -m pytest \
   tests/torch/test_rect_s1s2_sampling.py \
   tests/torch/test_rect_s1s2_initialization.py \
   tests/torch/test_workflows_components.py \
+  tests/test_synthetic_pipeline.py \
+  tests/scripts/test_synthetic_pipeline_cli.py \
+  tests/scripts/test_training_backend_selector.py \
   tests/torch/test_grid_lines_torch_runner.py -k "rect_s1s2 or training_summary" -q
 git diff --check
-git add ptycho_torch/rect_s1s2_sampling.py ptycho_torch/rect_s1s2_initialization.py ptycho_torch/workflows/components.py tests/torch/test_rect_s1s2_sampling.py tests/torch/test_rect_s1s2_initialization.py tests/torch/test_workflows_components.py tests/torch/test_grid_lines_torch_runner.py
+git add ptycho_torch/rect_s1s2_sampling.py ptycho_torch/rect_s1s2_initialization.py ptycho_torch/workflows/components.py tests/torch/test_rect_s1s2_sampling.py tests/torch/test_rect_s1s2_initialization.py tests/torch/test_workflows_components.py tests/test_synthetic_pipeline.py tests/scripts/test_synthetic_pipeline_cli.py tests/scripts/test_training_backend_selector.py tests/torch/test_grid_lines_torch_runner.py
 git commit -m "fix(torch): port representative dose sampling"
 ```
 
@@ -433,7 +491,13 @@ python -m pytest \
 Investigate failures before running `python -m pytest tests -q`. Use the `tmux`
 skill and exact-PID/artifact completion guardrail for long GPU runs.
 
-- [ ] **Step 6: Commit branch-owned docs**
+- [ ] **Step 6: Run the fno-stable comprehensive gate**
+
+```bash
+python -m pytest tests -q
+```
+
+- [ ] **Step 7: Commit branch-owned docs**
 
 ```bash
 git diff --check
@@ -443,24 +507,69 @@ git commit -m "docs(ci): specify representative dose sampling"
 
 ### Task 6: Fold seeded v2 directly into `refactor-internal`
 
+**Hard prerequisite:** Before starting this task, complete the parent
+convergence plan's internal config, identity, CLI, MLflow, and `data`-retirement
+work, using the amendment added in Task 4 so its runtime step defers here. The
+internal tip must already satisfy all of these checks:
+
+```text
+ModelConfig supports exactly ones and dose_closure
+bare ModelConfig defaults to ones
+training-only ci profile defaults to dose_closure
+native CLI exposes --rect-s1s2-init {ones,dose_closure}
+direct/mapping/ModelSpec/artifact/checkpoint/MLflow paths reject data
+PtychoPINN_Lightning.calibrate_rect_s1s2 is absent
+workflow result no longer exposes rect_s1s2_calibration
+```
+
+Verify the prerequisite with the parent plan's focused config/identity/API
+tests and `git grep` before adding sampler code. If it is not satisfied, stop
+this task and complete those parent tasks first; do not improvise a partial
+compatibility layer and do not land the prefix solver.
+
 **Files:**
 
 - Create: `ptycho_torch/rect_s1s2_sampling.py`
 - Create or update: `ptycho_torch/rect_s1s2_initialization.py`
 - Modify: `ptycho_torch/workflows/components.py`
-- Modify/remove through the parent convergence plan: `ptycho_torch/model.py::calibrate_rect_s1s2`
+- Verify already removed by prerequisite: `ptycho_torch/model.py::calibrate_rect_s1s2`
 - Create: `tests/torch/test_rect_s1s2_sampling.py`
 - Replace/extend: `tests/torch/test_rect_s1s2_initialization.py`
-- Modify internal consumer/runner tests
-- Update the same full routed doc set listed for `fno-stable`
+- Modify: `tests/torch/test_workflows_components.py`
+- Modify: `tests/test_synthetic_pipeline.py`
+- Modify: `tests/scripts/test_synthetic_pipeline_cli.py`
+- Modify: `tests/scripts/test_training_backend_selector.py`
+- Modify: `tests/torch/test_grid_lines_torch_runner.py`
+- Modify: `docs/specs/spec-ptycho-core.md`
+- Modify: `docs/DATA_NORMALIZATION_GUIDE.md`
+- Modify: `docs/CONFIGURATION.md`
+- Modify: `docs/workflows/pytorch.md`
+- Modify: `docs/TESTING_GUIDE.md`
+- Modify: `docs/development/TEST_SUITE_INDEX.md`
+- Modify: `docs/findings.md`
+- Modify: `docs/index.md`
+- Modify: `scripts/studies/README.md`
+- Modify: `scripts/simulation/README.md`
 
-- [ ] **Step 1: Reconcile with the parent convergence state**
+- [ ] **Step 1: Verify the hard prerequisite**
 
-If `refactor-internal` still exposes `rect_s1s2_init="data"`, execute the
-relevant config/identity retirement tasks from the parent convergence plan and
-port the final seeded-v2 runtime directly. If convergence already landed, apply
-only this plan's sampler, record, runtime, tests, and docs. Never port the
-prefix solver as an intermediate state.
+Run the parent-plan config, identity, CLI, checkpoint, and MLflow gate:
+
+```bash
+python -m pytest \
+  tests/torch/test_ci_profile.py \
+  tests/torch/test_model_spec.py \
+  tests/torch/test_artifact_schema.py \
+  tests/torch/test_config_pydantic_artifacts.py \
+  tests/torch/test_config_resolution_internal_transaction.py \
+  tests/torch/test_api_config_retirement.py -q
+python -m ptycho_torch.train --help
+git grep -n -E 'rect_s1s2_init.*data|calibrate_rect_s1s2|rect_s1s2_calibration' -- ptycho_torch
+```
+
+The tests pass, help lists only `ones,dose_closure`, and the production grep
+returns no matches. Historical artifact fixtures may retain a mutated `data`
+payload only to prove rejection.
 
 - [ ] **Step 2: Port the complete red test surface**
 
@@ -469,27 +578,50 @@ TensorDict, prebuilt mmap, subset leakage, ordering-bias, invalid-input,
 module-state, summary, and runner tests. Adapt imports/fixtures to internal
 branch APIs without weakening assertions.
 
-- [ ] **Step 3: Run red, implement, and run green**
+- [ ] **Step 3: Run the internal runtime tests red**
 
 ```bash
 python -m pytest \
   tests/torch/test_rect_s1s2_sampling.py \
   tests/torch/test_rect_s1s2_initialization.py \
   tests/torch/test_workflows_components.py \
+  tests/test_synthetic_pipeline.py \
+  tests/scripts/test_synthetic_pipeline_cli.py \
+  tests/scripts/test_training_backend_selector.py \
   tests/torch/test_grid_lines_torch_runner.py -k "rect_s1s2 or training_summary" -q
 ```
 
-Commit one code/test commit after the settled behavior is green. Do not retain
-`rect_s1s2_calibration`, `calibrate_rect_s1s2`, or the one-batch learned-model
-path.
+- [ ] **Step 4: Port the settled reference implementation**
 
-- [ ] **Step 4: Apply the full internal documentation update**
+Port `rect_s1s2_sampling.py` and the dual-schema record behavior exactly.
+Adapt the row-reader/workflow integration by symbol to the internal loader API,
+then switch fresh v2 production atomically with the representative solver and
+fresh-result fixtures. Do not retain `rect_s1s2_calibration`,
+`calibrate_rect_s1s2`, the one-batch learned-model path, or any prefix solver.
+
+- [ ] **Step 5: Run green and commit exact code/test files**
+
+```bash
+python -m pytest \
+  tests/torch/test_rect_s1s2_sampling.py \
+  tests/torch/test_rect_s1s2_initialization.py \
+  tests/torch/test_workflows_components.py \
+  tests/test_synthetic_pipeline.py \
+  tests/scripts/test_synthetic_pipeline_cli.py \
+  tests/scripts/test_training_backend_selector.py \
+  tests/torch/test_grid_lines_torch_runner.py -k "rect_s1s2 or training_summary" -q
+git diff --check
+git add ptycho_torch/rect_s1s2_sampling.py ptycho_torch/rect_s1s2_initialization.py ptycho_torch/workflows/components.py tests/torch/test_rect_s1s2_sampling.py tests/torch/test_rect_s1s2_initialization.py tests/torch/test_workflows_components.py tests/test_synthetic_pipeline.py tests/scripts/test_synthetic_pipeline_cli.py tests/scripts/test_training_backend_selector.py tests/torch/test_grid_lines_torch_runner.py
+git commit -m "fix(torch): port representative dose sampling"
+```
+
+- [ ] **Step 6: Apply the full internal documentation update**
 
 Update core, normalization, configuration, workflow, testing, suite index,
 findings, index, and both runner READMEs. Documentation exclusions used on
 other propagation paths do not apply to `refactor-internal`.
 
-- [ ] **Step 5: Run internal integrations before the full suite**
+- [ ] **Step 7: Run internal integrations before the full suite**
 
 ```bash
 python -m pytest \
@@ -500,7 +632,21 @@ python -m pytest \
 ```
 
 Investigate failures before `python -m pytest tests -q`. Use tmux/exact-PID
-tracking for long commands, then commit branch-owned docs separately.
+tracking for long commands.
+
+- [ ] **Step 8: Run the internal comprehensive gate**
+
+```bash
+python -m pytest tests -q
+```
+
+- [ ] **Step 9: Commit branch-owned docs**
+
+```bash
+git diff --check
+git add docs/specs/spec-ptycho-core.md docs/DATA_NORMALIZATION_GUIDE.md docs/CONFIGURATION.md docs/workflows/pytorch.md docs/TESTING_GUIDE.md docs/development/TEST_SUITE_INDEX.md docs/findings.md docs/index.md scripts/studies/README.md scripts/simulation/README.md
+git commit -m "docs(ci): specify representative dose sampling"
+```
 
 ### Task 7: Perform the final three-tip consistency audit
 
