@@ -64,19 +64,21 @@ invocation history. Neither satisfies the reproducibility contract.
 
 1. Resolve the complete logical training dataset after any train/validation
    split. Validation rows are never eligible.
-2. Determine the constant channel count `C` from a private one-row,
-   single-process inspection that does not consume the original loader or its
-   RNG.
+2. Determine the constant channel count `C` from the canonical
+   `measured_intensity` channel axis of a private one-row, single-process
+   inspection after collation (`B, C, H, W`). The inspection does not consume
+   the original loader or its RNG.
 3. Treat each `(logical_row, channel)` pair as one detector-pattern slot. For
    `0 <= logical_row < len(training_dataset)` and `0 <= channel < C`, define
    `flat_slot = logical_row * C + channel`. Invert with
    `logical_row, channel = divmod(flat_slot, C)`. The population size is
    `len(training_dataset) * C`.
 4. Fail if the population contains fewer than 256 slots.
-5. Use a local `random.Random` instance seeded by the private constant
-   `RECT_S1S2_DOSE_CLOSURE_SAMPLE_SEED = 20260806` and draw exactly 256 flat
-   slot indices without replacement from `range(population_size)`. Do not read
-   or mutate Python's module-global, NumPy, or Torch RNG state.
+5. Use the private constant
+   `RECT_S1S2_DOSE_CLOSURE_SAMPLE_SEED = 20260806` with the versioned
+   `splitmix64_rejection_v1` procedure below to draw exactly 256 flat slot
+   indices without replacement from `range(population_size)`. Do not read or
+   mutate Python's module-global, NumPy, or Torch RNG state.
 6. Convert selected slots back to logical row/channel pairs. For a nested
    `torch.utils.data.Subset(parent, indices)`, recursively map logical index `i`
    as `map(parent, indices[i])` until reaching the base dataset. Use that base
@@ -106,6 +108,27 @@ distinct members of the resolved training population. Deduplicating raw scan
 indices, changing the sample budget, or solving separate experiment gauges is
 out of scope.
 
+### Versioned draw procedure
+
+`splitmix64_rejection_v1` is defined in unsigned 64-bit arithmetic:
+
+1. initialize `state = seed & (2**64 - 1)`;
+2. for each 64-bit candidate, add `0x9E3779B97F4A7C15` to `state` modulo
+   `2**64`, set `z = state`, then apply the SplitMix64 transforms in order:
+   `z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9`,
+   `z = (z ^ (z >> 27)) * 0x94D049BB133111EB`, and
+   `z = z ^ (z >> 31)`, masking to 64 bits after each multiplication;
+3. for population bound `n`, set
+   `limit = 2**64 - (2**64 % n)`, reject candidates `z >= limit`, and map an
+   accepted candidate to `z % n`;
+4. append a mapped flat slot only if it has not already been selected, and
+   continue until 256 unique slots have been appended.
+
+The append order is the canonical draw order. Later physical-read sorting does
+not alter the immutable selected set or its logical row/channel masks. This
+procedure, fixed seed, flat-slot mapping, and sample count together define the
+v2 pinned selection independently of Python or library RNG implementations.
+
 ## Loader and Distributed Behavior
 
 The selection helper is private and loader-agnostic at its boundary. A private
@@ -115,7 +138,8 @@ row-reader adapter must provide these behaviors:
 - inspect `C` from logical row zero without advancing the original loader;
 - accept the ordered selected logical-row identities;
 - yield batches paired with those same row identities, preserving the existing
-  field/probe/scale collation contract; and
+  field/probe/scale collation contract, then mask canonical `(B, C)` output by
+  the immutable logical row/channel plan; and
 - use single-process, non-dropping reads without consuming the original loader,
   shuffle generator, sampler, or worker state.
 
@@ -128,14 +152,21 @@ the implementation must not silently fall back to iterating its shuffled
 sampler.
 
 The selected population is the complete resolved training dataset, not a
-Lightning `DistributedSampler` shard. Every DDP rank derives the same selection
-and gauge from the fixed local seed. Inspection, selected-row reads, and forward
-evaluation are rank-local; no collective occurs until the existing rank-zero
-atomic publication and all-rank barrier path.
+Lightning `DistributedSampler` shard. Every process that executes the solver
+derives the same selection and gauge from the fixed procedure. In topologies
+where selection runs inside rank workers, inspection, selected-row reads, and
+forward evaluation are rank-local and no collective occurs until the existing
+rank-zero publication/barrier path. Spawn-style topologies may instead perform
+initialization before worker launch and propagate the initialized model/record;
+this design does not require relocating initialization merely to make every
+rank rerun it.
 
-The design accepts sparse mmap reads for at most 256 unique rows as the cost of
-removing prefix bias. It does not materialize a full permutation or full
-detector array.
+The design accepts sparse mmap reads for one inspection row plus at most 256
+selected logical rows as the cost of removing prefix bias. Duplicate logical
+rows that map to one base row retain separate statistical multiplicity; an
+adapter may reuse that physical read, so the physical-read count may be lower
+but never higher than the logical bound. The solver does not materialize a full
+permutation or full detector array.
 
 ## Initialization Record Compatibility
 
@@ -164,6 +195,11 @@ Readers accept historical v1 records strictly and without rewriting them:
 - v2 `dose_closure` requires the new method and denotes fixed-seed uniform
   sampling; and
 - both schema versions preserve their existing `ones` invariants.
+
+For v1 `dose_closure`, `sampled_patterns >= 256` remains valid for historical
+records. V2 `dose_closure` requires exactly `256`; both v1 and v2 `ones` require
+exactly `0`. Implementations must not tighten the historical v1 count while
+adding the v2 invariant.
 
 Fresh runs always produce v2. Historical completed runs, metrics, and v1
 summaries remain valid evidence for the code and sampling policy that produced
@@ -231,8 +267,9 @@ Each branch must prove:
    worker settings, or simulated DDP rank;
 3. `C=1` and grouped `C=9` cases count exactly 256 selected detector slots with
    no channel-order truncation;
-4. nested training subsets never select validation rows and mmap access is
-   limited to the one-row inspection plus selected unique rows;
+4. nested training subsets never select validation rows, preserve duplicate
+   logical membership and masks, and keep mmap access within the one-row
+   inspection plus selected-logical-row bound;
 5. the known-gauge real forward, dictionary loader, TensorDict loader, and
    prebuilt mmap loader recover the expected gauge;
 6. fresh `ones` and `dose_closure` runs emit strict v2 records while historical
