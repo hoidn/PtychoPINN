@@ -332,3 +332,16 @@ def test_broken_compatibility_only_config_examples_are_retired(filename):
     api_dir = Path(__file__).parents[2] / "ptycho_torch" / "api"
 
     assert not (api_dir / filename).exists()
+
+
+def test_obsolete_learned_gauge_api_is_retired():
+    from ptycho_torch.model import PtychoPINN_Lightning
+
+    retired_methods = (
+        "calibrate_" + "rect_s1s2",
+        "_loss_target_" + "intensity",
+    )
+    assert all(
+        not hasattr(PtychoPINN_Lightning, method)
+        for method in retired_methods
+    )
