@@ -11,6 +11,12 @@ This is a configuration-convergence change, not a new calibration subsystem.
 implementation; `refactor-internal` must adopt that implementation and delete
 its older one-batch learned-model calibration.
 
+The sampling and record clauses are amended by
+[`2026-08-06-ci-dose-closure-representative-sampling-design.md`](2026-08-06-ci-dose-closure-representative-sampling-design.md).
+That amendment replaces the historical first-256 prefix with pinned
+fixed-seed uniform logical-slot sampling and makes fresh producers emit v2;
+the profile, CLI, and `data`-retirement clauses below remain authoritative.
+
 ## Final Contract
 
 All three branches expose the same contract:
@@ -53,21 +59,25 @@ override. Existing CLIs that expose this choice use the same two spellings.
 
 ## Runtime Behavior
 
-The implementation in `ptycho_torch.rect_s1s2_initialization` and the
-initialization helpers in `ptycho_torch.workflows.components` on `refactor` are
-the reference. Do not create a second solver.
+The pure selection in `ptycho_torch.rect_s1s2_sampling`, record validation in
+`ptycho_torch.rect_s1s2_initialization`, and initialization helpers in
+`ptycho_torch.workflows.components` on `refactor` are the reference. Do not
+create a second solver.
 
 Before fitting, `dose_closure` must:
 
 1. reset all rectangular scalers to `s1=s2=1`;
-2. use the unshuffled, single-process view of the resolved training data;
+2. derive the pinned fixed-seed sample of exactly 256 logical detector slots
+   from the complete resolved training dataset without consuming ambient RNG
+   or the original loader;
 3. evaluate the real rectangular forward with a complex unit object over the
-   deterministic first 256 detector-pattern slots;
+   selected logical rows and accumulate only their selected channel masks;
 4. accumulate observed and predicted detector sums in float64;
 5. solve `gauge = sqrt(observed_sum / predicted_sum)` and fill every `s1` and
    `s2` entry with that value; and
-6. preserve module train/eval state and emit the existing strict
-   `rect-s1s2-initialization-v1` record.
+6. preserve module train/eval state and emit the strict fresh
+   `rect-s1s2-initialization-v2` record while retaining strict read support for
+   historical prefix-era v1 records.
 
 The `ones` path resets the scalers, consumes no training loader, and emits the
 existing unit record. Training persists the same record atomically in
@@ -154,9 +164,10 @@ Each branch must prove:
    resolution, and explicit values reach training;
 3. `data` fails at direct config, structured mapping, ModelSpec/artifact,
    checkpoint, and MLflow-load boundaries;
-4. initialization tests cover the deterministic 256-pattern solve, grouped
-   channels, mmap/prebuilt loaders, module-state restoration, invalid inputs,
-   no-loader `ones`, and summary publication; and
+4. initialization tests cover pinned fixed-seed selection, exact 256-slot
+   masking, grouped channels, nested subsets, mmap/prebuilt access bounds,
+   module-state restoration, invalid inputs, strict v1/v2 records, no-loader
+   `ones`, and summary publication; and
 5. one focused regular-CI integration with no initialization override persists
    a `dose_closure` initialization record.
 
@@ -173,5 +184,6 @@ record schema, and `data` rejection policy.
   dataset-level inference refit.
 - Changing the bare `ModelConfig` default.
 - Preserving or migrating `data` artifacts.
-- Introducing a general migration framework or a new schema version.
+- Introducing a general migration framework or bumping schema solely for enum
+  retirement. The estimator-provenance amendment independently requires v2.
 - Establishing a reconstruction-quality threshold or GPU baseline.

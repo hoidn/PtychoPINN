@@ -4,13 +4,15 @@
 
 **Goal:** Make Torch's training-only `ci` profile default to deterministic `dose_closure`, expose the same explicit override on maintained CLIs, and fully retire historical `rect_s1s2_init="data"` on `refactor`, `fno-stable`, and `refactor-internal`.
 
-**Architecture:** Bare `ModelConfig` construction remains `ones`; only the regular-CI profile defaults to `dose_closure`, and explicit callers retain precedence. A single mode validator protects direct construction and every reconstructed model identity; maintained MLflow whole-model loaders call it after unpickling. `refactor` and `fno-stable` keep their existing deterministic solver. `refactor-internal` ports that solver and deletes its one-batch learned-model calibration. No alias, migration framework, schema bump solely for enum retirement, or reconstruction-quality threshold is added.
+**Architecture:** Bare `ModelConfig` construction remains `ones`; only the regular-CI profile defaults to `dose_closure`, and explicit callers retain precedence. A single mode validator protects direct construction and every reconstructed model identity; maintained MLflow whole-model loaders call it after unpickling. The representative-sampling amendment replaces the historical prefix solver with the same fixed-seed, 256-slot runtime on all three branches and makes fresh producers emit v2 while retaining strict v1 readers. No alias, general migration framework, schema bump solely for enum retirement, or reconstruction-quality threshold is added.
 
 **Tech Stack:** Python 3.11, dataclasses, argparse, Pydantic mapping adapters, PyTorch, Lightning, MLflow, pytest, Git worktrees.
 
 ---
 
-**Design authority:** [`docs/superpowers/specs/2026-08-05-regular-ci-dose-closure-convergence-design.md`](../specs/2026-08-05-regular-ci-dose-closure-convergence-design.md)
+**Design authority:** [`docs/superpowers/specs/2026-08-05-regular-ci-dose-closure-convergence-design.md`](../specs/2026-08-05-regular-ci-dose-closure-convergence-design.md), as amended for sampling and record identity by [`docs/superpowers/specs/2026-08-06-ci-dose-closure-representative-sampling-design.md`](../specs/2026-08-06-ci-dose-closure-representative-sampling-design.md).
+
+**Execution amendment:** Follow [`docs/superpowers/plans/2026-08-06-ci-dose-closure-representative-sampling.md`](2026-08-06-ci-dose-closure-representative-sampling.md) for the interleaved branch order. Tasks 1–2 below are complete. The sampling plan replaces the prefix-runtime portions of Tasks 6–7 and augments Task 10; do not create more worktrees or run duplicate comprehensive suites.
 
 ## Branch and path matrix
 
@@ -19,7 +21,7 @@
 | Config resolution test | `tests/torch/test_config_resolution_transaction.py` | `tests/torch/test_config_resolution_internal_transaction.py` | `tests/torch/test_config_resolution_internal_transaction.py` |
 | Study-runner tests | `tests/torch/test_grid_lines_torch_runner_s1s2_init.py` | Existing nodes in `tests/torch/test_grid_lines_torch_runner.py` | Add/adapt nodes in `tests/torch/test_grid_lines_torch_runner.py` |
 | Shared-result test | `tests/test_training_workflow_initialization_summary.py` | Existing result coverage in `tests/scripts/test_training_backend_selector.py` and `tests/torch/test_grid_lines_torch_runner.py` | Port `tests/test_training_workflow_initialization_summary.py` |
-| Deterministic runtime | Already present | Already present | Port from settled `refactor` |
+| Representative runtime | Replace prefix via sampling Tasks 1–2 | Port settled seeded-v2 runtime after Task 4 | Add inactive seeded-v2 foundation in Task 6, then activate in Task 7 |
 | Extra docs | None beyond the shared owners and runner README | Core, normalization, testing, findings, and index docs | Same extra owners as `fno-stable` |
 
 At the audited tips, only these production blobs are identical on all three branches:
@@ -34,6 +36,9 @@ At the audited tips, only these production blobs are identical on all three bran
 The common retirement error must identify `data` as unsupported, name `ones` and `dose_closure`, and say historical artifacts require historical code or retraining. Pydantic may reject a mapping at its `Literal` boundary first, but it must expose the same two supported spellings and must not translate `data`.
 
 ### Task 1: Verify the committed plan, isolate branches, and record baselines
+
+**Status:** Complete. Existing worktrees are the only worktrees used by the
+sampling amendment.
 
 **Files:**
 
@@ -97,6 +102,11 @@ Also run the existing `tests/torch/test_rect_s1s2_initialization.py` on
 than attributing them to this change.
 
 ### Task 2: Converge the `refactor` config, identity, and existing runtime
+
+**Status:** Complete in `a1f5d05ef` and `6ab1716ec`, with prerequisite test-only
+fix `80261d7a7`. This task intentionally left the then-current prefix runtime
+untouched; representative-sampling Tasks 1–3 replace it before final docs and
+branch gates.
 
 **Files:**
 
@@ -182,7 +192,9 @@ def validate_rect_s1s2_initialization_mode(mode: object) -> str:
 
 Call it from the record's existing `_validated_values()` and from `ModelConfig.__post_init__`; preserve all existing generator validation there. Make resolver defense delegate to this helper. Set only `CI_PROFILE_BUNDLE["rect_s1s2_init"] = "dose_closure"`; keep the bare dataclass default `ones` and do not add this field to the five locked CI fields.
 
-Extend only the insufficient-pattern error in `workflows/components.py`; retain the existing 256-pattern deterministic solver unchanged.
+Extend only the insufficient-pattern error in `workflows/components.py`; this
+completed config slice did not change the solver. The sampling amendment, not
+this task, replaces the historical prefix before the branch is final.
 
 - [ ] **Step 6: Run green tests and commit exact files**
 
@@ -256,7 +268,11 @@ Record this commit SHA; it is the only planned cherry-pick candidate.
 
 - [ ] **Step 5: Update and commit owning docs**
 
-Document the bare/profile distinction, explicit `ones` precedence, 256-pattern requirement with no fallback, the strict summary record, native examples, and non-migrating `data` retirement. Do not create `docs/index.md` on `refactor` or duplicate the algorithm in runner docs.
+Document the bare/profile distinction, explicit `ones` precedence, fixed-seed
+uniform selection of exactly 256 logical detector slots with no fallback,
+fresh v2 records plus strict historical v1 reading, native examples, and
+non-migrating `data` retirement. Do not create `docs/index.md` on `refactor` or
+duplicate the algorithm in runner docs.
 
 ```bash
 git diff --check
@@ -315,7 +331,9 @@ green.
 
 Apply Task 2's common validator, profile-only default change, resolver defense,
 frozen-fixture strategy, and short-data guidance by symbol. Do not copy whole
-files from refactor and do not rewrite the solver.
+files from refactor. This config commit may leave the historical v1 prefix
+runtime temporarily intact; sampling-plan Task 4 replaces it before boundary
+docs or branch gates.
 
 - [ ] **Step 4: Rerun green and commit exact files**
 
@@ -400,7 +418,7 @@ git commit -m "docs(ci): converge fno-stable gauge semantics"
 Stage scripts/studies/README.md or scripts/simulation/README.md explicitly only
 if changed.
 
-### Task 6: Add the deterministic runtime foundation to refactor-internal
+### Task 6: Add the inactive seeded-v2 runtime foundation to refactor-internal
 
 This task is deliberately additive. It does not change the internal profile,
 remove data, or wire the training entry yet, so its commit cannot advertise a
@@ -408,25 +426,28 @@ mode the runtime silently skips.
 
 **Files:**
 
+- Create: ptycho_torch/rect_s1s2_sampling.py
 - Create: ptycho_torch/rect_s1s2_initialization.py
 - Modify: ptycho_torch/scaling_contract.py
 - Modify: ptycho_torch/workflows/components.py
+- Create: tests/torch/test_rect_s1s2_sampling.py
 - Extend: tests/torch/test_rect_s1s2_initialization.py
 - Modify only for helper-level expectations: tests/torch/test_workflows_components.py
 
 - [ ] **Step 1: Port only record, algorithm, and loader tests**
 
-Adapt settled refactor coverage for strict record validation, known-gauge
-multibatch forward, exact 256-pattern channel counting, dict/TensorDict/prebuilt
-mmap loaders, no-loader ones, invalid values/shapes/counts, and nested
-train/eval restoration. Keep the old data-calibration tests temporarily.
+Adapt settled refactor coverage for pinned SplitMix64 selection, subset/mmap
+bounds, strict v1/v2 record validation, seeded known-gauge forward, exact
+256-slot channel masking, dict/TensorDict/prebuilt mmap loaders, no-loader ones,
+invalid values/shapes/counts, and nested train/eval restoration. Keep the old
+data-calibration tests temporarily.
 Defer the omitted-profile training-entry, strict-result, and runner tests to
 Task 7.
 
 - [ ] **Step 2: Run the new helper tests red**
 
 ~~~bash
-python -m pytest tests/torch/test_rect_s1s2_initialization.py tests/torch/test_workflows_components.py -q
+python -m pytest tests/torch/test_rect_s1s2_sampling.py tests/torch/test_rect_s1s2_initialization.py tests/torch/test_workflows_components.py -q
 ~~~
 
 Expected: existing data tests pass and new cases fail because the record and
@@ -434,16 +455,16 @@ deterministic helpers do not exist.
 
 - [ ] **Step 3: Port the settled foundation without activating it**
 
-Port the strict record with record-local `ones|dose_closure` validation, the
-256-pattern constant, and validate_rect_s1s2_initialization_contract. Do not
+Port the pure fixed-seed sampler and the strict v1/v2 record with fresh v2
+constructors, record-local `ones|dose_closure` validation, and
+validate_rect_s1s2_initialization_contract. Do not
 export or attach the common config-mode validator until Task 7, because its
 retirement error would contradict the still-active data configuration in this
 intermediate commit. Add these settled helpers to the
 internal workflow module:
 
 ~~~text
-_slice_batch_prefix
-_deterministic_rect_s1s2_loader
+private selected-row ordinary/TensorDict loader helpers
 _initialize_rect_s1s2_unmanaged
 _initialize_rect_s1s2
 _write_training_summary_atomic
@@ -453,19 +474,21 @@ _TrainingSummaryCallback
 ~~~
 
 Do not change ModelConfig, CI_PROFILE_BUNDLE, _train_with_lightning, the old
-data branch, or calibrate_rect_s1s2 in this commit.
+data branch, or calibrate_rect_s1s2 in this commit. Do not port a prefix helper
+or a callable seed/sample-count override.
 
 - [ ] **Step 4: Run green helper tests and commit**
 
 ~~~bash
 python -m pytest \
+  tests/torch/test_rect_s1s2_sampling.py \
   tests/torch/test_rect_s1s2_initialization.py \
   tests/torch/test_workflows_components.py \
   tests/torch/test_rect_scaling.py \
   tests/torch/test_rectangular_scaled_forward.py -q
 git diff --check
-git add ptycho_torch/rect_s1s2_initialization.py ptycho_torch/scaling_contract.py ptycho_torch/workflows/components.py tests/torch/test_rect_s1s2_initialization.py tests/torch/test_workflows_components.py
-git commit -m "feat(torch): add deterministic gauge runtime"
+git add ptycho_torch/rect_s1s2_sampling.py ptycho_torch/rect_s1s2_initialization.py ptycho_torch/scaling_contract.py ptycho_torch/workflows/components.py tests/torch/test_rect_s1s2_sampling.py tests/torch/test_rect_s1s2_initialization.py tests/torch/test_workflows_components.py
+git commit -m "feat(torch): add seeded gauge runtime"
 ~~~
 
 ### Task 7: Activate and fully retire internal data calibration atomically
@@ -494,8 +517,8 @@ Require:
   rejection;
 - the amplitude-only synthetic profile remains ones and rejects both authored
   data and incoherent dose_closure;
-- an omitted CI initialization invokes dose closure before fit and publishes
-  one strict record;
+- an omitted CI initialization invokes seeded dose closure before fit and
+  publishes one strict fresh-v2 record;
 - the shared workflow and existing grid runner expose
   rect_s1s2_initialization and training_summary_path, never
   rect_s1s2_calibration.
@@ -514,6 +537,7 @@ python -m pytest \
   tests/torch/test_artifact_schema.py \
   tests/torch/test_artifact_schema_v2.py \
   tests/torch/test_config_pydantic_artifacts.py \
+  tests/torch/test_rect_s1s2_sampling.py \
   tests/torch/test_rect_s1s2_initialization.py \
   tests/torch/test_workflows_components.py \
   tests/test_synthetic_workflow_config.py \
@@ -529,7 +553,7 @@ Literal["ones", "dose_closure"] with bare default ones and constructor
 validation. Set only the regular-CI profile default to dose_closure and
 delegate resolver defense to the same validator.
 
-Wire _train_with_lightning to the Task 6 initializer before trainer.fit,
+Wire _train_with_lightning to the Task 6 seeded-v2 initializer before trainer.fit,
 publish/return the strict record and summary path, and delete the data branch
 and rect_s1s2_calibration result. Remove calibrate_rect_s1s2; remove
 _loss_target_intensity only if rg proves no callers.
@@ -554,6 +578,7 @@ python -m pytest \
   tests/torch/test_artifact_schema.py \
   tests/torch/test_artifact_schema_v2.py \
   tests/torch/test_config_pydantic_artifacts.py \
+  tests/torch/test_rect_s1s2_sampling.py \
   tests/torch/test_rect_s1s2_initialization.py \
   tests/torch/test_workflows_components.py \
   tests/torch/test_rect_scaling.py \
@@ -564,7 +589,7 @@ python -m pytest \
 rg -n 'calibrate_rect_s1s2|rect_s1s2_calibration' ptycho ptycho_torch scripts tests
 git diff --check
 git add ptycho_torch/rect_s1s2_initialization.py ptycho_torch/config_params.py ptycho_torch/config_factory.py ptycho_torch/config_resolution.py ptycho_torch/workflows/components.py ptycho_torch/model.py ptycho/workflows/synthetic_config.py ptycho/workflows/training.py scripts/studies/grid_lines_torch_runner.py tests/torch/test_ci_profile.py tests/torch/test_config_resolution_internal_transaction.py tests/torch/test_model_spec.py tests/torch/test_artifact_schema.py tests/torch/test_artifact_schema_v2.py tests/torch/test_config_pydantic_artifacts.py tests/torch/test_rect_s1s2_initialization.py tests/torch/test_workflows_components.py tests/test_synthetic_workflow_config.py tests/test_training_workflow_initialization_summary.py tests/torch/test_grid_lines_torch_runner.py tests/fixtures/config/generate_pre_migration_fixtures.py tests/fixtures/config/README.md
-git commit -m "fix(torch): replace data calibration with dose closure"
+git commit -m "fix(torch): replace data calibration with seeded dose closure"
 ~~~
 
 ### Task 8: Close internal native CLI and MLflow boundaries
@@ -625,10 +650,10 @@ git commit -m "feat(cli): expose internal CI gauge initialization"
 
 - [ ] **Step 1: Remove supported data-calibration wording**
 
-Document the same bare/profile/explicit precedence, 256-pattern deterministic
-solve, no fallback, strict summary record, native spelling, and historical data
-retirement. Update current findings and test catalogs; keep the index as
-routing.
+Document the same bare/profile/explicit precedence, fixed-seed uniform
+selection of exactly 256 logical detector slots, no fallback, fresh v2/strict
+historical v1 records, native spelling, and historical data retirement. Update
+current findings and test catalogs; keep the index as routing.
 
 - [ ] **Step 2: Sweep, validate, and commit exact docs**
 
@@ -647,7 +672,13 @@ if changed.
 **Files:** Test and inspect only unless a failure is causally traced to this
 work.
 
-- [ ] **Step 1: Run the omitted-profile integration on every branch**
+- [ ] **Step 1: Rerun every branch's focused gate**
+
+Reuse the exact green commands in Tasks 2–3, 4–5, or 6–8. Run the
+branch-present synthetic pipeline/config tests, the branch's
+`tests/torch/test_rect_s1s2_sampling.py`, and inspect
+`python -m ptycho_torch.train --help`. Include this omitted-profile node on
+every branch:
 
 ~~~bash
 python -m pytest tests/torch/test_rect_s1s2_initialization.py::test_training_entry_initializes_before_fit_and_persists_same_summary_record -q
@@ -674,12 +705,7 @@ Diagnose and fix any failure before moving to the full suite. Reproduce an
 alleged environment-only failure at the recorded branch baseline before
 excluding it.
 
-- [ ] **Step 3: Rerun every branch's focused gate**
-
-Reuse the exact green commands in Tasks 2-3, 4-5, or 6-8. Run the branch-present
-synthetic pipeline/config tests and inspect python -m ptycho_torch.train --help.
-
-- [ ] **Step 4: Run each comprehensive gate**
+- [ ] **Step 3: Run each comprehensive gate**
 
 Only after integrations pass:
 
@@ -689,23 +715,27 @@ python -m pytest -q
 
 Record totals, skips, duration, and exact failing nodes.
 
-- [ ] **Step 5: Audit all three final tips**
+- [ ] **Step 4: Audit all three final tips**
 
 ~~~bash
 git grep -n -i -E 'rect_s1s2_init.*data|one.batch.*calibrat|rect_s1s2_calibration' -- ptycho ptycho_torch scripts docs
 git grep -n 'rect_s1s2_init' -- ptycho_torch/config_params.py ptycho_torch/config_factory.py ptycho_torch/train.py
 git grep -n 'RECT_S1S2_INITIALIZATION_SCHEMA\|RECT_S1S2_DOSE_CLOSURE_PATTERNS' -- ptycho_torch/rect_s1s2_initialization.py
+git grep -n 'RECT_S1S2_DOSE_CLOSURE_SAMPLE_SEED\|RECT_S1S2_DOSE_CLOSURE_SAMPLE_POLICY' -- ptycho_torch/rect_s1s2_initialization.py
 git diff --check
 git status --short --branch
 git log --oneline --decorate -8
 ~~~
 
 Classify explicit historical-retirement prose; no supported data path may
-remain. Confirm bare ones, profile dose_closure, two CLI choices, schema v1,
-256 patterns, strict result persistence, small branch-appropriate histories,
-and no unrelated staged files.
+remain. Confirm bare ones, profile dose_closure, explicit ones precedence, two
+CLI choices, fixed count 256, seed 20260806, policy
+splitmix64_rejection_v1, fresh schema v2/method
+dose_closure_seeded_uniform_unit_object, strict historical v1 reading, logical
+`row * C + channel` mapping, strict result persistence, small
+branch-appropriate histories, and no unrelated staged files.
 
-- [ ] **Step 6: Review before push**
+- [ ] **Step 5: Review before push**
 
 Use superpowers:requesting-code-review on the complete three-branch diff.
 Resolve spec compliance before code quality, rerun affected tests after every
