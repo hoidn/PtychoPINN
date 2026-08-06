@@ -102,6 +102,32 @@ def _record_type():
     return RectS1S2InitializationRecord
 
 
+class _StringEqualityImpostor:
+    def __eq__(self, other):
+        return other == "ones"
+
+
+@pytest.mark.parametrize(
+    "mode",
+    [
+        _StringEqualityImpostor(),
+        np.array(["ones"]),
+        np.str_("ones"),
+    ],
+    ids=("equality-impostor", "one-element-array", "numpy-string"),
+)
+def test_initialization_mode_requires_exact_builtin_strings(mode):
+    from ptycho_torch.rect_s1s2_initialization import (
+        validate_rect_s1s2_initialization_mode,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=r"must be 'ones' or 'dose_closure'",
+    ):
+        validate_rect_s1s2_initialization_mode(mode)
+
+
 def _initialization_payload(mode="dose_closure", *, gauge=3.25):
     if mode == "ones":
         return {

@@ -29,6 +29,11 @@ _MODE_METHODS = {
 def validate_rect_s1s2_initialization_mode(mode: Any) -> str:
     """Return one supported initialization mode or reject it actionably."""
 
+    if type(mode) is not str:
+        raise ValueError(
+            "rect_s1s2_init must be 'ones' or 'dose_closure', "
+            f"got {mode!r}"
+        )
     if mode in RECT_S1S2_INITIALIZATION_MODES:
         return mode
     if mode == "data":
