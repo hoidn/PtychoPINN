@@ -7,11 +7,15 @@ uniform sample of 256 detector-pattern slots from the resolved training
 population. Apply the same behavior to `refactor`, `fno-stable`, and
 `refactor-internal`.
 
-This design amends only the sampling and persisted-method clauses of
+This design amends only the sampling and initialization-record clauses of
 [`2026-08-05-regular-ci-dose-closure-convergence-design.md`](2026-08-05-regular-ci-dose-closure-convergence-design.md).
 That design remains authoritative for profile defaults, supported modes, CLI
 precedence, retirement of `rect_s1s2_init="data"`, and the three-branch
-convergence order.
+convergence order. Within that parent, this design specifically supersedes the
+first-256 runtime selection, the v1-only runtime-record requirement, the
+corresponding runtime/acceptance references to v1, and the non-goal that ruled
+out a schema version change. The new v2 is justified by estimator provenance,
+not by enum retirement, and does not introduce a general migration framework.
 
 ## Problem
 
@@ -32,8 +36,11 @@ shared by inline dictionary loaders.
 
 Select 256 logical detector slots uniformly without replacement from the
 resolved training dataset using a private local RNG and fixed seed. This is
-population-proportional across source experiments, independent of input order,
-and requires no scan of `experiment_id` metadata.
+population-proportional across source experiments, does not privilege early
+dataset indices, and requires no scan of `experiment_id` metadata. Reordering
+the dataset changes which physical observations occupy the sampled logical
+indices; the fixed dataset identity and fixed logical order remain inputs to
+exact replay.
 
 ### Rejected: proportional experiment stratification
 
@@ -60,20 +67,28 @@ invocation history. Neither satisfies the reproducibility contract.
 2. Determine the constant channel count `C` from a private one-row,
    single-process inspection that does not consume the original loader or its
    RNG.
-3. Treat each `(logical_row, channel)` pair as one detector-pattern slot. The
-   population size is `len(training_dataset) * C`.
+3. Treat each `(logical_row, channel)` pair as one detector-pattern slot. For
+   `0 <= logical_row < len(training_dataset)` and `0 <= channel < C`, define
+   `flat_slot = logical_row * C + channel`. Invert with
+   `logical_row, channel = divmod(flat_slot, C)`. The population size is
+   `len(training_dataset) * C`.
 4. Fail if the population contains fewer than 256 slots.
 5. Use a local `random.Random` instance seeded by the private constant
    `RECT_S1S2_DOSE_CLOSURE_SAMPLE_SEED = 20260806` and draw exactly 256 flat
    slot indices without replacement from `range(population_size)`. Do not read
    or mutate Python's module-global, NumPy, or Torch RNG state.
-6. Convert selected slots back to logical row/channel pairs. For nested
-   `torch.utils.data.Subset` datasets, preserve logical training membership and
-   map only for physical read ordering; never sample the underlying base
-   dataset directly.
-7. Read each selected row at most once. Order selected rows by their underlying
-   mmap index when available, otherwise by logical row, to reduce page churn.
-   Sorting changes access order, not sample membership.
+6. Convert selected slots back to logical row/channel pairs. For a nested
+   `torch.utils.data.Subset(parent, indices)`, recursively map logical index `i`
+   as `map(parent, indices[i])` until reaching the base dataset. Use that base
+   index only as a physical-read sort key; never sample the base dataset
+   directly. Distinct logical rows that map to the same base index remain
+   distinct population members and retain their multiplicity.
+7. Keep every selected channel mask keyed by its logical row. Order reads by
+   `(base_index, logical_row)` when a base mmap index is available, otherwise by
+   logical row. The row reader may reuse one physical read for duplicate base
+   indices only if it applies each logical row's mask separately and counts its
+   multiplicity. Physical sorting or reuse must not change sample membership or
+   attach a channel mask to a different logical row.
 8. Run the existing resolved rectangular forward with `s1=s2=1` and a complex
    unit object. The forward may evaluate unselected channels in a selected
    group row, but only the selected 256 slots contribute to the float64 sums.
@@ -93,16 +108,30 @@ out of scope.
 
 ## Loader and Distributed Behavior
 
-The selection helper is private and loader-agnostic at its boundary. Ordinary
-`DataLoader` and `TensorDictDataLoader` instances are rebuilt over the same
-dataset with a fixed selected-row sampler, `num_workers=0`, `drop_last=False`,
-and the original collate function. The original loader, shuffle generator, and
-worker state are not consumed.
+The selection helper is private and loader-agnostic at its boundary. A private
+row-reader adapter must provide these behaviors:
+
+- expose the resolved training dataset's logical length;
+- inspect `C` from logical row zero without advancing the original loader;
+- accept the ordered selected logical-row identities;
+- yield batches paired with those same row identities, preserving the existing
+  field/probe/scale collation contract; and
+- use single-process, non-dropping reads without consuming the original loader,
+  shuffle generator, sampler, or worker state.
+
+The maintained adapters support ordinary `torch.utils.data.DataLoader` and
+`TensorDictDataLoader`. They may rebuild a private loader from the original
+loader's `dataset`, `batch_size`, and `collate_fn`, or use equivalent direct
+indexed reads, but the behavioral contract above is authoritative. A loader
+that lacks the required dataset/indexing or collation behavior fails clearly;
+the implementation must not silently fall back to iterating its shuffled
+sampler.
 
 The selected population is the complete resolved training dataset, not a
 Lightning `DistributedSampler` shard. Every DDP rank derives the same selection
-and gauge from the fixed local seed. Existing rank-zero atomic publication and
-all-rank barrier behavior remain unchanged.
+and gauge from the fixed local seed. Inspection, selected-row reads, and forward
+evaluation are rank-local; no collective occurs until the existing rank-zero
+atomic publication and all-rank barrier path.
 
 The design accepts sparse mmap reads for at most 256 unique rows as the cost of
 removing prefix bias. It does not materialize a full permutation or full
@@ -156,8 +185,9 @@ There is no fallback to the old prefix, a smaller sample, or `ones`.
 
 ## Implementation Boundaries
 
-- `ptycho_torch/rect_s1s2_sampling.py` owns pure flat-slot selection, nested
-  subset mapping, and the immutable selected-row/channel plan.
+- `ptycho_torch/rect_s1s2_sampling.py` owns pure flat-slot selection, recursive
+  subset mapping, the immutable selected-row/channel plan, and the private
+  row-reader adapter contract.
 - `ptycho_torch/rect_s1s2_initialization.py` owns v1/v2 record validation and
   the fixed sample-count/seed/schema constants.
 - `ptycho_torch/workflows/components.py` owns loader rebuilding, batch/device
