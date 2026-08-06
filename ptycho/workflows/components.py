@@ -10,7 +10,7 @@ Architecture Role:
     modules (model.py, diffsim.py, loader.py, etc.) and below the top-level scripts. It 
     integrates the complete PtychoPINN pipeline by:
     
-    1. Configuration Management: Bridges modern dataclass-based config with legacy params
+    1. Configuration Management: Bridges modern structured config with legacy params
     2. Data Pipeline Integration: Orchestrates RawData → PtychoDataContainer → training
     3. Training Workflow: Chains data loading, probe initialization, and model training
     4. Reconstruction Pipeline: Coordinates inference, image reassembly, and visualization
@@ -19,7 +19,7 @@ Architecture Role:
 Core Workflow Functions:
     Configuration Orchestration:
         - update_config_from_dict(): Update global config from dict (notebook workflows)
-        - parse_arguments(): Auto-generate CLI parser from TrainingConfig dataclass
+        - parse_arguments(): Auto-generate CLI parser from nested TrainingConfig
         - setup_configuration(): Merge YAML, CLI args, and defaults into unified config
         - load_yaml_config(): Load and validate YAML configuration files
     
@@ -36,7 +36,7 @@ Core Workflow Functions:
 
 Integration Points:
     - Core Modules: Integrates ptycho.loader, ptycho.train_pinn, ptycho.probe, ptycho.tf_helper
-    - Configuration: Bridges TrainingConfig dataclass with legacy params.cfg dictionary
+    - Configuration: Bridges Pydantic TrainingConfig with legacy params.cfg dictionary
     - Data Flow: Manages RawData → PtychoDataContainer → trained model → reconstruction
     - Visualization: Coordinates with matplotlib for result visualization and export
 
@@ -52,8 +52,14 @@ Example Usage:
     >>> config = setup_configuration(args, yaml_path=args.config)
     >>> 
     >>> # Load and validate training data
-    >>> train_data = load_data(str(config.train_data_file), n_images=config.n_images)
-    >>> test_data = load_data(str(config.test_data_file)) if config.test_data_file else None
+    >>> train_data = load_data(
+    ...     str(config.data.train_data_file),
+    ...     n_images=config.sampling.n_groups,
+    ... )
+    >>> test_data = (
+    ...     load_data(str(config.data.test_data_file))
+    ...     if config.data.test_data_file else None
+    ... )
     >>> 
     >>> # Execute complete pipeline: training → reconstruction → visualization
     >>> amplitude, phase, results = run_cdi_example(

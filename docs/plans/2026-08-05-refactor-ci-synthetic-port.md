@@ -237,6 +237,12 @@ python -m scripts.simulation.synthetic_pipeline \
 
 Acceptance requires:
 
+> **Historical acceptance record:** This section records the prefix-era run
+> executed on 2026-08-05. Its v1 requirement was correct for that run but is not
+> the current producer contract. Fresh runs now emit strict
+> `rect-s1s2-initialization-v2`; valid prefix-era v1 records remain readable
+> without rewrite.
+
 - exit code zero and all four stage-manifest-v2 stages freshly complete;
 - resolved `cnn` architecture and coherent CI contract persisted;
 - count-domain dataset and evaluation diagnostics finite and mode-matched;

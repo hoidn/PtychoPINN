@@ -8,7 +8,16 @@ PyTorch rectangular workflows have two versioned contracts. New inputs default t
 
 ## CI Count-Intensity Contract
 
-CI data stores measured detector count intensity and a calibrated physical probe. The probe fixes the object/probe gauge, so inference must use `probe_physical` directly. A normalized training probe may improve conditioning, but its normalization is canceled exactly in the field:
+CI NPZs store measured detector count intensity and the acquisition probe under
+`probeGuess`. On ingestion, the CI runtime exposes the selected acquisition
+carrier as `probe_physical`. Inference uses that carrier directly, but its
+global scalar is not identifiable from diffraction alone: multiplying the
+probe by `c` and dividing the object by `c` leaves the predicted counts
+unchanged. The runtime name distinguishes it from the normalized training
+view; it does not establish physical calibration or absolute object units.
+
+A normalized training probe may improve conditioning, but its normalization is
+canceled exactly in the field:
 
 ```python
 probe_training = q * probe_physical
@@ -23,6 +32,37 @@ mean_measured_intensity = mean_BCHW(measured_intensity)
 ```
 
 CI is enabled only for unsupervised `rectangular_scaled` training with Poisson NLL. MAE is rejected before loading. The Poisson data term is divided by `mean_measured_intensity`; auxiliary object/overlap regularizers are added afterward. Inference uses physical-probe VarPro with the training mask and no `physics_scaling_constant` or training output scale.
+
+### CI gauge initialization is not calibration
+
+`ModelConfig.rect_s1s2_init` selects the pre-training rectangular gauge:
+
+| Mode | Behavior | Default |
+|---|---|---|
+| `ones` | Set `s1=s2=1.0` and consume no training data. | Bare Torch `ModelConfig` |
+| `dose_closure` | Under the coherent CI contract, solve `s1=s2=sqrt(sum(counts)/sum(predicted_intensity))` with a real unit-object forward over the fixed representative 256-slot sample. | Training-only `ci` and synthetic `cnn-lines-ci` profiles |
+
+An explicit `ones` overrides either CI profile. Historical `data` is retired,
+not translated. The solve closes the sampled aggregate detector dose at
+startup. It intentionally adopts a unit-object transmission convention, so an
+absorbing or greater-than-one object can move the result away from one. The
+value is an optimizer starting point and a diagnostic of probe/object
+decomposition, not a calibrated physical quantity.
+
+The following operations remain distinct:
+
+1. Probe normalization is canceled in the field and does not change the object
+   gauge.
+2. `rect_s1s2_init` chooses the shared startup value.
+3. Gradient training may move `s1` and `s2` independently.
+4. Inference VarPro is a post-training solve on inference data.
+
+Fresh training persists `rect-s1s2-initialization-v2` in
+`training_summary.json`. Dose closure records method
+`dose_closure_seeded_uniform_unit_object` and exactly 256 sampled logical
+slots. Strict historical v1 records remain readable. See
+[Dose-closure initialization](CONFIGURATION.md#dose-closure-initialization)
+for the pinned sample identity, failure behavior, and compatibility rules.
 
 ## The Three Types of Normalization
 
@@ -216,7 +256,7 @@ return RawData(..., X, ...)  # Return normalized data
 4. **Use configuration consistently**
    ```python
    # Always get nphotons from config
-   nphotons = config.nphotons  # Not hardcoded
+   nphotons = config.data.nphotons  # Not hardcoded
    ```
 
 ## Related Documentation

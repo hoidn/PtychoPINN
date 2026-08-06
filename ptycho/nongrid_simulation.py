@@ -10,7 +10,7 @@ Architecture Overview
 The module serves as a bridge between the modern configuration system and legacy
 simulation components, providing a clean interface while maintaining compatibility:
 
-* **Modern Interface**: Uses TrainingConfig dataclasses for consistent parameter management
+* **Modern Interface**: Uses structured `TrainingConfig` records for parameter management
 * **Legacy Adapter**: Safely handles global state manipulation for backward compatibility  
 * **Coordinate-Based**: Generates arbitrary scan positions vs fixed grid patterns
 * **Simulation Pipeline**: Complete workflow from NPZ data to simulated measurements
@@ -51,14 +51,14 @@ Example Usage
 ------------
 Basic simulation from NPZ file:
 
-    >>> from ptycho.config.config import TrainingConfig, ModelConfig
+    >>> from ptycho.config.config import ModelConfig, SamplingConfig, TrainingConfig
     >>> from ptycho.nongrid_simulation import simulate_from_npz
     >>> 
     >>> # Configure simulation parameters
     >>> model_config = ModelConfig(N=64, gridsize=2)
     >>> training_config = TrainingConfig(
     ...     model=model_config,
-    ...     n_images=2000
+    ...     sampling=SamplingConfig(n_groups=2000),
     ... )
     >>> 
     >>> # Simulate non-grid data from experimental object/probe

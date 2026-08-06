@@ -1,5 +1,5 @@
 """
-Modern dataclass-based configuration system for PtychoPINN.
+Structured configuration system for PtychoPINN.
 
 This module defines the type-safe, structured configuration architecture that replaces
 the legacy params.cfg dictionary pattern. It serves as the single source of truth for
@@ -7,21 +7,22 @@ all configuration while maintaining backward compatibility with 20+ legacy modul
 through a one-way data flow translation system.
 
 Architecture & Data Flow:
-    Modern dataclass → update_legacy_dict() → Legacy params.cfg dictionary
+    Modern configuration → update_legacy_dict() → Legacy params.cfg dictionary
     
-    The data flow is strictly one-way: configuration originates in structured dataclasses
+    The data flow is strictly one-way: configuration originates in structured records
     and flows to the legacy dictionary via update_legacy_dict(). This function serves
     as the critical compatibility bridge, using KEY_MAPPINGS to translate between
     modern field names (object_big) and legacy parameter names (object.big).
 
 Configuration Classes:
     ModelConfig: Core architecture (N, gridsize, model_type, activations, etc.)
-    TrainingConfig: Training workflow (epochs, loss weights, data paths, sampling)
+    TrainingConfig: Nested Pydantic training workflow
+    DataConfig/SamplingConfig/etc.: Pydantic training sub-configurations
     InferenceConfig: Inference workflow (model paths, output settings, debug flags)
 
 Core Functions:
-    update_legacy_dict(cfg, dataclass_obj): THE compatibility bridge function
-        - Translates dataclass fields to legacy parameter names via KEY_MAPPINGS
+    update_legacy_dict(cfg, config_obj): THE compatibility bridge function
+        - Translates supported config fields to legacy parameter names
         - Updates params.cfg dictionary for consumption by legacy modules
         - Handles Path object conversion and nested model configurations
     
@@ -40,7 +41,10 @@ Workflow Integration:
     # 1. Modern configuration creation
     config = TrainingConfig(
         model=ModelConfig(N=128, model_type='pinn'),
-        train_data_file='data.npz', nepochs=100)
+        data=DataConfig(train_data_file='data.npz'),
+        sampling=SamplingConfig(n_groups=512),
+        nepochs=100,
+    )
     
     # 2. Enable legacy module compatibility (CRITICAL STEP)
     import ptycho.params as params  
@@ -53,7 +57,7 @@ Workflow Integration:
     ```
 
 Migration Pattern:
-    - New code: Uses dataclasses directly (TrainingConfig, ModelConfig, etc.)
+    - New code: Uses structured configuration records directly
     - Legacy modules: Continue using params.get('key') unchanged
     - Compatibility: Maintained via update_legacy_dict() calling dataclass_to_legacy_dict()
     - Translation: KEY_MAPPINGS handles all field name conversions automatically

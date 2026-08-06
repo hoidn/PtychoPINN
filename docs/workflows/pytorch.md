@@ -16,10 +16,10 @@ There are three ways to run the backend, from highest-level to lowest:
 
 Key properties:
 
-- **Configuration** uses the same canonical dataclasses as TensorFlow
-  (`ptycho.config.config.TrainingConfig` / `InferenceConfig`), bridged to the
-  torch-side config singletons (`ptycho_torch/config_params.py`) via
-  `ptycho_torch/config_bridge.py`.
+- **Configuration** uses the same canonical public records as TensorFlow:
+  nested Pydantic `TrainingConfig`, plus dataclass `ModelConfig` and
+  `InferenceConfig`. They are bridged to the Torch-side dataclasses in
+  `ptycho_torch/config_params.py` through `ptycho_torch/config_bridge.py`.
 - **Training** runs through `PtychoPINN_Lightning` (`ptycho_torch/model.py`) with
   deterministic settings, Lightning checkpointing, and the full physics loss for every
   architecture.
@@ -54,9 +54,12 @@ the shared core.
 
 ## 2. Prerequisites
 
-- `pip install .` installs torch ≥ 2.2, `lightning`, and `tensordict` automatically.
+- `pip install .` installs the declared `torch`, `lightning`, and `tensordict`
+  dependencies. Supported workflows require torch ≥ 2.2.
   For a specific CUDA build, install PyTorch manually first
   ([instructions](https://pytorch.org/get-started/locally/)), then `pip install .`
+- Public training configuration and CLI generation use the declared
+  `pydantic-settings` dependency.
 - Input NPZ files with `diff3d`, `xcoords`/`ycoords` scan positions, a complex
   `probeGuess`, and `objectGuess`. Under the legacy contract, `diff3d` is
   normalized amplitude (square root of intensity). Under `ci_intensity_v2`, it
@@ -70,7 +73,9 @@ the shared core.
 ### 3.1. Configuration Owners and Runtime Resolution
 
 1. **Canonical configs** (`TrainingConfig`, `InferenceConfig`, `ModelConfig`) describe
-   the model and data. They bridge to `params.cfg` and to the torch singletons.
+   the model and data. Public `TrainingConfig` is a nested Pydantic settings
+   model; the other two are validated dataclasses. They bridge to `params.cfg`
+   and to the Torch config records.
    `update_legacy_dict(params.cfg, config)` MUST run before any data
    loading or legacy-module import. The CLIs do this automatically via
    `ptycho_torch/config_factory.py`; programmatic callers must do it themselves.
@@ -90,14 +95,22 @@ Topology enters through Torch `ModelConfig`.
 
 ```python
 from pathlib import Path
-from ptycho.config.config import TrainingConfig, ModelConfig, update_legacy_dict
+from ptycho.config.config import (
+    DataConfig,
+    ModelConfig,
+    SamplingConfig,
+    TrainingConfig,
+    update_legacy_dict,
+)
 from ptycho import params
 
 config = TrainingConfig(
     model=ModelConfig(N=64, gridsize=2, model_type='pinn', architecture='cnn'),
-    train_data_file=Path('datasets/my_train.npz'),
-    test_data_file=Path('datasets/my_test.npz'),   # optional
-    n_groups=512,
+    data=DataConfig(
+        train_data_file=Path('datasets/my_train.npz'),
+        test_data_file=Path('datasets/my_test.npz'),   # optional
+    ),
+    sampling=SamplingConfig(n_groups=512),
     batch_size=4,
     nepochs=10,
     output_dir=Path('outputs/my_experiment'),
@@ -157,17 +170,20 @@ complete TF-parity preset below is applied (§3.6).
 
 ### 3.3. Loss, Scheduler, and Sampling
 
-- `TrainingConfig.torch_loss_mode`: `'poisson'` (physics-weighted Poisson NLL,
+- Public `TrainingConfig.loss.torch_loss_mode` (resolved Torch
+  `TrainingConfig.torch_loss_mode`): `'poisson'` (physics-weighted Poisson NLL,
   default) or `'mae'` (amplitude-only MAE, `physics_weight=0`). Native-CLI flag:
   `--torch-loss-mode`.
-- `TrainingConfig.scheduler`: `'Default'` (constant LR), `'Exponential'`,
+- Public `TrainingConfig.scheduler.kind` (resolved Torch
+  `TrainingConfig.scheduler`): `'Default'` (constant LR), `'Exponential'`,
   `'WarmupCosine'` (with `lr_warmup_epochs`, `lr_min_ratio`), or
-  `'ReduceLROnPlateau'`. Note the native `ptycho_torch.train` CLI's `--scheduler`
-  accepts a different, legacy choice set (`Default`, `Exponential`, `MultiStage`,
-  `Adaptive`); the plateau/warmup schedulers are exposed by the study runners and the
-  unified `--torch-scheduler` flag.
-- `TrainingConfig.subsample_seed` seeds `lightning.pytorch.seed_everything`;
-  `sequential_sampling=True` gives deterministic first-N grouping. Subsampled indices
+  `'ReduceLROnPlateau'`. The native `ptycho_torch.train` CLI also retains the
+  legacy `MultiStage` and `Adaptive` spellings; its `--help` output is the
+  authority for that interface.
+- Public `TrainingConfig.sampling.subsample_seed` seeds
+  `lightning.pytorch.seed_everything`; `sampling.sequential_sampling=True`
+  uses deterministic first-N grouping anchors after raw-row subsampling.
+  Subsampled indices
   are persisted (`raw.sample_indices`, `tmp/subsample_seed{X}_indices.txt`) and
   asserted equal across backends.
 
@@ -257,7 +273,7 @@ Cautions:
 ### 4.1. Unified CLI (backend selection)
 
 ```bash
-ptycho_train --train_data_file datasets/my_train.npz \
+ptycho_train --data.train_data_file datasets/my_train.npz \
   --output_dir outputs/my_run \
   --backend pytorch \
   --torch-accelerator auto --torch-logger csv
@@ -305,7 +321,7 @@ Flags (`python -m ptycho_torch.train --help` is authoritative):
 |---|---|
 | Data/model | `--train_data_file`, `--test_data_file`, `--output_dir`, `--n_images` (number of groups), `--gridsize`, `--batch_size`, `--max_epochs`, `--profile {ci}`, `--rect-s1s2-init {ones,dose_closure}` |
 | Runtime | `--accelerator {auto,cuda,cpu,tpu,mps}`, `--deterministic/--no-deterministic`, `--num-workers`, `--quiet` |
-| Optimization | `--learning-rate`, `--scheduler {Default,Exponential,MultiStage,Adaptive}`, `--accumulate-grad-batches` |
+| Optimization | `--learning-rate`, `--scheduler {Default,Exponential,MultiStage,Adaptive,WarmupCosine,ReduceLROnPlateau}`, `--accumulate-grad-batches` |
 | Checkpointing | `--enable-checkpointing/--disable-checkpointing`, `--checkpoint-save-top-k`, `--checkpoint-monitor` (default `val_loss`, auto-aliased to the model's actual metric, e.g. `poisson_val_loss`), `--checkpoint-mode`, `--early-stop-patience` |
 | Loss/probe | `--torch-loss-mode {poisson,mae}`, `--probe-mask/--no-probe-mask`, `--probe-mask-sigma`, `--probe-mask-diameter` |
 | Logging | `--logger {csv,tensorboard,mlflow,none}`, `--log-patch-stats`, `--patch-stats-limit` |
@@ -328,8 +344,12 @@ from ptycho.raw_data import RawData
 from ptycho_torch.execution_request import ExecutionRequest
 from ptycho_torch.workflows.components import run_cdi_example_torch
 
-train_data = RawData.from_file(str(config.train_data_file))
-test_data = RawData.from_file(str(config.test_data_file)) if config.test_data_file else None
+train_data = RawData.from_file(str(config.data.train_data_file))
+test_data = (
+    RawData.from_file(str(config.data.test_data_file))
+    if config.data.test_data_file
+    else None
+)
 execution_request = ExecutionRequest(
     values={
         "accelerator": "auto",
@@ -358,7 +378,8 @@ window).
 
 ## 5. Checkpoints, Persistence, Reproducibility
 
-- **Determinism:** `deterministic=True` + `seed_everything(config.subsample_seed)`.
+- **Determinism:** `deterministic=True` plus the resolved sampling seed
+  (`config.sampling.subsample_seed` on the public record).
 - **Checkpoints:** `{output_dir}/checkpoints/last.ckpt` (Lightning), with
   hyperparameters embedded via `save_hyperparameters()` — checkpoints reload without
   manual config kwargs.

@@ -6,10 +6,12 @@ This guide has two layers:
 - **Developers:** see [Developer architecture](#developer-architecture) for the
   public/Torch split, `ModelSpec`, artifact versions, and the legacy bridge.
 
-This document defines parameter ownership and records raw dataclass defaults.
-Those defaults are valid construction values, not necessarily the best
-scientific settings for every dataset. A governing study or run contract may
-select different values explicitly.
+This document defines parameter ownership and records defaults from the owning
+configuration types. Public training configuration is a nested Pydantic model;
+simulation, model, and inference configuration remain validated standard-library
+dataclasses. These defaults are valid construction values, not necessarily the
+best scientific settings for every dataset. A governing study or run contract
+may select different values explicitly.
 
 ## Which Configuration Should I Use?
 
@@ -25,9 +27,9 @@ Configure the stage where a choice first changes behavior:
 | Measured diffraction, positions, or the actual probe | Dataset/acquisition data | Physical inputs such as `diff3d`, coordinates, `probeGuess`, and optional realized-probe fields; these are data, not model settings |
 
 In normal CLI and study workflows, supply config-file values and explicit
-overrides. The entry point constructs and validates the dataclasses. Do not
-manually construct both public and Torch representations merely to keep shared
-fields synchronized.
+overrides. The entry point constructs and validates the appropriate
+configuration record. Do not manually construct both public and Torch
+representations merely to keep shared fields synchronized.
 
 The practical ownership rules are:
 
@@ -268,7 +270,8 @@ representations are not co-equal sources of truth:
 
 | Representation | Role | Should users edit it directly? |
 |---|---|---|
-| `ptycho.config.config` dataclasses | Public/shared configuration contract and legacy projection | Yes, when using the Python API |
+| `ptycho.config.config.TrainingConfig` and its nested Pydantic models | Public training authoring contract and legacy projection | Yes, when using the Python API |
+| `ptycho.config.config` simulation, model, and inference dataclasses | Public/shared non-training configuration contracts | Yes, when using the Python API |
 | Factory-resolved `ptycho_torch.config_params` dataclasses | Torch data, topology, physics, training, and inference carriers after defaults, aliases, and object policy are materialized | Usually no; use the closed factory or a study wrapper |
 | `TrainingPayload` / `InferencePayload` | Phase-local bundles returned by the factory | No; consume them |
 | `ModelSpec("torch-model-spec-portable-v2")` | Derived, sealed Torch graph/state identity used for construction and reload | No |
@@ -390,7 +393,7 @@ Some TensorFlow-era modules still read the process-local
 `ptycho.params.cfg`. Supported entry points therefore perform a one-way bridge:
 
 ```text
-resolved dataclass ──► update_legacy_dict(params.cfg, config) ──► legacy consumer
+resolved configuration ──► update_legacy_dict(params.cfg, config) ──► legacy consumer
 ```
 
 New code must not read `params.cfg` as a source for structured configuration.
@@ -407,31 +410,68 @@ backend workflow and CONFIG-001 ordering, see
 
 ### Public Training and Inference Resolution
 
-The supported public source boundary is exported from `ptycho.config` as
-`resolve_training_config()` and `resolve_inference_config()`. Both use:
+The supported public source boundaries are exported from `ptycho.config` as
+`resolve_training_config()` and `resolve_inference_config()`. They share this
+precedence rule but intentionally have different authoring shapes:
 
 ```text
-dataclass defaults < file values < explicitly supplied CLI values
+type defaults < file mapping < explicitly supplied CLI patch
 ```
 
 An argparse default is not an explicit CLI value. Supported entry points pass
 only options that the caller actually supplied, so an omitted CLI option does
 not overwrite a file value.
 
-Within each file or explicit-CLI source, model fields may be written either at
-the root or under `model`. An equal flat/nested duplicate is accepted once; an
-unequal duplicate fails with both locations identified. Across sources, the
-normal precedence above applies even when one source uses the flat form and
-the other uses the nested form. Unknown root or nested model fields fail rather
-than being discarded.
+Training authoring is nested. `resolve_training_config()` deep-merges the file
+mapping and explicit CLI patch, then validates one `TrainingConfig`
+(`BaseSettings`) with these Pydantic submodels:
 
-`n_groups` is the canonical grouping field. At the resolver boundary,
-`n_images` remains a deprecated alias: an alias-only value becomes `n_groups`,
-equal same-source alias/canonical values are accepted once, and unequal
-same-source values fail. A higher-precedence source may override a lower one
-through either spelling. Successful resolution that used `n_images` emits one
-deprecation warning and returns `n_images=None`; direct dataclass construction
-retains its historical compatibility behavior.
+```text
+model                   ModelConfig dataclass
+data                    DataConfig
+sampling                SamplingConfig
+loss                    LossConfig
+tf_loss                 TFLossConfig
+gradient_clip           GradientClipConfig
+optimizer               OptimizerConfig
+scheduler               SchedulerConfig
+```
+
+Model and every training-component field therefore belong under their named
+sections. Unknown or misplaced fields fail because every
+Pydantic section uses `extra="forbid"`. Although `TrainingConfig` derives from
+`BaseSettings`, its implicit environment, dotenv, and secrets sources are
+disabled: entry points explicitly load the file and CLI mappings and pass the
+merged result for validation.
+
+On the unified CLI, direct training fields retain plain flags such as
+`--nepochs`, `--batch_size`, `--output_dir`, and `--backend`; nested fields use
+dotted flags such as `--data.train_data_file`, `--sampling.n_groups`,
+`--optimizer.algorithm`, and `--scheduler.kind`. The native
+`python -m ptycho_torch.train` CLI is a separate interface and retains its
+documented flat flags.
+
+Current `refactor` limitation: the generated parser leaves numeric and Boolean
+CLI values as strings, which the strict Pydantic validators reject during
+`setup_configuration()`. Author those values in the nested YAML file until the
+CLI decoder is corrected. Path and literal-string overrides remain usable; the
+dotted names above describe the intended public surface rather than a claim
+that every generated value type currently completes resolution.
+
+Within `SamplingConfig`, `n_groups` is canonical and `n_images` remains a
+deprecated alias. An alias-only value becomes `n_groups`; equal alias and
+canonical values are accepted; unequal values fail. Because source mappings
+are deep-merged before Pydantic validation, conflicting alias/canonical values
+across file and CLI sources also fail rather than using one spelling to
+silently override the other. Successful validation clears `n_images`; omitted
+`n_groups` materializes the default of `512`.
+
+Inference authoring remains flat except for `model`. Within each inference
+source, model fields may be written either at the root or under `model`. An
+equal flat/nested duplicate is accepted once; an unequal duplicate fails with
+both locations identified. Across sources, normal precedence applies even when
+one source uses the flat form and the other uses the nested form. Inference
+resolves its `n_images` alias per source before applying CLI precedence.
 
 Validation is deliberately layered:
 
@@ -459,7 +499,7 @@ Other configuration families retain their entry-point-specific source rules:
   omitted file fields use dataclass defaults, while omitting the file invokes
   the entry point's historical compatibility defaults.
 - Unknown simulation keys and conflicting compatibility aliases are errors.
-- Not every dataclass field has a CLI flag.
+- Not every configuration field has a CLI flag.
 
 ### Profiles Are Starting Bundles
 
@@ -597,6 +637,18 @@ The non-obvious pieces:
 | `n_groups` / `gridsize` | Required grouping identity: number of sampled groups and frames per group axis. `gridsize=1` degenerates grouping to single-frame groups. |
 | Startup record | Fresh training persists a strict `rect-s1s2-initialization-v2` record (`solved_gauge`, `method`, `mode`, `sampled_patterns`) in `training_summary.json`; the dose method is `dose_closure_seeded_uniform_unit_object`. Readers accept valid historical v1 prefix-era records without rewriting them. A solved gauge far from 1 signals that the data's probe/object decomposition convention disagrees with the forward model. |
 
+The name *dose closure* refers to closing the aggregate count budget on the
+fixed sample. With a unit object, the initializer computes
+
+```text
+c* = sum(measured detector counts) / sum(predicted unit-object intensity)
+s1 = s2 = sqrt(c*)
+```
+
+so the sampled predicted and measured count totals agree at startup. This is a
+conditioning step for the shared rectangular gauge, not a calibration of the
+physical probe or an identification of absolute object units.
+
 The [representative-sampling design](superpowers/specs/2026-08-06-ci-dose-closure-representative-sampling-design.md#sampling-contract)
 defines the pinned draw and logical-slot mapping.
 
@@ -617,7 +669,7 @@ documents the runnable command and count-domain data meaning.
 
 ## Parameter Reference
 
-The tables below are representative. The dataclass definitions in
+The tables below are representative. The configuration definitions in
 `ptycho/config/config.py` and `ptycho_torch/config_params.py` are the complete
 field lists.
 
@@ -802,35 +854,36 @@ read that single resolved training record.
 
 ### Training (`TrainingConfig`)
 
-The public and resolved Torch training records share many fields. The table is
-representative of that owner family. Torch-only `learning_rate` and
-`accum_steps` are not fields of the public dataclass; supported CLI spellings
-become an explicit factory patch, and the resolved Torch `TrainingConfig` owns
-their effective values.
+The public and resolved Torch training records share many fields. Public
+training authoring is nested as shown below. Torch-only `learning_rate` and
+`accum_steps` are not fields of the public Pydantic model; supported CLI
+spellings become an explicit factory patch, and the resolved Torch
+`TrainingConfig` owns their effective values.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `train_data_file` | `Optional[Path]` | `None` | Training dataset path. Required by training entry points. |
-| `test_data_file` | `Optional[Path]` | `None` | Optional validation/test dataset path. |
+| `data.train_data_file` | `Optional[Path]` | `None` | Training dataset path. Required by training entry points. |
+| `data.test_data_file` | `Optional[Path]` | `None` | Optional validation/test dataset path. |
 | `batch_size` | `int` | `16` | Samples per batch. |
 | `nepochs` | `int` | `50` | Number of training epochs. |
-| `mae_weight` | `float` | `0.0` | Diffraction-space MAE weight. |
-| `nll_weight` | `float` | `1.0` | Poisson negative-log-likelihood weight. |
-| `realspace_mae_weight` | `float` | `0.0` | Object-domain MAE weight. |
-| `realspace_weight` | `float` | `0.0` | General real-space loss weight. |
-| `nphotons` | `float` | `1e9` | Legacy/runtime compatibility value. Generated dose belongs to `SimulationConfig.detector.photons_per_pattern`. |
-| `n_groups` | `Optional[int]` | `None` (`512` after public `TrainingConfig.__post_init__`) | Number of grouped samples used for training. |
-| `n_images` | `Optional[int]` | `None` | **Deprecated** alias for `n_groups`. |
-| `n_subsample` | `Optional[int]` | `None` | Number of raw images selected before grouping. |
-| `subsample_seed` | `Optional[int]` | `None` | Reproducible subsampling seed. |
+| `tf_loss.mae_weight` | `float` | `0.0` | TensorFlow diffraction-space MAE weight. |
+| `tf_loss.nll_weight` | `float` | `1.0` | TensorFlow Poisson negative-log-likelihood weight. |
+| `tf_loss.realspace_mae_weight` | `float` | `0.0` | TensorFlow object-domain MAE weight. |
+| `tf_loss.realspace_weight` | `float` | `0.0` | TensorFlow general real-space loss weight. |
+| `loss.torch_loss_mode` | `Literal['poisson','mae']` | `'poisson'` | Primary Torch loss family. |
+| `data.nphotons` | `float` | `1e9` | Legacy/runtime compatibility value. Generated dose belongs to `SimulationConfig.detector.photons_per_pattern`. |
+| `sampling.n_groups` | `Optional[int]` | `512` after validation | Number of grouped samples used for training. |
+| `sampling.n_images` | `Optional[int]` | `None` | **Deprecated** alias for `sampling.n_groups`; cleared after successful validation. |
+| `sampling.n_subsample` | `Optional[int]` | `None` | Number of raw images selected before grouping. |
+| `sampling.subsample_seed` | `Optional[int]` | `None` | Reproducible subsampling seed. |
 | `positions_provided` | `bool` | `True` | Use provided scan positions. |
 | `probe_trainable` | `bool` | `False` | Optimize the probe jointly with the object model. |
 | `intensity_scale_trainable` | `bool` | `True` | Optimize the global intensity scale. |
-| `optimizer` | `Literal['adam','adamw','sgd']` | `'adam'` | Optimizer family. |
-| `weight_decay` | `float` | `0.0` | Optimizer weight decay. |
-| `scheduler` | `Literal['Default','Exponential','WarmupCosine','ReduceLROnPlateau']` | `'Default'` | Public scheduler choice. |
-| `gradient_clip_val` | `Optional[float]` | `None` | Torch gradient-clipping threshold; `None` disables clipping. |
-| `gradient_clip_algorithm` | `Literal['norm','value','agc']` | `'norm'` | Torch gradient-clipping algorithm. |
+| `optimizer.algorithm` | `Literal['adam','adamw','sgd']` | `'adam'` | Optimizer family. |
+| `optimizer.weight_decay` | `float` | `0.0` | Optimizer weight decay. |
+| `scheduler.kind` | `Literal['Default','Exponential','WarmupCosine','ReduceLROnPlateau']` | `'Default'` | Public scheduler choice. |
+| `gradient_clip.val` | `Optional[float]` | `None` | Torch gradient-clipping threshold; `None` disables clipping. |
+| `gradient_clip.algorithm` | `Literal['norm','value','agc']` | `'norm'` | Torch gradient-clipping algorithm. |
 | `output_dir` | `Path` | `training_outputs` | Training output directory. |
 
 ### Inference (`InferenceConfig`)
@@ -861,45 +914,50 @@ When `n_subsample` is supplied, the controls are independent:
 
 ```yaml
 # Select 10,000 raw images, then construct 500 groups of four patches.
-n_subsample: 10000
-n_groups: 500
-subsample_seed: 3
-gridsize: 2
+model:
+  gridsize: 2
+sampling:
+  n_subsample: 10000
+  n_groups: 500
+  subsample_seed: 3
 ```
 
 ## Example YAML Configuration
 
 ```yaml
-# Model
-N: 64
-gridsize: 2
-architecture: cnn
-n_filters_scale: 2
-amp_activation: swish
-object_layout: grouped_patches
-training_canvas: relative_overlap
-training_patch_weighting: central_mask
+model:
+  N: 64
+  gridsize: 2
+  architecture: cnn
+  n_filters_scale: 2
+  amp_activation: swish
+  object_layout: grouped_patches
+  training_canvas: relative_overlap
+  training_patch_weighting: central_mask
 
-# Training
-train_data_file: datasets/fly/fly001_prepared_train.npz
-test_data_file: datasets/fly/fly001_prepared_test.npz
+data:
+  train_data_file: datasets/fly/fly001_prepared_train.npz
+  test_data_file: datasets/fly/fly001_prepared_test.npz
+  # Compatibility value for already-materialized data. Generated dose belongs
+  # to SimulationConfig.detector.photons_per_pattern.
+  nphotons: 1000000000.0
+
 output_dir: results/my_experiment_run_1
 nepochs: 100
 batch_size: 32
-n_groups: 4096
-nll_weight: 1.0
-mae_weight: 0.0
 probe_trainable: true
 
-# Compatibility values for already-materialized data
-nphotons: 1e9
-probe_scale: 4.0
-gaussian_smoothing_sigma: 0.0
+sampling:
+  n_groups: 4096
+
+tf_loss:
+  nll_weight: 1.0
+  mae_weight: 0.0
 ```
 
 ```bash
 ptycho_train --config configs/my_experiment_config.yaml
 
-# Explicit CLI values override the file for entry points that expose the flag.
-ptycho_train --config configs/my_experiment_config.yaml --nepochs 10
+# Literal-string CLI values override the file when explicitly supplied.
+ptycho_train --config configs/my_experiment_config.yaml --backend pytorch
 ```

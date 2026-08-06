@@ -14,6 +14,12 @@
 
 **Execution amendment:** Follow [`docs/superpowers/plans/2026-08-06-ci-dose-closure-representative-sampling.md`](2026-08-06-ci-dose-closure-representative-sampling.md) for the interleaved branch order. Tasks 1–2 below are complete. The sampling plan replaces the prefix-runtime portions of Tasks 6–7 and augments Task 10; do not create more worktrees or run duplicate comprehensive suites.
 
+> **Status-reading note:** The unchecked step boxes below preserve the original
+> execution recipe; they are not the current work queue. Use each task's
+> explicit `Status` paragraph, recorded commits, and the representative-sampling
+> amendment to determine completion. In particular, do not repeat Tasks 1–2
+> because their child boxes remain unchecked.
+
 ## Branch and path matrix
 
 | Concern | `refactor` | `fno-stable` | `refactor-internal` |

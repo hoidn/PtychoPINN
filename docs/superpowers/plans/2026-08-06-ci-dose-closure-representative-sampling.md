@@ -14,6 +14,12 @@
 
 **Parent contract:** [`docs/superpowers/specs/2026-08-05-regular-ci-dose-closure-convergence-design.md`](../specs/2026-08-05-regular-ci-dose-closure-convergence-design.md)
 
+> **Status-reading note:** On `refactor`, the implementation described by Tasks
+> 1–3 is complete (`d165443927`, `fbe08e4d49`, `3d05fcebb`, and documentation
+> commit `0f1687d485`). The unchecked boxes retain the pre-execution recipe and
+> are not a queue to rerun. Branch-specific status must be read from the
+> composition section and recorded branch commits, not checkbox shape alone.
+
 ## Composition with the parent convergence plan
 
 This plan is the sampling-and-record amendment to the parent convergence plan,

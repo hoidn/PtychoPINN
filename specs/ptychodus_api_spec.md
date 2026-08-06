@@ -4,20 +4,20 @@
 
 The `ptychopinn` configuration system is a hybrid architecture designed to support both modern, type-safe workflows and maintain backward compatibility with over 20 legacy modules. It consists of two primary components:
 
-1.  **Modern Dataclass System (`config/config.py`):** The authoritative source of truth for all parameters. It uses Python dataclasses for structured, type-hinted, and validated configuration.
+1.  **Modern Configuration Types (`config/config.py`):** The authoritative source of truth for all parameters. Public training uses a nested Pydantic `BaseSettings` model; simulation, model, and inference use validated standard-library dataclasses.
 2.  **Legacy Global Dictionary (`params.py`):** A global, mutable dictionary (`ptycho.params.cfg`) that is used by older modules throughout the codebase.
 
-The API is built around a **one-way data flow**: parameters are defined in the modern dataclasses and then propagated to the legacy dictionary. Direct manipulation of the legacy dictionary is strongly discouraged in new code.
+The API is built around a **one-way data flow**: parameters are defined in the modern configuration records and then propagated to the legacy dictionary. Direct manipulation of the legacy dictionary is strongly discouraged in new code.
 
 The central function that bridges these two systems is `ptycho.config.config.update_legacy_dict()`. Any external system, like `ptychodus`, **must** use this bridge to configure `ptychopinn` correctly.
 
-**⚠️ PyTorch Requirement:** PyTorch `>= 2.2` is a **mandatory runtime dependency** for the PyTorch backend (`ptycho_torch/`). The package specifies `torch>=2.2` in `setup.py` install requirements. The TensorFlow backend (`ptycho/`) continues to function independently, but callers integrating the PyTorch stack **must** ensure PyTorch is available; the system raises an actionable `RuntimeError` if torch cannot be imported. For installation guidance, see the PyTorch workflow guide at <doc-ref type="workflow">docs/workflows/pytorch.md</doc-ref>.
+**⚠️ PyTorch Requirement:** PyTorch `>= 2.2` is a **mandatory runtime dependency** for the PyTorch backend (`ptycho_torch/`). The project declares `torch` in `pyproject.toml`; supported PyTorch workflows require version 2.2 or newer. The TensorFlow backend (`ptycho/`) continues to function independently, but callers integrating the PyTorch stack **must** ensure a supported PyTorch installation is available. For installation guidance, see the PyTorch workflow guide at <doc-ref type="workflow">docs/workflows/pytorch.md</doc-ref>.
 
 ### 2. Core Components
 
-#### 2.1. Modern Configuration Dataclasses
+#### 2.1. Modern Configuration Types
 
-These dataclasses, defined in `config/config.py`, are the primary way to specify configuration.
+These types, defined in `config/config.py`, are the primary way to specify configuration.
 
 - **`ModelConfig`**: Defines the neural network architecture and core physics parameters.
   - `N`: The size of the input diffraction patterns (e.g., 64, 128).
@@ -51,17 +51,25 @@ These dataclasses, defined in `config/config.py`, are the primary way to specify
     (`ptycho.config.config.ModelConfig`, `ptychodus.model.ptychopinn.reconstructor`). These must be honoured by any
     alternative backend because they drive grouping geometry, probe handling, and image smoothing downstream.
 
-- **`TrainingConfig`**: Defines parameters for the training workflow.
+- **`TrainingConfig`**: A Pydantic `BaseSettings` model defining the training workflow.
   - `model`: A nested `ModelConfig` instance.
-  - `train_data_file`: `pathlib.Path` to the training dataset.
+  - `data`: A nested `DataConfig` containing `train_data_file`,
+    `test_data_file`, and `nphotons`.
+  - `sampling`: A nested `SamplingConfig` containing `n_groups`, deprecated
+    `n_images`, raw-row selection, neighbor grouping, and oversampling controls.
+  - `loss` and `tf_loss`: Nested Torch loss selection and TensorFlow loss
+    weights, respectively.
+  - `gradient_clip`, `optimizer`, and `scheduler`: Nested optimization-policy
+    records.
   - `batch_size`: The number of samples per training step.
   - `nepochs`: The total number of training epochs.
-  - `nll_weight`, `mae_weight`, `realspace_weight`: Loss function weights.
-  - `nphotons`: The expected number of photons, crucial for the Poisson noise model in the PINN loss.
-  - Additional controls surfaced to `ptychodus`, such as `n_groups`, `n_subsample`, `subsample_seed`, `neighbor_count`,
-    `positions_provided`, `probe_trainable`, `intensity_scale_trainable`, `sequential_sampling`, and `output_dir` 
-    (`ptycho.config.config.TrainingConfig`, `ptychodus.model.ptychopinn.reconstructor`). These values
-    propagate to data sampling (`RawData.generate_grouped_data`) and training orchestration (`ptycho.workflows.components`).
+  - Direct controls include `positions_provided`, `probe_trainable`,
+    `intensity_scale_trainable`, `output_dir`, and `backend`.
+  - All nested models forbid extra fields and revalidate instances. Although
+    the root type is `BaseSettings`, implicit environment, dotenv, and secrets
+    sources are disabled. File mappings and explicit CLI patches are loaded by
+    the entry point, deep-merged, and validated through
+    `resolve_training_config()`.
 
 - **`InferenceConfig`**: Defines parameters for the reconstruction (inference) workflow.
   - `model`: A nested `ModelConfig` instance.
@@ -80,17 +88,17 @@ These dataclasses, defined in `config/config.py`, are the primary way to specify
 
 #### 2.3. The Compatibility Bridge (`config/config.py`)
 
-This is the most critical part of the configuration API. It translates modern dataclasses into the legacy format.
+This is the most critical part of the configuration API. It translates modern configuration records into the legacy format.
 
-- **`update_legacy_dict(cfg: dict, dataclass_obj: Any)`**:
-  - **Purpose**: To populate the legacy `ptycho.params.cfg` dictionary from a modern configuration dataclass (`TrainingConfig` or `InferenceConfig`).
+- **`update_legacy_dict(cfg: dict, config_obj: Any)`**:
+  - **Purpose**: To populate the legacy `ptycho.params.cfg` dictionary from a modern configuration record (`TrainingConfig` or `InferenceConfig`).
   - **Mechanism**: It calls `dataclass_to_legacy_dict()` to perform the translation and then updates the global `cfg` dictionary. This is the **only supported way** to configure `ptychopinn` from an external caller like `ptychodus`.
 
 - **`dataclass_to_legacy_dict(obj: Any)`**:
-  - **Purpose**: Translates a dataclass instance into a flat dictionary with legacy key names.
+  - **Purpose**: Translates a supported configuration instance into a flat dictionary with legacy key names. The historical function name is retained even though public training is now Pydantic.
   - **Mechanism**:
-    1.  Converts the dataclass to a standard dictionary.
-    2.  If the dataclass contains a nested `model` field, it flattens the structure by merging the `ModelConfig` parameters into the main dictionary.
+    1.  Converts a supported dataclass or Pydantic training record to primitive values.
+    2.  Flattens the nested training sections and `ModelConfig` into their legacy keys.
     3.  It resolves the public object policy, rejecting partial, unsupported,
         or contradictory old/new representations before mutating the legacy
         dictionary.
@@ -101,21 +109,21 @@ This is the most critical part of the configuration API. It translates modern da
     5.  It automatically converts `pathlib.Path` objects to strings, as the legacy system expects string paths.
 
 - **PyTorch Configuration Adapters (`ptycho_torch.config_bridge`):**
-  - **Purpose**: Translate PyTorch singleton configuration objects to TensorFlow dataclass instances, enabling PyTorch workflows to populate `params.cfg` via the standard `update_legacy_dict` function.
+  - **Purpose**: Translate Torch-side configuration objects to public configuration instances, enabling PyTorch workflows to populate `params.cfg` through `update_legacy_dict`.
   - **Key Functions**:
     - `to_model_config(data: DataConfig, model: ModelConfig, overrides=None) -> TFModelConfig`: Converts PyTorch `DataConfig` and `ModelConfig` to TensorFlow `ModelConfig`, handling critical transformations such as `grid_size` tuple → `gridsize` int, `mode` enum → `model_type` enum, and activation name normalization.
     - `to_training_config(model: TFModelConfig, data: DataConfig, pt_model: ModelConfig, training: TrainingConfig, overrides=None) -> TFTrainingConfig`: Translates PyTorch training parameters to TensorFlow `TrainingConfig`, converting `epochs` → `nepochs`, `K` → `neighbor_count`, `nll` bool → `nll_weight` float, and requiring explicit `overrides` for fields missing in PyTorch configs (e.g., `train_data_file`, `n_groups`).
     - `to_inference_config(model: TFModelConfig, data: DataConfig, inference: InferenceConfig, overrides=None) -> TFInferenceConfig`: Converts PyTorch inference parameters to TensorFlow `InferenceConfig`, mapping `K` → `neighbor_count` and requiring `overrides` for `model_path` and `test_data_file`.
-  - **Contract**: These adapters MUST produce dataclasses compatible with `update_legacy_dict` and maintain behavioral parity with direct TensorFlow dataclass instantiation. Consumers (e.g., `ptychodus` PyTorch integration) MUST call these adapters before invoking `update_legacy_dict` to ensure correct params.cfg population. Implementation details and field mappings are documented in `ptycho_torch.config_bridge` and tested via `tests/torch/test_config_bridge.py`.
+  - **Contract**: These adapters MUST produce public configuration records compatible with `update_legacy_dict` and maintain behavioral parity with direct public construction. Consumers (e.g., `ptychodus` PyTorch integration) MUST call these adapters before invoking `update_legacy_dict` to ensure correct `params.cfg` population. Implementation details and field mappings are documented in `ptycho_torch.config_bridge` and tested via `tests/torch/test_config_bridge.py`.
 
 ### 3. API Specification and Data Flow
 
 The correct and only supported way for an external system to configure `ptychopinn` is as follows:
 
-1.  **Instantiate a Configuration Dataclass**: Create an instance of `TrainingConfig` or `InferenceConfig` with the desired parameters.
-2.  **Call the Bridge Function**: Pass the legacy `cfg` dictionary and the newly created dataclass instance to `update_legacy_dict`.
+1.  **Instantiate a Configuration Record**: Create an instance of `TrainingConfig` or `InferenceConfig` with the desired parameters.
+2.  **Call the Bridge Function**: Pass the legacy `cfg` dictionary and the newly created record to `update_legacy_dict`.
 
-This one-way data flow ensures that the modern dataclasses remain the single source of truth while correctly populating the state required by legacy modules.
+This one-way data flow ensures that modern configuration remains the single source of truth while correctly populating the state required by legacy modules.
 
 ```mermaid
 graph TD
@@ -182,7 +190,7 @@ following behavioural contract in addition to the configuration bridge.
 
 - `reconstruct()` and `train()` assemble `ModelConfig`, `InferenceConfig`, and `TrainingConfig` instances from
   live settings (`ptychodus.model.ptychopinn.reconstructor`). Every field in
-  these dataclasses must be respected because they directly feed downstream modules.
+  these records must be respected because they directly feed downstream modules.
 - After source resolution and structural, runnable, and resource validation,
   `update_legacy_dict(ptycho.params.cfg, validated_config)` is called immediately
   before backend dispatch or another legacy consumer. The backend must continue
@@ -326,10 +334,10 @@ Archive identification and backend tagging
 - CLI entrypoints (`ptycho_torch/train.py`, `ptycho_torch/inference.py`) MUST delegate to shared helper functions (`ptycho_torch/cli/shared.py`) for path validation and pure execution-request construction. Helpers SHALL emit deprecation warnings for legacy flags (`--device`, `--disable_mlflow`) and map them to modern equivalents (`--accelerator`, `--logger none`, and `--quiet`) without inspecting hardware.
 - Execution config objects (`PyTorchExecutionConfig`, see §4.9) MUST NOT populate `params.cfg` via `update_legacy_dict`; they control runtime behavior only. Canonical configs (`TrainingConfig`, `InferenceConfig`) continue to bridge via CONFIG-001.
 - Runtime failures SHALL raise actionable errors: `RuntimeError` if PyTorch >=2.2 unavailable (POLICY-001), `ValueError` for invalid execution config fields, `FileNotFoundError` for missing data/checkpoint paths (Phase C2 evidence: `ptycho_torch/cli/shared.py:validate_paths`).
- - Experiment logging via MLflow is OPTIONAL. The default logger backend is
-   `'csv'` (`logger_backend='csv'`). The resolved configuration uses `None` to
-   disable logging; the CLI accepts `'none'` and canonicalizes it to `None`.
-   Implementations MUST NOT require MLflow in environments where it is not installed.
+ - Activating MLflow logging is OPTIONAL. The `mlflow` package is a direct
+   project dependency, while the default logger backend remains `'csv'`
+   (`logger_backend='csv'`). The resolved configuration uses `None` to disable
+   logging; the CLI accepts `'none'` and canonicalizes it to `None`.
 
 #### 4.8. Backend Selection & Dispatch
 
@@ -372,7 +380,7 @@ Neither record populates `params.cfg`, enters `ModelSpec`, or contributes to
 portable artifact identity. Model topology is owned only by Torch
 `ModelConfig`; optimizer, scheduler, clipping, and accumulation semantics are
 owned only by Torch `TrainingConfig`. A CLI or API default is not explicit
-provenance merely because argparse or a dataclass materialized it.
+provenance merely because argparse or a configuration type materialized it.
 
 Resolution order is:
 
@@ -423,9 +431,9 @@ helpers are not supported APIs.
    - `logger_backend` (`str|None`, default `'csv'`): Resolved experiment tracking backend. MUST be one of `'csv'`, `'tensorboard'`, `'mlflow'`, or `None`. The raw CLI spelling `'none'` resolves to `None`; direct programmatic `None` has the same disabled meaning. Controls Lightning logger selection for capturing training/validation metrics:
      - `'csv'`: CSVLogger (default) — zero dependencies, stores metrics as CSV files in `{output_dir}/lightning_logs/`. Recommended for CI/automated workflows.
      - `'tensorboard'`: TensorBoardLogger — requires tensorboard (auto-installed via TensorFlow dependency), enables rich visualization via `tensorboard --logdir {output_dir}/lightning_logs/`.
-     - `'mlflow'`: MLFlowLogger — requires mlflow package (optional dependency), integrates with MLflow tracking server. Server URI must be configured separately.
+     - `'mlflow'`: MLFlowLogger — uses the project-installed MLflow dependency and integrates with an MLflow tracking server. Server URI must be configured separately.
      - `None`: Disable logging — metrics from `self.log()` calls are discarded. Use the raw CLI spelling `'none'` with `--quiet` to suppress all output.
-     Omission uses the dataclass default `'csv'`; explicit `None` disables logging. Exposed via `--logger` CLI flag. **Note:** MLflow backend currently uses legacy `mlflow.pytorch.autolog()` in `ptycho_torch.train`; migration to Lightning `MLFlowLogger` tracked as Phase EB3.C4 backlog. **Deprecation:** `--disable_mlflow` emits `DeprecationWarning` and resolves to the same disabled `None` value.
+     Omission uses the configuration default `'csv'`; explicit `None` disables logging. Exposed via `--logger` CLI flag. **Note:** MLflow backend currently uses legacy `mlflow.pytorch.autolog()` in `ptycho_torch.train`; migration to Lightning `MLFlowLogger` tracked as Phase EB3.C4 backlog. **Deprecation:** `--disable_mlflow` emits `DeprecationWarning` and resolves to the same disabled `None` value.
 
 5. **Inference Knobs:**
    - `inference_batch_size` (int|None, default `None`): Override batch size for inference. MUST be > 0 if set. Exposed via `--inference-batch-size`. When `None`, reuses training `batch_size`.
@@ -474,25 +482,44 @@ updated in lockstep.
 
 | Field | Legacy `params.cfg` key | Primary consumers | Notes |
 | :----- | :---------------------- | :----------------- | :----- |
-| `train_data_file` | `train_data_file_path` | Ptychodus reconstructor, workflow components | Provides the NPZ source for training data and for diagnostics during grouping. |
-| `test_data_file` | `test_data_file_path` | Ptychodus reconstructor, workflow components | Optional NPZ path used for validation/inference data preparation. |
+| `data.train_data_file` | `train_data_file_path` | Ptychodus reconstructor, workflow components | Provides the NPZ source for training data and for diagnostics during grouping. |
+| `data.test_data_file` | `test_data_file_path` | Ptychodus reconstructor, workflow components | Optional NPZ path used for validation/inference data preparation. |
+| `data.nphotons` | `nphotons` | model/train scaling paths | Photon-count compatibility value for already-materialized data. |
 | `batch_size` | `batch_size` | legacy training loops via `params.cfg` | Maintained for compatibility with legacy CLI pipelines; current PINN training reads it from `params.cfg` when constructing datasets. |
 | `nepochs` | `nepochs` | legacy training scripts | Number of optimizer epochs; propagated to legacy CLI workflows. |
-| `mae_weight` | `mae_weight` | model loss configuration | Weight applied to diffraction MAE term in composite loss. |
-| `nll_weight` | `nll_weight` | model loss configuration | Weight applied to Poisson NLL loss component. |
-| `realspace_mae_weight` | `realspace_mae_weight` | real-space alignment helpers | Coefficient for optional real-space MAE alignment term. |
-| `realspace_weight` | `realspace_weight` | model loss configuration | Controls weighting of real-space consistency branch. |
-| `nphotons` | `nphotons` | model/train scaling paths | Sets photon-count prior for scaling and loss normalization. |
-| `n_groups` | `n_groups` | workflow components, `RawData.generate_grouped_data` | Determines number of grouped samples requested from the dataset (replaces `n_images`). |
-| `n_images` *(deprecated)* | `n_images` | config `__post_init__` and compatibility workflow paths | Legacy alias converted to `n_groups` during `TrainingConfig.__post_init__`. |
-| `n_subsample` | `n_subsample` | workflow sampling paths | Optional independent subsampling count before grouping. |
-| `subsample_seed` | `subsample_seed` | workflow sampling paths | Ensures reproducible subsampling when provided. |
-| `neighbor_count` | `neighbor_count` | workflow components, `RawData.generate_grouped_data` | Sets K-nearest-neighbor search width for grouping / oversampling. |
+| `sampling.n_groups` | `n_groups` | workflow components, `RawData.generate_grouped_data` | Determines grouped samples requested from the dataset; omitted input validates to 512. |
+| `sampling.n_images` *(deprecated)* | `n_images` | Pydantic alias validator and compatibility paths | Alias converted to `sampling.n_groups` and cleared during validation; unequal alias/canonical values fail. |
+| `sampling.n_subsample` | `n_subsample` | workflow sampling paths | Optional independent raw-row selection count before grouping. |
+| `sampling.subsample_seed` | `subsample_seed` | workflow sampling paths | Ensures reproducible subsampling when provided. |
+| `sampling.neighbor_count` | `neighbor_count` | workflow components, `RawData.generate_grouped_data` | Sets nearest-neighbor query width. |
+| `sampling.enable_oversampling` | `enable_oversampling` | workflow sampling paths | Explicitly enables combination-based oversampling. |
+| `sampling.neighbor_pool_size` | `neighbor_pool_size` | workflow sampling paths | Candidate-pool size used for oversampling combinations. |
+| `sampling.sequential_sampling` | `sequential_sampling` | `RawData.generate_grouped_data` | Uses deterministic first-N grouping anchors within the already selected raw-row pool; it does not change raw-row subsampling. |
+| `loss.torch_loss_mode` | `torch_loss_mode` | Torch loss construction | Selects `poisson` or amplitude-only `mae`. |
+| `loss.torch_mae_pred_l2_match_target` | `torch_mae_pred_l2_match_target` | Torch MAE loss construction | Enables prediction-L2 matching on the Torch MAE path. |
+| `tf_loss.mae_weight` | `mae_weight` | TensorFlow model loss configuration | Weight applied to diffraction MAE. |
+| `tf_loss.nll_weight` | `nll_weight` | TensorFlow model loss configuration | Weight applied to Poisson NLL. |
+| `tf_loss.realspace_mae_weight` | `realspace_mae_weight` | TensorFlow real-space helpers | Optional real-space MAE coefficient. |
+| `tf_loss.realspace_weight` | `realspace_weight` | TensorFlow model loss configuration | General real-space consistency weight. |
+| `gradient_clip.val` | `gradient_clip_val` | Torch training loop | Clipping threshold; `None` disables clipping. |
+| `gradient_clip.algorithm` | `gradient_clip_algorithm` | Torch training loop | Selects `norm`, `value`, or `agc`. |
+| `optimizer.algorithm` | `optimizer` | Torch optimizer construction | Selects `adam`, `adamw`, or `sgd`. |
+| `optimizer.weight_decay` | `weight_decay` | Torch optimizer construction | Optimizer weight decay. |
+| `optimizer.sgd.momentum` | `momentum` | Torch SGD construction | SGD momentum. |
+| `optimizer.adam.beta1` | `adam_beta1` | Torch Adam/AdamW construction | First Adam beta. |
+| `optimizer.adam.beta2` | `adam_beta2` | Torch Adam/AdamW construction | Second Adam beta. |
+| `scheduler.kind` | `scheduler` | Torch scheduler construction | Public scheduler selection. |
+| `scheduler.lr_warmup_epochs` | `lr_warmup_epochs` | Torch scheduler construction | Warmup duration. |
+| `scheduler.lr_min_ratio` | `lr_min_ratio` | Torch scheduler construction | Cosine minimum learning-rate ratio. |
+| `scheduler.plateau_factor` | `plateau_factor` | Torch scheduler construction | Reduce-on-plateau factor. |
+| `scheduler.plateau_patience` | `plateau_patience` | Torch scheduler construction | Reduce-on-plateau patience. |
+| `scheduler.plateau_min_lr` | `plateau_min_lr` | Torch scheduler construction | Reduce-on-plateau minimum learning rate. |
+| `scheduler.plateau_threshold` | `plateau_threshold` | Torch scheduler construction | Reduce-on-plateau threshold. |
 | `positions_provided` | `positions.provided` | legacy training paths | Maintained for backwards compatibility with legacy simulation scripts. |
 | `probe_trainable` | `probe.trainable` | model probe configuration | Enables joint optimization of probe parameters. |
 | `intensity_scale_trainable` | `intensity_scale.trainable` | model scaling configuration | Toggles learnable diffraction intensity normalization. |
 | `output_dir` | `output_prefix` | Ptychodus reconstructor, workflow components | Targets directory for saved weights, plots, and metadata. |
-| `sequential_sampling` | `sequential_sampling` | workflow components, `RawData.generate_grouped_data` | Forces deterministic sequential grouping instead of random sampling. |
+| `backend` | `backend` | backend selector | Selects `tensorflow` or `pytorch`. |
 
 #### 5.3. `InferenceConfig` fields (excluding nested `model`)
 
@@ -512,7 +539,7 @@ updated in lockstep.
 
 The `KEY_MAPPINGS` dictionary in `config/config.py` defines the translation rules. Below is a specification of these mappings:
 
-| Modern Dataclass Field        | Legacy `params.cfg` Key     | Description                                                                                              |
+| Modern Configuration Field    | Legacy `params.cfg` Key     | Description                                                                                              |
 | :---------------------------- | :-------------------------- | :------------------------------------------------------------------------------------------------------- |
 | `object_big` *(deprecated)*   | `object.big`                | Derived Boolean compatibility projection: `grouped_patches` → `True`, `single_patch` → `False`.          |
 | `probe_big`                   | `probe.big`                 | If `True`, enables a low-resolution reconstruction of the outer region of the real-space grid.           |
@@ -521,8 +548,8 @@ The `KEY_MAPPINGS` dictionary in `config/config.py` defines the translation rule
 | `intensity_scale_trainable`   | `intensity_scale.trainable` | If `True`, optimizes the model's internal amplitude scaling factor during training.                      |
 | `positions_provided`          | `positions.provided`        | A legacy flag indicating whether scan positions are available.                                           |
 | `output_dir`                  | `output_prefix`             | The directory path for saving outputs. `pathlib.Path` is automatically converted to `str`.               |
-| `train_data_file`             | `train_data_file_path`      | The path to the training data file. `pathlib.Path` is automatically converted to `str`.                  |
-| `test_data_file`              | `test_data_file_path`       | The path to the test data file. `pathlib.Path` is automatically converted to `str`.                      |
+| `data.train_data_file` (training) | `train_data_file_path` | The nested training path is flattened and converted to `str`. |
+| `data.test_data_file` (training) / `test_data_file` (inference) | `test_data_file_path` | The owning path is flattened and converted to `str`. |
 
 ### 7. CLI Reference — Execution Configuration Flags
 
@@ -595,13 +622,18 @@ resolved output and is not a factory input.
 ### 8. Usage Guidelines for Developers
 
 - **DO** instantiate `ModelConfig`, `TrainingConfig`, or `InferenceConfig` to define your parameters.
-- **DO** call `update_legacy_dict(ptycho.params.cfg, ...)` immediately after creating your configuration dataclass and before calling any other `ptychopinn` functions.
+- **DO** call `update_legacy_dict(ptycho.params.cfg, ...)` at the documented compatibility boundary after resolving and validating the configuration and before a legacy consumer runs.
 - **DO NOT** modify `ptycho.params.cfg` directly (e.g., `ptycho.params.cfg['N'] = 128`). This breaks the one-way data flow and can lead to inconsistent state.
-- **DO NOT** create new dependencies on `ptycho.params.get()` in new code. Instead, pass configuration dataclasses as arguments.
+- **DO NOT** create new dependencies on `ptycho.params.get()` in new code. Instead, pass configuration records as arguments.
 
 ### 9. Architectural Rationale
 
-This hybrid system was intentionally designed to facilitate the modernization of a large, existing codebase. The legacy `params.cfg` dictionary allowed for rapid prototyping but created tight coupling and global state issues. The modern dataclass system introduces structure, type safety, and validation. The `update_legacy_dict` bridge allows legacy modules to continue functioning without immediate refactoring, while enabling new code and external systems like `ptychodus` to use a clean, modern API.
+This hybrid system supports modernization of a large existing codebase. The
+legacy `params.cfg` dictionary enabled rapid prototyping but created tight
+coupling and global-state hazards. The modern Pydantic/dataclass configuration
+types introduce structure, type safety, and validation. The
+`update_legacy_dict` bridge keeps legacy modules operational while new code and
+external systems such as `ptychodus` use explicit configuration records.
 
 Terminology note
 - “Model archive” refers to the training/inference weights bundle (`wts.h5.zip`).

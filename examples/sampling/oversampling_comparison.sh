@@ -1,10 +1,15 @@
 #!/bin/bash
-# K Choose C Oversampling Comparison Example
-# This script demonstrates the difference between traditional 1:1 mapping and K choose C oversampling
+set -euo pipefail
+
+# Compare standard grouping with explicit K-choose-C oversampling.
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+cd "$REPO_ROOT"
 
 echo "=================================================="
 echo "K Choose C Oversampling Comparison"
-echo "Demonstrating automatic oversampling when requesting more groups than available points"
+echo "Oversampling begins only when groups exceed selected raw rows"
 echo "=================================================="
 
 # Check if datasets exist
@@ -23,90 +28,70 @@ if [ ! -f "$TEST_DATA" ]; then
     exit 1
 fi
 
-# Configuration
-CONFIG="configs/gridsize2_minimal.yaml"
-SUBSAMPLE=512  # Number of images to subsample from dataset
-EPOCHS=50
-
 echo ""
 echo "Configuration:"
 echo "- Training Dataset: $TRAIN_DATA"
 echo "- Test Dataset: $TEST_DATA"
-echo "- Subsampling: $SUBSAMPLE images from dataset"
+echo "- Selected raw rows: 512"
 echo "- Gridsize: 2 (4 images per group)"
-echo "- Epochs: $EPOCHS"
+echo "- Epochs: 50"
 echo ""
 
-# Example 1: Traditional approach - one group per seed point
+# Standard grouping: at most one group per selected seed point.
 echo "=================================================="
-echo "Example 1: Traditional 1:1 Mapping"
-echo "Creating 128 groups from 512 images (1 group per 4 images)"
+echo "Example 1: Standard grouping"
+echo "Creating 512 groups from 512 selected rows"
 echo "=================================================="
 
 ptycho_train \
-    --train_data_file "$TRAIN_DATA" \
-    --test_data_file "$TEST_DATA" \
-    --n_subsample $SUBSAMPLE \
-    --n_groups 128 \
-    --neighbor_count 4 \
-    --gridsize 2 \
-    --config "$CONFIG" \
-    --output_dir traditional_128groups \
-    --nepochs $EPOCHS \
+    --config "$SCRIPT_DIR/oversampling_standard.yaml" \
+    --data.train_data_file "$TRAIN_DATA" \
+    --data.test_data_file "$TEST_DATA" \
+    --output_dir traditional_512groups \
     --do_stitching
 
 echo ""
-echo "Traditional approach complete. Check logs for:"
+echo "Standard grouping complete. Check logs for:"
 echo "- 'Using efficient random sample-then-group strategy'"
-echo "- 128 groups created from 512 subsampled images"
+echo "- 512 groups created from 512 selected rows"
 echo ""
 
-# Example 2: K choose C oversampling with same subsample
+# K choose C oversampling with the same selected pool.
 echo "=================================================="
 echo "Example 2: K Choose C Oversampling (2x groups)"
-echo "Creating 256 groups from same 512 images using K=7"
+echo "Creating 1024 groups from the same 512 rows using K=7"
 echo "=================================================="
 
 ptycho_train \
-    --train_data_file "$TRAIN_DATA" \
-    --test_data_file "$TEST_DATA" \
-    --n_subsample $SUBSAMPLE \
-    --n_groups 256 \
-    --neighbor_count 7 \
-    --gridsize 2 \
-    --config "$CONFIG" \
-    --output_dir oversampled_256groups \
-    --nepochs $EPOCHS \
+    --config "$SCRIPT_DIR/oversampling_2x.yaml" \
+    --data.train_data_file "$TRAIN_DATA" \
+    --data.test_data_file "$TEST_DATA" \
+    --output_dir oversampled_1024groups \
     --do_stitching
 
 echo ""
 echo "2x oversampling complete. Check logs for:"
 echo "- 'Using K choose C oversampling strategy'"
-echo "- 256 groups created from 512 subsampled images"
+echo "- 1024 groups created from 512 selected rows"
 echo ""
 
 # Example 3: Extreme oversampling
 echo "=================================================="
 echo "Example 3: Extreme K Choose C Oversampling (4x groups)"
-echo "Creating 512 groups from same 512 images using K=7"
+echo "Creating 2048 groups from the same 512 rows using K=7"
 echo "=================================================="
 
 ptycho_train \
-    --train_data_file "$TRAIN_DATA" \
-    --test_data_file "$TEST_DATA" \
-    --n_subsample $SUBSAMPLE \
-    --n_groups 512 \
-    --neighbor_count 7 \
-    --gridsize 2 \
-    --config "$CONFIG" \
-    --output_dir extreme_oversampled_512groups \
-    --nepochs $EPOCHS \
+    --config "$SCRIPT_DIR/oversampling_4x.yaml" \
+    --data.train_data_file "$TRAIN_DATA" \
+    --data.test_data_file "$TEST_DATA" \
+    --output_dir extreme_oversampled_2048groups \
     --do_stitching
 
 echo ""
 echo "4x oversampling complete. Check logs for:"
-echo "- 'Automatically using K choose C oversampling'"
-echo "- 512 groups created from 512 subsampled images"
+echo "- 'Using K choose C oversampling strategy'"
+echo "- 2048 groups created from 512 selected rows"
 echo ""
 
 # Summary
@@ -114,19 +99,17 @@ echo "=================================================="
 echo "Comparison Summary"
 echo "=================================================="
 echo ""
-echo "All three runs used the SAME 512 subsampled images, but:"
+echo "All three runs used the same 512 selected rows, but:"
 echo ""
-echo "1. Traditional (K=4): 128 groups"
-echo "   - Each seed point generates 1 group"
-echo "   - Limited augmentation"
+echo "1. Standard (K=4): 512 groups"
+echo "   - One group per selected anchor"
 echo ""
-echo "2. Oversampled 2x (K=7): 256 groups"
-echo "   - Automatic oversampling triggered"
+echo "2. Oversampled 2x (K=7): 1024 groups"
+echo "   - Explicit oversampling triggered"
 echo "   - Uses K choose C combinations"
 echo "   - 2x more training samples from same data"
 echo ""
-echo "3. Oversampled 4x (K=7): 512 groups"
-echo "   - Maximum oversampling"
+echo "3. Oversampled 4x (K=7): 2048 groups"
 echo "   - Each seed can generate C(7,4)=35 combinations"
 echo "   - 4x more training samples from same data"
 echo ""
@@ -135,7 +118,7 @@ echo "from the same data, effectively augmenting your training set"
 echo "without needing more raw data."
 echo ""
 echo "Compare the training curves and final quality in:"
-echo "- traditional_128groups/"
-echo "- oversampled_256groups/"
-echo "- extreme_oversampled_512groups/"
+echo "- traditional_512groups/"
+echo "- oversampled_1024groups/"
+echo "- extreme_oversampled_2048groups/"
 echo "=================================================="

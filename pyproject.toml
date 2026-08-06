@@ -25,6 +25,7 @@ dependencies = [
     "pandas-datareader",
     "pathos",
     "pydantic>=2.12,<3",
+    "pydantic-settings>=2.11,<3",
     "lightning",
     "scikit-image",
     "scikit-learn",

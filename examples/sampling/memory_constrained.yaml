@@ -1,0 +1,9 @@
+model:
+  gridsize: 2
+batch_size: 16
+sampling:
+  n_subsample: 512
+  n_groups: 128
+  neighbor_count: 4
+  subsample_seed: 42
+nepochs: 10

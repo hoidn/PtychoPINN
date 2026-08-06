@@ -12,7 +12,6 @@ model:
   probe_big: false         # Single probe representation
   probe_mask: false        # No circular mask on probe
   gaussian_smoothing_sigma: 0.0  # No smoothing
-  stitch_crop_size: 20     # Crop size M for patch stitching (must be 0 < M <= N)
 
 # Training Parameters (flat top-level fields)
 nepochs: 50              # Number of training epochs
@@ -22,11 +21,11 @@ intensity_scale_trainable: true  # Allow learning intensity scale
 
 # Sampling sub-config
 sampling:
-  n_images: 512          # Number of diffraction patterns to use (deprecated, use n_groups)
+  n_groups: 512          # Number of grouped samples
 
 # Physics & data sub-config
 data:
-  nphotons: 1.0e6        # Average photons per diffraction pattern
+  nphotons: 1000000.0     # Average photons per diffraction pattern
 
 # TensorFlow loss weights sub-config
 tf_loss:

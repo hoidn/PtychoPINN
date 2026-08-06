@@ -1,4 +1,4 @@
-"""Pure source resolution for the public configuration dataclasses."""
+"""Pure source resolution for the public configuration records."""
 
 from __future__ import annotations
 

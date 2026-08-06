@@ -92,7 +92,7 @@ Legacy approach (avoid - uses global state):
 - Training: ptycho.workflows.components orchestrates complete training workflows
 - Data Loading: ptycho.loader.PtychoDataContainer provides structured data interface
 - Physics: ptycho.tf_helper implements core differentiable operations
-- Configuration: ptycho.config provides modern dataclass-based configuration
+- Configuration: ptycho.config provides modern structured configuration
 """
 
 # TODO s

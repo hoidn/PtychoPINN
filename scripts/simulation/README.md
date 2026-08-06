@@ -184,6 +184,18 @@ training data; `ones` starts `s1=s2=1`. The
 [configuration guide](../../docs/CONFIGURATION.md#dose-closure-initialization)
 owns the selection identity and retirement rules.
 
+It is named *dose closure* because the initializer closes the aggregate count
+budget on its fixed sample:
+
+```text
+c* = sum(measured detector counts) / sum(predicted unit-object intensity)
+s1 = s2 = sqrt(c*)
+```
+
+The sampled predicted and observed totals therefore agree at startup. This is
+conditioning for the shared rectangular gauge, not physical calibration of
+the stored probe or identification of absolute object units.
+
 For this profile, NPZ diffraction (`diff3d`) is Poisson-realized detector
 counts, not square-root intensity. `probeGuess` is the CI-scaled physical
 forward probe in the same count convention.
@@ -326,6 +338,15 @@ Invocation and resolved-input records are written before expensive work.
 Stage and dataset manifests use relative artifact paths and are updated
 atomically. The runner owns managed descendants beneath `--output-root`; it
 does not recursively delete an arbitrary caller directory.
+
+For a fitted count-intensity reconstruction,
+`reconstruction/diagnostics.json` records
+`metric_validity.count_diagnostics.status="complete"` with
+`relative_l2_intensity_error`, `mean_raw_poisson_nll`, `n_samples`, and
+`n_pixels`. The two floating-point metrics must be finite and both counts must
+be positive. A legacy normalized-amplitude reconstruction instead records
+`status="not_applicable"` with reason
+`legacy_normalized_amplitude`; it does not fabricate count-domain metrics.
 
 ## Retained Simulation-Only Tools
 

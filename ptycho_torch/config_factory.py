@@ -928,7 +928,7 @@ def populate_legacy_params(
     Provides audit trail of params.cfg population for debugging and governance.
 
     This function is the critical compatibility bridge that enables legacy modules
-    (over 20 files dependent on params.cfg) to consume modern dataclass configs.
+    (over 20 files dependent on params.cfg) to consume modern structured configs.
     It MUST be called before any data loading or model construction operations.
 
     Args:
