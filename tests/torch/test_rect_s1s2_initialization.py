@@ -128,21 +128,32 @@ def test_initialization_mode_requires_exact_builtin_strings(mode):
         validate_rect_s1s2_initialization_mode(mode)
 
 
-def _initialization_payload(mode="dose_closure", *, gauge=3.25):
+def _initialization_payload(
+    mode="dose_closure",
+    *,
+    gauge=3.25,
+    schema_version="rect-s1s2-initialization-v1",
+    sampled_patterns=None,
+):
     if mode == "ones":
         return {
-            "schema_version": "rect-s1s2-initialization-v1",
+            "schema_version": schema_version,
             "mode": "ones",
             "solved_gauge": 1.0,
             "method": "unit_default_no_solve",
             "sampled_patterns": 0,
         }
+    method = (
+        "dose_closure_seeded_uniform_unit_object"
+        if schema_version == "rect-s1s2-initialization-v2"
+        else "dose_closure_unit_object"
+    )
     return {
-        "schema_version": "rect-s1s2-initialization-v1",
+        "schema_version": schema_version,
         "mode": "dose_closure",
         "solved_gauge": gauge,
-        "method": "dose_closure_unit_object",
-        "sampled_patterns": 256,
+        "method": method,
+        "sampled_patterns": 256 if sampled_patterns is None else sampled_patterns,
     }
 
 
@@ -159,6 +170,48 @@ def test_initialization_record_is_frozen_versioned_and_round_trips_strictly():
         record.mode = "ones"
 
 
+@pytest.mark.parametrize(
+    "payload",
+    [
+        _initialization_payload(sampled_patterns=256),
+        _initialization_payload(sampled_patterns=512),
+        _initialization_payload("ones"),
+        _initialization_payload(
+            schema_version="rect-s1s2-initialization-v2",
+        ),
+        _initialization_payload(
+            "ones",
+            schema_version="rect-s1s2-initialization-v2",
+        ),
+    ],
+    ids=("v1-dose-256", "v1-dose-512", "v1-ones", "v2-dose", "v2-ones"),
+)
+def test_initialization_record_round_trips_both_strict_schema_versions(payload):
+    record_type = _record_type()
+
+    record = record_type.from_mapping(payload)
+
+    assert record.to_jsonable() == payload
+    assert record_type.from_mapping(record).to_jsonable() == payload
+
+
+def test_fresh_initialization_factories_remain_v1_until_runtime_switch():
+    from ptycho_torch.rect_s1s2_initialization import (
+        RECT_S1S2_INITIALIZATION_SCHEMA,
+        RECT_S1S2_INITIALIZATION_SCHEMA_V1,
+        RECT_S1S2_INITIALIZATION_SCHEMA_V2,
+    )
+
+    record_type = _record_type()
+
+    assert RECT_S1S2_INITIALIZATION_SCHEMA == RECT_S1S2_INITIALIZATION_SCHEMA_V1
+    assert RECT_S1S2_INITIALIZATION_SCHEMA_V2 == "rect-s1s2-initialization-v2"
+    assert record_type.ones().to_jsonable() == _initialization_payload("ones")
+    assert record_type.dose_closure(3.25).to_jsonable() == (
+        _initialization_payload()
+    )
+
+
 def test_initialization_record_constructor_cannot_bypass_validation():
     record_type = _record_type()
 
@@ -169,6 +222,100 @@ def test_initialization_record_constructor_cannot_bypass_validation():
             method="dose_closure_unit_object",
             sampled_patterns=1,
         )
+
+
+@pytest.mark.parametrize("sampled_patterns", [0, 255, 257, 512])
+def test_v2_dose_closure_requires_exactly_256_patterns(sampled_patterns):
+    record_type = _record_type()
+    payload = _initialization_payload(
+        schema_version="rect-s1s2-initialization-v2",
+        sampled_patterns=sampled_patterns,
+    )
+
+    with pytest.raises(ValueError, match="sampled_patterns"):
+        record_type.from_mapping(payload)
+
+
+@pytest.mark.parametrize(
+    ("schema_version", "method"),
+    [
+        (
+            "rect-s1s2-initialization-v1",
+            "dose_closure_seeded_uniform_unit_object",
+        ),
+        ("rect-s1s2-initialization-v2", "dose_closure_unit_object"),
+    ],
+    ids=("v1-with-v2-method", "v2-with-v1-method"),
+)
+def test_initialization_record_rejects_cross_version_dose_methods(
+    schema_version,
+    method,
+):
+    record_type = _record_type()
+    payload = _initialization_payload(schema_version=schema_version)
+    payload["method"] = method
+
+    with pytest.raises(ValueError, match="method"):
+        record_type.from_mapping(payload)
+
+
+@pytest.mark.parametrize(
+    ("schema_version", "field", "value"),
+    [
+        ("rect-s1s2-initialization-v1", "solved_gauge", 2.0),
+        ("rect-s1s2-initialization-v2", "solved_gauge", 2.0),
+        ("rect-s1s2-initialization-v1", "sampled_patterns", 1),
+        ("rect-s1s2-initialization-v2", "sampled_patterns", 1),
+        (
+            "rect-s1s2-initialization-v1",
+            "method",
+            "dose_closure_unit_object",
+        ),
+        (
+            "rect-s1s2-initialization-v2",
+            "method",
+            "dose_closure_seeded_uniform_unit_object",
+        ),
+    ],
+)
+def test_ones_invariants_are_identical_and_strict_across_versions(
+    schema_version,
+    field,
+    value,
+):
+    record_type = _record_type()
+    payload = _initialization_payload("ones", schema_version=schema_version)
+    payload[field] = value
+
+    with pytest.raises((TypeError, ValueError), match=field):
+        record_type.from_mapping(payload)
+
+
+@pytest.mark.parametrize(
+    "gauge",
+    [float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+)
+def test_v2_record_rejects_nonfinite_or_nonpositive_gauges(gauge):
+    record_type = _record_type()
+    payload = _initialization_payload(
+        gauge=gauge,
+        schema_version="rect-s1s2-initialization-v2",
+    )
+
+    with pytest.raises(ValueError, match="solved_gauge"):
+        record_type.from_mapping(payload)
+
+
+@pytest.mark.parametrize("field", ["schema_version", "method"])
+def test_record_schema_and_method_require_exact_builtin_strings(field):
+    record_type = _record_type()
+    payload = _initialization_payload(
+        schema_version="rect-s1s2-initialization-v2",
+    )
+    payload[field] = np.str_(payload[field])
+
+    with pytest.raises((TypeError, ValueError), match=field):
+        record_type.from_mapping(payload)
 
 
 @pytest.mark.parametrize(

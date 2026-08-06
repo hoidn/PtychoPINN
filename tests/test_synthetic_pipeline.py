@@ -282,6 +282,22 @@ def test_complete_matching_stages_are_reused_without_executor_calls(tmp_path):
     assert result.completed_stages == ("simulate", "train")
 
 
+def test_matching_historical_v1_initialization_record_remains_reusable(tmp_path):
+    _run(_request(tmp_path, ("simulate", "train")), _Executors())
+    summary_path = tmp_path / "training" / "training_summary.json"
+    historical_summary = summary_path.read_bytes()
+    assert json.loads(historical_summary) == _initialization_payload("ones")
+    manifest = json.loads((tmp_path / "stage_manifest.json").read_text())
+    assert manifest["schema_version"] == "synthetic-stage-manifest-v2"
+    replay = _Executors()
+
+    result = _run(_request(tmp_path, ("simulate", "train")), replay)
+
+    assert replay.calls == []
+    assert result.reused_stages == ("simulate", "train")
+    assert summary_path.read_bytes() == historical_summary
+
+
 @pytest.mark.parametrize(
     ("summary_payload", "message"),
     [

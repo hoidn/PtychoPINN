@@ -9,8 +9,12 @@ from numbers import Integral, Real
 from typing import Any
 
 
-RECT_S1S2_INITIALIZATION_SCHEMA = "rect-s1s2-initialization-v1"
+RECT_S1S2_INITIALIZATION_SCHEMA_V1 = "rect-s1s2-initialization-v1"
+RECT_S1S2_INITIALIZATION_SCHEMA_V2 = "rect-s1s2-initialization-v2"
+RECT_S1S2_INITIALIZATION_SCHEMA = RECT_S1S2_INITIALIZATION_SCHEMA_V1
 RECT_S1S2_DOSE_CLOSURE_PATTERNS = 256
+RECT_S1S2_DOSE_CLOSURE_SAMPLE_SEED = 20260806
+RECT_S1S2_DOSE_CLOSURE_SAMPLE_POLICY = "splitmix64_rejection_v1"
 RECT_S1S2_INITIALIZATION_MODES = ("ones", "dose_closure")
 
 _FIELDS = {
@@ -20,9 +24,17 @@ _FIELDS = {
     "method",
     "sampled_patterns",
 }
-_MODE_METHODS = {
-    "ones": "unit_default_no_solve",
-    "dose_closure": "dose_closure_unit_object",
+_SCHEMA_MODE_METHODS = {
+    (RECT_S1S2_INITIALIZATION_SCHEMA_V1, "ones"): "unit_default_no_solve",
+    (
+        RECT_S1S2_INITIALIZATION_SCHEMA_V1,
+        "dose_closure",
+    ): "dose_closure_unit_object",
+    (RECT_S1S2_INITIALIZATION_SCHEMA_V2, "ones"): "unit_default_no_solve",
+    (
+        RECT_S1S2_INITIALIZATION_SCHEMA_V2,
+        "dose_closure",
+    ): "dose_closure_seeded_uniform_unit_object",
 }
 
 
@@ -57,10 +69,14 @@ def _validated_values(payload: Mapping[str, Any]) -> dict[str, Any]:
             f"{sorted(_FIELDS)!r}, got {sorted(str(key) for key in payload)!r}"
         )
     schema_version = payload["schema_version"]
-    if schema_version != RECT_S1S2_INITIALIZATION_SCHEMA:
+    if type(schema_version) is not str or schema_version not in {
+        RECT_S1S2_INITIALIZATION_SCHEMA_V1,
+        RECT_S1S2_INITIALIZATION_SCHEMA_V2,
+    }:
         raise ValueError(
-            "rect_s1s2 initialization schema_version must be "
-            f"{RECT_S1S2_INITIALIZATION_SCHEMA!r}"
+            "rect_s1s2 initialization schema_version must be one of "
+            f"{RECT_S1S2_INITIALIZATION_SCHEMA_V1!r} or "
+            f"{RECT_S1S2_INITIALIZATION_SCHEMA_V2!r}"
         )
     mode = validate_rect_s1s2_initialization_mode(payload["mode"])
     solved_gauge = payload["solved_gauge"]
@@ -72,7 +88,9 @@ def _validated_values(payload: Mapping[str, Any]) -> dict[str, Any]:
             "rect_s1s2 initialization solved_gauge must be positive and finite"
         )
     method = payload["method"]
-    expected_method = _MODE_METHODS[mode]
+    if type(method) is not str:
+        raise TypeError("rect_s1s2 initialization method must be a string")
+    expected_method = _SCHEMA_MODE_METHODS[(schema_version, mode)]
     if method != expected_method:
         raise ValueError(
             "rect_s1s2 initialization method must be "
@@ -98,10 +116,17 @@ def _validated_values(payload: Mapping[str, Any]) -> dict[str, Any]:
                 "rect_s1s2 initialization sampled_patterns must be 0 for "
                 "mode 'ones'"
             )
-    elif sampled_patterns < RECT_S1S2_DOSE_CLOSURE_PATTERNS:
+    elif schema_version == RECT_S1S2_INITIALIZATION_SCHEMA_V1:
+        if sampled_patterns < RECT_S1S2_DOSE_CLOSURE_PATTERNS:
+            raise ValueError(
+                "rect_s1s2 initialization sampled_patterns must be at least "
+                f"{RECT_S1S2_DOSE_CLOSURE_PATTERNS} for v1 mode "
+                "'dose_closure'"
+            )
+    elif sampled_patterns != RECT_S1S2_DOSE_CLOSURE_PATTERNS:
         raise ValueError(
-            "rect_s1s2 initialization sampled_patterns must be at least "
-            f"{RECT_S1S2_DOSE_CLOSURE_PATTERNS} for mode 'dose_closure'"
+            "rect_s1s2 initialization sampled_patterns must be exactly "
+            f"{RECT_S1S2_DOSE_CLOSURE_PATTERNS} for v2 mode 'dose_closure'"
         )
     return {
         "mode": mode,
@@ -141,7 +166,9 @@ class RectS1S2InitializationRecord:
         return cls(
             mode="ones",
             solved_gauge=1.0,
-            method=_MODE_METHODS["ones"],
+            method=_SCHEMA_MODE_METHODS[
+                (RECT_S1S2_INITIALIZATION_SCHEMA, "ones")
+            ],
             sampled_patterns=0,
         )
 
@@ -156,7 +183,9 @@ class RectS1S2InitializationRecord:
                 "schema_version": RECT_S1S2_INITIALIZATION_SCHEMA,
                 "mode": "dose_closure",
                 "solved_gauge": solved_gauge,
-                "method": _MODE_METHODS["dose_closure"],
+                "method": _SCHEMA_MODE_METHODS[
+                    (RECT_S1S2_INITIALIZATION_SCHEMA, "dose_closure")
+                ],
                 "sampled_patterns": sampled_patterns,
             }
         )
@@ -173,8 +202,12 @@ class RectS1S2InitializationRecord:
 
 __all__ = [
     "RECT_S1S2_DOSE_CLOSURE_PATTERNS",
+    "RECT_S1S2_DOSE_CLOSURE_SAMPLE_POLICY",
+    "RECT_S1S2_DOSE_CLOSURE_SAMPLE_SEED",
     "RECT_S1S2_INITIALIZATION_MODES",
     "RECT_S1S2_INITIALIZATION_SCHEMA",
+    "RECT_S1S2_INITIALIZATION_SCHEMA_V1",
+    "RECT_S1S2_INITIALIZATION_SCHEMA_V2",
     "RectS1S2InitializationRecord",
     "validate_rect_s1s2_initialization_mode",
 ]
