@@ -22,6 +22,7 @@ venv/
 # Logs
 *.log
 logs/
+.loglogin
 
 # Data files - CRITICAL: Never commit these!
 *.npz

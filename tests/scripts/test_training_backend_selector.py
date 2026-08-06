@@ -435,14 +435,14 @@ class TestTrainingCliBackendDispatch:
             torch_plateau_patience=None,
             torch_plateau_min_lr=None,
             torch_plateau_threshold=None,
-            scheduler="WarmupCosine",
+            **{"scheduler.kind": "WarmupCosine"},
         )
         raw_argv = (
             "--torch-accelerator=cpu",
             "--quiet",
             "--torch-scheduler",
             "Exponential",
-            "--scheduler=WarmupCosine",
+            "--scheduler.kind=WarmupCosine",
             "--torch-plateau-factor=0.25",
         )
         monkeypatch.setattr(sys, "argv", ["train.py", *raw_argv])
@@ -972,8 +972,8 @@ def test_torch_scheduler_plateau_params_enter_explicit_training_patch(
     test_argv = [
         'train.py',
         '--backend', 'pytorch',
-        '--train_data_file', str(tmp_path / 'train.npz'),
-        '--scheduler', 'ReduceLROnPlateau',
+        '--data.train_data_file', str(tmp_path / 'train.npz'),
+        '--scheduler.kind', 'ReduceLROnPlateau',
         '--torch-plateau-factor', '0.25',
         '--torch-plateau-patience', '5',
         '--torch-plateau-min-lr', '1e-5',

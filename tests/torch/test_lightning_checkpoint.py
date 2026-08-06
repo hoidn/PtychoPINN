@@ -91,7 +91,7 @@ class TestLightningCheckpointSerialization:
             N=64,
             gridsize=1,
             model_type='pinn',
-            amp_activation='silu',
+            amp_activation='swish',
             n_filters_scale=1,
         )
         tf_train_cfg = TFTrainingConfig(
@@ -388,7 +388,7 @@ class TestLightningCheckpointSerialization:
             N=image_size,
             gridsize=1,
             model_type='supervised' if mode == "Supervised" else 'pinn',
-            amp_activation='silu',
+            amp_activation='swish',
             n_filters_scale=1,
             architecture=architecture,
         )

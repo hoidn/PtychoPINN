@@ -266,10 +266,18 @@ _TRAINING_OPTION_BINDINGS = (
         "learning_rate",
         lanes=frozenset({_NATIVE_TRAINING}),
     ),
+    # Native torch CLI registers --scheduler directly; unified CLI exposes --scheduler.kind.
+    # Both map to the same canonical field so either spelling is accepted.
     _training_binding(
         "--scheduler",
         "scheduler",
-        lanes=_TRAINING_LANES,
+        lanes=frozenset({_NATIVE_TRAINING}),
+    ),
+    _training_binding(
+        "--scheduler.kind",
+        "scheduler",
+        "scheduler.kind",
+        lanes=frozenset({_UNIFIED_TRAINING}),
     ),
     _training_binding(
         "--accumulate-grad-batches",
@@ -641,16 +649,17 @@ def build_training_config_patch_from_args(
         for option in explicit_options
         if isinstance(option, str) and option.startswith("--")
     }
+    args_dict = vars(args)
     patch: dict[str, Any] = {}
     for binding in _TRAINING_OPTION_BINDINGS:
         if (
             normalized_lane not in binding.lanes
             or binding.option not in supplied_options
             or binding.field in patch
-            or not hasattr(args, binding.destination)
+            or binding.destination not in args_dict
         ):
             continue
-        patch[binding.field] = getattr(args, binding.destination)
+        patch[binding.field] = args_dict[binding.destination]
     return patch
 
 

@@ -159,7 +159,7 @@ def test_ci_trailing_singleton_probe_is_canonical_before_normalization_and_colla
     tmp_path,
     params_cfg_snapshot,
 ):
-    N = 8
+    N = 64
     batch_size = 2
     count_amplitude_scale = 3.0
     probe_scale = 2.0
@@ -312,7 +312,7 @@ def test_grid_lines_ci_runner_freezes_training_statistics_for_validation(
     tmp_path,
     monkeypatch,
 ):
-    N = 32
+    N = 64
     n_samples = 4
     train_amplitude = torch.linspace(
         0.05,
@@ -587,7 +587,7 @@ def test_ci_shared_probe_is_batch_invariant(
     tmp_path,
     params_cfg_snapshot,
 ):
-    N = 8
+    N = 64
     count_amplitude_scale = 3.0
     container, _, original_probe_2d = _amplitude_fixture(n_samples=8, N=N)
     torch_components.NormalizedAmplitudeCIDictAdapter(
@@ -648,7 +648,7 @@ def test_ci_two_probe_modes_are_retained_and_summed_incoherently(
     tmp_path,
     params_cfg_snapshot,
 ):
-    N = 8
+    N = 64
     batch_size = 2
     container, _, _ = _amplitude_fixture(
         n_samples=4,

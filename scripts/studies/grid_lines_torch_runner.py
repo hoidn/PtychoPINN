@@ -1122,9 +1122,6 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
         # the compatibility default that trains the forward intensity scale.
         intensity_scale_trainable=False,
     )
-    training_config.log_grad_norm = cfg.log_grad_norm
-    training_config.grad_norm_log_freq = cfg.grad_norm_log_freq
-
     # neuralop_uno relies on upsample_bicubic2d, which lacks a deterministic CUDA
     # backward implementation. Use Lightning's "warn" mode for that architecture so
     # the locked U-NO contract trains on GPU; record the caveat in row provenance.
@@ -1439,9 +1436,11 @@ def run_torch_training(
             )
 
     lightning_overrides = {
-        # Learning rate is Torch-owned and must reach the resolved payload
-        # explicitly rather than falling back to the factory default.
+        # Learning rate and gradient-norm logging are Torch-owned; they reach
+        # the resolved payload through overrides rather than the public config.
         "learning_rate": cfg.learning_rate,
+        "log_grad_norm": cfg.log_grad_norm,
+        "grad_norm_log_freq": cfg.grad_norm_log_freq,
         "training_patch_weighting": cfg.training_patch_weighting,
         "physics_forward_mode": cfg.physics_forward_mode,
         "cnn_output_mode": cfg.cnn_output_mode,

@@ -152,7 +152,7 @@ def test_grid_lines_ci_roundtrip_uses_realized_probe_and_preserves_count_rate(
     monkeypatch,
     _params_cfg_guard,
 ) -> None:
-    N = 16
+    N = 64
     count_amplitude_scale = 7.0
     raw_probe = _raw_probe(N)
     object_field = _complex_object(N)

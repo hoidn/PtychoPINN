@@ -1038,7 +1038,7 @@ def test_training_factory_delegates_patch_and_bundle_resolution(
     train_path = tmp_path / "train.npz"
     np.savez(
         train_path,
-        probeGuess=np.ones((8, 8), dtype=np.complex64),
+        probeGuess=np.ones((64, 64), dtype=np.complex64),
     )
     monkeypatch.setattr(ptycho.params, "cfg", {})
     monkeypatch.setattr(ptycho.params, "_sealed", False)
@@ -1328,7 +1328,7 @@ def test_partial_legacy_commit_failure_restores_mapping_object_and_seal_state(
     data_path = tmp_path / "train.npz"
     np.savez(
         data_path,
-        probeGuess=np.ones((8, 8), dtype=np.complex64),
+        probeGuess=np.ones((64, 64), dtype=np.complex64),
     )
     legacy_cfg = {
         "sentinel": "unchanged",
@@ -1433,7 +1433,7 @@ def test_factory_audit_records_canonical_effective_values_and_alias_provenance(
     data_path = tmp_path / "train.npz"
     np.savez(
         data_path,
-        probeGuess=np.ones((8, 8), dtype=np.complex64),
+        probeGuess=np.ones((64, 64), dtype=np.complex64),
     )
     monkeypatch.setattr(ptycho.params, "cfg", {})
     monkeypatch.setattr(ptycho.params, "_sealed", False)
@@ -1474,7 +1474,7 @@ def test_inference_factory_audit_keeps_aliases_provenance_only(
     data_path = tmp_path / "test.npz"
     np.savez(
         data_path,
-        probeGuess=np.ones((8, 8), dtype=np.complex64),
+        probeGuess=np.ones((64, 64), dtype=np.complex64),
     )
     monkeypatch.setattr(ptycho.params, "cfg", {})
     monkeypatch.setattr(ptycho.params, "_sealed", False)
@@ -1524,7 +1524,7 @@ def test_successful_factory_commits_complete_projection_once(
     data_path = tmp_path / "data.npz"
     np.savez(
         data_path,
-        probeGuess=np.ones((8, 8), dtype=np.complex64),
+        probeGuess=np.ones((64, 64), dtype=np.complex64),
     )
     monkeypatch.setattr(ptycho.params, "cfg", {})
     monkeypatch.setattr(ptycho.params, "_sealed", False)
@@ -1555,6 +1555,6 @@ def test_successful_factory_commits_complete_projection_once(
         )
         assert committed == [payload.tf_inference_config]
 
-    assert ptycho.params.cfg["N"] == 8
+    assert ptycho.params.cfg["N"] == 64
     assert ptycho.params.cfg["n_groups"] == 1
     assert ptycho.params._sealed is True

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import argparse
 from contextlib import contextmanager
-from dataclasses import dataclass, fields, replace
+from dataclasses import dataclass, fields
 import logging
 from pathlib import Path
 from typing import Any, Mapping
@@ -211,10 +211,9 @@ def _resolve_metadata_photons(config: TrainingConfig) -> TrainingConfig:
         config.data.nphotons,
         resolved,
     )
-    return replace(
-        config,
-        data=replace(config.data, nphotons=resolved),
-    )
+    return config.model_copy(update={
+        "data": config.data.model_copy(update={"nphotons": resolved})
+    })
 
 
 def _torch_model_from_snapshot(resolved: Any):
@@ -739,10 +738,9 @@ def run_training_workflow(
             )
     n_subsample, n_groups, _, _, message = interpret_sampling_parameters(config)
     logger.info(message)
-    config = replace(
-        config,
-        sampling=replace(config.sampling, n_groups=n_groups),
-    )
+    config = config.model_copy(update={
+        "sampling": config.sampling.model_copy(update={"n_groups": n_groups})
+    })
 
     with _legacy_data_preparation_scope(config):
         train_raw = load_data(
