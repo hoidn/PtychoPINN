@@ -1,100 +1,153 @@
-# Compact Object-Family Reproduction YAML Design
+# Synthetic Object-Family Reproduction Design
 
 ## Scope
 
-This design governs only the artifact-local reproduction harness under
-`.artifacts/integration/object_family_n128_seed3_20ep_20260807_reproduction/`.
-It does not define a public PtychoPINN configuration schema or change the
-configuration accepted by `grid_lines_torch_runner.py`.
+This design governs the object-family reproduction harness under
+`.artifacts/integration/object_family_n128_seed3_20ep_20260807_reproduction/`
+and the minimum `ptycho_synthetic` extension needed to generate deterministic
+DeadLeaves data. The completed historical `study.yaml`, `preflight/`, and
+`full/` artifacts remain immutable.
 
 ## Goal
 
-Make the authored reproduction YAML describe the executable study rather than
-its historical provenance. Preserve every explicit experiment and physics
-parameter used by the 12-arm result while removing prose, duplicated output
-paths, historical-reference metadata, and manually maintained integrity pins.
+Provide one compact recipe and one top-level command per phase that generates
+its own datasets, validates them, trains the requested matrix through
+`ptycho_synthetic`, reconstructs, evaluates, and collates the result. The new
+recipe is a semantic recreation of the historical study; it does not promise
+historical NPZ hashes, identical stochastic draws, or identical metrics.
 
-## Authored Configuration Contract
+## Synthetic Runner Boundary
 
-The compact YAML contains only:
+`ptycho_synthetic` is the execution boundary for simulation, training, strict
+reload, reconstruction, and evaluation. `grid_lines_torch_runner.py` is not
+used.
 
-- `source`: source worktree, runner path, and CUDA device selection;
-- `output`: one base directory;
-- `datasets`: train and test NPZ paths for each object family;
-- `matrix`: ordered families, architectures, and profiles;
-- `preflight`: the two quality-gate rows;
-- `common`: all explicit options shared by every arm;
-- `profiles`: all explicit profile-specific options; and
+The runner selects object generation through one registry keyed by configured
+`object.kind` plus `object_recipe`; it has no dataset-specific execution path.
+It must register two deterministic object recipes:
+
+- `lines-object-v1`, unchanged; and
+- `dead-leaves-object-v1`, defined as
+  `abs(create_dead_leaves((392, 392), args, rng=<seeded Generator>))` with
+  `max_iters=700`, `r_min_frac=0.02`, `r_max_frac=0.18`, and
+  `r_sigma=3`, followed by `diffsim.dummy_phi(amplitude)`.
+
+Object kind and recipe identity are inseparable parameters. An unsupported or
+contradictory pair fails before simulation. Every registered producer receives
+the same explicit RNG interface. The manifest records the selected recipe,
+producer symbols, source commit, and realized object-array hash.
+Manifest consumers derive the expected producer symbols from that same
+kind/recipe registry; they do not assume the Lines producer.
+
+`SimulationConfig` and the producer registry remain authoritative for object
+identity. The protected TensorFlow raw-data leaf receives an already
+materialized `objectGuess`, so its scoped compatibility projection uses the
+legacy `generic` source label; canonical kind and recipe are never recovered
+from or selected by `params.cfg`.
+
+## Authored Recipe
+
+`reproduce.yaml` contains only executable choices:
+
+- `source`: source checkout and synthetic runner;
+- `output`: one path relative to the YAML;
+- `simulation`: shared N=128, seed=3, raster, probe, photon, and split sizes;
+- `families`: configured object-kind and versioned-recipe selections;
+- `matrix`: ordered families, architectures, and training profiles;
+- `preflight`: the two representative rows;
+- `model`, `training`, and `inference`: shared explicit values;
+- `profiles`: legacy MAE, legacy Poisson, and CI Poisson deltas; and
 - `collation.crop_border`.
 
-The YAML does not contain a description, study identifier, historical artifact
-references, source commit, cleanliness policy, submodule pins, dataset hashes,
-probe lineage, duplicated phase output paths, copied-output paths, descriptive
-alignment labels, or figure filenames.
+It contains no prose, historical paths, hashes, commit pins, lineage records,
+duplicated phase paths, or derived filenames.
 
-Options currently equal to runner defaults remain explicit. The compact schema
-must not make the scientific recipe depend on future default values.
+The train and test rasters contain 4,489 (67 x 67) and 729 (27 x 27) patterns.
+The historical training archive contained two 67 x 67 objects; the canonical
+flat-acquisition runner owns one truth canvas per split. Consequently this
+recipe preserves the per-object scan geometry rather than the historical
+8,978-row aggregate.
 
-Dataset split values are direct paths rather than `{path, sha256}` mappings.
+## One-Command Phase Execution
+
+The user-facing commands are:
+
+```bash
+python run_study.py --config reproduce.yaml --phase preflight
+python run_study.py --config reproduce.yaml --phase full
+```
+
+Dataset preparation is not a separate user step. The harness expands the
+selected rows and launches one ordinary, complete `ptycho_synthetic` invocation
+per row with stages `simulate,train,reconstruct,evaluate`. Each arm therefore
+owns its datasets and all downstream artifacts. The harness does not resolve a
+shared dataset pool, synthesize stage-completion records, copy simulation
+roots, or bypass runner validation.
+
+Identical family/measurement recipes are deterministic. Existing lower-level
+memoization may accelerate their repeated simulation, but correctness and
+completion do not depend on a cache hit.
+
+## Dataset Validation
+
+Historical SHA-256 values are provenance evidence only. Acceptance requires:
+
+- a complete synthetic dataset manifest whose simulation identity matches the
+  resolved family and measurement contract;
+- the exact flat-acquisition field set and expected split counts;
+- finite diffraction, coordinate, object, and probe arrays;
+- N=128 detector and probe dimensions;
+- nonnegative detector values;
+- raster geometry of 67 x 67 train and 27 x 27 test;
+- matching train/test transformed probes;
+- `normalized_amplitude` arrays for legacy simulations and
+  `count_intensity` arrays for CI simulations;
+- the expected object recipe in the manifest; and
+- different realized object hashes for Lines and DeadLeaves under the same
+  measurement contract.
+
+For arms with the same family and measurement contract, validation also
+requires equal manifest dataset identities. This detects accidental recipe or
+stochastic drift without introducing a shared-data lifecycle.
 
 ## Paths And Outputs
 
-`output` is resolved relative to the compact YAML file. For
-`output: output/`, the harness writes:
+For `output: output/`, phase results are written beneath the YAML directory:
 
 ```text
-<yaml-directory>/output/
+output/
 ├── preflight/
+│   ├── matrix_results/
+│   └── preflight_comparison_table.png
 └── full/
+    ├── matrix_results/
+    └── full_comparison_table.png
 ```
 
-Each phase owns its normal run artifacts and its derived comparison table. The
-collator derives `preflight_comparison_table.png` or
-`full_comparison_table.png` from the selected phase. It does not create a
-second copy under repository `tmp/`.
+Dry runs resolve and print simulation and arm commands without creating these
+directories. A real phase refuses an existing phase root. The collator writes
+only beneath that phase root and creates no duplicate `tmp/` copy.
 
-Input paths and the source worktree remain repository-root relative unless
-absolute.
+## Runtime Evidence And Failure Behavior
 
-## Generated Evidence
-
-Removing provenance from authored YAML does not suppress runtime evidence. A
-launch is admissible only when the source worktree has no tracked changes and
-the runner plus its required FRC files exist. At launch, the harness records an
-exact source observation consisting of the source `HEAD`, recursively listed
-submodule checkout revisions and status, and SHA-256 hashes of the runner and
-harness files. It also computes and records each input dataset hash.
-
-The harness repeats the source observation immediately before and after every
-arm and at completion, and re-hashes datasets at completion. Any difference
-from the launch-time observation fails the run. Per-arm invocation records must
-also report the launch-time source commit and a clean tracked tree. This detects
-source or input mutation during a run without requiring users to author hashes,
-Git revisions, or a cleanliness switch.
-
-The original `study.yaml` and completed output bundle remain immutable because
-their existing attestation records include the original YAML hash. The compact
-contract is provided separately as `reproduce.yaml`.
-
-## Failure Behavior
-
-The harness rejects missing source, runner, or dataset paths; an occupied phase
-output directory; source or dataset mutation during a run; failed arms;
-incomplete artifacts; invocation mismatches; non-finite metrics; and incorrect
-CI probe selection.
+Runtime observations are generated outside the YAML. The harness records the
+source commit, runner and harness hashes, generated dataset manifests, resolved
+arm configurations, and runner invocations. It rejects a dirty source tree,
+source mutation, incomplete or incompatible simulation stages, dataset
+mutation, failed stages, non-finite metrics, and missing reconstruction or
+comparison artifacts.
 
 ## Verification
 
-Tests must establish that:
+Focused tests must establish:
 
-1. the compact YAML parses and expands to the same 12 ordered rows;
-2. all generated runner arguments other than output paths are semantically
-   identical to the attested recipe;
-3. `output: output/` resolves relative to `reproduce.yaml` and phase names are
-   derived correctly;
-4. launch-time provenance is recorded and mutation is rejected;
-5. preflight and full figure names are derived correctly; and
-6. the existing completed result and its original YAML are not modified.
-
-No GPU rerun is required for this schema-only adapter change; command expansion,
-artifact-fixture tests, and a dry run provide the claim-matched evidence.
+1. deterministic Lines behavior is unchanged and deterministic DeadLeaves
+   generation carries the correct recipe identity;
+2. the compact YAML expands to the ordered two-row preflight and twelve-row
+   full matrix;
+3. every selected row expands to one complete synthetic-runner invocation;
+4. dataset validation rejects schema, count, units, recipe, and family errors;
+5. compatible arms produce equal deterministic dataset identities;
+6. a no-GPU fixture proves the top-level phase includes simulation, arm
+   execution, validation, and collation; and
+7. the immutable historical evidence trees remain unchanged.
