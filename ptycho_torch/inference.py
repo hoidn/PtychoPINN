@@ -92,26 +92,30 @@ def save_individual_reconstructions(obj_amp, obj_phase, output_dir):
 
     # Create amplitude figure
     fig_amp, ax_amp = plt.subplots(figsize=(6, 6))
-    im_amp = ax_amp.imshow(obj_amp, cmap='gray')
-    plt.colorbar(im_amp, ax=ax_amp)
-    ax_amp.set_title('Reconstructed Amplitude')
-    ax_amp.axis('off')
+    try:
+        im_amp = ax_amp.imshow(obj_amp, cmap='gray')
+        plt.colorbar(im_amp, ax=ax_amp)
+        ax_amp.set_title('Reconstructed Amplitude')
+        ax_amp.axis('off')
 
-    amp_path = output_dir / "reconstructed_amplitude.png"
-    plt.savefig(amp_path, dpi=150, bbox_inches='tight')
-    plt.close(fig_amp)
+        amp_path = output_dir / "reconstructed_amplitude.png"
+        plt.savefig(amp_path, dpi=150, bbox_inches='tight')
+    finally:
+        plt.close(fig_amp)
     print(f"Saved amplitude reconstruction to: {amp_path}")
 
     # Create phase figure
     fig_phase, ax_phase = plt.subplots(figsize=(6, 6))
-    im_phase = ax_phase.imshow(obj_phase, cmap='gray')
-    plt.colorbar(im_phase, ax=ax_phase)
-    ax_phase.set_title('Reconstructed Phase')
-    ax_phase.axis('off')
+    try:
+        im_phase = ax_phase.imshow(obj_phase, cmap='gray')
+        plt.colorbar(im_phase, ax=ax_phase)
+        ax_phase.set_title('Reconstructed Phase')
+        ax_phase.axis('off')
 
-    phase_path = output_dir / "reconstructed_phase.png"
-    plt.savefig(phase_path, dpi=150, bbox_inches='tight')
-    plt.close(fig_phase)
+        phase_path = output_dir / "reconstructed_phase.png"
+        plt.savefig(phase_path, dpi=150, bbox_inches='tight')
+    finally:
+        plt.close(fig_phase)
     print(f"Saved phase reconstruction to: {phase_path}")
 
 
