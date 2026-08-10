@@ -30,11 +30,9 @@ The default is a real 50-epoch run, not a smoke test.
 
 ### Profile selection and precedence
 
-A profile is a resolver-registered named starting bundle. It is expanded before
-ordinary configuration objects are constructed and validated. "Preset" is an
-informal description that may also refer to an unregistered combination of
-runtime controls, such as the TF-parity preset; there is no separate generic
-preset registry or resolver. The runner registers two profiles:
+A profile is a resolver-registered named starting bundle, expanded before
+ordinary configuration objects are constructed and validated. The runner
+registers two profiles:
 
 | Profile | Recipe | Purpose |
 |---|---|---|
@@ -185,19 +183,7 @@ The profile's gradient-clipping defaults
 overrideable defaults. `dose_closure` solves a shared startup gauge from the
 training data; `ones` starts `s1=s2=1`. The
 [configuration guide](../../docs/CONFIGURATION.md#dose-closure-initialization)
-owns the selection identity and retirement rules.
-
-It is named *dose closure* because the initializer closes the aggregate count
-budget on its fixed sample:
-
-```text
-c* = sum(measured detector counts) / sum(predicted unit-object intensity)
-s1 = s2 = sqrt(c*)
-```
-
-The sampled predicted and observed totals therefore agree at startup. This is
-conditioning for the shared rectangular gauge, not physical calibration of
-the stored probe or identification of absolute object units.
+owns the naming, selection identity, and retirement rules.
 
 For this profile, NPZ diffraction (`diff3d`) is Poisson-realized detector
 counts, not square-root intensity. `probeGuess` is the CI-scaled physical
@@ -355,14 +341,58 @@ be positive. A legacy normalized-amplitude reconstruction instead records
 
 Best practice for any multi-run experiment is one config tree plus one
 command, not a shell loop or a bespoke driver script. A study factors the
-experiment into a base `config.yaml` (everything shared) and small per-axis
-delta files; `ptycho_study` composes base + deltas + CLI overrides per arm and
-invokes the generic runner once per arm:
+experiment into a base `config.yaml` (everything shared) and its ablation
+axes; `ptycho_study` composes base + axis values + CLI overrides per arm and
+invokes the generic runner once per arm.
+
+A minimal complete study — a two-arm architecture comparison — is one file:
+
+```yaml
+# studies/arch_compare/conf/config.yaml
+profile: synthetic-lines
+
+model:
+  architecture: cnn        # swept axis; the base value must exist to override
+
+simulation:
+  train_patterns: 512
+  test_patterns: 256
+
+training:
+  epochs: 5
+  train_raw_selection: 512
+  training_groups: 512
+  validation_groups: 256
+
+study:                     # study-layer node; removed before arm.yaml is written
+  name: arch_compare
+  output_root: .artifacts/studies/arch_compare
+  runner_script: scripts/simulation/synthetic_pipeline.py
+  sentinel: reconstruction/metrics.json
+
+hydra:
+  run:
+    dir: ${study.output_root}/adhoc/${now:%Y%m%d_%H%M%S}
+  sweep:
+    dir: ${study.output_root}
+    subdir: arch_${model.architecture}
+  job:
+    chdir: false
+```
+
+Everything outside the `study`/`hydra` nodes is ordinary runner schema — the
+same document you would pass to `ptycho_synthetic --config`. Run the matrix:
 
 ```bash
-ptycho_study --config-dir studies/<name>/conf --config-name config -m \
-    family=lines,speckle model.architecture=cnn,fno
+ptycho_study --config-dir studies/arch_compare/conf --config-name config -m \
+    model.architecture=cnn,fno
 ```
+
+This writes `.artifacts/studies/arch_compare/arch_cnn/` and `arch_fno/`.
+Every swept key must appear in `hydra.sweep.subdir`, or arms collide on one
+directory. Axes that change several keys at once live in per-axis delta
+files instead of a dotted override; the study guide linked below covers
+that layout.
 
 Each arm's output root receives `arm.yaml` — a complete, self-contained
 workflow document in this runner's `--config` schema, directly replayable
@@ -422,14 +452,13 @@ under another label.
 
 ### Deprecated lines-wrapper migration
 
-`scripts/simulation/run_with_synthetic_lines.py` is deprecated and retained
-only so a narrow set of historical simulation-only commands can delegate to
-the generic runner. Do not use it for new recipes. Its old
-`--simulation-config` option is rejected because that file is not the generic
-workflow schema; migrate the document and pass it to
-`ptycho_synthetic --config`.
-
-The deprecated adapter translates only unambiguous names:
+`scripts/simulation/run_with_synthetic_lines.py` is retained only so
+historical simulation-only commands can delegate to the generic runner; do
+not use it for new recipes. It rejects its old `--simulation-config` option
+(migrate the document to `ptycho_synthetic --config`) and the historical
+`--n-images` (split it into explicit `--train-patterns`/`--test-patterns`,
+then choose `--training-groups`/`--validation-groups` independently). The
+adapter translates only unambiguous names:
 
 | Historical wrapper name | Generic name |
 |---|---|
@@ -437,11 +466,6 @@ The deprecated adapter translates only unambiguous names:
 | `--probe-size` | `--N` |
 | `--n-photons` | `--photons-per-pattern` |
 | `--buffer` | `--scan-buffer` |
-
-Historical `--n-images` is rejected because it cannot identify both train and
-test raw-pattern counts. Migrate it to explicit `--train-patterns` and
-`--test-patterns`, then select `--training-groups` and
-`--validation-groups` independently.
 
 ### SimulationConfig example and probe transforms
 
