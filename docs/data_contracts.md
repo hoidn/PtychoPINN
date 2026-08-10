@@ -6,25 +6,47 @@ This document defines the official format for key data artifacts used in this pr
 
 ## 1. Canonical Ptychography Dataset (`.npz` format)
 
-This contract applies to any dataset that is considered "ready for training" or is the final output of a preparation pipeline (e.g., from `prepare.sh`).
+This contract applies to any dataset that is considered "ready for training":
+the files read by `ptycho.raw_data.RawData.from_file` (all training and
+inference entry points) and written by the synthetic pipeline
+(`datasets/train.npz` / `test.npz` under a run's output root).
 
 **File Naming Convention:** `*_train.npz`, `*_test.npz`, `*_prepared.npz`
 
-| Key Name      | Shape                 | Data Type      | Description                                                              | Notes                                                              |
-| :------------ | :-------------------- | :------------- | :----------------------------------------------------------------------- | :----------------------------------------------------------------- |
-| `diffraction` | `(n_images, H, W)`    | `float32`      | The stack of measured diffraction patterns (amplitude, not intensity). **MUST be normalized** - see normalization requirements below.   | **Required.** Formerly `diff3d`. Must be 3D.                       |
-| `Y`           | `(n_images, H, W)`    | `complex64`    | The stack of ground truth real-space object patches.                     | **Required for supervised training.** **MUST be 3D.** Squeeze any channel dimension. |
-| `objectGuess` | `(M, M)`              | `complex64`    | The full, un-patched ground truth object.                                | **Required.**                                                      |
-| `probeGuess`  | `(H, W)`              | `complex64`    | The ground truth probe.                                                  | **Required.**                                                      |
-| `xcoords`     | `(n_images,)`         | `float64`      | The x-coordinates of each scan position.                                 | **Required.**                                                      |
-| `ycoords`     | `(n_images,)`         | `float64`      | The y-coordinates of each scan position.                                 | **Required.**                                                      |
-| `scan_index`  | `(n_images,)`         | `int`          | The index of the scan point for each diffraction pattern.                | Optional, but recommended.                                         |
+| Key Name        | Shape              | Data Type   | Description                                                          | Notes |
+| :-------------- | :----------------- | :---------- | :------------------------------------------------------------------- | :---- |
+| `diff3d`        | `(n_images, H, W)` | `float32`   | The stack of measured diffraction patterns. Measurement domain (amplitude vs. detector counts) is governed by the dataset's scale contract — see below. | **Required.** Must be 3D with square frames. |
+| `xcoords`       | `(n_images,)`      | `float64`   | The x-coordinates of each scan position.                             | **Required.** |
+| `ycoords`       | `(n_images,)`      | `float64`   | The y-coordinates of each scan position.                             | **Required.** |
+| `probeGuess`    | `(H, W)`           | `complex64` | The probe. For legacy normalized-amplitude data, the transformed simulation probe; for count-intensity data, the CI-scaled physical forward probe in the same count convention as `diff3d`. | **Required.** |
+| `objectGuess`   | `(M, M)`           | `complex64` | The full, un-patched ground truth object.                            | Optional at load; required for truth-based evaluation. |
+| `scan_index`    | `(n_images,)`      | `int`       | The scan-point index for each diffraction pattern. Values may repeat. | Optional (defaults to zeros). The synthetic writer always emits it. |
+| `xcoords_start`, `ycoords_start` | `(n_images,)` | `float64` | Pre-offset scan coordinates.                            | Optional (default to `xcoords`/`ycoords`). |
+| `Y`             | `(n_images, H, W)` | `complex64` | Ground truth real-space object patches.                              | Supervised training only; not part of flat synthetic outputs. Generate with `scripts/tools/generate_patches_tool.py`. **MUST be 3D** (squeeze any channel dimension). |
+| `_metadata`     | scalar (JSON string) | `str`     | Provenance metadata (e.g. `nphotons`), managed by `ptycho.metadata.MetadataManager`. | Optional, recommended. |
 
-### Normalization Requirements
+### Key-naming note: `diff3d` vs `diffraction`
 
-**⚠️ CRITICAL:** PtychoPINN expects data in a specific normalization state. Incorrect normalization is a common source of errors.
+`diff3d` is the canonical key for this contract: the training loader
+requires it and the synthetic writer emits it. A separate `diffraction` key
+convention exists for a specific set of peripheral consumers — the
+tike/pty-chi reconstruction scripts, the PtychoViT interop converter, and
+the natural-patch dataset tools — fed by
+`scripts/tools/transpose_rename_convert_tool.py`, which renames
+`diff3d → diffraction` during conversion. Files keyed `diffraction` are
+**not** readable by the training pipeline; do not run the rename tool on
+data destined for training.
 
-#### Required Data State
+### Measurement Domain and Normalization
+
+**⚠️ CRITICAL:** what `diff3d` contains depends on the dataset's scale
+contract. Two conventions are supported; mixing them up is a common source
+of errors. Synthetic outputs record the governing contract in the run's
+`datasets/manifest.json` (`scale_contract_version`, `measurement_domain`).
+
+#### Legacy normalized amplitude (`legacy_v1`)
+
+The default convention (e.g. the `synthetic-lines` profile).
 
 1. **Diffraction patterns MUST be normalized**
    - Data should be in a normalized range (typically with max values < 1.0)
@@ -32,23 +54,32 @@ This contract applies to any dataset that is considered "ready for training" or 
    - Example: Even for nphotons=1e6, diffraction data remains normalized
 
 2. **Intensity vs Amplitude**
-   - `diffraction` array MUST contain amplitude (square root of intensity)
-   - If you have intensity data: `diffraction = np.sqrt(intensity)`
+   - `diff3d` MUST contain amplitude (square root of intensity)
+   - If you have intensity data: `diff3d = np.sqrt(intensity)`
    - The model applies intensity scaling internally for physics calculations
 
 3. **DO NOT pre-apply photon scaling**
    ```python
    # WRONG - Don't scale by photon count in the data
-   diffraction = np.sqrt(intensity) * photon_scale
-   
+   diff3d = np.sqrt(intensity) * photon_scale
+
    # CORRECT - Keep data normalized
-   diffraction = np.sqrt(intensity)
+   diff3d = np.sqrt(intensity)
    # Set nphotons in config for physics modeling
    ```
 
-#### Validation
+#### Count intensity (`ci_intensity_v2`)
 
-To verify your data meets normalization requirements:
+The count-intensity contract (e.g. the `cnn-lines-ci` profile).
+
+- `diff3d` contains Poisson-realized detector **counts** (intensity, not
+  square-root intensity) and is **not** normalized to a unit range.
+- `probeGuess` is the CI-scaled physical forward probe in the same count
+  convention.
+- The legacy validation below does not apply; count datasets are validated
+  against their recorded manifest digests and contract version instead.
+
+#### Validation (legacy amplitude datasets only)
 
 ```python
 import numpy as np
@@ -57,15 +88,15 @@ import numpy as np
 data = np.load('your_dataset.npz')
 
 # Check normalization
-assert np.max(data['diffraction']) < 10.0, "Data appears unnormalized"
-assert np.min(data['diffraction']) >= 0.0, "Amplitude should be non-negative"
+assert np.max(data['diff3d']) < 10.0, "Data appears unnormalized"
+assert np.min(data['diff3d']) >= 0.0, "Amplitude should be non-negative"
 
 # Check data type
-assert data['diffraction'].dtype == np.float32, "Should be float32"
+assert data['diff3d'].dtype == np.float32, "Should be float32"
 
 # Check for amplitude (not intensity)
 # Amplitude data typically has smaller dynamic range than intensity
-ratio = np.max(data['diffraction']) / np.mean(data['diffraction'])
+ratio = np.max(data['diff3d']) / np.mean(data['diff3d'])
 assert ratio < 100, "May be intensity instead of amplitude"
 ```
 
@@ -79,25 +110,28 @@ Some datasets may not initially conform to the canonical format above and requir
 
 ### Raw Dataset Format (requires preprocessing)
 
-Raw experimental datasets often use legacy naming conventions and data types that require conversion:
+Raw experimental datasets often store diffraction as unconverted intensity:
 
 | Key Name      | Shape                 | Data Type      | Description                                                              | Action Required                                                    |
 | :------------ | :-------------------- | :------------- | :----------------------------------------------------------------------- | :----------------------------------------------------------------- |
-| `diff3d`      | `(n_images, H, W)`    | `uint16`       | Legacy diffraction patterns as intensity data.                          | **Convert to `diffraction` with float32 amplitude using <code-ref type="tool">scripts/tools/transpose_rename_convert_tool.py</code-ref>** |
-| Missing `Y`   | N/A                   | N/A            | Ground truth patches not pre-computed.                                  | **Generate using <code-ref type="tool">scripts/tools/generate_patches_tool.py</code-ref>** |
+| `diff3d`      | `(n_images, H, W)`    | `uint16`       | Raw diffraction patterns as intensity data.                              | **Convert to `float32` amplitude (`np.sqrt(intensity)`), keeping the `diff3d` key, before training use.** |
+| Missing `Y`   | N/A                   | N/A            | Ground truth patches not pre-computed.                                  | **For supervised training only, generate using <code-ref type="tool">scripts/tools/generate_patches_tool.py</code-ref>** |
 
 ### Preprocessing Requirements
 
-Raw datasets must undergo format conversion to ensure PtychoPINN compatibility:
-
-1. **Data Type Conversion:** `uint16` intensity → `float32` amplitude
-2. **Key Renaming:** `diff3d` → `diffraction`
+1. **Data Type Conversion:** `uint16` intensity → `float32` amplitude (legacy contract)
+2. **Key Naming:** training data keeps `diff3d` (see the key-naming note in §1)
 3. **Array Reshaping:** Ensure Y arrays are 3D (squeeze any singleton dimensions)
 
-**Essential preprocessing command:**
+For the `diffraction`-keyed peripheral consumers (tike/pty-chi
+reconstruction scripts, PtychoViT interop), convert with:
+
 ```bash
 python scripts/tools/transpose_rename_convert_tool.py raw_dataset.npz converted_dataset.npz
 ```
+
+The tool's output renames `diff3d → diffraction` and therefore is **not**
+loadable by the training pipeline.
 
 ### Experimental Dataset Documentation
 

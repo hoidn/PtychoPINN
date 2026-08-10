@@ -524,6 +524,6 @@ output path.
 ## Output Data Contract
 
 Generated NPZ files conform to the project's standalone data contract. See the
-[data contracts](../../specs/data_contracts.md) for required keys and shapes.
+[data contracts](../../docs/data_contracts.md) for required keys and shapes.
 The retained simulation-only tools above cover the grid and nongrid
 programmatic APIs available on this branch.
