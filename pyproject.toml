@@ -12,7 +12,8 @@ dependencies = [
     "Pillow",
     "PyYAML",
     "dill",
-    "imageio", 
+    "hydra-core>=1.3.2,<2",
+    "imageio",
     "ipywidgets",
     "jupyter",
     "matplotlib",
@@ -49,6 +50,7 @@ dynamic = ["version"]
 ptycho_train = "scripts.training.train:main"
 ptycho_inference = "scripts.inference.inference:main"
 ptycho_synthetic = "scripts.simulation.synthetic_pipeline:main"
+ptycho_study = "ptycho.workflows.study_runner:main"
 
 [tool.setuptools.package-data]
 datasets = ["*.npz"]
