@@ -2,8 +2,11 @@
 
 For new synthetic PyTorch work, use `ptycho_synthetic`. It is the supported
 generic runner for simulation, grouping, training, strict model reload,
-reconstruction, and evaluation. The lower-level simulation tools remain useful
-when only a prepared dataset is needed.
+reconstruction, and evaluation. For anything that runs the workflow more than
+once — ablations, architecture comparisons, sweeps — drive this runner with
+the `ptycho_study` layer instead of hand-rolled loops (see
+[Multi-Arm Studies](#multi-arm-studies) below). The lower-level simulation
+tools remain useful when only a prepared dataset is needed.
 
 ## Supported Generic PyTorch Runner
 
@@ -348,6 +351,37 @@ be positive. A legacy normalized-amplitude reconstruction instead records
 `status="not_applicable"` with reason
 `legacy_normalized_amplitude`; it does not fabricate count-domain metrics.
 
+## Multi-Arm Studies
+
+Best practice for any multi-run experiment is one config tree plus one
+command, not a shell loop or a bespoke driver script. A study factors the
+experiment into a base `config.yaml` (everything shared) and small per-axis
+delta files; `ptycho_study` composes base + deltas + CLI overrides per arm and
+invokes the generic runner once per arm:
+
+```bash
+ptycho_study --config-dir studies/<name>/conf --config-name config -m \
+    family=lines,speckle model.architecture=cnn,fno
+```
+
+Each arm's output root receives `arm.yaml` — a complete, self-contained
+workflow document in this runner's `--config` schema, directly replayable
+with `ptycho_synthetic --config <arm>/arm.yaml` — plus `runner.log` and
+`study_provenance.json`. All validation still happens in the runner, on the
+composed document; the study layer holds no schema of its own.
+
+Rerunning the same sweep command resumes it: arms whose sentinel
+(`reconstruction/metrics.json` by default) exists are skipped, and the
+fail-closed stage identity described above still governs any per-arm reuse.
+Cross-arm collation and the comparison table come from
+`scripts/studies/collate_study_metrics.py` and
+`scripts/studies/render_study_comparison.py`.
+
+The [study workflow guide](../../docs/workflows/hydra_studies.md) owns the
+config-tree structure, delta-file conventions, failure semantics, shared
+datasets, and how to define a new study. Until the package is reinstalled,
+invoke the layer as `python -m ptycho.workflows.study_runner`.
+
 ## Retained Simulation-Only Tools
 
 ### Two-stage architecture
@@ -367,6 +401,7 @@ competing owner.
 | Entry point | Status and purpose |
 |---|---|
 | `ptycho_synthetic` / `synthetic_pipeline.py` | **Supported default:** complete generic PyTorch synthetic workflow |
+| `ptycho_study` / `ptycho.workflows.study_runner` | **Supported study layer:** composes per-arm configs and runs the generic runner once per arm |
 | `simulate_and_save.py` | **Supported low-level tool:** simulate from a prepared object/probe NPZ |
 | `run_with_synthetic_lines.py` | **Deprecated compatibility/history only:** delegates to `ptycho_synthetic --stages simulate` and contains no simulation logic |
 
