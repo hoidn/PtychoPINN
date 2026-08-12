@@ -689,6 +689,42 @@ class SchedulerConfig(BaseModel):
     plateau_threshold: _StrictFiniteNonNegativeNumber = 0.0
 
 
+_LEGACY_TRAINING_ROOT_ALIASES: dict[str, tuple[str, str]] = {
+    'train_data_file': ('data', 'train_data_file'),
+    'test_data_file': ('data', 'test_data_file'),
+    'nphotons': ('data', 'nphotons'),
+    'mae_weight': ('tf_loss', 'mae_weight'),
+    'nll_weight': ('tf_loss', 'nll_weight'),
+    'realspace_mae_weight': ('tf_loss', 'realspace_mae_weight'),
+    'realspace_weight': ('tf_loss', 'realspace_weight'),
+    'n_groups': ('sampling', 'n_groups'),
+    'n_images': ('sampling', 'n_images'),
+    'n_subsample': ('sampling', 'n_subsample'),
+    'subsample_seed': ('sampling', 'subsample_seed'),
+    'neighbor_count': ('sampling', 'neighbor_count'),
+    'enable_oversampling': ('sampling', 'enable_oversampling'),
+    'neighbor_pool_size': ('sampling', 'neighbor_pool_size'),
+    'sequential_sampling': ('sampling', 'sequential_sampling'),
+}
+
+
+def _legacy_alias_values_equal(left: Any, right: Any) -> bool:
+    """Report whether a duplicated flat/nested pair is unambiguously the same value.
+
+    Mixed types, values whose comparison raises, and comparisons that return
+    anything other than a built-in ``bool`` (e.g. arrays) all count as unequal,
+    so an ambiguous duplicate is reported as a conflict rather than silently
+    accepted.
+    """
+    if type(left) is not type(right):
+        return False
+    try:
+        result = left == right
+    except Exception:
+        return False
+    return type(result) is bool and result
+
+
 class TrainingConfig(BaseSettings):
     """Training specific configuration."""
     model_config = SettingsConfigDict(
@@ -716,6 +752,59 @@ class TrainingConfig(BaseSettings):
     gradient_clip: GradientClipConfig = Field(default_factory=GradientClipConfig)
     optimizer: OptimizerConfig = Field(default_factory=OptimizerConfig)
     scheduler: SchedulerConfig = Field(default_factory=SchedulerConfig)
+
+    @model_validator(mode='before')
+    @classmethod
+    def _lift_legacy_flat_fields(cls, values: Any) -> Any:
+        """Accept the historical flat root spellings as deprecated aliases.
+
+        Each key in ``_LEGACY_TRAINING_ROOT_ALIASES`` is moved into its nested
+        owner so ``extra="forbid"`` still rejects everything else. A flat key
+        duplicated by an already-supplied nested value is accepted only when
+        both spellings agree.
+        """
+        if not isinstance(values, Mapping):
+            return values
+        aliases = [name for name in _LEGACY_TRAINING_ROOT_ALIASES if name in values]
+        if not aliases:
+            return values
+
+        lifted = dict(values)
+        for alias in aliases:
+            section_name, field_name = _LEGACY_TRAINING_ROOT_ALIASES[alias]
+            has_section = section_name in lifted
+            section = lifted.get(section_name)
+            if has_section and not isinstance(section, (Mapping, BaseModel)):
+                # Malformed section: leave the input untouched and let normal
+                # validation report it.
+                continue
+
+            alias_value = lifted.pop(alias)
+            warnings.warn(
+                f"Flat TrainingConfig field {alias!r} is deprecated and will be removed "
+                f"in a future version. Use {section_name}.{field_name} instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            conflict = ValueError(
+                f"training field {alias!r} has conflicting flat {alias!r} and "
+                f"{section_name}.{field_name} values"
+            )
+
+            if isinstance(section, BaseModel):
+                if not _legacy_alias_values_equal(alias_value, getattr(section, field_name)):
+                    raise conflict
+                continue
+
+            section_values = dict(section) if has_section else {}
+            if field_name in section_values:
+                if not _legacy_alias_values_equal(alias_value, section_values[field_name]):
+                    raise conflict
+            else:
+                section_values[field_name] = alias_value
+            lifted[section_name] = section_values
+        return lifted
+
 
 @with_config(_DATACLASS_ADAPTER_CONFIG)
 @dataclass
