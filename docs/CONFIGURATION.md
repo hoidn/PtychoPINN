@@ -444,6 +444,16 @@ Pydantic section uses `extra="forbid"`. Although `TrainingConfig` derives from
 disabled: entry points explicitly load the file and CLI mappings and pass the
 merged result for validation.
 
+One enumerated exception exists for backward compatibility: the historical
+flat root spellings of `data`, `tf_loss`, and `sampling` fields (for example
+`train_data_file`, `nll_weight`, `n_groups`) are accepted during
+`TrainingConfig` validation and lifted into their nested sections with a
+`DeprecationWarning`. An equal flat/nested duplicate is accepted once; an
+unequal duplicate fails with both spellings identified. This applies wherever
+`TrainingConfig` validation runs (direct construction and resolved file/CLI
+mappings). New configurations should use the nested spellings
+(`specs/ptychodus_api_spec.md` §2.1 lists the full alias set).
+
 On the unified CLI, direct training fields retain plain flags such as
 `--nepochs`, `--batch_size`, `--output_dir`, and `--backend`; nested fields use
 dotted flags such as `--data.train_data_file`, `--sampling.n_groups`,

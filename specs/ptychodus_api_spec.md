@@ -70,6 +70,16 @@ These types, defined in `config/config.py`, are the primary way to specify confi
     sources are disabled. File mappings and explicit CLI patches are loaded by
     the entry point, deep-merged, and validated through
     `resolve_training_config()`.
+  - Deprecated compatibility: the historical flat root spellings of the
+    `data`, `tf_loss`, and `sampling` fields (`train_data_file`,
+    `test_data_file`, `nphotons`, `mae_weight`, `nll_weight`,
+    `realspace_mae_weight`, `realspace_weight`, `n_groups`, `n_images`,
+    `n_subsample`, `subsample_seed`, `neighbor_count`, `enable_oversampling`,
+    `neighbor_pool_size`, `sequential_sampling`) are accepted at the root and
+    lifted into their nested owners during validation, emitting
+    `DeprecationWarning`. An equal flat/nested duplicate is accepted once; an
+    unequal duplicate is rejected with both spellings identified. All other
+    root extras remain forbidden. New callers must use the nested fields.
 
 - **`InferenceConfig`**: Defines parameters for the reconstruction (inference) workflow.
   - `model`: A nested `ModelConfig` instance.
@@ -479,6 +489,11 @@ updated in lockstep.
 | `gaussian_smoothing_sigma` | `gaussian_smoothing_sigma` | `ProbeIllumination` | Controls Gaussian smoothing performed by `ProbeIllumination`. |
 
 #### 5.2. `TrainingConfig` fields (excluding nested `model`)
+
+The nested spellings below are canonical. The historical flat root spellings
+of `data.*`, `tf_loss.*`, and `sampling.*` fields remain accepted as
+deprecated aliases (see §2.1) so existing external callers such as
+`ptychodus` continue to validate.
 
 | Field | Legacy `params.cfg` key | Primary consumers | Notes |
 | :----- | :---------------------- | :----------------- | :----- |
