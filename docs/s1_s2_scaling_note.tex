@@ -1,0 +1,139 @@
+\documentclass[10pt]{article}
+
+\usepackage[margin=0.72in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{microtype}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.45em}
+\newcommand{\E}{\mathcal{F}}
+
+\title{Why Normalization Does Not Force $s_1$ and $s_2$ to Unity}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+\vspace{-2.2em}
+
+\paragraph{Question.}
+The rectangular forward initializes two per-experiment coefficients at one and
+uses fixed probe and detector scaling. Does that construction force
+$s_1,s_2\approx1$, leaving them only a small modulation such as $0.9$--$1.1$?
+
+\paragraph{Short answer.}
+No. The fixed factors cancel known preprocessing and choose detector/probe
+units; they do not normalize the unknown object coefficients. Unity is an
+initialization (or a plausible scale under a well-matched gauge), not an
+invariant or bound.
+
+\begin{center}
+\small
+\begin{tabular}{@{}ll@{}}
+\toprule
+Symbol & Meaning \\
+\midrule
+$P_{\rm phys}$ & complex probe in the chosen acquisition gauge \\
+$q$ & fixed probe normalization, $P_{\rm train}=qP_{\rm phys}$ \\
+$d$ & fixed legacy loader intensity-normalization metadata \\
+$k$ & derived exit-wave amplitude factor passed to the forward as \texttt{scale} \\
+$a,b$ & learned dimensionless real/imaginary decoder textures \\
+$s_1,s_2$ & per-experiment real coefficients multiplying those textures \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section*{What the fixed scales actually cancel}
+
+The autograd rectangular forward computes
+\begin{equation}
+  \psi = k\left[s_1(P_{\rm train}a)
+           + i\,s_2(P_{\rm train}b)\right],
+  \qquad
+  I_{\rm pred}=\sum_p\left|\E\{\psi_p\}\right|^2 .
+\end{equation}
+Here $k$ is a real scalar; it is not the complex probe, which is the separate
+factor $P_{\rm train}$.
+
+In the loader-normalized legacy implementation, the notation maps directly to
+\begin{align*}
+  q &\longleftrightarrow \texttt{batch[2]},\\
+  d &\longleftrightarrow
+      \texttt{fields['physics\_scaling\_constant']}.
+\end{align*}
+The loss code constructs
+\begin{equation}
+  \texttt{exit\_wave\_scale}
+  \equiv k=(q^2d+10^{-9})^{-1/2}
+\end{equation}
+under the variable name \texttt{output\_scale}; the rectangular forward then
+receives that value through its argument named \texttt{scale}.
+
+For the current \texttt{ci\_intensity\_v2} count-intensity path,
+\begin{equation}
+  k=q^{-1}, \qquad kP_{\rm train}=q^{-1}(qP_{\rm phys})=P_{\rm phys}.
+\end{equation}
+Thus the output factor exactly undoes training-probe normalization. There is no
+\texttt{physics\_scale} in this CI path; measured intensities remain counts.
+
+For the explicitly loader-normalized \texttt{legacy\_v1} rectangular path,
+\begin{equation}
+  k=(q^2d+10^{-9})^{-1/2}
+  \approx \frac{1}{q\sqrt d},
+  \qquad kP_{\rm train}\approx\frac{P_{\rm phys}}{\sqrt d}.
+\end{equation}
+This statement is specific to that adapter; other legacy adapters, including
+dictionary parity, need not supply the same factors. In either path, the fixed
+terms remove known representation choices. They leave the unknown object
+\begin{equation}
+  O=s_1a+i\,s_2b
+\end{equation}
+inside the physical forward. Nothing in the cancellation sets either
+coefficient to one.
+
+\section*{Why the coefficients are not identified near one}
+
+First, $s_1$ and $s_2$ describe real and imaginary object contrast, not merely
+residual calibration. Those contrasts need not be equal or have unit scale.
+
+Second, the model has an internal factorization freedom. Wherever the rescaled
+texture remains in the decoder's representable range,
+\begin{equation}
+  s_1a=(cs_1)(a/c), \qquad
+  s_2b=(rs_2)(b/r).
+\end{equation}
+The detector loss observes the products, not each factor separately. A bounded
+decoder limits this freedom but does not fix a texture norm, so it does not
+select $s_1=s_2=1$.
+
+Third, ptychography has a distinct upstream acquisition gauge:
+\begin{equation}
+  P_{\rm phys}O=(\gamma P_{\rm phys})(O/\gamma).
+\end{equation}
+Storing a physical probe chooses one such decomposition; diffraction alone
+does not establish absolute object units. This acquisition gauge is separate
+from the train-time decoder factorization above.
+
+\section*{Initialization versus construction}
+
+The module constructor creates $s_1=s_2=1$. With \texttt{ones}
+initialization, training starts there. With \texttt{dose\_closure}, both are
+instead set to a data-derived common gauge $g>0$ so a unit-object prediction
+starts near the measured dose; $g$ need not equal one. During autograd training
+the coefficients are ordinary unconstrained parameters: there is no range,
+clamp, or regularizer keeping them near unity.
+
+Correct normalization can therefore make order-unity values plausible and
+improve conditioning. It cannot guarantee them. Values far from one may
+reflect legitimate object contrast, decoder rescaling, the chosen
+probe--object gauge, or inconsistent scaling metadata.
+
+\paragraph{Assessment of the quoted interpretation.}
+The derived output factor is indeed passed as the forward argument named
+\texttt{scale}, and fixed factors do absorb known preprocessing. However,
+that \texttt{scale} is not the complex probe, and ``$s_1,s_2$ stay around one
+by construction'' is false. At most, near-one behavior is an empirical
+expectation under a compatible gauge and training trajectory.
+
+\end{document}
