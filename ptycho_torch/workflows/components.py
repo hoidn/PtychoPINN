@@ -535,8 +535,10 @@ class _ServingModelCheckpoint(
 
 def _resolve_checkpoint_monitor(execution_config, model, *, has_validation=True):
     configured = execution_config.checkpoint_monitor_metric
-    if configured == "val_loss" and has_validation:
-        return model.val_loss_name
+    if configured == "val_loss":
+        return model.val_loss_name if has_validation else model.loss_name
+    if configured == "train_loss":
+        return model.loss_name
     if not has_validation and "val_" in configured:
         return configured.replace("val_", "train_")
     return configured
@@ -3100,8 +3102,17 @@ def _reassemble_cdi_image_torch(
     lightning_module = train_results['models']['diffraction_to_obj']
     lightning_module.eval()
 
-    # Step 3: Build inference dataloader
-    infer_loader = _build_inference_dataloader(test_container, config)
+    # Step 3: Build inference dataloader from the run's resolved execution.
+    resolved_execution = train_results.get("execution_config")
+    if resolved_execution is None:
+        raise ValueError(
+            "train_results must contain the run's resolved execution_config"
+        )
+    infer_loader = _build_inference_dataloader(
+        test_container,
+        config,
+        execution_config=resolved_execution,
+    )
 
     # Step 4: Extract probe and scale factors for inference
     # Probe tensor is required for forward_predict; extract from container

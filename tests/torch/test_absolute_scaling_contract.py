@@ -267,6 +267,31 @@ def test_lightning_dataloader_partial_payload_defaults_ci_before_reading_contain
         )
 
 
+def test_lightning_dataloader_gate_without_payload_rejects_before_reading_container():
+    from ptycho_torch.workflows.components import _build_lightning_dataloaders
+
+    class UnreadableContainer:
+        def __getattribute__(self, name):
+            raise AssertionError("container must not be read")
+
+    config = SimpleNamespace(
+        model=ModelConfig(
+            mode="Unsupervised",
+            physics_forward_mode="rectangular_scaled",
+        ),
+        torch_loss_mode="mae",
+        subsample_seed=None,
+    )
+
+    with pytest.raises(ValueError, match="ci_intensity_v2"):
+        _build_lightning_dataloaders(
+            UnreadableContainer(),
+            None,
+            config,
+            payload=None,
+        )
+
+
 def test_grid_lines_gate_rejects_before_reading_training_dict(tmp_path):
     from scripts.studies.grid_lines_torch_runner import (
         TorchRunnerConfig,

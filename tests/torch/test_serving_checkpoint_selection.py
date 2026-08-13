@@ -302,6 +302,99 @@ def test_real_lightning_keeps_true_last_but_returns_best_serving_state(tmp_path)
     assert sink["recovery_path"] == "checkpoints/last.ckpt"
 
 
+@pytest.mark.parametrize(
+    ("configured", "has_validation", "expected"),
+    [
+        ("val_loss", True, "poisson_val_Amp_loss"),
+        ("val_loss", False, "poisson_train_Amp_loss"),
+        ("train_loss", True, "poisson_train_Amp_loss"),
+        ("train_loss", False, "poisson_train_Amp_loss"),
+        ("custom_val_score", False, "custom_train_score"),
+    ],
+)
+def test_checkpoint_monitor_aliases_match_logged_model_metrics(
+    configured,
+    has_validation,
+    expected,
+):
+    from ptycho_torch.workflows.components import _resolve_checkpoint_monitor
+
+    execution = SimpleNamespace(checkpoint_monitor_metric=configured)
+    model = SimpleNamespace(
+        loss_name="poisson_train_Amp_loss",
+        val_loss_name="poisson_val_Amp_loss",
+    )
+
+    assert (
+        _resolve_checkpoint_monitor(
+            execution,
+            model,
+            has_validation=has_validation,
+        )
+        == expected
+    )
+
+
+def test_real_lightning_without_validation_selects_dynamic_training_loss(tmp_path):
+    import lightning.pytorch as L
+    from torch.utils.data import DataLoader, TensorDataset
+
+    from ptycho_torch.workflows.components import (
+        _ServingModelCheckpoint,
+        _resolve_checkpoint_monitor,
+    )
+
+    class TrainingOnlyModule(L.LightningModule):
+        loss_name = "poisson_train_Amp_loss"
+        val_loss_name = "poisson_val_Amp_loss"
+
+        def __init__(self):
+            super().__init__()
+            self.weight = torch.nn.Parameter(torch.tensor(0.0))
+
+        def training_step(self, _batch, _batch_idx):
+            loss = (self.weight - 1.0).square()
+            self.log(self.loss_name, loss, on_epoch=True)
+            return loss
+
+        def configure_optimizers(self):
+            return torch.optim.SGD(self.parameters(), lr=0.1)
+
+    module = TrainingOnlyModule()
+    monitor = _resolve_checkpoint_monitor(
+        SimpleNamespace(checkpoint_monitor_metric="val_loss"),
+        module,
+        has_validation=False,
+    )
+    sink = {}
+    callback = _ServingModelCheckpoint(
+        dirpath=tmp_path / "checkpoints",
+        filename="epoch={epoch:02d}",
+        monitor=monitor,
+        mode="min",
+        save_top_k=1,
+        save_last=True,
+        selection_sink=sink,
+        output_root=tmp_path,
+    )
+    trainer = L.Trainer(
+        accelerator="cpu",
+        devices=1,
+        max_epochs=1,
+        logger=False,
+        callbacks=[callback],
+        enable_progress_bar=False,
+    )
+    loader = DataLoader(TensorDataset(torch.ones(2, 1)), batch_size=2)
+
+    trainer.fit(module, train_dataloaders=loader)
+
+    assert monitor == module.loss_name
+    assert Path(callback.best_model_path).is_file()
+    assert sink["monitor"] == module.loss_name
+    assert sink["policy"] == "best"
+
+
 def test_real_lightning_ddp_shares_selection_token_and_only_rank_zero_publishes(
     tmp_path,
 ):

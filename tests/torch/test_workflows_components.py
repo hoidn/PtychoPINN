@@ -2393,6 +2393,45 @@ class TestTrainWithLightningRed:
             assert models_dict["autoencoder"] is module_handle
 
 
+def test_reassemble_uses_training_execution_carrier(monkeypatch):
+    from ptycho_torch.workflows import components
+
+    execution = object()
+    seen = []
+
+    class Module:
+        def eval(self):
+            return self
+
+    monkeypatch.setattr(components, "_ensure_container", lambda *_args: object())
+
+    def stop_after_loader(_container, _config, execution_config=None):
+        seen.append(execution_config)
+        raise RuntimeError("stop after loader")
+
+    monkeypatch.setattr(
+        components,
+        "_build_inference_dataloader",
+        stop_after_loader,
+    )
+
+    with pytest.raises(RuntimeError, match="stop after loader"):
+        components._reassemble_cdi_image_torch(
+            object(),
+            SimpleNamespace(),
+            flip_x=False,
+            flip_y=False,
+            transpose=False,
+            M=20,
+            train_results={
+                "models": {"diffraction_to_obj": Module()},
+                "execution_config": execution,
+            },
+        )
+
+    assert seen == [execution]
+
+
 class TestReassembleCdiImageTorchGreen:
     """
     Phase D2.C4 green tests — PyTorch stitching path validation.

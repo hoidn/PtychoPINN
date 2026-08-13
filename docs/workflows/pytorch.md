@@ -417,10 +417,13 @@ training validation split.
 
 - **Determinism:** `deterministic=True` plus the resolved sampling seed
   (`config.sampling.subsample_seed` on the public record).
-- **Checkpoints:** `{output_dir}/checkpoints/last.ckpt` (Lightning), with
-  hyperparameters embedded via `save_hyperparameters()` — checkpoints reload without
-  manual config kwargs.
-- **Bundle:** the final model persists as `{output_dir}/wts.h5.zip`. The
+- **Checkpoints:** monitored runs retain both the selected best checkpoint and
+  `{output_dir}/checkpoints/last.ckpt`; the latter is recovery state, not the
+  default serving state. `checkpoint_selection.json` records the selected
+  metric, score, epoch, digest, and recovery path. Checkpoint hyperparameters
+  reload without manual config kwargs.
+- **Bundle:** `{output_dir}/wts.h5.zip` persists the selected best state when
+  top-k checkpointing is enabled, otherwise the final in-memory state. The
   `intensity_scale` is captured (learned value if trainable, else the spec fallback
   `sqrt(nphotons)/(N/2)`) and stored in the bundle's `params.dill`, so inference uses
   the same normalization as training.
