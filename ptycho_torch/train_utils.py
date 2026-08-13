@@ -30,7 +30,12 @@ from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint, Callback
 from lightning.pytorch.strategies import DDPStrategy
 
 #Dataloader
-from ptycho_torch.dataloader import TensorDictDataLoader, PtychoDataset, Collate_Lightning
+from ptycho_torch.dataloader import (
+    Collate_Lightning,
+    PtychoDataset,
+    TensorDictDataLoader,
+    build_ptycho_loader,
+)
 
 #Custom modules
 from ptycho_torch.utils import config_to_json_serializable_dict
@@ -533,143 +538,131 @@ class PtychoDataModule(L.LightningDataModule):
         )
 
 class PrebuiltPtychoDataModule(L.LightningDataModule):
-    def __init__(self, map_path,
-                 model_config, data_config, training_config):
+    """Load exact prebuilt train/validation maps and let Lightning shard once."""
+
+    def __init__(
+        self,
+        map_path,
+        model_config,
+        data_config,
+        training_config,
+        *,
+        validation_map_path=None,
+        execution_config=None,
+        shuffle_training=True,
+        torch_training_seed=42,
+    ):
         super().__init__()
         self.map_path = map_path
+        self.validation_map_path = validation_map_path
         self.model_config = model_config
         self.data_config = data_config
         self.training_config = training_config
+        self.execution_config = execution_config
+        self.shuffle_training = bool(shuffle_training)
+        self.torch_training_seed = int(torch_training_seed)
         self.dataset = None
         self.train_dataset = None
         self.val_dataset = None
 
     def setup(self, stage=None):
-        """Setup that respects rank separation"""
+        """Load each map once per rank and freeze statistics from train only."""
 
-        from ptycho_torch.dataloader import get_current_rank, is_ddp_initialized_and_active
-        
-        # Only create dataset once per rank
-        if self.dataset is None:
-            if stage == "fit" or stage is None:
-                
-                # Rank-aware dataset creation
-                current_rank = get_current_rank()
-                is_ddp_active = is_ddp_initialized_and_active()
-                
-                print(f"[DataModule setup] Rank {current_rank}: Loading existing memory map")
-                
-                # Create dataset with NO setup logic - just load existing map
-                self.dataset = PtychoDataset.from_existing_map(
-                    self.map_path, 
-                    self.model_config,
-                    self.data_config,
-                    current_rank=current_rank,
-                    is_ddp_active=is_ddp_active
-                )
-                
-                # Train/val split (all ranks do this identically)
-                dataset_size = len(self.dataset)
-                val_size = int(0.1 * dataset_size)
-                train_size = dataset_size - val_size
-                
-                # Use same seed for reproducible split across ranks
-                generator = torch.Generator().manual_seed(42)
-                self.train_dataset, self.val_dataset = torch.utils.data.random_split(
-                    self.dataset, [train_size, val_size], generator=generator
-                )
-                if self.dataset.ci_contract_active:
-                    self.ci_statistics = self.dataset.set_ci_statistics_from_indices(
-                        self.train_dataset.indices
-                    )
-                
-                print(f"[DataModule setup] Rank {current_rank}: Dataset ready, "
-                      f"train={train_size}, val={val_size}")
-
-    def _resolve_worker_kwargs(self):
-        """Returns num_workers and persistent_workers, guarded for ddp_spawn."""
-        nw = self.training_config.num_workers
-        if is_spawn_strategy(self.training_config.strategy):
-            return dict(num_workers=0, persistent_workers=False)
-        worker_kwargs = dict(num_workers=nw, persistent_workers=nw > 0)
-        if nw > 0:
-            worker_kwargs["prefetch_factor"] = 4
-        return worker_kwargs
-
-    def train_dataloader(self):
-        return TensorDictDataLoader(
-            self.train_dataset,
-            batch_size=self.training_config.batch_size,
-            shuffle=True,
-            collate_fn=Collate_Lightning(pin_memory_if_cuda=True),
-            pin_memory=True,
-            **self._resolve_worker_kwargs(),
+        from ptycho_torch.dataloader import (
+            get_current_rank,
+            is_ddp_initialized_and_active,
         )
 
-    def val_dataloader(self):
-        return TensorDictDataLoader(
-            self.val_dataset,
-            batch_size=self.training_config.batch_size,
-            shuffle=False,
-            collate_fn=Collate_Lightning(pin_memory_if_cuda=True),
-            pin_memory=True,
-            **self._resolve_worker_kwargs(),
-        )
-
-
-class InMemoryPtychoDataModule(L.LightningDataModule):
-    """
-    Lightweight LightningDataModule that wraps a pre-built PtychoDataset
-    (e.g., one created via PtychoDataset.from_np()) for training.
-
-    Unlike PtychoDataModule which loads from directories, this accepts
-    a dataset that is already fully constructed in memory.
-    """
-    def __init__(self, dataset, training_config, val_split=0.1, val_seed=42):
-        super().__init__()
-        self.dataset = dataset
-        self.training_config = training_config
-        self.val_split = val_split
-        self.val_seed = val_seed
-        self.train_dataset = None
-        self.val_dataset = None
-
-    def setup(self, stage=None):
-        if self.train_dataset is not None:
+        if self.dataset is not None or stage not in ("fit", None):
             return
-        if stage == "fit" or stage is None:
-            dataset_size = len(self.dataset)
-            val_size = int(self.val_split * dataset_size)
-            train_size = dataset_size - val_size
-
-            generator = torch.Generator().manual_seed(self.val_seed)
+        rank = get_current_rank()
+        ddp = is_ddp_initialized_and_active()
+        self.dataset = PtychoDataset.from_existing_map(
+            self.map_path,
+            self.model_config,
+            self.data_config,
+            current_rank=rank,
+            is_ddp_active=ddp,
+        )
+        if self.validation_map_path is None:
+            validation_size = int(0.1 * len(self.dataset))
+            training_size = len(self.dataset) - validation_size
             self.train_dataset, self.val_dataset = torch.utils.data.random_split(
-                self.dataset, [train_size, val_size], generator=generator
+                self.dataset,
+                [training_size, validation_size],
+                generator=torch.Generator().manual_seed(42),
             )
-            if self.dataset.ci_contract_active:
-                self.ci_statistics = self.dataset.set_ci_statistics_from_indices(
-                    self.train_dataset.indices
-                )
-            print(f"[InMemoryPtychoDataModule] Split: train={train_size}, val={val_size}")
+            training_indices = self.train_dataset.indices
+        else:
+            self.train_dataset = self.dataset
+            self.val_dataset = PtychoDataset.from_existing_map(
+                self.validation_map_path,
+                self.model_config,
+                self.data_config,
+                current_rank=rank,
+                is_ddp_active=ddp,
+            )
+            training_indices = torch.arange(len(self.dataset))
+
+        if self.dataset.ci_contract_active:
+            self.ci_statistics = self.dataset.set_ci_statistics_from_indices(
+                training_indices
+            )
+            validation_owner = (
+                self.val_dataset.dataset
+                if isinstance(self.val_dataset, Subset)
+                else self.val_dataset
+            )
+            validation_owner.data_dict["ci_statistics"] = {
+                name: value.detach().clone()
+                for name, value in self.ci_statistics.items()
+            }
+
+    def _loader_settings(self):
+        if self.execution_config is None:
+            num_workers = self.training_config.num_workers
+            if is_spawn_strategy(self.training_config.strategy):
+                num_workers = 0
+            return {
+                "num_workers": num_workers,
+                "pin_memory": True,
+                "persistent_workers": num_workers > 0,
+                "prefetch_factor": 4 if num_workers > 0 else None,
+            }
+        num_workers = self.execution_config.num_workers
+        if is_spawn_strategy(self.execution_config.strategy):
+            num_workers = 0
+        return {
+            "num_workers": num_workers,
+            "pin_memory": self.execution_config.pin_memory,
+            "persistent_workers": (
+                self.execution_config.persistent_workers
+                if num_workers > 0
+                else False
+            ),
+            "prefetch_factor": (
+                self.execution_config.prefetch_factor
+                if num_workers > 0
+                else None
+            ),
+        }
 
     def train_dataloader(self):
-        return TensorDictDataLoader(
+        return build_ptycho_loader(
             self.train_dataset,
             batch_size=self.training_config.batch_size,
-            shuffle=True,
-            num_workers=0,
-            collate_fn=Collate_Lightning(pin_memory_if_cuda=True),
-            pin_memory=True,
+            shuffle=self.shuffle_training,
+            seed=self.torch_training_seed,
+            **self._loader_settings(),
         )
 
     def val_dataloader(self):
-        return TensorDictDataLoader(
+        return build_ptycho_loader(
             self.val_dataset,
             batch_size=self.training_config.batch_size,
             shuffle=False,
-            num_workers=0,
-            collate_fn=Collate_Lightning(pin_memory_if_cuda=True),
-            pin_memory=True,
+            seed=self.torch_training_seed,
+            **self._loader_settings(),
         )
 
 

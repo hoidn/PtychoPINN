@@ -112,6 +112,9 @@ class _SyntheticVarProDataset:
         scaling = self._probe_scaling.expand(B, 1, 1, 1).clone()
         return td, probe, scaling
 
+    def __getitems__(self, indices):
+        return self[torch.as_tensor(indices, dtype=torch.long)]
+
 
 def _training_unit_intensity(probe, textures, s1, s2, out_scale):
     """Reference physics: RectangularScaledDiffraction.forward autograd=True

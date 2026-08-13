@@ -627,11 +627,15 @@ class TestWorkflowsComponentsTraining:
 
         captured = []
 
-        class FakeDataLoader:
-            def __init__(self, dataset, **kwargs):
-                captured.append((dataset, kwargs))
+        def fake_build_ptycho_loader(dataset, **kwargs):
+            captured.append((dataset, kwargs))
+            return object()
 
-        monkeypatch.setattr("torch.utils.data.DataLoader", FakeDataLoader)
+        monkeypatch.setattr(
+            components,
+            "build_ptycho_loader",
+            fake_build_ptycho_loader,
+        )
         monkeypatch.setattr(
             components,
             "validate_scale_contract",
@@ -698,8 +702,16 @@ class TestWorkflowsComponentsTraining:
             persistent_workers=True,
             prefetch_factor=7,
         )
+        canonical = SimpleNamespace(sequential_sampling=False)
         payload = SimpleNamespace(
-            pt_data_config=DataConfig(N=64, C=1, grid_size=(1, 1)),
+            tf_training_config=canonical,
+            pt_data_config=DataConfig(
+                N=64,
+                C=1,
+                grid_size=(1, 1),
+                scale_contract_version="legacy_v1",
+                measurement_domain="normalized_amplitude",
+            ),
             pt_model_config=ModelConfig(C_forward=1, C_model=1),
             pt_training_config=TrainingConfig(
                 strategy="auto",
@@ -708,10 +720,12 @@ class TestWorkflowsComponentsTraining:
             execution_config=execution,
         )
 
-        result = components._build_dataloaders_from_ptycho_dataset(
-            train_ptycho_dataset=SimpleNamespace(
-                data_dir_path=Path("/unused")
-            ),
+        dataset = components.PtychoDataset.__new__(components.PtychoDataset)
+        dataset.data_dir_path = Path("/unused")
+        result = components._build_lightning_dataloaders(
+            dataset,
+            None,
+            canonical,
             payload=payload,
         )
 
@@ -719,13 +733,13 @@ class TestWorkflowsComponentsTraining:
         assert result.training_config.strategy == strategy
         assert result.training_config.num_workers == 3
         assert result.execution_config is execution
-        worker_kwargs = result._resolve_worker_kwargs()
+        worker_kwargs = result._loader_settings()
         assert worker_kwargs["num_workers"] == expected_num_workers
         assert worker_kwargs["persistent_workers"] is (
             expected_num_workers > 0
         )
-        assert ("prefetch_factor" in worker_kwargs) is (
-            expected_num_workers > 0
+        assert worker_kwargs["prefetch_factor"] == (
+            7 if expected_num_workers > 0 else None
         )
 
     def test_train_with_lightning_builds_supervised_model_config(
@@ -3769,9 +3783,12 @@ class TestLightningCheckpointCallbacks:
         mock_trainer_instance = MagicMock()
         mock_trainer_cls.return_value = mock_trainer_instance
 
-        # Mock data containers
-        mock_train_container = MagicMock()
-        mock_test_container = MagicMock()  # Validation data present
+        c = minimal_training_config.model.gridsize ** 2
+        mock_train_container = {
+            "X": np.zeros((2, 64, 64, c), dtype=np.float32),
+            "coords_relative": np.zeros((2, 1, 2, c), dtype=np.float32),
+        }
+        mock_test_container = dict(mock_train_container)
 
         from ptycho_torch.workflows.components import _train_with_lightning
 
@@ -4106,9 +4123,12 @@ class TestLightningExecutionConfig:
         mock_trainer_instance = MagicMock()
         mock_trainer_cls.return_value = mock_trainer_instance
 
-        # Mock data containers
-        mock_train_container = MagicMock()
-        mock_test_container = MagicMock()  # Validation data present
+        c = minimal_training_config_with_val.model.gridsize ** 2
+        mock_train_container = {
+            "X": np.zeros((2, 64, 64, c), dtype=np.float32),
+            "coords_relative": np.zeros((2, 1, 2, c), dtype=np.float32),
+        }
+        mock_test_container = dict(mock_train_container)
 
         from ptycho_torch.workflows.components import _train_with_lightning
 
@@ -4198,9 +4218,12 @@ class TestLightningExecutionConfig:
         mock_trainer_instance = MagicMock()
         mock_trainer_cls.return_value = mock_trainer_instance
 
-        # Mock data containers
-        mock_train_container = MagicMock()
-        mock_test_container = MagicMock()
+        c = minimal_training_config_with_val.model.gridsize ** 2
+        mock_train_container = {
+            "X": np.zeros((2, 64, 64, c), dtype=np.float32),
+            "coords_relative": np.zeros((2, 1, 2, c), dtype=np.float32),
+        }
+        mock_test_container = dict(mock_train_container)
 
         from ptycho_torch.workflows.components import _train_with_lightning
 

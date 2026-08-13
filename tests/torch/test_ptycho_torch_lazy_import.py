@@ -7,9 +7,7 @@ import sys
 
 
 EXPECTED_EXPORTS = {
-    "MemmapDatasetBridge",
     "PtychoDataContainerTorch",
-    "RawDataTorch",
     "TORCH_AVAILABLE",
     "load_inference_bundle_torch",
     "run_cdi_example_torch",
@@ -40,8 +38,6 @@ import ptycho_torch
 lazy_modules = {
     "ptycho_torch.config_bridge",
     "ptycho_torch.data_container_bridge",
-    "ptycho_torch.memmap_bridge",
-    "ptycho_torch.raw_data_bridge",
     "ptycho_torch.workflows.components",
 }
 print(json.dumps({

@@ -168,7 +168,7 @@ def run_cdi_example_with_backend(
 
     Args:
         train_data: Training data (RawData or PtychoDataContainer for TensorFlow;
-                   may also be RawDataTorch or PtychoDataContainerTorch for PyTorch)
+                   may also be RawData or PtychoDataContainerTorch for PyTorch)
         test_data: Optional test data (same type constraints as train_data)
         config: TrainingConfig instance with backend field ('tensorflow' or 'pytorch')
         flip_x: Whether to flip the x coordinates during reconstruction

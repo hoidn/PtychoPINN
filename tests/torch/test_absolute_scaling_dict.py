@@ -483,9 +483,24 @@ def test_train_with_lightning_registers_native_dataset_statistics_before_fit(
 
     N = 64
     batch_size = 2
-    train_path = tmp_path / "train.npz"
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+    train_path = source_dir / "train.npz"
     physical_probe = np.ones((N, N), dtype=np.complex64)
-    np.savez(train_path, probeGuess=physical_probe)
+    measured = np.linspace(
+        1.0,
+        10.0,
+        batch_size * N * N,
+        dtype=np.float32,
+    ).reshape(batch_size, N, N)
+    np.savez(
+        train_path,
+        diff3d=measured,
+        xcoords=np.arange(batch_size, dtype=np.float64),
+        ycoords=np.arange(batch_size, dtype=np.float64),
+        probeGuess=physical_probe,
+        objectGuess=np.ones((N, N), dtype=np.complex64),
+    )
     tf_training_config = TFTrainingConfig(
         model=TFModelConfig(
             N=N,
@@ -502,24 +517,15 @@ def test_train_with_lightning_registers_native_dataset_statistics_before_fit(
     )
     update_legacy_dict(params.cfg, tf_training_config)
 
-    native_dataset = PtychoDataset.from_np(
-        np.linspace(
-            1.0,
-            10.0,
-            batch_size * N * N,
-            dtype=np.float32,
-        ).reshape(batch_size, N, N),
-        physical_probe,
-        np.asarray([[0.0, 0.0], [1.0, 1.0]], dtype=np.float32),
-        ModelConfig(
+    native_model_config = ModelConfig(
             mode="Unsupervised",
             C_model=1,
             C_forward=1,
             object_big=False,
             physics_forward_mode="rectangular_scaled",
             cnn_output_mode="real_imag",
-        ),
-        DataConfig(
+        )
+    native_data_config = DataConfig(
             N=N,
             C=1,
             grid_size=(1, 1),
@@ -527,7 +533,16 @@ def test_train_with_lightning_registers_native_dataset_statistics_before_fit(
             y_bounds=(0.0, 1.0),
             normalize="Batch",
             probe_normalize=True,
-        ),
+            scale_contract_version="ci_intensity_v2",
+            measurement_domain="count_intensity",
+        )
+    native_dataset = PtychoDataset(
+        ptycho_dir=str(source_dir),
+        model_config=native_model_config,
+        data_config=native_data_config,
+        training_config=TrainingConfig(batch_size=batch_size),
+        data_dir=str(tmp_path / "map"),
+        remake_map=True,
     )
     training_statistics = native_dataset.get_ci_statistics()
 

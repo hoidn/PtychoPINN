@@ -10,7 +10,7 @@ This module mirrors ptycho.workflows.components, sitting at the same orchestrati
 layer and providing identical entry point signatures. The key differences are:
 1. Uses PyTorch backend (ptycho_torch.model, Lightning trainer)
 2. Leverages config_bridge for TensorFlow dataclass compatibility
-3. Delegates to RawDataTorch + PtychoDataContainerTorch from Phase C
+3. Uses canonical RawData grouping plus the retained Torch RAM container
 4. Implements PyTorch-specific persistence via ModelManager or TorchModelManager
 
 Critical Requirements (CONFIG-001 + spec §4.5):
@@ -31,7 +31,7 @@ Entry Points:
 
 Integration Points (Phase D2.B/C TODO):
 - Config Bridge: ptycho_torch.config_bridge for dataclass translation
-- Data Pipeline: RawDataTorch + PtychoDataContainerTorch from Phase C
+- Data Pipeline: canonical RawData grouping + PtychoDataContainerTorch
 - Training: Lightning trainer + MLflow autologging
 - Persistence: TorchModelManager or extended ModelManager (Phase D3)
 
@@ -65,7 +65,6 @@ from typing import Union, Optional, Tuple, Dict, Any
 
 # Core imports (always available)
 from ptycho import params
-from ptycho.acquisition import AcquisitionRecord
 from ptycho.config.config import TrainingConfig, InferenceConfig, PyTorchExecutionConfig
 from ptycho.config.legacy_state import (
     transactional_legacy_params,
@@ -100,7 +99,6 @@ from ptycho_torch.rect_s1s2_sampling import (
 
 # PyTorch imports (now mandatory per Phase F3.1/F3.2)
 try:
-    from ptycho_torch.raw_data_bridge import RawDataTorch
     from ptycho_torch.config_factory import TrainingPayload, InferencePayload
     from ptycho_torch.data_container_bridge import PtychoDataContainerTorch
     from ptycho_torch.model_manager import (
@@ -109,9 +107,9 @@ try:
         save_torch_bundle,
     )
     from ptycho_torch.dataloader import (
-        Collate_Lightning,
         PtychoDataset,
-        TensorDictDataLoader,
+        _PtychoContainerDataset,
+        build_ptycho_loader,
     )
     from ptycho_torch.train_utils import (
         PrebuiltPtychoDataModule,
@@ -122,10 +120,9 @@ try:
         write_effective_runtime_json,
     )
 except ImportError as e:
-    # If Phase C/D3 modules not available, raise actionable error
     raise RuntimeError(
         "PyTorch backend modules not available. "
-        "Ensure ptycho_torch.raw_data_bridge, data_container_bridge, and model_manager are installed. "
+        "Ensure the project's Torch dependencies are installed. "
         "Original error: " + str(e)
     ) from e
 
@@ -152,51 +149,6 @@ def _validate_training_execution_input(
     from ptycho_torch.execution_request import normalize_execution_input
 
     normalize_execution_input(execution_config, mode="training")
-
-
-class _ResolvedPrebuiltPtychoDataModule(PrebuiltPtychoDataModule):
-    """Prebuilt mmap datamodule projected from resolved execution settings."""
-
-    def __init__(self, *args, execution_config, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.execution_config = execution_config
-
-    def _resolve_worker_kwargs(self):
-        if is_spawn_strategy(self.execution_config.strategy):
-            return {
-                "num_workers": 0,
-                "persistent_workers": False,
-            }
-        num_workers = self.execution_config.num_workers
-        kwargs = {
-            "num_workers": num_workers,
-            "persistent_workers": (
-                self.execution_config.persistent_workers
-                if num_workers > 0
-                else False
-            ),
-        }
-        if num_workers > 0:
-            kwargs["prefetch_factor"] = self.execution_config.prefetch_factor
-        return kwargs
-
-    def _dataloader(self, dataset, *, shuffle):
-        return TensorDictDataLoader(
-            dataset,
-            batch_size=self.training_config.batch_size,
-            shuffle=shuffle,
-            collate_fn=Collate_Lightning(
-                pin_memory_if_cuda=self.execution_config.pin_memory,
-            ),
-            pin_memory=self.execution_config.pin_memory,
-            **self._resolve_worker_kwargs(),
-        )
-
-    def train_dataloader(self):
-        return self._dataloader(self.train_dataset, shuffle=True)
-
-    def val_dataloader(self):
-        return self._dataloader(self.val_dataset, shuffle=False)
 
 
 def _persist_bundle_scaling_metadata(
@@ -533,7 +485,7 @@ def _resolve_nphotons(data, config):
     metadata = getattr(data, "metadata", None)
     if metadata is not None:
         return MetadataManager.get_nphotons(metadata), "metadata"
-    return getattr(config, "nphotons", 1e9), "config"
+    return getattr(getattr(config, "data", config), "nphotons", 1e9), "config"
 
 
 def _attach_physics_scale(container, config, nphotons_source: Optional[str] = None):
@@ -811,8 +763,8 @@ def _adapt_container_for_ci(
 
 
 def run_cdi_example_torch(
-    train_data: Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch'],
-    test_data: Optional[Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch']],
+    train_data: Union[RawData, 'PtychoDataContainerTorch'],
+    test_data: Optional[Union[RawData, 'PtychoDataContainerTorch']],
     config: TrainingConfig,
     flip_x: bool = False,
     flip_y: bool = False,
@@ -839,7 +791,7 @@ def run_cdi_example_torch(
     legacy leaf owns its own narrow compatibility scope.
 
     Args:
-        train_data: Training data (RawData, RawDataTorch, or PtychoDataContainerTorch)
+        train_data: Training data (RawData or PtychoDataContainerTorch)
         test_data: Optional test data (same type constraints as train_data)
         config: TrainingConfig instance (TensorFlow dataclass, translated via config_bridge)
         flip_x: Whether to flip the x coordinates during reconstruction
@@ -983,17 +935,17 @@ def run_cdi_example_torch(
 
 
 def _ensure_container(
-    data: Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch'],
+    data: Union[RawData, 'PtychoDataContainerTorch'],
     config: TrainingConfig
 ) -> 'PtychoDataContainerTorch':
     """
-    Normalize input data to PtychoDataContainerTorch using Phase C adapters.
+    Normalize input data to the retained Torch RAM container.
 
     This helper mirrors the pattern in ptycho.workflows.components.create_ptycho_data_container,
     providing a single normalization pathway for all data types.
 
     Args:
-        data: Input data (RawData, RawDataTorch, or PtychoDataContainerTorch)
+        data: Input data (RawData or PtychoDataContainerTorch)
         config: TrainingConfig for grouped data generation parameters
 
     Returns:
@@ -1004,44 +956,21 @@ def _ensure_container(
         ImportError: If Phase C adapters not available (should not occur in Phase D2.B)
 
     Implementation Notes:
-        - RawData → wrap with RawDataTorch, generate_grouped_data, then PtychoDataContainerTorch
-        - RawDataTorch → generate_grouped_data → PtychoDataContainerTorch
+        - RawData → generate grouped data → PtychoDataContainerTorch
         - PtychoDataContainerTorch → return as-is (already normalized)
     """
-    # Phase C adapters are now mandatory (imported at module level)
-    sample_indices = None
-
-    # Case 1: Already a container - return as-is
+    # Case 1: Already a container - return as-is.
     if hasattr(data, 'X') and hasattr(data, 'Y'):  # Duck-type check for PtychoDataContainerTorch
         logger.debug("Input is already PtychoDataContainerTorch, returning as-is")
         if not hasattr(data, 'physics_scaling_constant'):
             _attach_physics_scale(data, config, nphotons_source=None)
         return data
 
-    # Case 2: TensorFlow RawData - wrap with RawDataTorch
+    # Case 2: RawData owns canonical grouping and materializes one RAM carrier.
     if isinstance(data, RawData):
-        logger.debug("Converting RawData → RawDataTorch → PtychoDataContainerTorch")
-        # Wrap with RawDataTorch (Phase C adapter)
-        # Note: Y patches are embedded in TF RawData and will be extracted during grouping
+        logger.debug("Generating grouped Torch RAM data from RawData")
         sample_indices = getattr(data, 'sample_indices', None)
         metadata = getattr(data, 'metadata', None)
-        torch_raw_data = RawDataTorch.from_acquisition(
-            AcquisitionRecord.from_raw_data(data),
-            config=config,
-        )
-        if sample_indices is not None:
-            setattr(torch_raw_data, 'sample_indices', sample_indices)
-            setattr(getattr(torch_raw_data, '_tf_raw_data', torch_raw_data), 'sample_indices', sample_indices)
-        data = torch_raw_data
-
-    # Case 3: RawDataTorch - generate grouped data
-    if hasattr(data, 'generate_grouped_data'):
-        logger.debug("Generating grouped data from RawDataTorch")
-        if sample_indices is None:
-            sample_indices = getattr(data, 'sample_indices', None)
-        metadata = getattr(data, 'metadata', None)
-        if metadata is None and hasattr(data, '_tf_raw_data'):
-            metadata = getattr(data._tf_raw_data, 'metadata', None)
         grouped_data = data.generate_grouped_data(
             N=config.model.N,
             K=config.sampling.neighbor_count,
@@ -1064,8 +993,6 @@ def _ensure_container(
         for key in ('X_full', 'diffraction'):
             if key in grouped_data and grouped_data[key].dtype != np.float32:
                 grouped_data[key] = grouped_data[key].astype(np.float32, copy=False)
-        # Create PtychoDataContainerTorch from grouped data
-        # Extract probe from RawDataTorch (required by PtychoDataContainerTorch constructor)
         probe = data.probeGuess
         container = PtychoDataContainerTorch(grouped_data, probe)
         if metadata is not None:
@@ -1073,9 +1000,9 @@ def _ensure_container(
         _attach_physics_scale(container, config, nphotons_source=None)
         return container
 
-    # Case 4: Unknown type
+    # Case 3: Unknown type
     raise TypeError(
-        f"data must be RawData, RawDataTorch, or PtychoDataContainerTorch, got {type(data)}"
+        f"data must be RawData or PtychoDataContainerTorch, got {type(data)}"
     )
 
 
@@ -1101,53 +1028,21 @@ def _resolve_torch_training_seed(
 
 def _build_lightning_dataloaders(
     train_container: Union['PtychoDataContainerTorch', Dict, 'PtychoDataset'],
-    test_container: Optional[Union['PtychoDataContainerTorch', Dict, 'PtychoDataset']],
+    test_container: Optional[
+        Union['PtychoDataContainerTorch', Dict, 'PtychoDataset']
+    ],
     config: Optional[TrainingConfig],
     payload: Optional[TrainingPayload] = None,
     *,
     torch_training_seed: Optional[int] = None,
 ):
-    """
-    Build PyTorch DataLoader instances from container data for Lightning training. This is training-specific,
-    so this is not needed for inference.
+    """Build the one native RAM/mmap loader path for Lightning training."""
 
-    This helper wraps the container data into DataLoaders that yield TensorDict-style
-    batches matching the structure expected by PtychoPINN_Lightning.compute_loss.
+    import lightning.pytorch as L
+    import torch
+    from dataclasses import replace
 
-    Args:
-        train_container: Training data container (PtychoDataContainerTorch or dict)
-        test_container: Optional test data container
-        config: TrainingConfig with batch_size and sequential_sampling settings
-
-    Returns:
-        Tuple[DataLoader, Optional[DataLoader]]: (train_loader, val_loader)
-
-    Batch Structure:
-        Each batch is a tuple (tensor_dict, probe, scaling) where:
-        - tensor_dict: dict with keys ['images', 'coords_relative',
-                       'rms_scaling_constant', 'physics_scaling_constant']
-        - probe: complex probe tensor
-        - scaling: scaling constant tensor
-
-    Notes:
-        - Uses duck-typing to support both real containers and dict-based fixtures
-        - Respects config.sequential_sampling to control shuffle behavior
-        - Seeds RNG via lightning.pytorch.seed_everything before construction
-        - Follows the batch contract from ptycho_torch/model.py:1118-1128
-    """
-    # torch-optional import guarded here
-    try:
-        import torch
-        from torch.utils.data import DataLoader, Dataset
-        import lightning.pytorch as L
-    except ImportError as e:
-        raise RuntimeError(
-            "PyTorch backend requires torch and lightning. "
-            "Install with: pip install -e .[torch]\n"
-            "See docs/workflows/pytorch.md for installation guidance."
-        ) from e
-    
-    if payload and not config:
+    if payload is not None and config is None:
         config = getattr(payload, "tf_training_config", None)
 
     from ptycho_torch.config_params import (
@@ -1158,549 +1053,180 @@ def _build_lightning_dataloaders(
 
     data_config = getattr(payload, "pt_data_config", None) if payload else None
     if data_config is None:
-        data_source = getattr(config, "data_config", config)
-        data_overrides = {
-            field_name: getattr(data_source, field_name)
-            for field_name in ("scale_contract_version", "measurement_domain")
-            if data_source is not None and hasattr(data_source, field_name)
-        }
-        data_config = PTDataConfig(**data_overrides)
+        data_source = getattr(config, "data", config)
+        data_config = PTDataConfig(
+            **{
+                name: getattr(data_source, name)
+                for name in ("scale_contract_version", "measurement_domain")
+                if data_source is not None and hasattr(data_source, name)
+            }
+        )
 
-    validation_model_config = getattr(payload, "pt_model_config", None) if payload else None
-    if validation_model_config is None:
-        model_source = getattr(config, "model", None)
-        mode = getattr(model_source, "mode", None)
-        if mode is None:
-            mode = {
-                "pinn": "Unsupervised",
-                "supervised": "Supervised",
-            }.get(getattr(model_source, "model_type", None), "Unsupervised")
-        validation_model_config = PTModelConfig(
+    model_config = getattr(payload, "pt_model_config", None) if payload else None
+    if model_config is None:
+        from ptycho.config.config import resolve_model_object_policy
+
+        source = resolve_model_object_policy(
+            getattr(config, "model", None),
+            backend="torch",
+            warn_deprecated=False,
+        )
+        mode = getattr(source, "mode", None) or {
+            "pinn": "Unsupervised",
+            "supervised": "Supervised",
+        }.get(getattr(source, "model_type", None), "Unsupervised")
+        model_config = PTModelConfig(
             mode=mode,
+            object_big=source.object_big,
+            object_layout=source.object_layout,
+            training_canvas=source.training_canvas,
             physics_forward_mode=getattr(
-                model_source,
-                "physics_forward_mode",
-                "amplitude",
+                source, "physics_forward_mode", "amplitude"
             ),
         )
 
-    training_config = getattr(payload, "pt_training_config", None) if payload else None
+    training_config = (
+        getattr(payload, "pt_training_config", None) if payload else None
+    )
     if training_config is None:
         public_loss = getattr(config, "loss", None)
         training_config = PTTrainingConfig(
-            torch_loss_mode=getattr(
-                public_loss,
-                "torch_loss_mode",
-                getattr(config, "torch_loss_mode", "poisson"),
-            ),
+            batch_size=getattr(config, "batch_size", PTTrainingConfig().batch_size),
+            torch_loss_mode=getattr(public_loss, "torch_loss_mode", "poisson"),
         )
 
-    resolved_scale_contract = validate_scale_contract(
-        data_config,
-        validation_model_config,
-        training_config,
+    scale_contract = validate_scale_contract(
+        data_config, model_config, training_config
     )
-    ci_dict_active = (
-        resolved_scale_contract is not None
-        and resolved_scale_contract.version == CI_SCALE_CONTRACT
+    ci_active = (
+        scale_contract is not None
+        and scale_contract.version == CI_SCALE_CONTRACT
     )
-    if ci_dict_active:
-        training_ci_statistics = _adapt_container_for_ci(
+    if ci_active and not isinstance(train_container, PtychoDataset):
+        statistics = _adapt_container_for_ci(
             train_container,
             data_config=data_config,
-            model_config=validation_model_config,
+            model_config=model_config,
         )
-        if training_ci_statistics is not None:
+        if statistics is not None:
             _adapt_container_for_ci(
                 test_container,
                 data_config=data_config,
-                model_config=validation_model_config,
-                statistics=training_ci_statistics,
+                model_config=model_config,
+                statistics=statistics,
             )
 
-    model_config = None
-    if payload and hasattr(payload, "pt_model_config"):
-        model_config = payload.pt_model_config
-    elif config is not None and getattr(config, "model", None) is not None:
-        model_config = config.model
-
-    # Set deterministic seed if provided
     seed = _resolve_torch_training_seed(config, torch_training_seed)
     L.seed_everything(seed)
+    shuffle = not bool(
+        getattr(getattr(config, "sampling", config), "sequential_sampling", False)
+    )
 
-    # Extract tensors from container (duck-typing for dict-based test fixtures)
-    def _get_tensor(container, key, default=None):
-        """Helper to extract tensor from container or dict."""
-        if hasattr(container, key):
-            val = getattr(container, key)
-        elif isinstance(container, dict):
-            val = container.get(key, default)
-        else:
-            val = default
+    execution_config = getattr(payload, "execution_config", None)
+    strategy = (
+        getattr(execution_config, "strategy", None)
+        if execution_config is not None
+        else getattr(training_config, "strategy", None)
+    )
+    distributed = strategy == "ddp" or is_spawn_strategy(strategy)
 
-        # Convert numpy arrays to torch tensors if needed
-        if val is not None and not isinstance(val, torch.Tensor):
-            import numpy as np
-            if isinstance(val, np.ndarray):
-                val = torch.from_numpy(val)
-        return val
-
-    # Custom Dataset class that yields (tensor_dict, probe, scaling) tuples
-    class PtychoLightningDataset(Dataset):
-        """
-        Dataset wrapper that yields TensorDict-style batches for Lightning.
-
-        Mimics the structure from ptycho_torch/dataloader.py PtychoDataset.__getitem__
-        to maintain compatibility with PtychoPINN_Lightning.compute_loss.
-        """
-        def __init__(self, container, model_config=None, ci_active=False):
-            self.container = container
-            self.model_config = model_config
-            self.object_compatibility = (
-                resolve_model_object_compatibility(model_config)
-                if model_config is not None
+    if isinstance(train_container, PtychoDataset) and distributed:
+        runtime_training = training_config
+        if execution_config is not None:
+            runtime_training = replace(
+                training_config,
+                strategy=execution_config.strategy,
+                n_devices=execution_config.devices,
+                num_workers=execution_config.num_workers,
+                device=(
+                    "cuda"
+                    if execution_config.accelerator in {"cuda", "gpu"}
+                    else execution_config.accelerator
+                ),
+            )
+        return PrebuiltPtychoDataModule(
+            train_container.data_dir_path,
+            model_config,
+            data_config,
+            runtime_training,
+            validation_map_path=(
+                test_container.data_dir_path
+                if isinstance(test_container, PtychoDataset)
                 else None
-            )
-            self.ci_active = ci_active
-            # Extract all tensors at init
-            self.images = _get_tensor(container, 'X')
-            self.observed_images = _get_tensor(container, 'observed_images')
-            self.measured_intensity = _get_tensor(container, 'measured_intensity')
-            # Try 'coords_relative' first, fallback to 'coords_nominal' for container compatibility
-            self.coords_relative = _get_tensor(container, 'coords_relative')
-            if self.coords_relative is None:
-                if (
-                    self.object_compatibility is not None
-                    and self.object_compatibility.layout
-                    == "grouped_patch_components_v1"
-                ):
-                    raise ValueError(
-                        "coords_relative is required for grouped patch components "
-                        "(legacy object_big=True). Provide TF-style relative "
-                        "offsets or select single patch components."
-                    )
-                if isinstance(container, dict) and self.images is not None:
-                    self.coords_relative = torch.zeros(
-                        (self.images.size(0), 1, 1, 2),
-                        dtype=torch.float32
-                    )
-                else:
-                    self.coords_relative = _get_tensor(container, 'coords_nominal')
-            self.rms_scaling_constant = _get_tensor(container, 'rms_scaling_constant')
-            self.physics_scaling_constant = _get_tensor(container, 'physics_scaling_constant')
-            self.rms_input_scale = _get_tensor(container, 'rms_input_scale')
-            self.mean_measured_intensity = _get_tensor(
-                container,
-                'mean_measured_intensity',
-            )
-            self.probe = _get_tensor(container, 'probe')
-            self.probe_training = _get_tensor(container, 'probe_training')
-            self.probe_physical = _get_tensor(container, 'probe_physical')
-            self.probe_normalization = _get_tensor(
-                container,
-                'probe_normalization',
-            )
-            self.scaling_constant = _get_tensor(container, 'scaling_constant')
-            self.label_amp = _get_tensor(container, 'label_amp')
-            self.label_phase = _get_tensor(container, 'label_phase')
+            ),
+            execution_config=execution_config,
+            shuffle_training=shuffle,
+            torch_training_seed=seed,
+        )
 
-            # Validate required tensors
-            if self.images is None:
-                raise ValueError("Container must contain 'X' (images) tensor")
-            if self.ci_active:
-                required_ci_fields = {
-                    "measured_intensity": self.measured_intensity,
-                    "rms_input_scale": self.rms_input_scale,
-                    "mean_measured_intensity": self.mean_measured_intensity,
-                    "probe_training": self.probe_training,
-                    "probe_physical": self.probe_physical,
-                    "probe_normalization": self.probe_normalization,
-                }
-                missing = [
-                    name for name, value in required_ci_fields.items() if value is None
-                ]
-                if missing:
-                    raise ValueError(
-                        "CI dict container is missing named fields: "
-                        + ", ".join(missing)
-                    )
-            if getattr(self.model_config, 'model_type', 'pinn') == 'supervised':
-                if self.label_amp is None or self.label_phase is None:
-                    raise ValueError(
-                        "Supervised training requires label_amp and label_phase on the container."
-                    )
-
-            self.length = self.images.size(0)
-
-
-        def __len__(self):
-            return self.length
-
-        def __getitem__(self, idx):
-            """
-            Return (tensor_dict, probe, scaling) tuple matching compute_loss expectations.
-
-            Args:
-                idx: int or tensor of indices
-
-            Returns:
-                tuple: (tensor_dict, probe, scaling) where:
-                    - tensor_dict: dict with keys matching batch[0] access in compute_loss
-                    - probe: probe tensor (broadcast if needed)
-                    - scaling: scaling constant tensor
-            """
-            # Extract indexed data
-            images_indexed = self.images[idx]
-            observed_images_indexed = (
-                self.observed_images[idx]
-                if self.observed_images is not None
-                else images_indexed
-            )
-            measured_intensity_indexed = (
-                self.measured_intensity[idx]
-                if self.measured_intensity is not None
-                else observed_images_indexed
-            )
-
-            # CRITICAL: Convert from TensorFlow channel-last to PyTorch channel-first format
-            # TensorFlow RawData.generate_grouped_data returns X_full with shape (nsamples, H, W, C)
-            # where C = gridsize². PyTorch conv2d requires (batch, C, H, W) format.
-            # See: docs/findings.md for channel ordering conventions
-            if images_indexed.ndim == 4:
-                # DataLoader batched case: (batch, H, W, C) → (batch, C, H, W)
-                images_indexed = images_indexed.permute(0, 3, 1, 2)
-            elif images_indexed.ndim == 3:
-                # Single sample case: (H, W, C) → (C, H, W)
-                images_indexed = images_indexed.permute(2, 0, 1)
-            if observed_images_indexed.ndim == 4:
-                observed_images_indexed = observed_images_indexed.permute(0, 3, 1, 2)
-            elif observed_images_indexed.ndim == 3:
-                observed_images_indexed = observed_images_indexed.permute(2, 0, 1)
-            if measured_intensity_indexed.ndim == 4:
-                measured_intensity_indexed = measured_intensity_indexed.permute(0, 3, 1, 2)
-            elif measured_intensity_indexed.ndim == 3:
-                measured_intensity_indexed = measured_intensity_indexed.permute(2, 0, 1)
-
-            # Build tensor dict with required keys for compute_loss
-            coords_rel = self.coords_relative[idx] if self.coords_relative is not None else torch.zeros(1, 2)
-
-            # CRITICAL: Fix coords_relative axis order for Translation compatibility
-            # TensorFlow RawData.generate_grouped_data returns coords_relative with shape (..., 1, 2, C)
-            # where C = gridsize². PyTorch Translation helper expects (..., C, 1, 2) format.
-            # See: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T103200Z/phase_c4d_coords_debug/summary.md
-            if coords_rel is not None and coords_rel.ndim == 4:
-                # DataLoader batched case: (batch, 1, 2, C) → (batch, C, 1, 2)
-                coords_rel = coords_rel.permute(0, 3, 1, 2).contiguous()
-            elif coords_rel is not None and coords_rel.ndim == 3:
-                # Single sample case: (1, 2, C) → (C, 1, 2)
-                coords_rel = coords_rel.permute(2, 0, 1).contiguous()
-
-            label_amp = self.label_amp[idx] if self.label_amp is not None else None
-            label_phase = self.label_phase[idx] if self.label_phase is not None else None
-            if label_amp is not None and label_amp.ndim == 4:
-                label_amp = label_amp.permute(0, 3, 1, 2).contiguous()
-            elif label_amp is not None and label_amp.ndim == 3:
-                label_amp = label_amp.permute(2, 0, 1).contiguous()
-            if label_phase is not None and label_phase.ndim == 4:
-                label_phase = label_phase.permute(0, 3, 1, 2).contiguous()
-            elif label_phase is not None and label_phase.ndim == 3:
-                label_phase = label_phase.permute(2, 0, 1).contiguous()
-
-            def _select_scale(scale):
-                if scale is None:
-                    return torch.ones(1, 1, 1)
-                if scale.numel() == 1:
-                    return scale
-                if scale.shape[0] == 1:
-                    return scale[0]
-                return scale[idx]
-
-            rms_scale = _select_scale(self.rms_scaling_constant)
-            phys_scale = _select_scale(self.physics_scaling_constant)
-
-            # Reshape scaling constants for proper broadcasting with 4D image tensors
-            # Model's scale() function does x * scale_factor, so scale_factor needs shape (1, 1, 1)
-            # After DataLoader collation with batch_size B, this becomes (B, 1, 1, 1) which broadcasts
-            # correctly with images of shape (B, C, H, W)
-            if rms_scale is not None:
-                # Ensure shape (1, 1, 1) for proper broadcasting after collation
-                rms_scale = rms_scale.view(1, 1, 1) if rms_scale.numel() == 1 else rms_scale.view(-1, 1, 1)[:1]
-            if phys_scale is not None:
-                phys_scale = phys_scale.view(1, 1, 1) if phys_scale.numel() == 1 else phys_scale.view(-1, 1, 1)[:1]
-
-            if self.ci_active:
-                rms_input_scale = _select_scale(self.rms_input_scale).view(1, 1, 1)
-                mean_measured_intensity = _select_scale(
-                    self.mean_measured_intensity
-                ).view(1, 1, 1)
-                tensor_dict = {
-                    'images': images_indexed,
-                    'measured_intensity': measured_intensity_indexed,
-                    'observed_images': measured_intensity_indexed,
-                    'coords_relative': coords_rel,
-                    'rms_input_scale': rms_input_scale,
-                    'mean_measured_intensity': mean_measured_intensity,
-                    'experiment_id': torch.tensor(0, dtype=torch.long),
-                }
-            else:
-                tensor_dict = {
-                    'images': images_indexed,
-                    'observed_images': observed_images_indexed,
-                    'coords_relative': coords_rel,
-                    'rms_scaling_constant': rms_scale,
-                    'physics_scaling_constant': phys_scale,
-                    'experiment_id': torch.tensor(0, dtype=torch.long),
-                }
-            if label_amp is not None:
-                tensor_dict['label_amp'] = label_amp
-            if label_phase is not None:
-                tensor_dict['label_phase'] = label_phase
-
-            # Broadcast probe for batch (single probe applies to all samples).
-            #
-            # PROBE-RANK-001 (design 2026-07-12 §3.4): EVERY physics mode
-            # emits the documented per-sample (C, P, H, W) layout, collated by
-            # the DataLoader to (B, C, P, H, W) — the same layout the mmap
-            # PtychoDataset path emits (docs/specs/
-            # spec-ptycho-torch-probe-layout.md). The former amplitude-mode
-            # exception ("pre-82da7796 raw convention", restored by 8b3d7a011
-            # after 82da77960's unconditional reshape degraded amp MAE
-            # 0.0846 -> 0.233) emitted a flat (B, H, W) probe whose
-            # ProbeIllumination broadcast silently multiplied the predicted
-            # field by the batch size; that layout is now banned fail-fast at
-            # the model boundary (ProbeLayoutError) and the conditioning
-            # benefit of the accidental gain is carried by the explicit
-            # ModelConfig.amplitude_physics_gain field instead.
-            rectangular_mode = getattr(
-                self.model_config, 'physics_forward_mode', 'amplitude'
-            ) == 'rectangular_scaled'
-
-            if self.ci_active:
-                probe_training_raw = self.probe_training
-                probe_physical_raw = self.probe_physical
-            elif self.probe is not None:
-                probe_raw = self.probe
-            else:
-                # Fallback: create dummy probe matching image size
-                N = self.images.size(-1)
-                probe_raw = torch.ones(N, N, dtype=torch.complex64)
-
-            if self.ci_active:
-                channels = measured_intensity_indexed.shape[0]
-
-                def _expand_ci_probe(probe_raw):
-                    if probe_raw.ndim == 2:
-                        return probe_raw.unsqueeze(0).unsqueeze(0).expand(
-                            channels, 1, -1, -1
-                        )
-                    if probe_raw.ndim == 3:
-                        return probe_raw.unsqueeze(0).expand(
-                            channels, -1, -1, -1
-                        )
-                    if probe_raw.ndim == 4 and probe_raw.shape[0] == channels:
-                        return probe_raw
-                    raise ValueError(
-                        "CI probe must have shape (H,W), (P,H,W), or (C,P,H,W)."
-                    )
-
-                probe = _expand_ci_probe(probe_training_raw)
-                probe_physical = _expand_ci_probe(probe_physical_raw)
-                probe_normalization = _select_scale(
-                    self.probe_normalization
-                ).view(1, 1, 1, 1)
-                tensor_dict['probe_training'] = probe
-                tensor_dict['probe_physical'] = probe_physical
-                tensor_dict['probe_normalization'] = probe_normalization
-            else:
-                channels = images_indexed.shape[0]
-                if probe_raw.ndim == 2:
-                    # Shared single-mode probe (H, W) -> (C, 1, H, W)
-                    probe = probe_raw.unsqueeze(0).unsqueeze(0).expand(channels, 1, -1, -1)
-                elif probe_raw.ndim == 3:
-                    # Shared multi-mode probe (P, H, W) -> (C, P, H, W)
-                    probe = probe_raw.unsqueeze(0).expand(channels, -1, -1, -1)
-                else:
-                    # Already sample-shaped (e.g. pre-batched (C, P, H, W)); leave as-is.
-                    probe = probe_raw
-
-            # Broadcast scaling constant. Unlike the probe (documented layout
-            # in every mode, PROBE-RANK-001), the per-sample select + reshape
-            # to (1, 1, 1) is required only for rectangular_scaled
-            # (compute_loss's ``scale ** 2 * physics_scale`` needs a
-            # (B, 1, 1, 1)-broadcastable scale). The amplitude default never
-            # reads batch[2] (compute_loss only consumes `scale` inside its
-            # rectangular_mode branch), so it keeps the pre-82da7796 raw,
-            # un-indexed passthrough.
-            if self.ci_active:
-                scaling = probe_normalization.view(1, 1, 1)
-            elif rectangular_mode:
-                scaling = _select_scale(self.scaling_constant)
-                scaling = scaling.view(1, 1, 1) if scaling.numel() == 1 else scaling.view(-1, 1, 1)[:1]
-            else:
-                if self.scaling_constant is not None:
-                    scaling = self.scaling_constant
-                else:
-                    scaling = torch.ones(1, dtype=torch.float32)
-
-            return tensor_dict, probe, scaling
-    
-    # Build memory mapped dataloader if train container is PtychoDataset
     if isinstance(train_container, PtychoDataset):
-        #Data product either datamodule or dataloader (depending on configs)
-        try: 
-            memory_mapped_data_product = _build_dataloaders_from_ptycho_dataset(train_ptycho_dataset = train_container,
-                                                                                payload = payload,
-                                                                                test_ptycho_dataset = test_container)
-        
-        except Exception as e:
-            print(f'Error occurred during memory-mapped data product creation: {e}')
-        
-        return memory_mapped_data_product
+        train_dataset = train_container
+        validation_dataset = (
+            test_container
+            if isinstance(test_container, PtychoDataset)
+            else None
+        )
+        if ci_active:
+            statistics = train_dataset.get_ci_statistics()
+            if statistics is None:
+                statistics = train_dataset.set_ci_statistics_from_indices(
+                    torch.arange(len(train_dataset))
+                )
+            if validation_dataset is not None:
+                validation_dataset.data_dict["ci_statistics"] = {
+                    name: value.detach().clone()
+                    for name, value in statistics.items()
+                }
+    else:
+        train_dataset = _PtychoContainerDataset(
+            train_container,
+            model_config=model_config,
+            ci_active=ci_active,
+        )
+        validation_dataset = (
+            _PtychoContainerDataset(
+                test_container,
+                model_config=model_config,
+                ci_active=ci_active,
+            )
+            if test_container is not None
+            else None
+        )
 
-    # Build training dataset if train_container is PtychoDataContainerTorch
-    train_dataset = PtychoLightningDataset(
-        train_container,
-        model_config=model_config,
-        ci_active=ci_dict_active,
-    )
-
-    # Configure shuffle based on sequential_sampling flag
-    shuffle = not getattr(config, 'sequential_sampling', False)
-
-    execution_config = (
-        payload.execution_config
-        if payload is not None
-        else None
-    )
-    batch_size = training_config.batch_size
     if execution_config is None:
-        loader_kwargs = {
+        worker_settings = {
             "num_workers": 0,
             "pin_memory": False,
+            "persistent_workers": False,
+            "prefetch_factor": None,
         }
     else:
-        loader_kwargs = {
+        worker_settings = {
             "num_workers": execution_config.num_workers,
             "pin_memory": execution_config.pin_memory,
-            "persistent_workers": (
-                execution_config.persistent_workers
-                if execution_config.num_workers > 0
-                else False
-            ),
+            "persistent_workers": execution_config.persistent_workers,
+            "prefetch_factor": execution_config.prefetch_factor,
         }
-        if execution_config.num_workers > 0:
-            loader_kwargs["prefetch_factor"] = (
-                execution_config.prefetch_factor
-            )
 
-    # Build train loader
-    train_loader = DataLoader(
+    train_loader = build_ptycho_loader(
         train_dataset,
-        batch_size=batch_size,
+        batch_size=training_config.batch_size,
         shuffle=shuffle,
-        **loader_kwargs,
+        seed=seed,
+        **worker_settings,
     )
-
-    # Build validation loader if test container provided
-    val_loader = None
-    if test_container is not None:
-        test_dataset = PtychoLightningDataset(
-            test_container,
-            model_config=model_config,
-            ci_active=ci_dict_active,
+    validation_loader = (
+        build_ptycho_loader(
+            validation_dataset,
+            batch_size=training_config.batch_size,
+            shuffle=False,
+            seed=seed,
+            **worker_settings,
         )
-        val_loader = DataLoader(
-            test_dataset,
-            batch_size=batch_size,
-            shuffle=False,  # Never shuffle validation
-            **loader_kwargs,
-        )
-
-    return train_loader, val_loader
-
-def _build_dataloaders_from_ptycho_dataset(
-    train_ptycho_dataset: PtychoDataset,
-    payload: Optional[TrainingPayload],
-    test_ptycho_dataset: Optional[PtychoDataset] = None
-):
-    """
-    Returns either ptychodatamodule or tensordictdataloader
-
-    Datamodule already does its own validation set split, so do not need additional input
-    """
-    training_config = payload.pt_training_config
-    execution_config = payload.execution_config
-    data_config = payload.pt_data_config
-    model_config = payload.pt_model_config
-    from dataclasses import replace
-
-    runtime_training_config = replace(
-        training_config,
-        strategy=execution_config.strategy,
-        n_devices=execution_config.devices,
-        num_workers=execution_config.num_workers,
-        device=(
-            "cuda"
-            if execution_config.accelerator in {"cuda", "gpu"}
-            else execution_config.accelerator
-        ),
+        if validation_dataset is not None
+        else None
     )
-
-    #If using lightning and DDP, need to use custom datamodule
-    if (
-        (
-            execution_config.strategy == 'ddp'
-            or is_spawn_strategy(execution_config.strategy)
-        )
-        and training_config.framework == 'Lightning'
-    ):
-        dataset_path = train_ptycho_dataset.data_dir_path
-        data_module = _ResolvedPrebuiltPtychoDataModule(
-            dataset_path,
-            model_config=model_config,
-            data_config=data_config,
-            training_config=runtime_training_config,
-            execution_config=execution_config,
-        )
-        
-        return data_module
-    from ptycho_torch.dataloader import TensorDictDataLoader, Collate
-    import torch
-
-    primary_device = torch.device(runtime_training_config.device)
-    num_workers = execution_config.num_workers
-    loader_kwargs = {
-        "num_workers": num_workers,
-        "pin_memory": execution_config.pin_memory,
-        "persistent_workers": (
-            execution_config.persistent_workers
-            if num_workers > 0
-            else False
-        ),
-    }
-    if num_workers > 0:
-        loader_kwargs["prefetch_factor"] = execution_config.prefetch_factor
-
-    train_data_loader = TensorDictDataLoader(
-        train_ptycho_dataset,
-        batch_size=training_config.batch_size,
-        collate_fn=Collate(device=primary_device),
-        **loader_kwargs,
-    )
-
-    test_data_loader = TensorDictDataLoader(
-        test_ptycho_dataset,
-        batch_size=training_config.batch_size,
-        collate_fn=Collate(device=primary_device),
-        **loader_kwargs,
-    )
-
-    return train_data_loader, test_data_loader
-
-
-    
-    
-    
+    return train_loader, validation_loader
 
 
 def _build_inference_dataloader(
@@ -1908,38 +1434,12 @@ class _RectS1S2SelectedDataset:
         self.dataset = dataset
         self.access_rows = tuple(access_rows)
         self.batched_indexing = bool(batched_indexing)
+        self._ptycho_vectorized_batch = self.batched_indexing
 
     def __len__(self):
         return len(self.access_rows)
 
     def __getitem__(self, index):
-        import torch
-
-        if self.batched_indexing:
-            if isinstance(index, torch.Tensor):
-                indices = index.reshape(-1).tolist()
-            elif isinstance(index, (list, tuple)):
-                indices = index
-            else:
-                raise TypeError(
-                    "rect_s1s2 TensorDict selected indexing requires a batch "
-                    "of integer indices"
-                )
-            rows = tuple(self.access_rows[int(value)] for value in indices)
-            try:
-                value = self.dataset[[row.logical_row for row in rows]]
-            except Exception as error:
-                raise ValueError(
-                    "rect_s1s2 selected TensorDict dataset does not support "
-                    "maintained batched indexing"
-                ) from error
-            value = _rect_s1s2_attach_identities(
-                value,
-                rows,
-                batched_indexing=True,
-            )
-            return _RectS1S2IndexedRows(value=value, access_rows=rows)
-
         if isinstance(index, bool) or not isinstance(index, Integral):
             raise TypeError(
                 "rect_s1s2 selected dataset requires an integer index"
@@ -1958,6 +1458,26 @@ class _RectS1S2SelectedDataset:
             batched_indexing=False,
         )
         return _RectS1S2IndexedRows(value=value, access_rows=(row,))
+
+    def __getitems__(self, indices):
+        if not self.batched_indexing:
+            return [self[index] for index in indices]
+        rows = tuple(self.access_rows[int(index)] for index in indices)
+        try:
+            value = self.dataset.__getitems__(
+                [row.logical_row for row in rows]
+            )
+        except Exception as error:
+            raise ValueError(
+                "rect_s1s2 selected dataset does not support maintained "
+                "vectorized indexing"
+            ) from error
+        value = _rect_s1s2_attach_identities(
+            value,
+            rows,
+            batched_indexing=True,
+        )
+        return _RectS1S2IndexedRows(value=value, access_rows=rows)
 
 
 class _RectS1S2MaintainedCollation:
@@ -2041,17 +1561,18 @@ def _rebuild_rect_s1s2_loader(
         raise TypeError(
             "rect_s1s2 selected access rows must be immutable selection values"
         )
-    if isinstance(training_loader, TensorDictDataLoader):
-        loader_type = TensorDictDataLoader
-        batched_indexing = True
-    elif isinstance(training_loader, torch.utils.data.DataLoader):
-        loader_type = torch.utils.data.DataLoader
-        batched_indexing = False
-    else:
+    if not isinstance(training_loader, torch.utils.data.DataLoader):
         raise TypeError(
-            "rect_s1s2 dose closure supports ordinary DataLoader or "
-            "TensorDictDataLoader instances"
+            "rect_s1s2 dose closure supports PyTorch DataLoader instances"
         )
+
+    capability_owner = dataset
+    while isinstance(capability_owner, torch.utils.data.Subset):
+        capability_owner = capability_owner.dataset
+    batched_indexing = bool(
+        getattr(capability_owner, "_ptycho_vectorized_batch", False)
+        and callable(getattr(dataset, "__getitems__", None))
+    )
     selected_dataset = _RectS1S2SelectedDataset(
         dataset,
         rows,
@@ -2059,7 +1580,7 @@ def _rebuild_rect_s1s2_loader(
     )
     local_generator = torch.Generator()
     local_generator.manual_seed(0)
-    return loader_type(
+    return torch.utils.data.DataLoader(
         selected_dataset,
         batch_size=batch_size,
         shuffle=False,
@@ -2436,13 +1957,7 @@ def _effective_dataloader_settings(
     """Return the loader settings used by this Trainer invocation."""
 
     if isinstance(data_product, PrebuiltPtychoDataModule):
-        worker_kwargs = data_product._resolve_worker_kwargs()
-        return {
-            "num_workers": worker_kwargs["num_workers"],
-            "pin_memory": execution_config.pin_memory,
-            "persistent_workers": worker_kwargs["persistent_workers"],
-            "prefetch_factor": worker_kwargs.get("prefetch_factor"),
-        }
+        return data_product._loader_settings()
     num_workers = int(getattr(train_loader, "num_workers", 0))
     return {
         "num_workers": num_workers,
@@ -2988,7 +2503,7 @@ def _reassemble_cdi_image_torch_mmap(
 
 
 def _reassemble_cdi_image_torch(
-    test_data: Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch'],
+    test_data: Union[RawData, 'PtychoDataContainerTorch'],
     config: TrainingConfig,
     flip_x: bool,
     flip_y: bool,
@@ -3003,7 +2518,7 @@ def _reassemble_cdi_image_torch(
     orchestrating model inference and patch reassembly to produce final reconstruction.
 
     Args:
-        test_data: Test data for reconstruction (RawData, RawDataTorch, or PtychoDataContainerTorch)
+        test_data: Test data for reconstruction (RawData or PtychoDataContainerTorch)
         config: TrainingConfig for inference parameters
         flip_x: Whether to flip the x coordinates during reconstruction
         flip_y: Whether to flip the y coordinates during reconstruction
@@ -3202,8 +2717,8 @@ def _reassemble_position_with_legacy_geometry(
 
 
 def train_cdi_model_torch(
-    train_data: Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch', 'PtychoDataset'],
-    test_data: Optional[Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch']],
+    train_data: Union[RawData, 'PtychoDataContainerTorch', 'PtychoDataset'],
+    test_data: Optional[Union[RawData, 'PtychoDataContainerTorch']],
     config: TrainingConfig,
     execution_config: Optional[Any] = None,
     overrides: Optional[dict] = None,
@@ -3218,7 +2733,7 @@ def train_cdi_model_torch(
     orchestrating data preparation, probe initialization, and Lightning trainer execution.
 
     Args:
-        train_data: Training data (RawData, RawDataTorch, or PtychoDataContainerTorch)
+        train_data: Training data (RawData, PtychoDataContainerTorch, or PtychoDataset)
         test_data: Optional test data for validation
         config: TrainingConfig instance (TensorFlow dataclass)
         execution_config: Optional unresolved ExecutionRequest for runtime control

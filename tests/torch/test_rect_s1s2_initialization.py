@@ -840,31 +840,8 @@ def test_dose_closure_uses_real_grid_dict_adapter_and_loader_path():
         training_loader=loader,
     )
 
-    assert type(loader.dataset).__name__ == "PtychoLightningDataset"
+    assert loader.dataset._ptycho_vectorized_batch is True
     assert record["solved_gauge"] == pytest.approx(2.75, rel=2e-6)
-    assert record["sampled_patterns"] == 256
-
-
-def test_dose_closure_preserves_tensordict_loader_batch_indexing_contract():
-    from ptycho_torch.dataloader import TensorDictDataLoader
-    from ptycho_torch.workflows import components
-
-    model, _, dataset = _known_gauge_loader(gauge=3.25)
-    loader = TensorDictDataLoader(
-        dataset,
-        batch_size=73,
-        shuffle=True,
-        collate_fn=lambda batch: batch,
-        generator=torch.Generator().manual_seed(999),
-    )
-
-    record = components._initialize_rect_s1s2(
-        model,
-        mode="dose_closure",
-        training_loader=loader,
-    )
-
-    assert record["solved_gauge"] == pytest.approx(3.25, rel=2e-6)
     assert record["sampled_patterns"] == 256
 
 
@@ -878,11 +855,8 @@ class _LoggingSubset(torch.utils.data.Subset):
         return super().__getitem__(index)
 
 
-@pytest.mark.parametrize("loader_kind", ["ordinary", "tensordict"])
 def test_dose_closure_preserves_nested_subset_membership_and_multiplicity(
-    loader_kind,
 ):
-    from ptycho_torch.dataloader import TensorDictDataLoader
     from ptycho_torch.rect_s1s2_sampling import build_dose_closure_sample_plan
     from ptycho_torch.workflows import components
 
@@ -902,18 +876,11 @@ def test_dose_closure_preserves_nested_subset_membership_and_multiplicity(
         outer_indices[logical_row] = 391
     nested = _LoggingSubset(inner, outer_indices)
     plan = build_dose_closure_sample_plan(nested, channels=1)
-    loader_type = (
-        TensorDictDataLoader
-        if loader_kind == "tensordict"
-        else torch.utils.data.DataLoader
-    )
-    collate_fn = (lambda batch: batch) if loader_kind == "tensordict" else None
-    loader = loader_type(
+    loader = torch.utils.data.DataLoader(
         nested,
         batch_size=41,
         shuffle=True,
         generator=torch.Generator().manual_seed(314159),
-        collate_fn=collate_fn,
     )
     base.read_indices.clear()
     nested.requests.clear()
@@ -931,13 +898,6 @@ def test_dose_closure_preserves_nested_subset_membership_and_multiplicity(
         duplicate_logical_rows
     )
     assert base.read_indices.count(391) == len(duplicate_rows)
-    if loader_kind == "tensordict":
-        assert all(isinstance(request, list) for request in nested.requests)
-        assert [
-            logical_row
-            for request in nested.requests
-            for logical_row in request
-        ] == [0, *(row.logical_row for row in plan.access_rows)]
 
 
 class _InconsistentChannelDataset(torch.utils.data.Dataset):

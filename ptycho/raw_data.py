@@ -509,7 +509,16 @@ class RawData:
             else np.int32
         )
         selected_groups = np.array(plan.neighbor_indices, dtype=dtype, copy=True)
-        return self._generate_dataset_from_groups(selected_groups, N, K, gridsize)
+        grouped = self._generate_dataset_from_groups(
+            selected_groups, N, K, gridsize
+        )
+        grouped["object_index"] = np.array(
+            plan.object_index, dtype=np.int64, copy=True
+        )
+        grouped["experiment_id"] = np.array(
+            plan.experiment_id, dtype=np.int64, copy=True
+        )
+        return grouped
 
     def _generate_dataset_from_groups(self, selected_groups: np.ndarray, N: int, K: int, gridsize: int) -> dict:
         """

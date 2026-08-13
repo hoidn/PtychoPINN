@@ -188,6 +188,35 @@ complete TF-parity preset below is applied (§3.6).
   Selected source indices remain available as `raw.sample_indices`; loading no
   longer writes a hidden `tmp/subsample_seed{X}_indices.txt` sidecar.
 
+### 3.3.1. Data rails and batching
+
+The maintained training workflow retains two storage choices but only one
+batch conversion and native loader path:
+
+```text
+RawData -> grouped dict -> PtychoDataContainerTorch -> RAM dataset ┐
+                                                                  ├─> shared batch emitter
+standalone NPZ -> PtychoDataset TensorDict mmap -------------------┘   -> native DataLoader
+```
+
+The RAM and mmap datasets both use vectorized row fetching, then emit
+`(tensor_dict, probe, probe_scaling)` with the same channel-first image and
+coordinate layouts. The common emitter also selects per-experiment probes,
+expands probe modes/channels, and attaches CI fields and frozen training
+statistics. Plain grouped dictionaries from study adapters enter the RAM side;
+they do not define another batching path.
+
+`build_ptycho_loader` owns training batch size, seeded shuffle or explicit
+sampler, worker/prefetch settings, pinning, and collation. The retained
+`TensorDictDataLoader` name is a compatibility subclass of PyTorch's native
+`DataLoader`, not a custom iterator. Under DDP, Lightning performs the sole
+default sharding step. When a held-out mmap is supplied, it is loaded unchanged
+as validation; only a run without one may split training data.
+
+Legacy `ptycho_torch.api`, inference/reassembly loaders, and the older
+trainer-owned DataModule are not additional maintained training rails; their
+migration or retirement is outside this Phase 2 boundary.
+
 ### 3.4. Probe Masking
 
 `config.model.probe_mask` (default `False`) enables a centered soft disk mask

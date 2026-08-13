@@ -106,7 +106,7 @@ they are not completion quotas.
 | --- | --- | --- | --- |
 | 0 | Bound the installable package and delete proven orphans | **Complete on all three branches** | [Execution plan and evidence](2026-08-12-fno-stable-orphan-removal-plan.md) |
 | 1 | One NPZ decoder/selector and one backend-neutral grouping/index plan | **Complete on all three branches** | Phase 0; policy/fixture inventory |
-| 2 | One Torch batch contract and loader/sampler path over RAM and mmap materializers | Pending | Phase 1 |
+| 2 | One Torch batch contract and loader/sampler path over RAM and mmap materializers | **Complete on all three branches** | Phase 1 |
 | 3 | One shared Torch training/save service; retire duplicate trainer construction | Pending | Phase 2 |
 | 4 | Retire `grid_lines_torch_runner.py` after maintained callers move to public workflows | Pending | Phase 3 plus public parity and spec migration |
 | 5 | Evaluate contract-sensitive and lower-value parallel paths | Conditional | Named prerequisite per item |
@@ -173,25 +173,25 @@ are not silently normalized away.
 
 ### Phase 2 — Batch, storage, and sampler convergence
 
-Build the existing normative Torch batch tuple
-`(tensor_dict, probe, probe_scaling)` from the Phase 1 record and grouping plan.
-One conversion path must own channel/layout conversion, named CI fields,
-experiment identity, and probe expansion. It then feeds either:
+The implementation and integration gates are complete on all three branches.
+The selected design builds the existing normative Torch
+batch tuple `(tensor_dict, probe, probe_scaling)` from the Phase 1 record and
+grouping plan. One conversion path must own channel/layout conversion, named CI
+fields, experiment identity, and probe expansion. It then feeds either:
 
 - a RAM materializer for in-process arrays; or
 - `PtychoDataset`'s TensorDict mmap store for file-backed training and DDP.
 
-One loader factory owns batch size, workers, shuffling, and distributed
-sampling. DDP must shard once through the selected sampler; a caller must not
-pre-shard data and then apply a distributed sampler again.
+One loader factory owns batch size, workers, shuffling, and explicit sampler
+selection. Lightning owns default DDP sharding; a caller must not pre-shard
+data and then apply a distributed sampler again.
 
-After parity is proven, decide and remove redundant public-looking surfaces:
+The completed implementation removed these redundant surfaces:
 
 - `MemmapDatasetBridge`;
 - `PtychoDataset.from_np`;
 - `InMemoryPtychoDataModule`;
-- `RawDataTorch` (retaining a minimal RAM carrier only if a live programmatic
-  caller needs it).
+- `RawDataTorch`.
 
 Minimum evidence compares named batches from RAM and mmap for the same grouping
 plan, includes one multi-experiment case, and includes a CPU DDP smoke where the

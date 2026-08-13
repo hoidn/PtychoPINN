@@ -307,8 +307,12 @@ def reconstruct_image(model: nn.Module,
         ptycho_subset = ptycho_dset
     device = training_config.device
 
-    infer_loader = TensorDictDataLoader(ptycho_subset, batch_size = inference_config.batch_size,
-                                    collate_fn = Collate(device = training_config.device))
+    infer_loader = TensorDictDataLoader(
+        ptycho_subset,
+        batch_size=inference_config.batch_size,
+        collate_fn=Collate(),
+        pin_memory=torch.device(device).type == "cuda",
+    )
 
     
 
@@ -1697,8 +1701,8 @@ def reconstruct_image_barycentric(model: nn.Module,
         ptycho_subset,
         batch_size=inference_config.batch_size,
         num_workers=training_config.num_workers,
-        collate_fn=Collate(device=primary_device),
-        pin_memory = True,
+        collate_fn=Collate(),
+        pin_memory=uses_cuda,
         persistent_workers=training_config.num_workers > 0
     )
 

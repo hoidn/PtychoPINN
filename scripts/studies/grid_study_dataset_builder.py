@@ -21,7 +21,6 @@ from ptycho.metadata import MetadataManager
 from ptycho.workflows import components as wf_components
 from ptycho.workflows import grid_lines_workflow
 from ptycho.workflows.grid_lines_workflow import GridLinesConfig
-from ptycho_torch.raw_data_bridge import RawDataTorch
 
 
 @dataclass
@@ -170,15 +169,7 @@ def _build_external_bundle_for_n(
     if train_record.objectGuess is None or test_record.objectGuess is None:
         raise ValueError("external_raw_npz requires objectGuess for canonical GT reconstruction.")
 
-    train_adapter = RawDataTorch.from_acquisition(
-        train_record,
-        config=meta_cfg_train,
-    )
-    test_adapter = RawDataTorch.from_acquisition(
-        test_record,
-        config=meta_cfg_test,
-    )
-    grouped_train = train_adapter.generate_grouped_data(
+    grouped_train = raw_train.generate_grouped_data(
         N=n_value,
         K=neighbor_count,
         nsamples=train_group_count,
@@ -186,7 +177,7 @@ def _build_external_bundle_for_n(
         seed=subsample_seed,
         gridsize=cfg.gridsize,
     )
-    grouped_test = test_adapter.generate_grouped_data(
+    grouped_test = raw_test.generate_grouped_data(
         N=n_value,
         K=neighbor_count,
         nsamples=test_group_count,

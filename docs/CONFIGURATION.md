@@ -85,7 +85,7 @@ There are therefore three different persistence/residency modes:
 
 | Mode | Persistence boundary | Runtime behavior |
 |---|---|---|
-| End-to-end in memory | None | Simulation or caller-owned NumPy arrays become `RawData`, `PtychoDataset.from_np()`, or an existing container without an intermediate save/reload. |
+| End-to-end in memory | None | Simulation or caller-owned NumPy arrays become `RawData` or an existing `PtychoDataContainerTorch` without an intermediate save/reload. |
 | NPZ-backed, RAM-resident | An NPZ is written or supplied | The selected loader reads the file, after which grouping, adaptation, and training use in-memory arrays and ordinary DataLoaders. Grid-lines cached NPZs use this mode. |
 | Disk-backed memory map | Standalone NPZs are supplied through the mmap entry point | `PtychoDataset` reads the NPZs to build a TensorDict memory map; later epochs and ranks open that map and fetch batches from it. The NPZ archive itself is not directly memory-mapped. |
 
@@ -94,7 +94,7 @@ There are therefore three different persistence/residency modes:
 | Caller or entry point | Input boundary | Selected route |
 |---|---|---|
 | `RawData.from_simulation()` or `generate_simulated_data()` followed directly by a workflow call | In-memory object | Remains in memory unless the caller explicitly saves it. |
-| `PtychoDataset.from_np()` and the in-memory API loaders | NumPy arrays | Bypass NPZ I/O and the on-disk memory map. |
+| `RawData` and `PtychoDataContainerTorch` workflow inputs | In-memory arrays | Bypass NPZ I/O and the on-disk memory map. |
 | Unified/file-oriented training CLIs and `python -m ptycho_torch.train` | One standalone NPZ path | Load through `RawData`, group in memory, adapt to `PtychoDataContainerTorch`, then use ordinary DataLoaders. |
 | `ptycho_torch.train_lightning_only.main(ptycho_dir=...)` | Directory containing standalone NPZ scans | Build or open the TensorDict mmap through `PtychoDataModuleLightning`. This is the established Lightning multi-device/DDP data rail. |
 | `scripts/studies/grid_lines_torch_runner.py` | Grid-lines train/test cached NPZ paths | Load the specialized cache into dictionaries, select grid-lines probe/coordinate semantics, adapt to the dict-container batch contract, and call `_train_with_lightning`. This path currently constructs a single-device Trainer. |

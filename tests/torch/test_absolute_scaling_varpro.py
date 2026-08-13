@@ -139,6 +139,9 @@ class _CIDataset:
         poison_output_scale_source = torch.full((batch_size, 1, 1, 1), 11.0)
         return batch, tuple_probe, poison_output_scale_source
 
+    def __getitems__(self, indices):
+        return self[torch.as_tensor(indices, dtype=torch.long)]
+
 
 def _run_ci_reconstruction(
     probe_physical: torch.Tensor,

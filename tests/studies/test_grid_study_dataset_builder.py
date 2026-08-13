@@ -154,13 +154,11 @@ def test_build_external_raw_with_none_n_groups_uses_full_split_sizes(tmp_path):
         assert test_data["diffraction"].shape[0] == 120
 
 
-def test_external_grouping_uses_explicit_adapters_without_mutating_ambient_params(
+def test_external_grouping_uses_raw_data_without_mutating_ambient_params(
     monkeypatch,
     tmp_path,
 ):
     from ptycho import params
-    from ptycho.acquisition import AcquisitionRecord
-    from ptycho_torch.raw_data_bridge import RawDataTorch
     from scripts.studies import grid_study_dataset_builder as builder
 
     ambient = {
@@ -178,38 +176,8 @@ def test_external_grouping_uses_explicit_adapters_without_mutating_ambient_param
     ).astype(np.complex64)
     probe_guess = np.full((64, 64), 2.0 + 3.0j, dtype=np.complex64)
 
-    def raw_split(split_value):
-        coords = np.arange(4, dtype=np.float32)
-
-        def reject_legacy_grouping(**_kwargs):
-            raise AssertionError("builder called legacy RawData.generate_grouped_data")
-
-        return SimpleNamespace(
-            xcoords=coords,
-            ycoords=coords + 10,
-            xcoords_start=coords + 20,
-            ycoords_start=coords + 30,
-            diff3d=np.full((4, 64, 64), split_value, dtype=np.float32),
-            probeGuess=probe_guess,
-            scan_index=np.arange(4, dtype=np.int32),
-            objectGuess=object_guess,
-            Y=None,
-            norm_Y_I=None,
-            metadata={"split": split_value},
-            sample_indices=np.arange(4, dtype=np.int32),
-            subsample_seed=7,
-            generate_grouped_data=reject_legacy_grouping,
-        )
-
-    raw_splits = iter((raw_split(1.0), raw_split(2.0)))
-    monkeypatch.setattr(
-        builder.wf_components,
-        "load_data",
-        lambda *_args, **_kwargs: next(raw_splits),
-    )
-
     grouped_by_split = {}
-    adapter_calls = []
+    grouping_calls = []
 
     def grouped_payload(split_value):
         values = np.full((2, 2, 2, 1), split_value, dtype=np.float32)
@@ -227,39 +195,35 @@ def test_external_grouping_uses_explicit_adapters_without_mutating_ambient_param
         grouped_by_split[split_value] = grouped
         return grouped
 
-    class FakeAdapter:
-        def __init__(self, record, config):
-            self.record = record
-            self.config = config
+    def raw_split(split_value):
+        coords = np.arange(4, dtype=np.float32)
 
-        def generate_grouped_data(self, **kwargs):
-            split_value = float(self.record.diff3d[0, 0, 0])
-            assert kwargs == {
-                "N": 64,
-                "K": 3,
-                "nsamples": 2,
-                "dataset_path": str(
-                    tmp_path
-                    / (
-                        "fly_train_raw.npz"
-                        if split_value == 1.0
-                        else "fly_test_raw.npz"
-                    )
-                ),
-                "seed": 7,
-                "gridsize": 1,
-            }
+        def generate_grouped_data(**kwargs):
+            grouping_calls.append((split_value, kwargs))
             return grouped_payload(split_value)
 
-    def fake_from_acquisition(cls, record, config=None):
-        assert isinstance(record, AcquisitionRecord)
-        adapter_calls.append((record, config))
-        return FakeAdapter(record, config)
+        return SimpleNamespace(
+            xcoords=coords,
+            ycoords=coords + 10,
+            xcoords_start=coords + 20,
+            ycoords_start=coords + 30,
+            diff3d=np.full((4, 64, 64), split_value, dtype=np.float32),
+            probeGuess=probe_guess,
+            scan_index=np.arange(4, dtype=np.int32),
+            objectGuess=object_guess,
+            Y=None,
+            norm_Y_I=None,
+            metadata={"split": split_value},
+            sample_indices=np.arange(4, dtype=np.int32),
+            subsample_seed=7,
+            generate_grouped_data=generate_grouped_data,
+        )
 
+    raw_splits = iter((raw_split(1.0), raw_split(2.0)))
     monkeypatch.setattr(
-        RawDataTorch,
-        "from_acquisition",
-        classmethod(fake_from_acquisition),
+        builder.wf_components,
+        "load_data",
+        lambda *_args, **_kwargs: next(raw_splits),
     )
 
     train_raw_path = tmp_path / "fly_train_raw.npz"
@@ -278,11 +242,30 @@ def test_external_grouping_uses_explicit_adapters_without_mutating_ambient_param
 
     assert params.cfg is ambient
     assert params.cfg == ambient_before
-    assert len(adapter_calls) == 2
-    assert adapter_calls[0][1].model.N == 64
-    assert adapter_calls[0][1].model.gridsize == 1
-    assert adapter_calls[1][1].model.N == 64
-    assert adapter_calls[1][1].model.gridsize == 1
+    assert grouping_calls == [
+        (
+            1.0,
+            {
+                "N": 64,
+                "K": 3,
+                "nsamples": 2,
+                "dataset_path": str(train_raw_path),
+                "seed": 7,
+                "gridsize": 1,
+            },
+        ),
+        (
+            2.0,
+            {
+                "N": 64,
+                "K": 3,
+                "nsamples": 2,
+                "dataset_path": str(test_raw_path),
+                "seed": 7,
+                "gridsize": 1,
+            },
+        ),
+    ]
 
     for split_value, key in ((1.0, "train_npz"), (2.0, "test_npz")):
         expected = grouped_by_split[split_value]

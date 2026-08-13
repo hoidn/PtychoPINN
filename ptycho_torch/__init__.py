@@ -22,12 +22,10 @@ _LAZY_EXPORTS = {
     "to_model_config": ("ptycho_torch.config_bridge", "to_model_config"),
     "to_training_config": ("ptycho_torch.config_bridge", "to_training_config"),
     "to_inference_config": ("ptycho_torch.config_bridge", "to_inference_config"),
-    "RawDataTorch": ("ptycho_torch.raw_data_bridge", "RawDataTorch"),
     "PtychoDataContainerTorch": (
         "ptycho_torch.data_container_bridge",
         "PtychoDataContainerTorch",
     ),
-    "MemmapDatasetBridge": ("ptycho_torch.memmap_bridge", "MemmapDatasetBridge"),
     "run_cdi_example_torch": (
         "ptycho_torch.workflows.components",
         "run_cdi_example_torch",
@@ -46,9 +44,7 @@ __all__ = [
     "to_model_config",
     "to_training_config",
     "to_inference_config",
-    "RawDataTorch",
     "PtychoDataContainerTorch",
-    "MemmapDatasetBridge",
     "run_cdi_example_torch",
     "train_cdi_model_torch",
     "load_inference_bundle_torch",

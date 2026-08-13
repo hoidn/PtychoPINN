@@ -474,7 +474,7 @@ def test_stale_v1_mmap_without_center_scan_id_requires_rebuild(tmp_path):
 
     with pytest.raises(
         RuntimeError,
-        match=r"schema_version=1.*expected 3.*Rebuild it with remake_map=True",
+        match=r"schema_version=1.*expected 4.*Rebuild it with remake_map=True",
     ):
         PtychoDataset.from_existing_map(
             tmp_path / "mm", model_config, data_config

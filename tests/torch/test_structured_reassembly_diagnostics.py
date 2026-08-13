@@ -828,6 +828,9 @@ class _TinyCIDataset:
         )
         return batch, tuple_probe, torch.ones(batch_size, 1, 1, 1)
 
+    def __getitems__(self, indices):
+        return self[torch.as_tensor(indices, dtype=torch.long)]
+
 
 def _run_tiny_reconstruction(
     *,
@@ -888,6 +891,25 @@ def _run_tiny_reconstruction(
     if return_model:
         return result, model
     return result
+
+
+def test_barycentric_loader_does_not_repin_device_collated_batches(monkeypatch):
+    captured = {}
+
+    class LoaderCaptured(Exception):
+        pass
+
+    def capture_loader(*args, **kwargs):
+        captured.update(kwargs)
+        raise LoaderCaptured
+
+    monkeypatch.setattr(reassembly, "TensorDictDataLoader", capture_loader)
+
+    with pytest.raises(LoaderCaptured):
+        _run_tiny_reconstruction()
+
+    assert captured["pin_memory"] is False
+    assert captured["collate_fn"].device is None
 
 
 def test_reconstruct_preserves_old_tuple_returns_when_structured_is_false():
