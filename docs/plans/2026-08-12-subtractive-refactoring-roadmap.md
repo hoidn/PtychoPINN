@@ -1,6 +1,6 @@
 # Subtractive Refactoring Roadmap
 
-> **Status:** Active. Approved 2026-08-12.
+> **Status:** Complete. Approved 2026-08-12; completed 2026-08-13.
 >
 > **Scope:** Governs refactoring sequence and status on `fno-stable`,
 > `refactor-internal`, and `refactor`. Implementation starts on `fno-stable`.
@@ -108,8 +108,8 @@ they are not completion quotas.
 | 1 | One NPZ decoder/selector and one backend-neutral grouping/index plan | **Complete on all three branches** | Phase 0; policy/fixture inventory |
 | 2 | One Torch batch contract and loader/sampler path over RAM and mmap materializers | **Complete on all three branches** | Phase 1 |
 | 3 | One shared Torch training/save service; retire duplicate trainer construction | **Complete on all three branches** | Phase 2 |
-| 4 | Retire `grid_lines_torch_runner.py` after maintained callers move to public workflows | Pending | Phase 3 plus public parity and spec migration |
-| 5 | Evaluate contract-sensitive and lower-value parallel paths | Conditional | Named prerequisite per item |
+| 4 | Retire `grid_lines_torch_runner.py` after maintained callers move to public workflows | **Complete on all three branches** | Phase 3 plus public parity and spec migration |
+| 5 | Evaluate contract-sensitive and lower-value parallel paths | **Evaluated; none promoted** | Named prerequisite per item |
 
 ### Phase 0 — Package boundary and proven orphan removal
 
@@ -258,6 +258,10 @@ These are roadmap candidates, not an executable backlog:
 Tiny duplicated helpers such as JSON serializers or equality checks do not
 justify a cross-codebase utility campaign. Consolidate them only when a live
 owner is already being changed.
+
+The 2026-08-13 closeout evaluation promoted none of these candidates. Each
+still requires its named evidence and a separately approved implementation
+plan.
 
 ## 5. Branch propagation
 

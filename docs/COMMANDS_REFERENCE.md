@@ -260,6 +260,15 @@ python scripts/compare_models.py \
 
 > **Parameter Migration Notice**: The generalization study script now uses `--train-group-sizes` instead of the deprecated `--train-sizes`. The old parameter is still supported but will show deprecation warnings.
 
+### Parameterized Study Composition
+
+`ptycho_study` composes each arm and delegates it to the configured public
+runner; it is not a separate trainer.
+
+```bash
+ptycho_study --help
+```
+
 ```bash
 # Synthetic data generalization study (auto-generates datasets)
 ./scripts/studies/run_complete_generalization_study.sh \

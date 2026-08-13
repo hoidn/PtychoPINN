@@ -212,69 +212,6 @@ def test_load_simulation_config_preserves_exact_recipe_across_formats(
     ) == loaded
 
 
-def test_grid_lines_cli_file_values_and_explicit_cli_precedence(tmp_path: Path):
-    from scripts.studies import grid_lines_workflow as cli
-
-    config_path = _write_simulation_toml(tmp_path / "sim.toml")
-    from_file = cli.build_config(
-        cli.parse_args(
-            [
-                "--simulation-config",
-                str(config_path),
-                "--output-dir",
-                str(tmp_path / "file"),
-            ]
-        )
-    )
-    assert from_file.N == 128
-    assert from_file.gridsize == 2
-    assert from_file.nphotons == 1e8
-    assert from_file.probe_transform_pipeline.endswith(":128")
-
-    overridden = cli.build_config(
-        cli.parse_args(
-            [
-                "--simulation-config",
-                str(config_path),
-                "--output-dir",
-                str(tmp_path / "override"),
-                "--N",
-                "64",
-                "--gridsize",
-                "1",
-                "--nphotons",
-                "200000000",
-            ]
-        )
-    )
-    assert overridden.N == 64
-    assert overridden.gridsize == 1
-    assert overridden.nphotons == 2e8
-    assert overridden.probe_transform_pipeline.endswith(":64")
-
-
-def test_grid_lines_cli_without_file_retains_historical_defaults(tmp_path: Path):
-    from scripts.studies import grid_lines_workflow as cli
-
-    cfg = cli.build_config(
-        cli.parse_args(
-            [
-                "--N",
-                "64",
-                "--gridsize",
-                "1",
-                "--output-dir",
-                str(tmp_path),
-            ]
-        )
-    )
-    assert cfg.nimgs_train == 2
-    assert cfg.nimgs_test == 2
-    assert cfg.nphotons == 1e9
-    assert cfg.probe_scale_mode == "pad_preserve"
-    assert cfg.probe_smoothing_sigma == 0.5
-
-
 def test_generic_simulation_cli_resolves_file_then_explicit_legacy_overrides(
     tmp_path: Path,
 ):
@@ -474,11 +411,11 @@ def test_generic_simulation_persists_complete_probe_identity(
         probeGuess=raw_probe,
     )
     simulation = SimulationConfig(
-        N=8,
+        N=64,
         probe=ProbeSimulationConfig(
             source="custom",
             source_path=input_path,
-            transform_pipeline="pad_extrapolate_boundary_matched:8",
+            transform_pipeline="pad_extrapolate_boundary_matched:64",
         ),
         object=SyntheticObjectConfig(
             kind="lines", image_size=(32, 32), diffractions_per_object=1
@@ -488,7 +425,7 @@ def test_generic_simulation_persists_complete_probe_identity(
         seed=3,
     )
     training = TrainingConfig(
-        model=ModelConfig(N=8, gridsize=1, object_big=False),
+        model=ModelConfig(N=64, gridsize=1, object_big=False),
         sampling=SamplingConfig(n_images=1),
         data=DataConfig(nphotons=1e8),
     )
@@ -498,20 +435,20 @@ def test_generic_simulation_persists_complete_probe_identity(
         ycoords=np.array([4]),
         xcoords_start=np.array([0]),
         ycoords_start=np.array([0]),
-        diff3d=np.ones((1, 8, 8), dtype=np.float32),
-        probeGuess=np.ones((8, 8), dtype=np.complex64),
+        diff3d=np.ones((1, 64, 64), dtype=np.float32),
+        probeGuess=np.ones((64, 64), dtype=np.complex64),
         scan_index=np.array([0]),
     )
     ambient = {"N": 13, "gridsize": 3, "ambient_marker": "poison"}
     monkeypatch.setattr(params, "cfg", dict(ambient))
 
     def fake_generate(**kwargs):
-        assert params.cfg["N"] == 8
+        assert params.cfg["N"] == 64
         assert params.cfg["gridsize"] == 1
         assert params.cfg["nphotons"] == 1e8
         return (
             fake_raw,
-            np.ones((1, 8, 8), dtype=np.complex64),
+            np.ones((1, 64, 64), dtype=np.complex64),
         )
 
     monkeypatch.setattr(
@@ -544,7 +481,7 @@ def test_generic_simulation_persists_complete_probe_identity(
     assert len(lineage["raw_probe_sha256"]) == 64
     assert len(lineage["transformed_probe_sha256"]) == 64
     assert lineage["normalized_transform_pipeline"] == (
-        "pad_extrapolate_boundary_matched:8"
+        "pad_extrapolate_boundary_matched:64"
     )
     assert lineage["boundary_method"] == "harmonic_dirichlet_c0"
     assert lineage["laplacian_residual"] <= lineage["solver_tolerance"]
@@ -575,11 +512,11 @@ def test_generic_simulation_preflights_existing_output_before_generation(
         },
     )
     simulation = SimulationConfig(
-        N=8,
+        N=64,
         probe=ProbeSimulationConfig(
             source="custom",
             source_path=input_path,
-            transform_pipeline="pad_preserve:8",
+            transform_pipeline="pad_preserve:64",
         ),
         object=SyntheticObjectConfig(
             kind="lines", image_size=(32, 32), diffractions_per_object=1
@@ -587,7 +524,7 @@ def test_generic_simulation_preflights_existing_output_before_generation(
         scan=ScanSimulationConfig(kind="nongrid", buffer=4),
     )
     training = TrainingConfig(
-        model=ModelConfig(N=8, gridsize=1, object_big=False),
+        model=ModelConfig(N=64, gridsize=1, object_big=False),
         sampling=SamplingConfig(n_images=1),
     )
     monkeypatch.setattr(
@@ -604,50 +541,3 @@ def test_generic_simulation_preflights_existing_output_before_generation(
             output_path,
             None,
         )
-
-
-@pytest.mark.parametrize(
-    "extra_args, message",
-    [
-        (
-            ["--probe-npz", "probe.npz", "--probe-source", "ideal_disk"],
-            "probe-npz.*probe-source",
-        ),
-        (
-            [
-                "--probe-transform-pipeline",
-                "pad_preserve:128",
-                "--probe-scale-mode",
-                "pad_preserve",
-            ],
-            "probe-transform-pipeline.*probe-scale-mode",
-        ),
-        (
-            [
-                "--probe-transform-pipeline",
-                "pad_preserve:128",
-                "--probe-smoothing-sigma",
-                "0.5",
-            ],
-            "probe-transform-pipeline.*probe-smoothing-sigma",
-        ),
-    ],
-)
-def test_grid_lines_cli_rejects_conflicting_probe_aliases(
-    tmp_path: Path, extra_args: list[str], message: str
-):
-    from scripts.studies import grid_lines_workflow as cli
-
-    config_path = _write_simulation_toml(tmp_path / "sim.toml")
-    args = cli.parse_args(
-        [
-            "--simulation-config",
-            str(config_path),
-            "--output-dir",
-            str(tmp_path / "out"),
-            *extra_args,
-        ]
-    )
-
-    with pytest.raises(ValueError, match=message):
-        cli.build_config(args)

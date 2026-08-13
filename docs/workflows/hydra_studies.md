@@ -44,12 +44,6 @@ Collation:
 
     python scripts/studies/collate_study_metrics.py <study_output_root>
 
-Comparison figure (one row per arm, six columns, rendered from each arm's
-`reconstruction.npz` with per-family shared color limits; fails if phase
-panels carry no structure):
-
-    python scripts/studies/render_study_comparison.py <study_output_root>
-
 ## Semantics
 
 - **Arm directories:** sweeps write to `hydra.sweep.dir/subdir`; single runs

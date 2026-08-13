@@ -1077,9 +1077,7 @@ class TestForwardApplication:
         assert torch.equal(out, ref)
 
     def test_gain_is_read_live_from_model_config(self):
-        """The sealed-checkpoint tie-back sets the gain on the loaded
-        module's (shared) model_config; the forward must honor it without
-        reconstruction."""
+        """A shared ModelConfig gain update affects the next training forward."""
         x, probe, ones, eids = self._inputs()
         fm = self._forward_model(1.0)
         with torch.no_grad():

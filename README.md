@@ -94,12 +94,12 @@ Use the comparison and study scripts described in
   - Unified scripts: use `--torch-accelerator` and `--torch-logger`
   - PyTorch-native CLIs: use `--accelerator` and `--logger`
 
-#### Also Supported
-- Grid-lines multi-model runs:
-  - `scripts/studies/grid_lines_compare_wrapper.py`
-- Grid-lines Torch runner:
-  - `scripts/studies/grid_lines_torch_runner.py`
-  - Architectures: `fno`, `fno_vanilla`
+#### Multi-Run Studies
+
+- Compose parameterized study arms with `ptycho_study`; each arm delegates to
+  the configured public runner.
+- Use `scripts/studies/varpro_probe_ablation_runner.py` for the retained
+  VarPro/probe-weighting ablation.
 
 #### Older Flags and Modes
 - Unified training's `sampling.n_images` field is deprecated; use

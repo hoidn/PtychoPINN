@@ -14,7 +14,7 @@ def _tiny_rect_scaled_module():
     arm: N=64, gridsize=1, architecture='cnn', cnn_output_mode='real_imag',
     physics_forward_mode='rectangular_scaled', count_intensity/ci_intensity_v2,
     amplitude_physics_gain=1.0), plus one real training batch built through the
-    same factory (create_training_payload), CI dict adapter, and workflow
+    same factory (create_training_payload), canonical CI container, and workflow
     dataloader path that _train_with_lightning / run_torch_training use."""
     import tempfile
     from pathlib import Path
@@ -26,8 +26,8 @@ def _tiny_rect_scaled_module():
     from ptycho_torch.config_params import InferenceConfig
     from ptycho_torch.model import PtychoPINN_Lightning
     from ptycho_torch.workflows.components import (
-        NormalizedAmplitudeCIDictAdapter,
         _build_lightning_dataloaders,
+        attach_container_ci_fields,
     )
 
     torch.manual_seed(20260714)
@@ -71,17 +71,23 @@ def _tiny_rect_scaled_module():
         InferenceConfig(),
     )
 
-    # Same CI count-domain container preparation as run_torch_training's CI arm
-    # (high per-pixel counts reproduce the RCA's init-scale mismatch).
-    container = {"observed_images": amplitudes, "probe": probe}
+    # High per-pixel counts reproduce the RCA's init-scale mismatch through the
+    # canonical count-domain container path.
     count_amplitude_scale = hh.derive_intensity_scale_from_amplitudes(
         torch.as_tensor(amplitudes), 1e9
     )
-    NormalizedAmplitudeCIDictAdapter(
-        count_amplitude_scale=count_amplitude_scale,
+    container = SimpleNamespace(
+        X=torch.as_tensor(amplitudes),
+        raw_grouped_diffraction=(
+            count_amplitude_scale * torch.as_tensor(amplitudes)
+        ).square(),
+        probe=count_amplitude_scale * torch.as_tensor(probe),
+        coords_relative=torch.zeros(B, 1, 2, 1),
+    )
+    attach_container_ci_fields(
+        container,
         N=N,
-    ).adapt(container)
-    container["X"] = container["measured_intensity"]
+    )
 
     train_loader, _ = _build_lightning_dataloaders(
         train_container=container,
@@ -521,7 +527,7 @@ def _known_unit_intensity(model, *, gauge, probe):
     return measured[0, 0]
 
 
-def _known_gauge_dict_loader(*, patterns=300, batch_size=73, gauge=2.75):
+def _known_gauge_named_loader(*, patterns=300, batch_size=73, gauge=2.75):
     from ptycho_torch.config_params import TrainingConfig
     from ptycho_torch.workflows import components
 
@@ -536,18 +542,19 @@ def _known_gauge_dict_loader(*, patterns=300, batch_size=73, gauge=2.75):
     amplitude = measured.sqrt().view(1, 8, 8, 1).expand(
         patterns, -1, -1, -1
     ).clone()
-    container = {
-        "X": amplitude.clone(),
-        "observed_images": amplitude,
-        "coords_relative": torch.zeros(patterns, 1, 2, 1),
-        "probe": probe,
-    }
-    components.NormalizedAmplitudeCIDictAdapter(
-        count_amplitude_scale=1.0,
+    count_intensity = amplitude.square()
+    container = SimpleNamespace(
+        X=count_intensity,
+        raw_grouped_diffraction=count_intensity,
+        coords_relative=torch.zeros(patterns, 1, 2, 1),
+        probe=probe,
+    )
+    components.attach_container_ci_fields(
+        container,
         N=8,
         probe_scale=1.0,
         probe_mask=False,
-    ).adapt(container)
+    )
     payload = SimpleNamespace(
         pt_data_config=forward_model.data_config,
         pt_model_config=forward_model.model_config,
@@ -829,10 +836,10 @@ def test_dose_closure_counts_exact_detector_patterns_across_group_channels():
     assert record["sampled_patterns"] == 256
 
 
-def test_dose_closure_uses_real_grid_dict_adapter_and_loader_path():
+def test_dose_closure_uses_real_named_container_and_loader_path():
     from ptycho_torch.workflows import components
 
-    model, loader = _known_gauge_dict_loader(gauge=2.75)
+    model, loader = _known_gauge_named_loader(gauge=2.75)
 
     record = components._initialize_rect_s1s2(
         model,
@@ -1343,8 +1350,8 @@ def _resolved_training_case(tmp_path, *, mode=_OMIT_INIT_OVERRIDE):
         output_dir=tmp_path / "output",
         overrides=overrides,
         execution_config=ExecutionRequest(
-            values={"accelerator": "cpu"},
-            explicit_fields=frozenset({"accelerator"}),
+            values={"accelerator": "cpu", "enable_checkpointing": False},
+            explicit_fields=frozenset({"accelerator", "enable_checkpointing"}),
         ),
         profile="ci",
     )
@@ -1454,8 +1461,8 @@ def test_supervised_training_publishes_ones_record_without_rectangular_scaler(
             "object_big": False,
         },
         execution_config=ExecutionRequest(
-            values={"accelerator": "cpu"},
-            explicit_fields=frozenset({"accelerator"}),
+            values={"accelerator": "cpu", "enable_checkpointing": False},
+            explicit_fields=frozenset({"accelerator", "enable_checkpointing"}),
         ),
     )
     train_loader = [

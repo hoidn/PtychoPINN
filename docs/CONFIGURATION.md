@@ -74,9 +74,6 @@ caller supplies one NPZ file
 caller selects the explicit mmap adapter for an NPZ directory
   └─ PtychoDataset ──► TensorDict memory map ──► PrebuiltPtychoDataModule
 
-caller invokes the grid-lines study runner
-  └─ grid-lines cached-NPZ adapter ──► dict container ──► ordinary DataLoader
-
 caller supplies an existing memory map
   └─ PrebuiltPtychoDataModule ──► ordinary Lightning training lifecycle
 ```
@@ -86,7 +83,7 @@ There are therefore three different persistence/residency modes:
 | Mode | Persistence boundary | Runtime behavior |
 |---|---|---|
 | End-to-end in memory | None | Simulation or caller-owned NumPy arrays become `RawData` or an existing `PtychoDataContainerTorch` without an intermediate save/reload. |
-| NPZ-backed, RAM-resident | An NPZ is written or supplied | The selected loader reads the file, after which grouping, adaptation, and training use in-memory arrays and ordinary DataLoaders. Grid-lines cached NPZs use this mode. |
+| NPZ-backed, RAM-resident | An NPZ is written or supplied | The selected loader reads the file, after which grouping, adaptation, and training use in-memory arrays and ordinary DataLoaders. |
 | Disk-backed memory map | Standalone NPZs are supplied through the mmap entry point | `PtychoDataset` reads the NPZs to build a TensorDict memory map; later epochs and ranks open that map and fetch batches from it. The NPZ archive itself is not directly memory-mapped. |
 
 ### Current Routing by Entry Point
@@ -97,18 +94,16 @@ There are therefore three different persistence/residency modes:
 | `RawData` and `PtychoDataContainerTorch` workflow inputs | In-memory arrays | Bypass NPZ I/O and the on-disk memory map. |
 | Unified/file-oriented training CLIs and `python -m ptycho_torch.train` | One standalone NPZ path | Load through `RawData`, group in memory, adapt to `PtychoDataContainerTorch`, then use ordinary DataLoaders. |
 | Mmap-aware study adapter using `build_prebuilt_ptycho_datamodule()` | Directory containing standalone NPZ scans | Build or open the TensorDict mmap through `PrebuiltPtychoDataModule`, then pass that selected rail to the shared Lightning service. |
-| `scripts/studies/grid_lines_torch_runner.py` | Grid-lines train/test cached NPZ paths | Load the specialized cache into dictionaries, select grid-lines probe/coordinate semantics, adapt to the dict-container batch contract, and call `_train_with_lightning`. This path currently constructs a single-device Trainer. |
 | `PrebuiltPtychoDataModule` | Existing TensorDict mmap | Reopen the already-built map without reparsing source NPZs. |
 | Default Torch inference CLI | One standalone NPZ path | Load through `RawData` and run inference in memory. |
 | Barycentric or probe-weighted Torch inference | One standalone NPZ path | Stage the NPZ in an isolated directory and build a temporary `PtychoDataset` mmap because that reconstruction implementation consumes the grouped dataset representation. |
 
 The factory-resolved `PyTorchExecutionConfig` controls devices, DDP strategy,
 workers, and Lightning runtime mechanics after this routing decision. It does
-not select a dataset schema or convert a grid-lines cache into the mmap schema.
-In particular, requesting DDP does not cause a file-based or grid-lines entry
-point to switch automatically to `PrebuiltPtychoDataModule`.
+not select a dataset schema. In particular, requesting DDP does not cause a
+file-based entry point to switch automatically to `PrebuiltPtychoDataModule`.
 
-### Standalone NPZ Versus Grid-Lines Cached NPZ
+### Standalone NPZ Contracts
 
 These formats carry diffraction under consumer-specific keys and represent
 different pipeline stages:
@@ -117,18 +112,11 @@ different pipeline stages:
 |---|---|---|
 | Standalone scan NPZ through `RawData` | One ungrouped 3-D `diff3d` stack, `xcoords`, `ycoords`, `probeGuess`, and the other acquisition fields required by `RawData.from_file()` | Unified/file-oriented workflows and the default Torch inference route |
 | Standalone scan NPZ through the Torch mmap writer | One ungrouped 3-D `diff3d` stack, or the accepted `diffraction` compatibility alias, plus scan coordinates and the writer-required acquisition fields | `PrebuiltPtychoDataModule` / `PtychoDataset` mmap route |
-| Grid-lines cached NPZ | Pre-grouped/channelized `diffraction`, `Y_I`, `Y_phi`, `coords_nominal`, `coords_true`, `YY_full`, and optional `probe_simulated` | Grid-lines cached-dataset adapter |
 
 `RawData.from_file()` requires the standalone key `diff3d`; it does not apply
-the mmap loader's `diffraction` alias. Conversely, acceptance of both spellings
-by the mmap route does not make a grid-lines cache interchangeable with a
-standalone scan.
-The mmap writer expects ungrouped diffraction plus scan coordinates and its
-writer-required acquisition fields; a grid-lines cache is already grouped and
-uses separate amplitude/phase labels. The grid-lines CI adapter also has
-probe-provenance behavior that the generic standalone loader does not infer:
-when both splits carry `probe_simulated`, it selects that realized simulation
-probe instead of blindly using `probeGuess`.
+the mmap loader's `diffraction` alias. The mmap writer expects ungrouped
+diffraction plus scan coordinates and its writer-required acquisition fields.
+Historical pre-grouped study caches are not a public training input contract.
 
 There is currently no canonical `data_transport = memory | npz | mmap` setting
 and no global schema dispatcher. To determine the route for a run, start from
@@ -172,15 +160,14 @@ SimulationConfig.probe
 | `SimulationConfig.probe.transform_pipeline` | Constructs the probe used to simulate the dataset. Extension from 64×64 to 128×128, for example, happens here. |
 | `SimulationConfig.probe.mask_diameter` | Applies a simulation-time mask before diffraction is generated. Its result is baked into `probeGuess` and the dataset identity. |
 | Dataset `probeGuess` | The stored/configured complex probe guess. For synthetic data it contains the declared simulation transforms and mask, but it is not universally the exact illumination that generated the recorded counts. |
-| Dataset `probe_simulated` | Optional grid-lines field containing the realized simulator illumination after the simulator's internal probe normalization. |
-| Selected CI probe | When both real train/test splits carry `probe_simulated`, grid-lines CI uses it. Otherwise CI falls back to `probeGuess`. A one-sided `probe_simulated` bundle fails closed. Non-CI arms use `probeGuess`. |
+| Dataset `probe_simulated` | Optional acquisition compatibility/provenance metadata carrying a realized simulator illumination. The public training path does not select it as the model probe. |
+| Selected CI probe | Public training derives the physical and normalized CI probe views from `probeGuess`. |
 | CI `probe_physical` / `probe_training` | Physical and normalized training views derived from the selected CI probe. Legacy normalized-amplitude paths retain their generic normalized probe carrier. These are data representations, not independent configs. |
 | `ModelConfig.probe_mask`, `probe_mask_diameter`, `probe_mask_sigma` | Apply an additional model-time support prior inside the differentiable forward model. They do not alter the saved dataset. |
 | `ModelConfig.probe_big` | Historical name for the CNN decoder's learned complementary outer spatial support. It does **not** resize, pad, extrapolate, or construct the physical probe. |
 
-For an exact matched synthetic replay, follow the dataset's recorded probe
-provenance rather than assuming `probeGuess` is always the realized
-illumination. `ModelConfig.probe_mask=False` then avoids applying a second
+For a matched public synthetic replay, use the finalized physical probe stored
+in `probeGuess`. `ModelConfig.probe_mask=False` then avoids applying a second
 model-time mask. Enable a model-time mask only when the experiment intentionally
 adds that support prior.
 

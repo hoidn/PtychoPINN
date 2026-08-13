@@ -93,7 +93,7 @@ def params_cfg_snapshot():
 
 def _build_container(n_samples: int, n_channels: int, N: int) -> dict:
     """Dict-based container fixture (duck-typed; mirrors PtychoDataContainerTorch/
-    grid_lines_torch_runner.run_torch_training's container shape). ``X``/coords use
+    the canonical RAM container shape). ``X``/coords use
     TensorFlow's channel-LAST convention (``(n, H, W, C)`` / ``(n, 1, 2, C)``) per
     the inline dataset's documented contract (components.py ~L479-506) -- the
     inline ``__getitem__`` permutes a per-sample 3D slice assuming (H, W, C).

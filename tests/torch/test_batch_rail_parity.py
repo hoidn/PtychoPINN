@@ -232,6 +232,43 @@ def test_ram_supervised_mode_requires_both_named_labels():
         )
 
 
+def test_ram_supervised_container_emits_only_real_labels():
+    from ptycho_torch.data_container_bridge import PtychoDataContainerTorch
+    from ptycho_torch.dataloader import _PtychoContainerDataset
+
+    labels = np.full((2, N, N, 1), 3.0 + 4.0j, dtype=np.complex64)
+    grouped = {
+        "X_full": np.ones((2, N, N, 1), dtype=np.float32),
+        "Y": labels,
+        "coords_relative": np.zeros((2, 1, 2, 1), dtype=np.float32),
+        "coords_offsets": np.zeros((2, 1, 2, 1), dtype=np.float64),
+        "nn_indices": np.zeros((2, 1), dtype=np.int32),
+    }
+    model = ModelConfig(mode="Supervised", object_big=False)
+    container = PtychoDataContainerTorch(
+        grouped,
+        np.ones((N, N), dtype=np.complex64),
+    )
+    dataset = _PtychoContainerDataset(container, model_config=model)
+
+    fields, _probe, _scale = dataset.__getitems__([1, 0])
+    torch.testing.assert_close(
+        fields["label_amp"],
+        container.Y_I[[1, 0]].permute(0, 3, 1, 2),
+    )
+    torch.testing.assert_close(
+        fields["label_phase"],
+        container.Y_phi[[1, 0]].permute(0, 3, 1, 2),
+    )
+
+    unlabeled = PtychoDataContainerTorch(
+        {**grouped, "Y": None},
+        np.ones((N, N), dtype=np.complex64),
+    )
+    with pytest.raises(ValueError, match="requires label_amp and label_phase"):
+        _PtychoContainerDataset(unlabeled, model_config=model)
+
+
 @pytest.mark.parametrize("channels", [1, 4])
 def test_vectorized_ram_batch_preserves_legacy_collated_strides(channels):
     from ptycho_torch.dataloader import _PtychoContainerDataset

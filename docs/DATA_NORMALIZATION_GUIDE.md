@@ -221,7 +221,9 @@ return RawData(..., X, ...)  # Return normalized data
 - CI statistics come only from finalized training indices, are accumulated in bounded chunks, and are reused unchanged for validation, checkpoints, bundles, and inference.
 - CI training is Poisson-only. Raw count NLL is logged; the optimized data term uses physical-mean normalization.
 - CI VarPro uses `probe_physical`, the training detector mask, and `scale=None`. Dose-consistent probe/count changes leave recovered object scale invariant.
-- `physics_scaling_constant`, `count_scale_mode=auto`, and `derive_dict_physics_scale` remain explicit legacy/amplitude compatibility behavior. They do not establish CI absolute units.
+- `physics_scaling_constant` remains a legacy/amplitude compatibility input.
+  Coherent CI instead consumes finalized count intensity and persisted CI
+  statistics; neither establishes physical calibration.
 
 ### loader.py
 - Handles diffraction amplitude normalization for legacy data loading

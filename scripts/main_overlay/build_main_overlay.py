@@ -110,6 +110,8 @@ DEFAULT_ALLOW_FILES: frozenset[str] = frozenset(
         "tests/studies/test_paper_results_refresh.py",
         "tests/studies/test_paper_provenance.py",
         "tests/studies/test_paper_efficiency_table.py",
+        "tests/studies/conftest.py",
+        "tests/studies/paper_evidence_fixtures.py",
     }
 )
 
@@ -259,14 +261,20 @@ def apply_patches(tree: Path, patches_dir: Path) -> list[str]:
         return applied
     for patch in sorted(patches_dir.glob("*.patch")):
         name = patch.name
-        check = _run(["git", "apply", "--check", "-p1", str(patch)], cwd=tree)
+        check = _run(
+            ["git", "apply", "--check", "--unidiff-zero", "-p1", str(patch)],
+            cwd=tree,
+        )
         if check.returncode != 0:
             raise TransformError(
                 f"PATCH-ANCHOR FAILURE: {name} does not apply to the source tree.\n"
                 f"  git apply --check said: {check.stderr.strip()}\n"
                 f"  Re-anchor this patch against the current tree before resyncing."
             )
-        real = _run(["git", "apply", "-p1", str(patch)], cwd=tree)
+        real = _run(
+            ["git", "apply", "--unidiff-zero", "-p1", str(patch)],
+            cwd=tree,
+        )
         if real.returncode != 0:  # pragma: no cover - --check already passed
             raise TransformError(f"PATCH-ANCHOR FAILURE: {name} failed to apply: {real.stderr.strip()}")
         applied.append(name)

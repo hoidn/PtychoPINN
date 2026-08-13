@@ -1099,12 +1099,12 @@ class TestDatasetPersistence:
         ).astype(np.complex64)
         np.savez(probe_path, probeGuess=raw_probe)
         simulation = SimulationConfig(
-            N=16,
+            N=64,
             probe=ProbeSimulationConfig(
                 source="custom",
                 source_path=probe_path,
                 transform_pipeline=(
-                    "smooth:0.5|pad_extrapolate_boundary_matched:16"
+                    "smooth:0.5|pad_extrapolate_boundary_matched:64"
                 ),
             ),
             object=SyntheticObjectConfig(kind="lines", image_size=(64, 64)),
@@ -1114,7 +1114,7 @@ class TestDatasetPersistence:
         )
         cfg = GridLinesConfig(output_dir=tmp_path, simulation=simulation)
         normalized, steps = normalize_probe_transform_pipeline(
-            target_N=16,
+            target_N=64,
             probe_shape=raw_probe.shape,
             probe_scale_mode="pipeline",
             probe_smoothing_sigma=0.0,
@@ -1131,13 +1131,13 @@ class TestDatasetPersistence:
             transform_metadata=result.metadata,
         )
         config = TrainingConfig(
-            model=ModelConfig(N=16, gridsize=1, object_big=False),
+            model=ModelConfig(N=64, gridsize=1, object_big=False),
             data=DataConfig(nphotons=1e8),
         )
         data = {
-            "X": np.zeros((1, 16, 16, 1), dtype=np.float32),
-            "Y_I": np.zeros((1, 16, 16, 1), dtype=np.float32),
-            "Y_phi": np.zeros((1, 16, 16, 1), dtype=np.float32),
+            "X": np.zeros((1, 64, 64, 1), dtype=np.float32),
+            "Y_I": np.zeros((1, 64, 64, 1), dtype=np.float32),
+            "Y_phi": np.zeros((1, 64, 64, 1), dtype=np.float32),
             "coords_nominal": np.zeros((1, 2), dtype=np.float32),
             "coords_true": np.zeros((1, 2), dtype=np.float32),
             "YY_full": np.zeros((64, 64), dtype=np.complex64),
@@ -1211,7 +1211,7 @@ class TestDatasetPersistence:
         self, monkeypatch, tmp_path: Path
     ):
         cfg = GridLinesConfig(
-            N=8,
+            N=64,
             gridsize=1,
             output_dir=tmp_path,
             probe_npz=tmp_path / "probe.npz",
@@ -1230,14 +1230,16 @@ class TestDatasetPersistence:
             "ptycho.metadata.MetadataManager.save_with_metadata",
             lambda *args, **kwargs: pytest.fail("must reject before saving"),
         )
-        config = TrainingConfig(model=ModelConfig(N=8, gridsize=1, object_big=False))
+        config = TrainingConfig(
+            model=ModelConfig(N=64, gridsize=1, object_big=False)
+        )
         data = {
-            "X": np.zeros((1, 8, 8, 1)),
-            "Y_I": np.zeros((1, 8, 8, 1)),
-            "Y_phi": np.zeros((1, 8, 8, 1)),
+            "X": np.zeros((1, 64, 64, 1)),
+            "Y_I": np.zeros((1, 64, 64, 1)),
+            "Y_phi": np.zeros((1, 64, 64, 1)),
             "coords_nominal": np.zeros((1, 2)),
             "coords_true": np.zeros((1, 2)),
-            "YY_full": np.zeros((8, 8), dtype=np.complex64),
+            "YY_full": np.zeros((64, 64), dtype=np.complex64),
         }
         with pytest.raises(ValueError, match="Use a distinct output identity"):
             save_split_npz(cfg, "train", data, config)
@@ -1294,7 +1296,7 @@ class TestDatasetPersistence:
         )
 
         cfg = GridLinesConfig(
-            N=8,
+            N=64,
             gridsize=1,
             output_dir=tmp_path,
             probe_npz=tmp_path / "probe.npz",
@@ -1302,7 +1304,7 @@ class TestDatasetPersistence:
         )
 
         config = TrainingConfig(
-            model=ModelConfig(N=8, gridsize=1, object_big=False),
+            model=ModelConfig(N=64, gridsize=1, object_big=False),
             data=DataConfig(nphotons=1e9),
             nepochs=1,
             batch_size=1,
@@ -1323,10 +1325,10 @@ class TestDatasetPersistence:
         assert captured["metadata"]["additional_parameters"]["probe_source"] == "ideal_disk"
         assert captured["metadata"]["additional_parameters"]["probe_scale_mode"] == "pad_preserve"
         assert captured["metadata"]["additional_parameters"]["probe_smoothing_sigma"] == 0.5
-        assert captured["metadata"]["additional_parameters"]["probe_transform_pipeline"] == "smooth:0.5|pad:8"
+        assert captured["metadata"]["additional_parameters"]["probe_transform_pipeline"] == "smooth:0.5|pad:64"
         assert captured["metadata"]["additional_parameters"]["probe_transform_steps"] == [
             {"op": "smooth_complex", "sigma": 0.5},
-            {"op": "pad_complex", "target_N": 8},
+            {"op": "pad_complex", "target_N": 64},
         ]
         assert captured["metadata"]["additional_parameters"]["probe_npz"] == str(tmp_path / "probe.npz")
         additional = captured["metadata"]["additional_parameters"]
@@ -1401,7 +1403,7 @@ class TestDatasetPersistence:
         )
 
         cfg = GridLinesConfig(
-            N=8,
+            N=64,
             gridsize=1,
             output_dir=tmp_path,
             probe_npz=tmp_path / "probe.npz",
@@ -1409,7 +1411,7 @@ class TestDatasetPersistence:
         )
 
         config = TrainingConfig(
-            model=ModelConfig(N=8, gridsize=1, object_big=False),
+            model=ModelConfig(N=64, gridsize=1, object_big=False),
             data=DataConfig(nphotons=1e9),
             nepochs=1,
             batch_size=1,
@@ -1448,7 +1450,7 @@ class TestDatasetPersistence:
         )
 
         cfg = GridLinesConfig(
-            N=8,
+            N=64,
             gridsize=1,
             output_dir=tmp_path,
             probe_npz=tmp_path / "probe.npz",
@@ -1456,7 +1458,7 @@ class TestDatasetPersistence:
         )
 
         config = TrainingConfig(
-            model=ModelConfig(N=8, gridsize=1, object_big=False),
+            model=ModelConfig(N=64, gridsize=1, object_big=False),
             data=DataConfig(nphotons=1e9),
             nepochs=1,
             batch_size=1,
@@ -1530,11 +1532,11 @@ class TestDatasetPersistence:
         )
 
         probe_path = tmp_path / "probe.npz"
-        probe = (np.ones((8, 8)) + 1j * np.ones((8, 8))).astype(np.complex64)
+        probe = (np.ones((64, 64)) + 1j * np.ones((64, 64))).astype(np.complex64)
         np.savez(probe_path, probeGuess=probe)
 
         cfg = GridLinesConfig(
-            N=8,
+            N=64,
             gridsize=1,
             output_dir=tmp_path,
             probe_npz=probe_path,
@@ -1865,52 +1867,6 @@ class TestColorbarSharing:
         assert resolved["phase"].shape == (8, 8)
 
 
-class TestGridLinesCLI:
-    def test_grid_lines_cli_probe_mask_diameter(self, tmp_path: Path):
-        from scripts.studies import grid_lines_workflow as cli
-
-        args = cli.parse_args([
-            "--N", "64",
-            "--gridsize", "1",
-            "--output-dir", str(tmp_path),
-            "--probe-mask-diameter", "64",
-        ])
-        cfg = cli.build_config(args)
-        assert cfg.probe_mask_diameter == 64
-
-    def test_main_writes_cli_invocation_artifacts(self, tmp_path: Path, monkeypatch):
-        import json
-        from scripts.studies import grid_lines_workflow as cli
-
-        called = {"run": False}
-
-        def fake_run_grid_lines_workflow(cfg):
-            called["run"] = True
-            return {"metrics": {}}
-
-        monkeypatch.setattr(cli, "run_grid_lines_workflow", fake_run_grid_lines_workflow)
-
-        cli.main(
-            [
-                "--N",
-                "64",
-                "--gridsize",
-                "1",
-                "--output-dir",
-                str(tmp_path),
-            ]
-        )
-
-        assert called["run"] is True
-        inv_json = tmp_path / "invocation.json"
-        inv_sh = tmp_path / "invocation.sh"
-        assert inv_json.exists()
-        assert inv_sh.exists()
-        payload = json.loads(inv_json.read_text())
-        assert "grid_lines_workflow.py" in payload["command"]
-        assert "--output-dir" in payload["argv"]
-
-
 def test_build_grid_lines_datasets_writes_train_test_npz(monkeypatch, tmp_path: Path):
     from ptycho.workflows.grid_lines_workflow import GridLinesConfig, build_grid_lines_datasets
 
@@ -2042,9 +1998,9 @@ def test_build_grid_lines_datasets_persists_nonconstant_scan_positions(monkeypat
         _ = (cfg, probe_np)
         gt = (np.ones((16, 16)) + 1j * np.ones((16, 16))).astype(np.complex64)
         split = {
-            "X": np.ones((3, 8, 8, 1), dtype=np.float32),
-            "Y_I": np.ones((3, 8, 8, 1), dtype=np.float32),
-            "Y_phi": np.zeros((3, 8, 8, 1), dtype=np.float32),
+            "X": np.ones((3, 64, 64, 1), dtype=np.float32),
+            "Y_I": np.ones((3, 64, 64, 1), dtype=np.float32),
+            "Y_phi": np.zeros((3, 64, 64, 1), dtype=np.float32),
             "coords_nominal": np.zeros((3, 1, 2, 1), dtype=np.float32),
             "coords_true": np.zeros((3, 1, 2, 1), dtype=np.float32),
             "coords_offsets": coords_offsets,
@@ -2062,7 +2018,7 @@ def test_build_grid_lines_datasets_persists_nonconstant_scan_positions(monkeypat
     def fake_cfg(cfg, probe_np):
         _ = (cfg, probe_np)
         return TrainingConfig(
-            model=ModelConfig(N=8, gridsize=1, object_big=False),
+            model=ModelConfig(N=64, gridsize=1, object_big=False),
             data=DataConfig(nphotons=1e9),
             nepochs=1,
             batch_size=1,
@@ -2075,9 +2031,9 @@ def test_build_grid_lines_datasets_persists_nonconstant_scan_positions(monkeypat
     probe_path = tmp_path / "probe.npz"
     np.savez(
         probe_path,
-        probeGuess=(np.ones((8, 8)) + 1j * np.ones((8, 8))).astype(np.complex64),
+        probeGuess=(np.ones((64, 64)) + 1j * np.ones((64, 64))).astype(np.complex64),
     )
-    cfg = GridLinesConfig(N=8, gridsize=1, output_dir=tmp_path, probe_npz=probe_path)
+    cfg = GridLinesConfig(N=64, gridsize=1, output_dir=tmp_path, probe_npz=probe_path)
     out = build_grid_lines_datasets(cfg)
 
     with np.load(out["train_npz"], allow_pickle=True) as train_data:
@@ -2194,31 +2150,31 @@ class TestProbeSimulatedCapture:
 
     def test_save_split_npz_round_trips_probe_simulated(self, tmp_path: Path):
         cfg = GridLinesConfig(
-            N=8, gridsize=1, output_dir=tmp_path, probe_npz=tmp_path / "probe.npz"
+            N=64, gridsize=1, output_dir=tmp_path, probe_npz=tmp_path / "probe.npz"
         )
         config = TrainingConfig(
-            model=ModelConfig(N=8, gridsize=1, object_big=False),
+            model=ModelConfig(N=64, gridsize=1, object_big=False),
             data=DataConfig(nphotons=1e9),
             nepochs=1,
             batch_size=1,
             tf_loss=TFLossConfig(nll_weight=0.0, mae_weight=1.0, realspace_weight=0.0),
         )
-        probe_sim = (np.arange(64).reshape(8, 8) + 1j).astype(np.complex64)
+        probe_sim = (np.arange(64 * 64).reshape(64, 64) + 1j).astype(np.complex64)
         base = {
-            "X": np.zeros((1, 8, 8, 1), dtype=np.float32),
-            "Y_I": np.zeros((1, 8, 8, 1), dtype=np.float32),
-            "Y_phi": np.zeros((1, 8, 8, 1), dtype=np.float32),
+            "X": np.zeros((1, 64, 64, 1), dtype=np.float32),
+            "Y_I": np.zeros((1, 64, 64, 1), dtype=np.float32),
+            "Y_phi": np.zeros((1, 64, 64, 1), dtype=np.float32),
             "coords_nominal": np.zeros((1, 2), dtype=np.float32),
             "coords_true": np.zeros((1, 2), dtype=np.float32),
-            "YY_full": np.zeros((8, 8), dtype=np.complex64),
-            "probeGuess": (np.ones((8, 8)) + 0j).astype(np.complex64),
+            "YY_full": np.zeros((64, 64), dtype=np.complex64),
+            "probeGuess": (np.ones((64, 64)) + 0j).astype(np.complex64),
         }
 
         path_with = save_split_npz(cfg, "train", dict(base, probe_simulated=probe_sim), config)
         with np.load(path_with) as data:
             assert "probe_simulated" in data.files
             assert data["probe_simulated"].dtype == np.complex64
-            assert data["probe_simulated"].shape == (8, 8)
+            assert data["probe_simulated"].shape == (64, 64)
             np.testing.assert_allclose(data["probe_simulated"], probe_sim)
 
         path_without = save_split_npz(cfg, "test", dict(base), config)

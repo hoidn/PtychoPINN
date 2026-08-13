@@ -501,19 +501,14 @@ Validated by `pytest tests/torch/test_backend_selection.py -vv`.
 
 ## 9. Study Runners
 
-Deep experiment knobs (grid-lines dataset generation, position-reassembly backend
-selection, count-scale modes, structural-search sweeps, parity controls) are owned by
-the study CLIs, not this guide:
+`ptycho_study` is the public multi-arm composer. It writes each resolved arm
+configuration and delegates to the configured public runner; it does not own a
+parallel trainer. See [`hydra_studies.md`](hydra_studies.md) for composition,
+resume, and provenance semantics.
 
-- `scripts/studies/grid_lines_torch_runner.py` — grid-lines training/eval for the
-  registry architectures (`--architecture`, plateau/warmup schedulers, probe-source
-  validation, reassembly strategy knobs).
-- `scripts/studies/grid_lines_compare_wrapper.py` — TF-vs-torch multi-model
-  comparisons (`--architectures`, `--dataset-source`, probe scaling/masking).
-- `scripts/studies/varpro_probe_ablation_runner.py` — parity-control ablations
-  (§3.6 flags).
-
-Consult each runner's `--help` and `scripts/studies/README.md`.
+The retained `scripts/studies/varpro_probe_ablation_runner.py` has the narrower
+VarPro/probe-weighting role described in §3.6, and
+`scripts/studies/collate_study_metrics.py` collates completed arm metrics.
 
 ## 10. Constraints and Known Pitfalls
 
@@ -523,8 +518,9 @@ Consult each runner's `--help` and `scripts/studies/README.md`.
 - **Supervised mode** (`model_type='supervised'`) requires `label_amp` /
   `label_phase` keys in the NPZ; experimental datasets lack them and fail dataloader
   validation. Use PINN mode or generate labeled synthetic data.
-- **Gridsize > 1 support** is architecture-gated in the study runners (only `cnn`
-  is ported); other architectures currently reject `gridsize > 1` there.
+- **Gridsize > 1 support** is architecture-gated in the public synthetic
+  workflow: only `cnn` is accepted. `ptycho_study` arms delegated to that
+  workflow enforce the same guard.
 - **N=128 count-Poisson CNN is collapse-prone** without the complete TF-parity
   preset (§3.6).
 - **`intensity_scale_trainable=True`** conflicts with the parity scale path (§3.6).

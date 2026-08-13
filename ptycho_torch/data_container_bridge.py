@@ -76,7 +76,8 @@ class PtychoDataContainerTorch:
             )
 
         # Extract and validate ground truth (Y)
-        if grouped_data['Y'] is not None:
+        has_labels = grouped_data['Y'] is not None
+        if has_labels:
             Y_raw = grouped_data['Y']
             # Convert TensorFlow tensors to NumPy if needed
             if hasattr(Y_raw, 'numpy'):  # TensorFlow tensor
@@ -109,6 +110,8 @@ class PtychoDataContainerTorch:
         self.Y = torch.from_numpy(Y_np).to(torch.complex64)
         self.Y_I = torch.abs(self.Y).to(torch.float32)
         self.Y_phi = torch.angle(self.Y).to(torch.float32)
+        self.label_amp = self.Y_I if has_labels else None
+        self.label_phase = self.Y_phi if has_labels else None
         self.probe = torch.from_numpy(probe_np).to(torch.complex64)
 
         sample_count = int(self.X.shape[0])

@@ -403,9 +403,7 @@ composed document; the study layer holds no schema of its own.
 Rerunning the same sweep command resumes it: arms whose sentinel
 (`reconstruction/metrics.json` by default) exists are skipped, and the
 fail-closed stage identity described above still governs any per-arm reuse.
-Cross-arm collation and the comparison table come from
-`scripts/studies/collate_study_metrics.py` and
-`scripts/studies/render_study_comparison.py`.
+Cross-arm collation comes from `scripts/studies/collate_study_metrics.py`.
 
 The [study workflow guide](../../docs/workflows/hydra_studies.md) owns the
 config-tree structure, delta-file conventions, failure semantics, shared
