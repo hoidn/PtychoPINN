@@ -1628,7 +1628,6 @@ class PtychoPINN_Lightning(L.LightningModule):
         rms_scale = batch[0]['rms_scaling_constant']
         physics_scale = batch[0]['physics_scaling_constant']
         experiment_ids = batch[0]['experiment_id']
-        probe_scaling = batch[2]
 
         if self.model_config.mode == 'Supervised':
             amp_label = batch[0]['label_amp']
@@ -1639,7 +1638,13 @@ class PtychoPINN_Lightning(L.LightningModule):
         if self._polar:
             output_scale = rms_scale
         else:
-            output_scale = torch.sqrt(1/(probe_scaling**2 * physics_scale + 1e-9))
+            # Data-derived photon anchor. Parseval on the ortho FFT gives
+            # sum_hw I_pred = c^2 * <|O|^2>_|P_n|^2, so matching N_ph requires c = sqrt(1/physics_scale).
+            # Was: sqrt(1/(probe_scaling**2 * physics_scale + 1e-9)), which applied 1/probe_scaling
+            # twice (sqrt(1/physics_scale) already carries it) and drove the learned object to
+            # |O| ~ probe_scaling (~0.07) instead of ~1. The old 1e-9 guard was also a live term:
+            # probe_scaling**2 * physics_scale is ~2e-9. See docs/rectangular_scaling_constants.md.
+            output_scale = torch.sqrt(1/(physics_scale + 1e-30))
 
         pred, real, imag = self(x, positions, probe,
                                 input_scale_factor=rms_scale,
