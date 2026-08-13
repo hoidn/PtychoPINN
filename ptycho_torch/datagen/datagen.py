@@ -14,6 +14,7 @@ from ptycho_torch.datagen.objects import create_complex_layered_procedural_objec
 from ptycho_torch.datagen.objects import create_dead_leaves, create_white_noise_object, create_simplex_noise_object, create_dead_leaves_regions
 from ptycho_torch.datagen.objects import create_dead_leaves_v3, create_perlin_reim, generate_dead_leaves_constrained_phase
 from ptycho_torch.datagen.objects import create_dead_leaves_reim_gmm, create_white_noise_clustered_reim
+from ptycho_torch.datagen.objects import create_dead_leaves_reim_ot
 from ptycho_torch.datagen.probe import generate_zernike_probe, generate_random_fzp, generate_random_zernike
 import ptycho_torch.helper as hh
 from ptycho_torch.config_params import TrainingConfig, DataConfig, ModelConfig
@@ -195,7 +196,8 @@ def simulate_synthetic_objects(img_shape, data_config, nimages, obj_method, obj_
     #Internal object methods list
     obj_methods = ['procedural', 'polyhedra','dead_leaves','white_noise','simplex_noise','blurred_white_noise',
                    'dead_leaves_reim', 'dead_leaves_reim_hist', 'perlin_reim', 'dead_leaves_constrained',
-                   'dead_leaves_reim_uniform', 'dead_leaves_reim_gmm', 'white_noise_clustered']
+                   'dead_leaves_reim_uniform', 'dead_leaves_reim_gmm', 'white_noise_clustered',
+                   'dead_leaves_reim_ot']
 
     #Check validity
     if obj_method not in obj_methods:
@@ -231,6 +233,8 @@ def simulate_synthetic_objects(img_shape, data_config, nimages, obj_method, obj_
         obj_func = partial(create_perlin_reim, obj_arg=obj_arg, stats = stats, N=patch_N)
     elif obj_method == 'dead_leaves_reim_gmm':
         obj_func = partial(create_dead_leaves_reim_gmm, obj_arg=obj_arg, N=patch_N)
+    elif obj_method == 'dead_leaves_reim_ot':
+        obj_func = partial(create_dead_leaves_reim_ot, obj_arg=obj_arg, N=patch_N)
     elif obj_method == 'white_noise_clustered':
         obj_func = partial(create_white_noise_clustered_reim, obj_arg=obj_arg, N=patch_N)
 

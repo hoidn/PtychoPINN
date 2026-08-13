@@ -15,6 +15,7 @@ from ptycho_torch.config_params import TrainingConfig, DataConfig, ModelConfig
 from skimage.draw import line_aa, disk, rectangle, ellipse, circle_perimeter_aa
 import scipy.ndimage as ndi
 from scipy.ndimage import gaussian_filter # For blurring the 2D noise
+from scipy.optimize import linear_sum_assignment # For exact optimal-transport assignment
 from perlin_noise import PerlinNoise
 from scipy.spatial.transform import Rotation # For 3D rotations
 import random
@@ -2458,6 +2459,260 @@ def generate_dead_leaves_reim_gmm(
     return real_map, imag_map, num_leaves
 
 
+# --- Method 2c: Optimal-Transport Dead Leaves in Re-Im Space ---
+
+def generate_dead_leaves_reim_ot(
+    height: int,
+    width: int,
+    target_distribution: str,
+    means: np.ndarray = None,
+    covariances: np.ndarray = None,
+    weights: np.ndarray = None,
+    vacuum_reim: np.ndarray = None,
+    material_hist: np.ndarray = None,
+    re_range: Tuple[float, float] = (-1.2, 1.2),
+    im_range: Tuple[float, float] = (-1.2, 1.2),
+    vacuum_re: float = 0.8,
+    vacuum_im: float = 0.0,
+    dim_min_px: float = 2.0,
+    dim_max_px: float = 20.0,
+    dimension_power_law_exponent: float = 2.0,
+    max_iterations: int = 100000,
+    coverage_threshold: float = 0.99,
+    source_field_sigma: float = 8.0,
+    blur_sigma: float = 0.5,
+    clip_range: Tuple[float, float] = (-1.2, 1.2),
+    seed: Optional[int] = None,
+    antialias: bool = True,
+    ot_chunk_size: int = 2000,
+) -> Tuple[np.ndarray, np.ndarray, int]:
+    """
+    Optimal-transport dead leaves in Re-Im space.
+
+    Reuses the same leaf placement as generate_dead_leaves_reim_gmm /
+    generate_dead_leaves_reim_histogram, but splits placement and value
+    assignment into two passes so that leaf values can be matched (via
+    exact optimal transport) to a spatially-smooth source field instead of
+    drawn independently per leaf. This makes neighboring leaves' values
+    vary slowly in space while the *set* of values used over the whole
+    canvas is exactly `n` draws from the target (GMM or histogram)
+    distribution — so the global (Re, Im) distribution is preserved.
+
+    Parameters
+    ----------
+    height, width : int
+        Canvas dimensions.
+    target_distribution : {'gmm', 'histogram'}
+        Which target distribution to draw leaf values from.
+    means, covariances, weights, vacuum_reim : np.ndarray
+        GMM parameters, required when target_distribution == 'gmm'.
+    material_hist, re_range, im_range, vacuum_re, vacuum_im :
+        Histogram parameters, required when target_distribution == 'histogram'.
+    dim_min_px, dim_max_px : float
+        Min/max shape dimension for power-law sampling.
+    dimension_power_law_exponent : float
+        Power-law exponent (higher = more small shapes).
+    max_iterations : int
+        Maximum number of leaves.
+    coverage_threshold : float
+        Stop when this fraction of pixels are covered.
+    source_field_sigma : float
+        Gaussian blur sigma (pixels) for the smooth source field used to
+        drive the optimal-transport assignment. Larger values produce
+        slower spatial variation.
+    blur_sigma : float
+        Post-processing Gaussian blur sigma.
+    clip_range : tuple
+        Final clip range for both real and imaginary maps.
+    seed : int or None
+        Random seed.
+    antialias : bool
+        If True (default), leaf edges are anti-aliased (fractional coverage).
+    ot_chunk_size : int
+        Exact assignment is solved via the Hungarian algorithm (O(n^3)),
+        which becomes a severe time/memory bottleneck once the leaf count
+        reaches the thousands (e.g. ~3 hours and ~40 GB for n=42000 solved
+        as one block). Above this many leaves, the assignment is instead
+        solved independently on spatial chunks of roughly this size
+        (leaves bucketed via a canvas-aligned grid, target samples split
+        into matching-size chunks via a single random permutation).
+        Matching is only exact within a chunk rather than canvas-wide, but
+        since the source field varies slowly relative to a chunk, chunk
+        boundaries are not visible in practice.
+
+    Returns
+    -------
+    real_map : np.ndarray (height, width)
+    imag_map : np.ndarray (height, width)
+    num_leaves : int
+    """
+    cv2 = _import_cv2()
+    if target_distribution not in ('gmm', 'histogram'):
+        raise ValueError("target_distribution must be 'gmm' or 'histogram'")
+    if target_distribution == 'gmm':
+        if means is None or covariances is None or weights is None or vacuum_reim is None:
+            raise ValueError(
+                "means, covariances, weights, and vacuum_reim are required "
+                "for target_distribution='gmm'"
+            )
+    else:
+        if material_hist is None:
+            raise ValueError(
+                "material_hist is required for target_distribution='histogram'"
+            )
+
+    rng = np.random.default_rng(seed)
+
+    if target_distribution == 'gmm':
+        init_re, init_im = vacuum_reim[0], vacuum_reim[1]
+    else:
+        init_re, init_im = vacuum_re, vacuum_im
+
+    real_map = np.full((height, width), init_re, dtype=np.float32)
+    imag_map = np.full((height, width), init_im, dtype=np.float32)
+    cumulative_coverage = np.zeros((height, width), dtype=np.float32)
+
+    # Power-law parameters
+    beta = 1.0 - dimension_power_law_exponent
+    coef = np.power(dim_max_px / dim_min_px, beta) - 1.0
+    shapes = ['circle', 'oriented_square', 'rectangle', 'triangle']
+
+    # --- Pass 1: place leaves, defer value assignment ---
+    leaves = []  # list of (coverage, (y0, y1, x0, x1))
+    num_leaves = 0
+    for iteration in range(max_iterations):
+        coverage, _, (y0, y1, x0, x1) = _draw_random_leaf(
+            rng, shapes, height, width, dim_min_px, dim_max_px, beta, coef,
+            antialias=antialias,
+        )
+        if coverage is None:
+            continue
+
+        leaves.append((coverage, (y0, y1, x0, x1)))
+        np.maximum(cumulative_coverage[y0:y1, x0:x1], coverage,
+                   out=cumulative_coverage[y0:y1, x0:x1])
+        num_leaves += 1
+
+        if num_leaves % 500 == 0:
+            cov_frac = np.count_nonzero(
+                cumulative_coverage >= coverage_threshold
+            ) / cumulative_coverage.size
+            if cov_frac >= coverage_threshold:
+                break
+
+    n = len(leaves)
+    if n == 0:
+        if blur_sigma > 0:
+            real_map = cv2.GaussianBlur(real_map, (0, 0), blur_sigma)
+            imag_map = cv2.GaussianBlur(imag_map, (0, 0), blur_sigma)
+        real_map = np.clip(real_map, clip_range[0], clip_range[1])
+        imag_map = np.clip(imag_map, clip_range[0], clip_range[1])
+        return real_map, imag_map, num_leaves
+
+    # --- Pass 2a: smooth source field, sampled at leaf centroids ---
+    raw_a = rng.standard_normal((height, width)).astype(np.float32)
+    raw_b = rng.standard_normal((height, width)).astype(np.float32)
+    field_a = gaussian_filter(raw_a, sigma=source_field_sigma)
+    field_b = gaussian_filter(raw_b, sigma=source_field_sigma)
+
+    centroid_rows = np.empty(n, dtype=np.int64)
+    centroid_cols = np.empty(n, dtype=np.int64)
+    for i, (_, (y0, y1, x0, x1)) in enumerate(leaves):
+        centroid_rows[i] = np.clip(int(round((y0 + y1 - 1) / 2.0)), 0, height - 1)
+        centroid_cols[i] = np.clip(int(round((x0 + x1 - 1) / 2.0)), 0, width - 1)
+
+    source_points = np.stack(
+        [field_a[centroid_rows, centroid_cols], field_b[centroid_rows, centroid_cols]],
+        axis=1,
+    )
+
+    # --- Pass 2b: draw exactly n target samples ---
+    if target_distribution == 'gmm':
+        K = len(weights)
+        vacuum_idx = np.argmin(
+            np.linalg.norm(means - vacuum_reim[np.newaxis, :], axis=1)
+        )
+        material_mask = np.ones(K, dtype=bool)
+        material_mask[vacuum_idx] = False
+        material_indices = np.where(material_mask)[0]
+        material_weights = weights[material_mask]
+        material_weights = material_weights / (material_weights.sum() + 1e-12)
+
+        cluster_choice = rng.choice(len(material_indices), size=n, p=material_weights)
+        target_points = np.empty((n, 2), dtype=np.float64)
+        for ki in np.unique(cluster_choice):
+            k = material_indices[ki]
+            mask = cluster_choice == ki
+            count = int(mask.sum())
+            target_points[mask] = rng.multivariate_normal(
+                means[k], covariances[k], size=count
+            )
+    else:
+        hist_flat = material_hist.flatten()
+        hist_indices = np.arange(hist_flat.size)
+        re_bins = np.linspace(re_range[0], re_range[1], material_hist.shape[0])
+        im_bins = np.linspace(im_range[0], im_range[1], material_hist.shape[1])
+        idx = rng.choice(hist_indices, size=n, p=hist_flat)
+        re_idx, im_idx = np.unravel_index(idx, material_hist.shape)
+        target_points = np.stack([re_bins[re_idx], im_bins[im_idx]], axis=1)
+
+    # --- Pass 2c: exact optimal assignment (standardized squared-Euclidean cost) ---
+    def _standardize(points):
+        mean = points.mean(axis=0)
+        std = points.std(axis=0)
+        std[std < 1e-12] = 1.0
+        return (points - mean) / std
+
+    source_std = _standardize(source_points)
+    target_std = _standardize(target_points)
+
+    n_chunks = max(1, int(np.ceil(n / ot_chunk_size)))
+    if n_chunks == 1:
+        chunk_id = np.zeros(n, dtype=np.int64)
+    else:
+        # Bucket leaves onto a canvas-aligned grid sized to average ~ot_chunk_size
+        # leaves per cell, so each Hungarian solve stays small and chunk
+        # boundaries fall along spatially local seams.
+        aspect = width / height
+        n_cols = max(1, int(round(np.sqrt(n_chunks * aspect))))
+        n_rows = max(1, int(np.ceil(n_chunks / n_cols)))
+        row_band = np.clip((centroid_rows * n_rows) // height, 0, n_rows - 1)
+        col_band = np.clip((centroid_cols * n_cols) // width, 0, n_cols - 1)
+        chunk_id = row_band * n_cols + col_band
+
+    # Target identity doesn't matter (only the multiset does), so a single
+    # random permutation split into matching-size blocks is a valid partition.
+    remaining_targets = rng.permutation(n)
+    assignment = np.empty(n, dtype=np.int64)
+    for c in np.unique(chunk_id):
+        src_idx = np.where(chunk_id == c)[0]
+        k = src_idx.size
+        tgt_idx, remaining_targets = remaining_targets[:k], remaining_targets[k:]
+        s = source_std[src_idx]
+        t = target_std[tgt_idx]
+        cost_c = ((s[:, None, :] - t[None, :, :]) ** 2).sum(axis=2)
+        row_c, col_c = linear_sum_assignment(cost_c)
+        assignment[src_idx[row_c]] = tgt_idx[col_c]
+    leaf_values = target_points[assignment]
+
+    # --- Pass 2d: composite leaves using assigned values ---
+    for i, (coverage, (y0, y1, x0, x1)) in enumerate(leaves):
+        leaf_re, leaf_im = leaf_values[i]
+        inv = 1.0 - coverage
+        real_map[y0:y1, x0:x1] = real_map[y0:y1, x0:x1] * inv + leaf_re * coverage
+        imag_map[y0:y1, x0:x1] = imag_map[y0:y1, x0:x1] * inv + leaf_im * coverage
+
+    # Post-processing: blur and clip
+    if blur_sigma > 0:
+        real_map = cv2.GaussianBlur(real_map, (0, 0), blur_sigma)
+        imag_map = cv2.GaussianBlur(imag_map, (0, 0), blur_sigma)
+
+    real_map = np.clip(real_map, clip_range[0], clip_range[1])
+    imag_map = np.clip(imag_map, clip_range[0], clip_range[1])
+
+    return real_map, imag_map, num_leaves
+
+
 # --- Method 3: Correlated Perlin Noise in Re-Im Space ---
 
 def generate_perlin_object_reim(
@@ -3033,6 +3288,174 @@ def create_dead_leaves_reim_gmm(
     obj = (real_map + 1j * imag_map).astype(np.complex64)
     print(f"create_dead_leaves_reim_gmm: generated {img_shape} object, "
           f"K={len(weights)}, {n_leaves} leaves")
+    return obj
+
+
+def create_dead_leaves_reim_ot(
+    img_shape: Tuple[int, int],
+    obj_arg: dict,
+    N: int = _REF_N,
+) -> np.ndarray:
+    """
+    Top-level dispatcher for optimal-transport dead leaves generation in
+    Re-Im space.
+
+    Unlike create_dead_leaves_reim_gmm, leaf values are not drawn
+    independently per leaf. Instead, leaf placement and value assignment
+    are split into two passes (see generate_dead_leaves_reim_ot): a smooth
+    spatial field is sampled at each leaf's centroid, and those samples are
+    matched via exact optimal transport to exactly `n` draws from the
+    target distribution. This makes neighboring leaves' values vary slowly
+    in space while the full-canvas (Re, Im) distribution still matches the
+    target exactly. The target distribution is never re-jittered per
+    canvas — all per-canvas variety comes from the smooth source field.
+
+    Parameters
+    ----------
+    img_shape : tuple (H, W)
+        Image dimensions.
+    obj_arg : dict
+        Required:
+        - 'target_distribution': 'gmm' or 'histogram'
+
+        For target_distribution='gmm', one of:
+        - 'reference_objects': list of complex arrays to fit GMM from.
+        - 'gmm_params': dict from fit_gmm_from_objects() (skip fitting).
+        Optional: 'n_clusters' (default 'auto'), 'origin_mask_radius'
+        (default 0.4).
+
+        For target_distribution='histogram', one of:
+        - 'histogram': pre-built 2D histogram from create_density_histogram_reim().
+        - 'reference_objects': list of complex arrays to build a histogram from.
+        Optional: 're_range', 'im_range' (default (-1.2, 1.2)), 'vacuum_reim'
+        (default (0.8, 0.0)).
+
+        Common optional keys:
+        - 'ot_correlation_scale': float (default 64.0, i.e. one patch-width
+          at N=64) — smooth source-field blur sigma, scaled by N/64,
+          controlling how local the slow variation is. Values much smaller
+          than N give little local smoothing since many correlation
+          lengths fit inside one training patch; values around or above N
+          are needed for a visible effect.
+        - 'r_min': float (default 5)
+        - 'r_max': float (default 20)
+        - 'power_exponent': float (default 2)
+        - 'max_iterations': int (default 100000)
+        - 'coverage_threshold': float (default 0.99)
+        - 'blur_sigma': float (default 0.5)
+        - 'clip_range': tuple (default (-1.2, 1.2))
+        - 'antialias': bool (default True)
+        - 'ot_chunk_size': int (default 2000) — above this many leaves, the
+          optimal-transport assignment is solved per spatial chunk instead
+          of as one canvas-wide O(n^3) Hungarian solve (which becomes a
+          multi-hour, tens-of-GB bottleneck for large canvases). See
+          generate_dead_leaves_reim_ot's docstring for details.
+
+    Returns
+    -------
+    np.ndarray : complex64 object of shape img_shape
+    """
+    height, width = img_shape
+    target_distribution = obj_arg.get('target_distribution')
+    if target_distribution not in ('gmm', 'histogram'):
+        raise ValueError(
+            "obj_arg['target_distribution'] must be 'gmm' or 'histogram'"
+        )
+
+    s = _pixel_scale(N)
+    min_r = obj_arg.get('r_min', 5) * s
+    max_r = obj_arg.get('r_max', 20) * s
+    power = obj_arg.get('power_exponent', 2)
+    max_iter = obj_arg.get('max_iterations', 100000)
+    cov_thresh = obj_arg.get('coverage_threshold', 0.99)
+    blur = obj_arg.get('blur_sigma', 0.5) * s
+    clip_range = obj_arg.get('clip_range', (-1.2, 1.2))
+    antialias = obj_arg.get('antialias', True)
+    source_field_sigma = obj_arg.get('ot_correlation_scale', _REF_N) * s
+    ot_chunk_size = obj_arg.get('ot_chunk_size', 2000)
+
+    if target_distribution == 'gmm':
+        gmm_params = obj_arg.get('gmm_params', None)
+        if gmm_params is None:
+            ref_objects = obj_arg.get('reference_objects', None)
+            if ref_objects is None:
+                raise ValueError(
+                    "Either 'reference_objects' or 'gmm_params' must be "
+                    "provided for target_distribution='gmm'"
+                )
+            n_clusters = obj_arg.get('n_clusters', 'auto')
+            gmm_params = fit_gmm_from_objects(ref_objects, n_clusters=n_clusters)
+
+        means = gmm_params['means']
+        covs = gmm_params['covariances']
+        weights = gmm_params['weights']
+        vacuum_reim = gmm_params['vacuum_reim']
+
+        # Exclude clusters near the origin (vacuum / unilluminated)
+        origin_mask_radius = obj_arg.get('origin_mask_radius', 0.4)
+        cluster_radii = np.sqrt(means[:, 0]**2 + means[:, 1]**2)
+        material_mask = cluster_radii >= origin_mask_radius
+        if material_mask.sum() == 0:
+            best = np.argmax(cluster_radii)
+            material_mask[best] = True
+            print(f"WARNING [create_dead_leaves_reim_ot]: all {len(cluster_radii)} "
+                  f"cluster centres fall within origin_mask_radius={origin_mask_radius:.3f}. "
+                  f"Keeping only the furthest cluster (k={best}, r={cluster_radii[best]:.3f}).")
+        means = means[material_mask]
+        covs = covs[material_mask]
+        weights = weights[material_mask]
+        weights = weights / (weights.sum() + 1e-12)
+
+        real_map, imag_map, n_leaves = generate_dead_leaves_reim_ot(
+            height=height, width=width,
+            target_distribution='gmm',
+            means=means, covariances=covs, weights=weights, vacuum_reim=vacuum_reim,
+            dim_min_px=min_r, dim_max_px=max_r,
+            dimension_power_law_exponent=power,
+            max_iterations=max_iter,
+            coverage_threshold=cov_thresh,
+            source_field_sigma=source_field_sigma,
+            blur_sigma=blur,
+            clip_range=clip_range,
+            antialias=antialias,
+            ot_chunk_size=ot_chunk_size,
+        )
+    else:
+        re_range = obj_arg.get('re_range', (-1.2, 1.2))
+        im_range = obj_arg.get('im_range', (-1.2, 1.2))
+        material_hist = obj_arg.get('histogram', None)
+        if material_hist is None:
+            ref_objects = obj_arg.get('reference_objects', None)
+            if ref_objects is None:
+                raise ValueError(
+                    "Either 'reference_objects' or 'histogram' must be "
+                    "provided for target_distribution='histogram'"
+                )
+            material_hist, _, _ = create_density_histogram_reim(
+                ref_objects, re_range=re_range, im_range=im_range
+            )
+        vacuum_reim = obj_arg.get('vacuum_reim', (0.8, 0.0))
+
+        real_map, imag_map, n_leaves = generate_dead_leaves_reim_ot(
+            height=height, width=width,
+            target_distribution='histogram',
+            material_hist=material_hist,
+            re_range=re_range, im_range=im_range,
+            vacuum_re=vacuum_reim[0], vacuum_im=vacuum_reim[1],
+            dim_min_px=min_r, dim_max_px=max_r,
+            dimension_power_law_exponent=power,
+            max_iterations=max_iter,
+            coverage_threshold=cov_thresh,
+            source_field_sigma=source_field_sigma,
+            blur_sigma=blur,
+            clip_range=clip_range,
+            antialias=antialias,
+            ot_chunk_size=ot_chunk_size,
+        )
+
+    obj = (real_map + 1j * imag_map).astype(np.complex64)
+    print(f"create_dead_leaves_reim_ot: generated {img_shape} object, "
+          f"target={target_distribution}, {n_leaves} leaves")
     return obj
 
 
