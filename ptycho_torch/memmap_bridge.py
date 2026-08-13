@@ -1,33 +1,10 @@
-"""
-Memory-mapped dataset bridge delegating to RawDataTorch.
+"""Historical RAM materializer retained until the Phase 2 loader convergence."""
 
-Phase C.C3 Goal: Connect NPZ files with memory-mapped loading to RawDataTorch
-adapter while preserving grouping semantics and cache reuse.
-
-Design Principles:
-1. Delegation over reimplementation (reuse RawDataTorch grouping)
-2. Config bridge integration (dataclass configs, update_legacy_dict)
-3. Torch-optional (graceful fallback to NumPy)
-4. Minimal surface area (simple adapter, not full PyTorch Dataset)
-
-Source Contracts:
-- specs/data_contracts.md:7-70 (NPZ schema, grouped-data dict)
-- specs/ptychodus_api_spec.md:164-215 (data ingestion requirements)
-- plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T082035Z/memmap_bridge_analysis.md
-
-Evidence Traceability:
-- Phase C.C3 requirement per plans/active/INTEGRATE-PYTORCH-001/phase_c_data_pipeline.md:46
-- Gap #1 (duplicate grouping) addressed via RawDataTorch delegation
-- Gap #2 (config bridge bypass) fixed via constructor config parameter
-- Gap #3 (output format mismatch) resolved by returning grouped-data dict
-
-Author: Ralph (engineer loop #37)
-Date: 2025-10-17
-"""
-
-import numpy as np
+from dataclasses import replace
 from pathlib import Path
 from typing import Dict, Optional, Union
+
+import numpy as np
 
 # PyTorch is now a mandatory dependency (Phase F3.1/F3.2)
 # This module does not directly use torch but downstream consumers require it
@@ -42,16 +19,12 @@ except ImportError as e:
 
 class MemmapDatasetBridge:
     """
-    Lightweight bridge connecting memory-mapped NPZ files to RawDataTorch.
-
-    Delegates grouping logic to RawDataTorch (which delegates to TensorFlow RawData),
-    ensuring parity with existing TensorFlow data pipeline while supporting large
-    datasets through memory-mapped array access.
+    Compatibility bridge that materializes an NPZ through RawDataTorch in RAM.
 
     Args:
         npz_path: Path to NPZ file containing ptychography dataset
         config: TrainingConfig or InferenceConfig instance (triggers config bridge)
-        memmap_dir: Directory for memory-mapped cache (currently unused, preserved for API)
+        memmap_dir: Unused compatibility argument
 
     Example:
         >>> from ptycho.config.config import TrainingConfig, ModelConfig
@@ -69,8 +42,7 @@ class MemmapDatasetBridge:
     Contract:
         - Input NPZ must conform to specs/data_contracts.md:7-70
         - Output grouped dict matches RawData.generate_grouped_data() schema
-        - Config bridge called automatically (satisfies CONFIG-001 finding)
-        - Cache reuse inherited from TensorFlow RawData (.groups_cache.npz)
+        - This class does not provide memory mapping or cache ownership
     """
 
     def __init__(
@@ -82,105 +54,41 @@ class MemmapDatasetBridge:
         """
         Initialize memory-mapped dataset bridge with RawDataTorch delegation.
 
-        Loads NPZ data (with optional memory mapping), instantiates RawDataTorch,
-        and ensures params.cfg synchronization via config bridge.
+        Load the NPZ into a RawDataTorch compatibility adapter.
 
         Args:
             npz_path: Path to NPZ file
             config: TrainingConfig or InferenceConfig (used for config bridge)
-            memmap_dir: Cache directory hint (preserved for API compatibility,
-                       actual cache managed by TensorFlow RawData)
+            memmap_dir: Unused compatibility argument
         """
+        from ptycho.acquisition import decode_acquisition
         from ptycho_torch.raw_data_bridge import RawDataTorch
 
         self.npz_path = Path(npz_path)
         self.config = config
         self.memmap_dir = memmap_dir
 
-        # Load NPZ data with memory mapping for large datasets
-        # (mmap_mode='r' provides read-only memory-mapped access)
-        self._npz_data = np.load(self.npz_path, mmap_mode='r')
-
-        # Extract required arrays (per specs/data_contracts.md:13-21)
-        # Note: Using .astype() forces materialization for small datasets,
-        # but for large datasets the memory-mapped arrays remain lazy
-        self.xcoords = self._get_array('xcoords', np.float64)
-        self.ycoords = self._get_array('ycoords', np.float64)
-
-        # DATA-001 compliance: accept both 'diffraction' and 'diff3d' keys
-        # Spec: specs/data_contracts.md §12 - 'diffraction' is the H5 /raw_data dataset
-        # name; docs/specs/spec-ptycho-core.md - 'diff3d' is the standalone-NPZ canonical key
-        # Pattern: scripts/run_tike_reconstruction.py:165-169, generate_patches_tool.py:66-68
-        # Historical context: Phase E training blocked by KeyError (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001)
-        if 'diffraction' in self._npz_data:
-            self.diff3d = self._get_array('diffraction', np.float32)
-        elif 'diff3d' in self._npz_data:
-            self.diff3d = self._get_array('diff3d', np.float32)
-        else:
-            raise KeyError(
-                f"Required diffraction data missing from NPZ file {self.npz_path}. "
-                f"Need either 'diffraction' (canonical, per DATA-001) or 'diff3d' (legacy). "
-                f"Available keys: {list(self._npz_data.keys())}. "
-                f"See specs/data_contracts.md:207 for schema."
-            )
-
-        self.probeGuess = self._get_array('probeGuess', np.complex64)
-        self.objectGuess = self._get_array('objectGuess', np.complex64)
-        self.scan_index = self._get_array('scan_index', np.int32, optional=True)
-
-        # Create scan_index if missing (per data_contracts.md:21)
-        if self.scan_index is None:
-            self.scan_index = np.arange(len(self.xcoords), dtype=np.int32)
-
-        # Instantiate RawDataTorch adapter (delegates to TensorFlow RawData)
-        # Config passed automatically triggers update_legacy_dict (CONFIG-001)
-        self.raw_data_torch = RawDataTorch(
-            xcoords=self.xcoords,
-            ycoords=self.ycoords,
-            diff3d=self.diff3d,
-            probeGuess=self.probeGuess,
-            scan_index=self.scan_index,
-            objectGuess=self.objectGuess,
-            config=config  # Triggers config bridge (ptycho_torch/raw_data_bridge.py:109)
+        record = decode_acquisition(self.npz_path)
+        record = replace(
+            record,
+            xcoords=np.asarray(record.xcoords, dtype=np.float64),
+            ycoords=np.asarray(record.ycoords, dtype=np.float64),
+            diff3d=np.asarray(record.diff3d, dtype=np.float32),
+            probeGuess=np.asarray(record.probeGuess, dtype=np.complex64),
+            scan_index=np.asarray(record.scan_index, dtype=np.int32),
+            objectGuess=(
+                None
+                if record.objectGuess is None
+                else np.asarray(record.objectGuess, dtype=np.complex64)
+            ),
         )
-
-    def _get_array(
-        self,
-        key: str,
-        dtype: np.dtype,
-        optional: bool = False
-    ) -> Optional[np.ndarray]:
-        """
-        Extract and cast array from NPZ file.
-
-        Args:
-            key: NPZ key name
-            dtype: Target NumPy dtype
-            optional: If True, return None for missing keys instead of raising
-
-        Returns:
-            NumPy array cast to specified dtype, or None if optional and missing
-
-        Raises:
-            KeyError: If required key missing from NPZ
-        """
-        if key not in self._npz_data:
-            if optional:
-                return None
-            raise KeyError(
-                f"Required key '{key}' missing from NPZ file {self.npz_path}. "
-                f"Available keys: {list(self._npz_data.keys())}. "
-                f"See specs/data_contracts.md:13-21 for required schema."
-            )
-
-        arr = self._npz_data[key]
-
-        # Cast to target dtype (forces materialization for memory-mapped arrays)
-        # For large arrays, consider lazy casting or chunked processing if memory becomes an issue
-        if arr.dtype != dtype:
-            arr = arr.astype(dtype)
-
-        return arr
+        self.xcoords = record.xcoords
+        self.ycoords = record.ycoords
+        self.diff3d = record.diff3d
+        self.probeGuess = record.probeGuess
+        self.objectGuess = record.objectGuess
+        self.scan_index = record.scan_index
+        self.raw_data_torch = RawDataTorch.from_acquisition(record, config=config)
 
     def get_grouped_data(
         self,
@@ -193,9 +101,7 @@ class MemmapDatasetBridge:
         """
         Generate grouped data by delegating to RawDataTorch.
 
-        This is the primary method for obtaining grouped data compatible with
-        PtychoDataContainerTorch. All grouping logic is delegated to RawDataTorch,
-        which further delegates to TensorFlow RawData.generate_grouped_data().
+        Group through the RawDataTorch compatibility adapter.
 
         Args:
             N: Crop size for diffraction patterns (e.g., 64, 128)
@@ -222,7 +128,6 @@ class MemmapDatasetBridge:
         Contract:
             - Output dict matches TensorFlow RawData.generate_grouped_data() exactly
             - Delegation ensures grouping parity (no duplicate logic)
-            - Cache reuse inherited from underlying RawData (see .groups_cache.npz)
         """
         # Delegate to RawDataTorch adapter (which delegates to TensorFlow RawData)
         # This satisfies Phase C.C3 requirement: "delegate grouping to RawDataTorch"

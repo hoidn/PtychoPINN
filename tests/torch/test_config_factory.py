@@ -1859,6 +1859,48 @@ class TestProbeSizeInference:
         # GREEN phase:
         assert N == 64  # Mock fixture has 64x64 probe
 
+    @pytest.mark.parametrize(
+        "probe_shape",
+        [(64, 64), (3, 64, 64), (64, 64, 1)],
+        ids=["two-dimensional", "mode-first", "legacy-singleton"],
+    )
+    def test_probe_size_consumers_use_canonical_header(self, tmp_path, probe_shape):
+        import numpy as np
+        from ptycho_torch.config_resolution import observe_probe_size
+
+        path = tmp_path / "probe_layout.npz"
+        np.savez(
+            path,
+            diffraction=np.ones((3, 64, 64), dtype=np.float32),
+            probeGuess=np.ones(probe_shape, dtype=np.complex64),
+            xcoords=np.arange(3, dtype=np.float64),
+            ycoords=np.arange(3, dtype=np.float64),
+        )
+
+        observation = observe_probe_size(path)
+
+        assert observation.value == 64
+        assert observation.notices == ()
+        assert infer_probe_size(path) == 64
+
+    def test_probe_size_accepts_grouped_dataset_contract(self, tmp_path):
+        """Grouped training NPZs have probe identity but no raw scan vectors."""
+        import numpy as np
+        from ptycho_torch.config_resolution import observe_probe_size
+
+        path = tmp_path / "grouped.npz"
+        np.savez(
+            path,
+            diffraction=np.ones((3, 128, 128, 1), dtype=np.float32),
+            coords_nominal=np.zeros((3, 1, 2, 1), dtype=np.float32),
+            probeGuess=np.ones((128, 128), dtype=np.complex64),
+        )
+
+        observation = observe_probe_size(path)
+
+        assert observation.value == 128
+        assert observation.notices == ()
+
     def test_infer_probe_size_missing_file_fallback(self):
         """Helper returns fallback N=64 for missing NPZ file."""
         N = infer_probe_size(Path("/nonexistent/data.npz"))

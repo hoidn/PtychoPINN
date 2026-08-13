@@ -99,7 +99,8 @@ Expected NPZ keys and dtypes:
 - `xcoords (M,) float64`, `ycoords (M,) float64` — pixel coordinates on the object grid
 - `diff3d (M, N, N) float32` — amplitude (sqrt of counts), not intensity
 - `probeGuess (N, N) complex64` — probe in object pixel grid
-- Optional: `scan_index (M,) int64` (defaults to zeros), `objectGuess (H, W) complex64`,
+- Optional: `scan_index (M,) int64` (defaults to zeros), `object_index (M,) int64`
+  (independent-object bank membership, defaults to zeros), `objectGuess (H, W) complex64`,
   `xcoords_start (M,)`, `ycoords_start (M,)` (default to `xcoords`, `ycoords`)
 
 Primary Consumers:
@@ -115,6 +116,8 @@ import os
 import logging
 from pathlib import Path
 from ptycho import params
+from ptycho import grouping
+from ptycho.acquisition import canonicalize_identity_index
 from ptycho.autotest.debug import debug
 from ptycho import diffsim as datasets
 from ptycho import tf_helper as hh
@@ -125,16 +128,6 @@ key_coords_offsets = 'coords_start_offsets'
 key_coords_relative = 'coords_start_relative'
 
 
-def _resolve_rng(
-    seed: Optional[int],
-    rng: Optional[np.random.Generator],
-) -> np.random.Generator:
-    """Return one caller-owned or locally seeded NumPy generator."""
-    if seed is not None and rng is not None:
-        raise ValueError("seed and rng are mutually exclusive")
-    return rng if rng is not None else np.random.default_rng(seed)
-
-
 class RawData:
     """Core data container for raw ptychographic scan data (NPZ-backed).
 
@@ -142,7 +135,11 @@ class RawData:
     """
     #@debug
     def __init__(self, xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess,
-             scan_index, objectGuess = None, Y = None, norm_Y_I = None, metadata = None):
+             scan_index, objectGuess = None, Y = None, norm_Y_I = None, metadata = None,
+             object_index = None, probe_simulated = None,
+             object_amplitude_scale = None, label = None,
+             scale_contract_version = None, measurement_domain = None,
+             experiment_id = None):
         # Sanity checks
         self._check_data_validity(xcoords, ycoords, xcoords_start, ycoords_start, diff3d,
                     probeGuess, scan_index)
@@ -159,9 +156,17 @@ class RawData:
         if probeGuess is not None:
             assert len(probeGuess.shape) == 2, f"Expected probeGuess to be 2D, got shape {probeGuess.shape}"
             print(f"probeGuess shape: {probeGuess.shape}")
-        if scan_index is not None:
-            assert len(scan_index.shape) == 1, f"Expected scan_index to be 1D, got shape {scan_index.shape}"
-            print(f"scan_index shape: {scan_index.shape}")
+        scan_index = canonicalize_identity_index(
+            scan_index,
+            name="scan_index",
+            length=len(xcoords),
+        )
+        object_index = canonicalize_identity_index(
+            object_index,
+            name="object_index",
+            length=len(xcoords),
+        )
+        print(f"scan_index shape: {scan_index.shape}")
         if objectGuess is not None:
             print(f"objectGuess shape: {objectGuess.shape}")
             assert len(objectGuess.shape) == 2
@@ -179,11 +184,18 @@ class RawData:
         self.diff3d = diff3d
         self.probeGuess = probeGuess
         self.scan_index = scan_index
+        self.object_index = object_index
         self.objectGuess = objectGuess
         # TODO validity checks
         self.Y = Y
         self.norm_Y_I = norm_Y_I
         self.metadata = metadata  # Store metadata from NPZ file
+        self.probe_simulated = probe_simulated
+        self.object_amplitude_scale = object_amplitude_scale
+        self.label = label
+        self.scale_contract_version = scale_contract_version
+        self.measurement_domain = measurement_domain
+        self.experiment_id = experiment_id
         self.sample_indices = None
         self.subsample_seed = None
 
@@ -288,15 +300,21 @@ class RawData:
         Args:
             file_path (str): Path to the file where the data will be saved.
         """
-        np.savez(file_path,
-                 xcoords=self.xcoords,
-                 ycoords=self.ycoords,
-                 xcoords_start=self.xcoords_start,
-                 ycoords_start=self.ycoords_start,
-                 diff3d=self.diff3d,
-                 probeGuess=self.probeGuess,
-                 objectGuess=self.objectGuess,
-                 scan_index=self.scan_index)
+        arrays = {
+            "xcoords": self.xcoords,
+            "ycoords": self.ycoords,
+            "xcoords_start": self.xcoords_start,
+            "ycoords_start": self.ycoords_start,
+            "diff3d": self.diff3d,
+            "probeGuess": self.probeGuess,
+            "scan_index": self.scan_index,
+            "object_index": self.object_index,
+        }
+        if self.objectGuess is not None:
+            arrays["objectGuess"] = self.objectGuess
+        if self.Y is not None:
+            arrays["Y"] = self.Y
+        np.savez(file_path, **arrays)
 
     @staticmethod
     #@debug
@@ -312,10 +330,11 @@ class RawData:
         Returns:
             RawData: An instance of the RawData class.
         """
+        from ptycho.acquisition import decode_acquisition
         from ptycho.metadata import MetadataManager
-        
-        # Load training data with metadata support
-        data_dict, metadata = MetadataManager.load_with_metadata(train_data_file_path)
+
+        record = decode_acquisition(train_data_file_path)
+        metadata = record.metadata
         
         # Validate configuration if requested
         if validate_config and metadata and current_config:
@@ -324,21 +343,24 @@ class RawData:
                 import logging
                 logging.warning(f"Parameter mismatch: {warning}")
         
-        # Handle legacy files that might not have all fields
-        xcoords_start = data_dict.get('xcoords_start', data_dict['xcoords'])
-        ycoords_start = data_dict.get('ycoords_start', data_dict['ycoords'])
-        scan_index = data_dict.get('scan_index', np.zeros(len(data_dict['xcoords']), dtype=int))
-        
         train_raw_data = RawData(
-            xcoords=data_dict['xcoords'],
-            ycoords=data_dict['ycoords'],
-            xcoords_start=xcoords_start,
-            ycoords_start=ycoords_start,
-            diff3d=data_dict['diff3d'],
-            probeGuess=data_dict['probeGuess'],
-            objectGuess=data_dict.get('objectGuess'),
-            scan_index=scan_index,
-            metadata=metadata  # Pass metadata to RawData instance
+            xcoords=record.xcoords,
+            ycoords=record.ycoords,
+            xcoords_start=record.xcoords_start,
+            ycoords_start=record.ycoords_start,
+            diff3d=record.diff3d,
+            probeGuess=record.probeGuess,
+            objectGuess=record.objectGuess,
+            scan_index=record.scan_index,
+            Y=record.Y,
+            metadata=metadata,
+            object_index=record.object_index,
+            probe_simulated=record.probe_simulated,
+            object_amplitude_scale=record.object_amplitude_scale,
+            label=record.label,
+            scale_contract_version=record.scale_contract_version,
+            measurement_domain=record.measurement_domain,
+            experiment_id=record.experiment_id,
         )
         
         # Log if metadata was loaded
@@ -450,97 +472,43 @@ class RawData:
 
         See: docs/debugging/TROUBLESHOOTING.md#shape-mismatch-errors
         """
-        if seed is not None and rng is not None:
-            raise ValueError("seed and rng are mutually exclusive")
-
-        # Use explicit gridsize parameter if provided, otherwise fallback to params
         if gridsize is None:
             gridsize = params.get('gridsize', 1)
-        # gridsize now comes from explicit parameter, maintaining backward compatibility
-        
-        # Unified efficient logic for all gridsize values
-        C = gridsize ** 2  # Number of coordinates per solution region
-        n_points = len(self.xcoords)
-
-        # Determine effective pool size K for oversampling
-        effective_K = neighbor_pool_size if neighbor_pool_size is not None else K
-
-        # Debug logging for method entry
-        logging.info(f"[OVERSAMPLING DEBUG] generate_grouped_data called with: nsamples={nsamples}, n_points={n_points}, C={C}, K={K}")
-        logging.info(f"[OVERSAMPLING DEBUG] Parameters: gridsize={gridsize}, N={N}, sequential_sampling={sequential_sampling}")
-        logging.info(f"[OVERSAMPLING DEBUG] Oversampling flags: enable_oversampling={enable_oversampling}, neighbor_pool_size={neighbor_pool_size}, effective_K={effective_K}")
-
-        # Determine if oversampling is needed
-        needs_oversampling = (nsamples > n_points) and (C > 1)
-        logging.info(f"[OVERSAMPLING DEBUG] Oversampling check: nsamples > n_points = {nsamples} > {n_points} = {nsamples > n_points}")
-        logging.info(f"[OVERSAMPLING DEBUG] Oversampling check: C > 1 = {C} > 1 = {C > 1}")
-        logging.info(f"[OVERSAMPLING DEBUG] needs_oversampling = {needs_oversampling}")
-
-        # OVERSAMPLING-001 Guard: Require explicit opt-in and enforce preconditions
-        if needs_oversampling:
-            if not enable_oversampling:
-                logging.error(f"[OVERSAMPLING DEBUG] Oversampling disabled (enable_oversampling={enable_oversampling})")
-                raise ValueError(
-                    f"Requesting {nsamples} groups but only {n_points} points available (gridsize={gridsize}, C={C}). "
-                    f"K choose C oversampling is required but not enabled. "
-                    f"Set enable_oversampling=True and ensure neighbor_pool_size >= {C} to proceed. "
-                    f"OVERSAMPLING-001 requires explicit opt-in for this sampling mode."
-                )
-            if effective_K < C:
-                logging.error(f"[OVERSAMPLING DEBUG] neighbor_pool_size ({effective_K}) < C ({C})")
-                raise ValueError(
-                    f"K choose C oversampling requires neighbor_pool_size >= C (gridsize²). "
-                    f"Got neighbor_pool_size={effective_K}, but C={C}. "
-                    f"Increase neighbor_pool_size to at least {C}. "
-                    f"OVERSAMPLING-001 requires neighbor_pool_size >= C."
-                )
-            logging.info(f"[OVERSAMPLING DEBUG] Oversampling guards passed: enable_oversampling=True, effective_K={effective_K} >= C={C}")
-        
-        # Determine sampling strategy
-        if sequential_sampling:
-            # Use sequential indices (first nsamples points)
-            seed_indices = np.arange(min(nsamples, len(self.xcoords)))
-            print('DEBUG:', f'nsamples: {nsamples}, gridsize: {gridsize} (using sequential sampling - first {len(seed_indices)} points)')
-            logging.info(f"Using sequential sampling strategy for gridsize={gridsize}")
-        else:
-            # Use random sampling (default)
-            seed_indices = None
-            if needs_oversampling:
-                print('DEBUG:', f'nsamples: {nsamples}, gridsize: {gridsize} (using K choose C oversampling strategy)')
-                logging.info(f"Using K choose C oversampling strategy for gridsize={gridsize}")
-            else:
-                print('DEBUG:', f'nsamples: {nsamples}, gridsize: {gridsize} (using standard random sample-then-group strategy)')
-                logging.info(f"Using standard random sampling strategy for gridsize={gridsize}")
-        
-        # Automatically route to appropriate implementation
-        if needs_oversampling:
-            # Use K choose C oversampling when requesting more groups than available points
-            logging.info(f"[OVERSAMPLING DEBUG] Taking oversampling branch: K choose C oversampling")
-            logging.info(f"Automatically using K choose C oversampling: {nsamples} groups requested but only {n_points} points available (K={effective_K}, C={C})")
-            selected_groups = self._generate_groups_with_oversampling(
-                nsamples=nsamples,
-                K=effective_K,
-                C=C,
+        C = gridsize ** 2
+        try:
+            plan = grouping.plan_sample_then_group(
+                self.xcoords,
+                self.ycoords,
+                object_index=self.object_index,
+                experiment_id=self.experiment_id,
+                count=nsamples,
+                neighbor_count=K,
+                group_size=C,
                 seed=seed,
-                seed_indices=seed_indices,
                 rng=rng,
+                sequential=sequential_sampling,
+                enable_oversampling=enable_oversampling,
+                neighbor_pool_size=neighbor_pool_size,
+                **(
+                    {"source_indices": self.sample_indices}
+                    if self.sample_indices is not None
+                    else {}
+                ),
             )
-        else:
-            # Use the standard method for non-oversampling cases
-            logging.info(f"[OVERSAMPLING DEBUG] Taking standard branch: sample-then-group")
-            selected_groups = self._generate_groups_efficiently(
-                nsamples=nsamples, 
-                K=K, 
-                C=C, 
-                seed=seed,
-                seed_indices=seed_indices,
-                rng=rng,
-            )
-        
-        logging.info(f"[OVERSAMPLING DEBUG] Generated {len(selected_groups)} groups in total")
-        logging.info(f"Generated {len(selected_groups)} groups")
-        
-        # Generate the final dataset from the selected groups
+        except ValueError as exc:
+            message = str(exc)
+            if (
+                "K choose C oversampling" in message
+                and "OVERSAMPLING-001" not in message
+            ):
+                raise ValueError(f"{message} [OVERSAMPLING-001]") from exc
+            raise
+        dtype = (
+            np.int64
+            if C == 1 or plan.policy == "raw_k_choose_c_oversampling"
+            else np.int32
+        )
+        selected_groups = np.array(plan.neighbor_indices, dtype=dtype, copy=True)
         return self._generate_dataset_from_groups(selected_groups, N, K, gridsize)
 
     def _generate_dataset_from_groups(self, selected_groups: np.ndarray, N: int, K: int, gridsize: int) -> dict:
@@ -625,265 +593,53 @@ class RawData:
 
 
     def _generate_groups_efficiently(self, nsamples: int, K: int, C: int, seed: Optional[int] = None, seed_indices: Optional[np.ndarray] = None, *, rng: Optional[np.random.Generator] = None) -> np.ndarray:
-        """
-        Efficiently generate coordinate groups using a "sample-then-group" strategy.
-        
-        This method first samples seed points from the dataset (or uses provided seed_indices),
-        then finds neighbors only for those seed points, drastically reducing computation and 
-        memory usage compared to the "group-then-sample" approach.
-        
-        Args:
-            nsamples: Number of groups to generate
-            K: Number of nearest neighbors to consider (including self)
-            C: Number of coordinates per group (typically gridsize^2)
-            seed: Random seed for reproducibility (optional)
-            seed_indices: Pre-selected seed indices for sequential sampling (optional)
-            rng: Caller-owned random generator. Mutually exclusive with seed.
-            
-        Returns:
-            np.ndarray: Array of group indices with shape (nsamples, C)
-            
-        Raises:
-            ValueError: If K < C or if dataset is too small
-        """
-        try:
-            local_rng = _resolve_rng(seed, rng)
-            if seed_indices is not None:
-                # Sequential anchors historically ignore the caller seed while
-                # retaining deterministic neighbor selection.
-                local_rng = np.random.default_rng(0)
-            
-            n_points = len(self.xcoords)
-            logging.info(f"[OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples={nsamples}, K={K}, C={C}")
-            logging.info(f"Generating {nsamples} groups from {n_points} points (K={K}, C={C})")
-            
-            # Validate inputs
-            if n_points < C:
-                raise ValueError(f"Dataset has only {n_points} points but {C} coordinates per group requested.")
-            
-            if K < C:
-                raise ValueError(f"K={K} must be >= C={C} (need at least C neighbors to form a group)")
-            
-            # Step 1: Use provided seed indices or sample them
-            if seed_indices is not None:
-                # Sequential sampling: use provided indices
-                n_samples_actual = min(len(seed_indices), n_points)
-                seed_indices = seed_indices[:n_samples_actual]
-                logging.info(f"[OVERSAMPLING DEBUG] Using sequential sampling with {n_samples_actual} seed indices")
-                logging.info(f"Using provided {n_samples_actual} sequential seed indices")
-            else:
-                # Random sampling: handle edge case where more samples requested than available points
-                if nsamples > n_points:
-                    logging.info(f"[OVERSAMPLING DEBUG] Capping groups: requested {nsamples} but only {n_points} points available")
-                    logging.warning(f"Requested {nsamples} groups but only {n_points} points available. Using all points as seeds.")
-                    n_samples_actual = n_points
-                else:
-                    n_samples_actual = nsamples
-                    logging.info(f"[OVERSAMPLING DEBUG] Standard case: using {n_samples_actual} groups from {n_points} points")
-                
-                # Sample seed points randomly
-                all_indices = np.arange(n_points)
-                if n_samples_actual < n_points:
-                    seed_indices = local_rng.choice(all_indices, size=n_samples_actual, replace=False)
-                    logging.info(f"[OVERSAMPLING DEBUG] Randomly sampled {n_samples_actual} seed points")
-                    logging.info(f"Sampled {n_samples_actual} seed points from {n_points} total points")
-                else:
-                    seed_indices = all_indices
-                    logging.info(f"[OVERSAMPLING DEBUG] Using all {n_points} points as seeds (no sampling needed)")
-                    logging.info(f"Using all {n_points} points as seeds")
-            
-            # Special case for C=1 (gridsize=1): use seed indices directly without neighbor search
-            if C == 1:
-                # For gridsize=1, we want the seed points themselves, not their neighbors
-                groups = seed_indices.reshape(-1, 1)
-                logging.info(f"Using seed indices directly for C=1 (gridsize=1) - no neighbor search needed")
-            else:
-                # Step 2: Build KDTree for efficient neighbor search
-                coords = np.column_stack([self.xcoords, self.ycoords])
-                tree = cKDTree(coords)
-                
-                # Step 3: Find K nearest neighbors for each seed point
-                seed_coords = coords[seed_indices]
-                # Query K+1 neighbors (including self), then remove self
-                distances, neighbor_indices = tree.query(seed_coords, k=min(K+1, n_points))
-                
-                # Step 4: Generate groups by selecting C coordinates from each seed's neighbors
-                groups = np.zeros((n_samples_actual, C), dtype=np.int32)
-                # For C > 1, select from neighbors as before
-                for i in range(n_samples_actual):
-                    # Get this seed's neighbors (excluding self if K+1 was queried)
-                    neighbors = neighbor_indices[i]
-                    if len(neighbors) > K:
-                        # Remove self (first element) if we queried K+1
-                        neighbors = neighbors[1:K+1]
-                    else:
-                        # Use all available neighbors if dataset is small
-                        neighbors = neighbors[:K]
-                    
-                    # Ensure we have enough neighbors
-                    if len(neighbors) < C:
-                        # If not enough neighbors, include the seed point itself
-                        available = np.concatenate([[seed_indices[i]], neighbors])
-                    else:
-                        available = neighbors
-                    
-                    # Randomly select C indices from available neighbors
-                    if len(available) >= C:
-                        selected = local_rng.choice(available, size=C, replace=False)
-                    else:
-                        # If still not enough, allow replacement (edge case for very small datasets)
-                        selected = local_rng.choice(available, size=C, replace=True)
-                    
-                    groups[i] = selected
-            
-            logging.info(f"[OVERSAMPLING DEBUG] _generate_groups_efficiently completed: generated {n_samples_actual} groups")
-            logging.info(f"Successfully generated {n_samples_actual} groups with shape {groups.shape}")
-            return groups
-            
-        except Exception as e:
-            logging.error(f"Failed to generate groups: {e}")
-            raise
+        """Compatibility adapter for the canonical sample-then-group planner."""
+        count = min(nsamples, len(self.xcoords))
+        sequential = seed_indices is not None
+        if sequential:
+            count = min(len(seed_indices), len(self.xcoords))
+        plan = grouping.plan_sample_then_group(
+            self.xcoords,
+            self.ycoords,
+            object_index=self.object_index,
+            experiment_id=self.experiment_id,
+            count=count,
+            neighbor_count=K,
+            group_size=C,
+            seed=seed,
+            rng=rng,
+            sequential=sequential,
+            **(
+                {"source_indices": self.sample_indices}
+                if self.sample_indices is not None
+                else {}
+            ),
+        )
+        dtype = np.int64 if C == 1 else np.int32
+        return np.array(plan.neighbor_indices, dtype=dtype, copy=True)
 
     def _generate_groups_with_oversampling(self, nsamples, K, C, seed=None, seed_indices=None, *, rng: Optional[np.random.Generator] = None):
-        """
-        Generate groups using K choose C combinations for data augmentation.
-        
-        This method enables creating more groups than seed points by generating
-        multiple combinations from each seed's K nearest neighbors.
-        
-        Args:
-            nsamples: Number of groups to generate (can be > number of seed points)
-            K: Number of nearest neighbors to consider
-            C: Number of coordinates per group (gridsize²)
-            seed: Random seed for reproducibility
-            seed_indices: Optional pre-selected seed indices
-            rng: Caller-owned random generator. Mutually exclusive with seed.
-            
-        Returns:
-            np.ndarray: Array of shape (nsamples, C) containing selected indices
-        """
-        from itertools import combinations
-        
-        try:
-            local_rng = _resolve_rng(seed, rng)
-            
-            n_points = len(self.xcoords)
-            logging.info(f"[OVERSAMPLING DEBUG] _generate_groups_with_oversampling called with: nsamples={nsamples}, K={K}, C={C}")
-            logging.info(f"Generating {nsamples} groups with K choose C oversampling from {n_points} points (K={K}, C={C})")
-            
-            # Validate inputs
-            if n_points < C:
-                raise ValueError(f"Dataset has only {n_points} points but {C} coordinates per group requested.")
-            
-            if K < C:
-                raise ValueError(f"K={K} must be >= C={C} (need at least C neighbors to form a group)")
-            
-            # Calculate maximum combinations per seed
-            max_combos_per_seed = 1 if C == 1 else len(list(combinations(range(K), C)))
-            logging.info(f"[OVERSAMPLING DEBUG] Max combinations per seed: {max_combos_per_seed} (C={C}, K={K})")
-            logging.info(f"Each seed point can generate up to {max_combos_per_seed} combinations")
-            
-            # Step 1: Determine how many seed points we need
-            min_seeds_needed = max(1, (nsamples + max_combos_per_seed - 1) // max_combos_per_seed)
-            n_seeds = min(min_seeds_needed * 2, n_points)  # Use 2x seeds for diversity
-            logging.info(f"[OVERSAMPLING DEBUG] Calculated seed requirements: min_seeds_needed={min_seeds_needed}, using n_seeds={n_seeds}")
-            
-            # Step 2: Select seed points
-            if seed_indices is not None and len(seed_indices) >= min_seeds_needed:
-                seed_indices = seed_indices[:n_seeds]
-                logging.info(f"[OVERSAMPLING DEBUG] Using provided seed_indices (first {n_seeds})")
-            else:
-                all_indices = np.arange(n_points)
-                if n_seeds < n_points:
-                    seed_indices = local_rng.choice(all_indices, size=n_seeds, replace=False)
-                    logging.info(f"[OVERSAMPLING DEBUG] Randomly selected {n_seeds} seed points from {n_points}")
-                else:
-                    seed_indices = all_indices
-                    logging.info(f"[OVERSAMPLING DEBUG] Using all {n_points} points as seeds")
-            
-            logging.info(f"Using {len(seed_indices)} seed points to generate {nsamples} groups")
-            
-            # Special case for C=1 (gridsize=1)
-            if C == 1:
-                # For C=1, just sample with replacement if needed
-                if nsamples <= len(seed_indices):
-                    groups = local_rng.choice(seed_indices, size=nsamples, replace=False).reshape(-1, 1)
-                else:
-                    groups = local_rng.choice(seed_indices, size=nsamples, replace=True).reshape(-1, 1)
-                logging.info(f"Generated {nsamples} groups for C=1 case")
-                return groups
-            
-            # Step 3: Build KDTree and find neighbors
-            coords = np.column_stack([self.xcoords, self.ycoords])
-            tree = cKDTree(coords)
-            
-            # Step 4: Generate combination pool
-            combination_pool = []
-            seed_mapping = []  # Track which seed each combination came from
-            
-            for seed_idx in seed_indices:
-                # Find K nearest neighbors (including self)
-                seed_coord = coords[seed_idx:seed_idx+1]
-                distances, neighbor_indices = tree.query(seed_coord, k=min(K+1, n_points))
-                
-                # Get neighbors (excluding self)
-                neighbors = neighbor_indices[0]
-                if len(neighbors) > K:
-                    neighbors = neighbors[1:K+1]  # Exclude self
-                else:
-                    neighbors = neighbors[1:] if len(neighbors) > 1 else neighbors  # Handle edge case
-                
-                # Ensure we have enough neighbors
-                if len(neighbors) < C:
-                    # Include seed point if not enough neighbors
-                    available = np.concatenate([[seed_idx], neighbors])
-                else:
-                    available = neighbors[:K]  # Use up to K neighbors
-                
-                # Generate all C-combinations from available points
-                if len(available) >= C:
-                    for combo in combinations(available, C):
-                        combination_pool.append(np.array(combo))
-                        seed_mapping.append(seed_idx)
-                        
-                        # Early stopping if we have enough combinations
-                        if len(combination_pool) >= nsamples * 2:
-                            break
-                
-                if len(combination_pool) >= nsamples * 2:
-                    break
-            
-            # Step 5: Sample from combination pool
-            total_combinations = len(combination_pool)
-            logging.info(f"[OVERSAMPLING DEBUG] Generated combination pool: {total_combinations} total combinations")
-            logging.info(f"Generated pool of {total_combinations} combinations")
-            
-            if total_combinations == 0:
-                raise ValueError("No valid combinations could be generated")
-            
-            # Convert pool to array for efficient indexing
-            combination_pool = np.array(combination_pool)
-            
-            # Sample combinations
-            if nsamples <= total_combinations:
-                # Sample without replacement for diversity
-                selected_indices = local_rng.choice(total_combinations, size=nsamples, replace=False)
-                logging.info(f"[OVERSAMPLING DEBUG] Sampling {nsamples} from {total_combinations} combinations (without replacement)")
-            else:
-                # Sample with replacement if requesting more than available
-                logging.info(f"[OVERSAMPLING DEBUG] Need {nsamples} groups but only {total_combinations} combinations available - using replacement")
-                logging.warning(f"Requested {nsamples} groups but only {total_combinations} unique combinations available. Sampling with replacement.")
-                selected_indices = local_rng.choice(total_combinations, size=nsamples, replace=True)
-            
-            groups = combination_pool[selected_indices]
-            
-            logging.info(f"[OVERSAMPLING DEBUG] _generate_groups_with_oversampling completed: generated {nsamples} groups")
-            logging.info(f"Successfully generated {nsamples} groups with K choose C oversampling")
-            return groups
-            
-        except Exception as e:
-            logging.error(f"Failed to generate groups with oversampling: {e}")
-            raise
+        """Compatibility adapter for canonical K-choose-C planning."""
+        plan = grouping.plan_sample_then_group(
+            self.xcoords,
+            self.ycoords,
+            object_index=self.object_index,
+            experiment_id=self.experiment_id,
+            count=nsamples,
+            neighbor_count=K,
+            group_size=C,
+            seed=seed,
+            rng=rng,
+            sequential=seed_indices is not None,
+            enable_oversampling=True,
+            neighbor_pool_size=K,
+            **(
+                {"source_indices": self.sample_indices}
+                if self.sample_indices is not None
+                else {}
+            ),
+        )
+        return np.array(plan.neighbor_indices, copy=True)
 
     #@debug
     def _check_data_validity(self, xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess, scan_index):

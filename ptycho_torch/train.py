@@ -39,16 +39,16 @@ from ptycho.config.legacy_state import scoped_legacy_params
 
 def _infer_probe_size(npz_file):
     """
-    Infer probe size (N) from NPZ metadata without loading full arrays.
+    Infer detector size (N) from canonical NPZ metadata without loading images.
 
-    This function reads the probeGuess array header from an NPZ file using the
-    zipfile approach, following the pattern established in ptycho_torch/dataloader.py:npz_headers().
+    This function delegates NPZ layout and key handling to the canonical
+    acquisition header reader.
 
     Args:
         npz_file (str or Path): Path to NPZ file containing probeGuess key
 
     Returns:
-        int or None: First dimension of probeGuess shape (N), or None if probeGuess key missing
+        int or None: Canonical diffraction height, or None for an invalid source.
 
     References:
         - specs/data_contracts.md §1 — probeGuess is required key for canonical NPZ format
@@ -59,25 +59,11 @@ def _infer_probe_size(npz_file):
         >>> N = _infer_probe_size("datasets/Run1084_recon3_postPC_shrunk_3.npz")
         >>> print(N)  # 64 (for this dataset)
     """
-    import zipfile
-    from ptycho_torch.npz_utils import read_npy_shape
+    from ptycho.acquisition import inspect_probe_size
 
     try:
-        with zipfile.ZipFile(npz_file) as archive:
-            # Search for probeGuess key in NPZ archive
-            for name in archive.namelist():
-                if name.startswith('probeGuess') and name.endswith('.npy'):
-                    # Open the .npy file inside the archive
-                    npy = archive.open(name)
-                    # Read array header without loading data
-                    shape = read_npy_shape(npy)
-                    # Return first dimension (probe is typically N x N)
-                    return shape[0]
-
-            # probeGuess key not found - return None for fallback to default
-            return None
-
-    except (zipfile.BadZipFile, FileNotFoundError, KeyError):
+        return inspect_probe_size(npz_file)
+    except (OSError, ValueError, KeyError):
         # If NPZ is invalid or missing, return None
         # Caller can decide whether to use default or raise error
         return None

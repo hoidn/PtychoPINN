@@ -233,10 +233,17 @@ class RawDataTorch:
             diff3d=record.diff3d,
             probeGuess=record.probeGuess,
             scan_index=record.scan_index,
+            object_index=record.object_index,
             objectGuess=record.objectGuess,
             Y=record.Y,
             norm_Y_I=record.norm_Y_I,
             metadata=record.metadata,
+            probe_simulated=record.probe_simulated,
+            object_amplitude_scale=record.object_amplitude_scale,
+            label=record.label,
+            scale_contract_version=record.scale_contract_version,
+            measurement_domain=record.measurement_domain,
+            experiment_id=record.experiment_id,
         )
         self._tf_raw_data.sample_indices = record.sample_indices
         self._tf_raw_data.subsample_seed = record.subsample_seed

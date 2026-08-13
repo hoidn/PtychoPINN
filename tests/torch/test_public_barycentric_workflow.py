@@ -512,6 +512,101 @@ def _write_dataset_manifest(
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
 
+def test_flat_npz_compatibility_rejects_conflicting_diffraction_aliases(tmp_path):
+    from ptycho_torch.inference import _validate_flat_npz
+
+    path = tmp_path / "conflicting_aliases.npz"
+    _write_flat_npz(path, count=3)
+    with np.load(path) as archive:
+        arrays = {name: np.array(archive[name], copy=True) for name in archive.files}
+    arrays["diffraction"] = arrays["diff3d"] + np.float32(1)
+    np.savez(path, **arrays)
+
+    with pytest.raises(ValueError, match="conflicting diffraction"):
+        _validate_flat_npz(path, _model_stub().data_config)
+
+
+def test_flat_npz_compatibility_decodes_alias_layout_and_trailing_rows(tmp_path):
+    from ptycho_torch.inference import _validate_flat_npz
+
+    path = tmp_path / "legacy_trailing.npz"
+    _write_flat_npz(path, count=3)
+    with np.load(path) as archive:
+        arrays = {name: np.array(archive[name], copy=True) for name in archive.files}
+    arrays["diffraction"] = np.transpose(arrays.pop("diff3d"), (1, 2, 0))
+    arrays["xcoords"] = np.arange(5, dtype=np.float64)
+    arrays["ycoords"] = np.arange(5, dtype=np.float64)
+    arrays["scan_index"] = np.arange(5, dtype=np.int64)
+    arrays["object_index"] = np.zeros(5, dtype=np.int64)
+    np.savez(path, **arrays)
+
+    with pytest.warns(RuntimeWarning, match="dropping the trailing 2 positions"):
+        _validate_flat_npz(path, _model_stub().data_config)
+
+
+@pytest.mark.parametrize(
+    ("name", "value", "message"),
+    [
+        ("Y", np.ones((2, 8, 8), dtype=np.complex64), "Y must have shape"),
+        ("object_index", np.zeros(2, dtype=np.int64), "object_index must have shape"),
+    ],
+)
+def test_flat_npz_compatibility_uses_canonical_optional_shape_validation(
+    tmp_path, name, value, message
+):
+    from ptycho_torch.inference import _validate_flat_npz
+
+    path = tmp_path / f"bad_{name}.npz"
+    _write_flat_npz(path, count=3)
+    with np.load(path) as archive:
+        arrays = {key: np.array(archive[key], copy=True) for key in archive.files}
+    arrays[name] = value
+    np.savez(path, **arrays)
+
+    with pytest.raises(ValueError, match=message):
+        _validate_flat_npz(path, _model_stub().data_config)
+
+
+def test_flat_v1_still_requires_canonical_key_layout_and_coordinates(tmp_path):
+    from ptycho_torch.inference import _validate_flat_npz
+
+    alias_path = tmp_path / "alias_only.npz"
+    _write_flat_npz(alias_path, count=3, diffraction_key="diffraction")
+    with pytest.raises(ValueError, match="flat-v1.*diff3d"):
+        _validate_flat_npz(
+            alias_path,
+            _model_stub().data_config,
+            dataset_manifest_path=tmp_path / "missing.json",
+        )
+
+    legacy_path = tmp_path / "legacy_diff3d.npz"
+    _write_flat_npz(legacy_path, count=3)
+    with np.load(legacy_path) as archive:
+        arrays = {name: np.array(archive[name], copy=True) for name in archive.files}
+    arrays["diff3d"] = np.transpose(arrays["diff3d"], (1, 2, 0))
+    np.savez(legacy_path, **arrays)
+    with pytest.raises(ValueError, match="diff3d must have shape"):
+        _validate_flat_npz(
+            legacy_path,
+            _model_stub().data_config,
+            dataset_manifest_path=tmp_path / "missing.json",
+        )
+
+    trailing_path = tmp_path / "trailing_coordinates.npz"
+    _write_flat_npz(trailing_path, count=3)
+    with np.load(trailing_path) as archive:
+        arrays = {name: np.array(archive[name], copy=True) for name in archive.files}
+    arrays["xcoords"] = np.arange(4, dtype=np.float64)
+    arrays["ycoords"] = np.arange(4, dtype=np.float64)
+    np.savez(trailing_path, **arrays)
+    with pytest.raises(ValueError, match="strict coordinate policy"):
+        _validate_flat_npz(
+            trailing_path,
+            _model_stub().data_config,
+            dataset_manifest_path=tmp_path / "missing.json",
+        )
+
+
 def test_manifest_semantics_must_match_expected_workflow(tmp_path):
     from ptycho.workflows.synthetic_config import (
         materialize_data_config,

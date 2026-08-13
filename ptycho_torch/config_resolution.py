@@ -859,7 +859,7 @@ def inference_factory_baseline() -> TorchConfigBaseline:
 def observe_probe_size(data_file: Path) -> ProbeSizeObservation:
     """Inspect one NPZ without emitting the legacy fallback warning."""
 
-    import numpy as np
+    from ptycho.acquisition import inspect_probe_size
 
     path = Path(data_file)
     fallback = 64
@@ -876,34 +876,12 @@ def observe_probe_size(data_file: Path) -> ProbeSizeObservation:
         )
 
     try:
-        with np.load(path, allow_pickle=False) as npz_data:
-            if "probeGuess" not in npz_data:
-                return fallback_observation(
-                    f"probeGuess key missing from {path}."
-                )
-            probe = npz_data["probeGuess"]
-            if probe.ndim < 2:
-                return fallback_observation(
-                    "probeGuess has invalid shape "
-                    f"{probe.shape} (expected 2D square array)."
-                )
-            inferred = int(probe.shape[0])
-            if probe.shape[0] != probe.shape[1]:
-                return ProbeSizeObservation(
-                    inferred,
-                    (
-                        ResolutionNotice(
-                            UserWarning,
-                            "probeGuess is non-square "
-                            f"{probe.shape}. Using first dimension "
-                            f"N={inferred}.",
-                        ),
-                    ),
-                )
-            return ProbeSizeObservation(inferred)
+        return ProbeSizeObservation(inspect_probe_size(path))
     except FileNotFoundError:
         return fallback_observation(f"Data file {path} not found.")
     except Exception as exc:
+        if "missing required key probeGuess" in str(exc):
+            return fallback_observation(f"probeGuess key missing from {path}.")
         return fallback_observation(
             f"Error reading probeGuess from {path}: {exc}."
         )

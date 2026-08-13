@@ -26,7 +26,6 @@ from ptycho_torch import reassembly
 from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig
 from ptycho_torch.dataloader import (
     PtychoDataset,
-    _align_coords_to_diffraction,
     _get_diffraction_stack,
     npz_headers,
 )
@@ -69,43 +68,6 @@ def _raster(side, spacing=1.5):
     return xx.ravel().astype(np.float64), yy.ravel().astype(np.float64)
 
 
-# ---------------------------------------------------------------------------
-# Coordinate / diffraction alignment
-# ---------------------------------------------------------------------------
-
-def test_align_coords_drops_trailing_positions_with_warning():
-    x, y = _line_scan(25)
-    with pytest.warns(RuntimeWarning, match="dropping the trailing 5 positions"):
-        xa, ya = _align_coords_to_diffraction(x, y, 20, "fixture.npz")
-    assert len(xa) == len(ya) == 20
-    np.testing.assert_array_equal(xa, x[:20])
-
-
-def test_align_coords_rejects_missing_positions():
-    x, y = _line_scan(15)
-    with pytest.raises(ValueError, match="Every pattern needs a position"):
-        _align_coords_to_diffraction(x, y, 20, "fixture.npz")
-
-
-def test_align_coords_rejects_unequal_xy_lengths():
-    x, _ = _line_scan(20)
-    _, y = _line_scan(19)
-
-    with pytest.raises(ValueError) as excinfo:
-        _align_coords_to_diffraction(x, y, 20, "fixture.npz")
-
-    message = str(excinfo.value)
-    assert "fixture.npz" in message
-    assert "xcoords=20" in message
-    assert "ycoords=19" in message
-
-
-def test_align_coords_passthrough_when_matched():
-    x, y = _line_scan(20)
-    xa, ya = _align_coords_to_diffraction(x, y, 20, "fixture.npz")
-    assert xa is x and ya is y
-
-
 def test_memory_map_survives_extra_coordinates(tmp_path):
     """25 positions, 20 patterns: previously IndexError deep in the write loop."""
     (tmp_path / "npz").mkdir()
@@ -115,7 +77,8 @@ def test_memory_map_survives_extra_coordinates(tmp_path):
     data_config = DataConfig(N=N_PIX, grid_size=(1, 1), C=1, K=4, n_subsample=1,
                              x_bounds=(0.0, 1.0), y_bounds=(0.0, 1.0))
     model_config = ModelConfig(C_model=1, C_forward=1)
-    dataset = _build(tmp_path, data_config, model_config)
+    with pytest.warns(RuntimeWarning, match="dropping the trailing 5 positions"):
+        dataset = _build(tmp_path, data_config, model_config)
 
     # Truncation happens before bounds filtering, so exactly the 20 positions
     # backed by a pattern survive.
@@ -180,7 +143,7 @@ def test_dataset_rejects_non_3d_diffraction_before_allocation(tmp_path):
     model_config = ModelConfig(C_model=1, C_forward=1, object_big=False)
 
     with pytest.raises(
-        ValueError, match=r"flat\.npz.*3D.*\(N, H, W\).*shape \(32, 32\)"
+        ValueError, match=r"flat\.npz.*3D.*\(M, H, W\).*got \(32, 32\)"
     ):
         _build(tmp_path, data_config, model_config)
 
@@ -552,20 +515,6 @@ def test_memory_map_loads_legacy_hwn_layout_when_n_is_not_largest_axis(tmp_path)
     assert dataset.mmap_ptycho["images"].shape == (20, 1, 32, 32)
 
 
-def test_coordinate_count_keeps_canonical_stack_when_size_heuristic_disagrees(tmp_path):
-    path = tmp_path / "canonical.npz"
-    x, y = _line_scan(20)
-    diff3d = np.arange(20 * 16 * 32, dtype=np.float32).reshape(20, 16, 32)
-    np.savez(path, xcoords=x, ycoords=y, diff3d=diff3d)
-
-    shape, _, _ = npz_headers(path)
-    loaded = _get_diffraction_stack(path)
-
-    assert shape == (20, 16, 32)
-    assert loaded.shape == (20, 16, 32)
-    np.testing.assert_array_equal(loaded, diff3d)
-
-
 @pytest.mark.parametrize(
     ("exact_key", "decoy_key"),
     [("diffraction", "diffraction_backup"),
@@ -582,6 +531,7 @@ def test_header_and_loader_ignore_prefixed_diffraction_decoys(
         exact_key: exact,
         "xcoords": x,
         "ycoords": y,
+        "probeGuess": np.ones((32, 32), dtype=np.complex64),
     })
 
     shape, xa, ya = npz_headers(path)
@@ -596,11 +546,18 @@ def test_square_plane_keeps_canonical_stack_despite_trailing_coordinate_collisio
     path = tmp_path / "canonical_trailing_collision.npz"
     x, y = _line_scan(32)
     canonical = np.arange(20 * 32 * 32, dtype=np.float32).reshape(20, 32, 32)
-    np.savez(path, xcoords=x, ycoords=y, diff3d=canonical)
+    np.savez(
+        path,
+        xcoords=x,
+        ycoords=y,
+        diff3d=canonical,
+        probeGuess=np.ones((32, 32), dtype=np.complex64),
+    )
 
     with pytest.warns(RuntimeWarning, match="dropping the trailing 12 positions"):
         shape, xa, ya = npz_headers(path)
-    loaded = _get_diffraction_stack(path)
+    with pytest.warns(RuntimeWarning, match="dropping the trailing 12 positions"):
+        loaded = _get_diffraction_stack(path)
 
     assert shape == (20, 32, 32)
     assert len(xa) == len(ya) == 20
@@ -612,30 +569,22 @@ def test_square_plane_transposes_legacy_stack_despite_coordinate_collision(tmp_p
     x, y = _line_scan(32)
     canonical = np.arange(20 * 32 * 32, dtype=np.float32).reshape(20, 32, 32)
     legacy = np.transpose(canonical, (1, 2, 0))
-    np.savez(path, xcoords=x, ycoords=y, diff3d=legacy)
+    np.savez(
+        path,
+        xcoords=x,
+        ycoords=y,
+        diff3d=legacy,
+        probeGuess=np.ones((32, 32), dtype=np.complex64),
+    )
 
     with pytest.warns(RuntimeWarning, match="dropping the trailing 12 positions"):
         shape, xa, ya = npz_headers(path)
-    loaded = _get_diffraction_stack(path)
+    with pytest.warns(RuntimeWarning, match="dropping the trailing 12 positions"):
+        loaded = _get_diffraction_stack(path)
 
     assert shape == (20, 32, 32)
     assert len(xa) == len(ya) == 20
     np.testing.assert_array_equal(loaded, canonical)
-
-
-def test_ambiguous_layout_retains_existing_size_heuristic(tmp_path):
-    path = tmp_path / "ambiguous.npz"
-    x, y = _line_scan(25)
-    legacy = np.arange(12 * 8 * 20, dtype=np.float32).reshape(12, 8, 20)
-    np.savez(path, xcoords=x, ycoords=y, diff3d=legacy)
-
-    with pytest.warns(RuntimeWarning, match="dropping the trailing 5 positions"):
-        shape, xa, ya = npz_headers(path)
-    loaded = _get_diffraction_stack(path)
-
-    assert shape == (20, 12, 8)
-    assert len(xa) == len(ya) == 20
-    np.testing.assert_array_equal(loaded, np.transpose(legacy, (2, 0, 1)))
 
 
 # ---------------------------------------------------------------------------
@@ -685,6 +634,58 @@ def test_quadrant_grouping_writes_every_allocated_row(tmp_path):
     assert int(nn.max()) < len(x)
     assert not bool((nn == 0).all(dim=1).any())
     assert float(dataset.mmap_ptycho["rms_scaling_constant"].min()) > 0
+
+
+def test_mmap_grouping_matches_owner_plan_across_object_banks(tmp_path):
+    from ptycho.grouping import plan_scan_centered
+
+    source_dir = tmp_path / "npz"
+    source_dir.mkdir()
+    base_x, base_y = _raster(3, spacing=1.0)
+    xcoords = np.concatenate([base_x, base_x])
+    ycoords = np.concatenate([base_y, base_y])
+    object_index = np.repeat(np.arange(2, dtype=np.int64), len(base_x))
+    path = source_dir / "object_banks.npz"
+    _write_npz(path, len(xcoords), xcoords, ycoords)
+    with np.load(path) as data:
+        arrays = {key: data[key] for key in data.files}
+    np.savez(path, **arrays, object_index=object_index)
+
+    data_config = DataConfig(
+        N=N_PIX,
+        grid_size=(2, 2),
+        C=4,
+        K=4,
+        n_subsample=1,
+        subsample_seed=5,
+        neighbor_function="Nearest",
+        x_bounds=(0.0, 1.0),
+        y_bounds=(0.0, 1.0),
+    )
+    dataset = _build(
+        tmp_path,
+        data_config,
+        ModelConfig(C_model=4, C_forward=4),
+    )
+    expected = plan_scan_centered(
+        xcoords,
+        ycoords,
+        eligible_indices=np.arange(len(xcoords)),
+        object_index=object_index,
+        experiment_id=0,
+        policy="Nearest",
+        group_size=4,
+        neighbor_count=4,
+        repeats=1,
+        seed=5,
+    )
+
+    rows = dataset.mmap_ptycho["nn_indices"].cpu().numpy()
+    centers = dataset.mmap_ptycho["center_scan_id"].cpu().numpy()
+    np.testing.assert_array_equal(rows, expected.neighbor_indices)
+    np.testing.assert_array_equal(centers, expected.center_indices)
+    assert len(dataset) == len(expected.neighbor_indices)
+    assert all(np.unique(object_index[row]).size == 1 for row in rows)
 
 
 def test_mmap_coords_relative_uses_tf_sign(tmp_path):
@@ -770,25 +771,6 @@ def _assert_legacy_rng_state_equal(left, right):
     assert left[2:] == right[2:]
 
 
-def test_sample_rows_draws_only_from_explicit_local_generator():
-    from ptycho_torch.patch_generator import sample_rows
-
-    candidates = np.tile(np.arange(9, dtype=np.int64), (5, 1))
-    np.random.seed(9981)
-    ambient_before = np.random.get_state()
-
-    first = sample_rows(
-        candidates, 4, 3, rng=np.random.default_rng(2718)
-    )
-    second = sample_rows(
-        candidates, 4, 3, rng=np.random.default_rng(2718)
-    )
-
-    _assert_legacy_rng_state_equal(ambient_before, np.random.get_state())
-    np.testing.assert_array_equal(first, second)
-    assert first.shape == (5, 3, 4)
-
-
 def test_group_coords_uses_dataconfig_seed_without_ambient_numpy_state():
     from ptycho_torch.patch_generator import get_neighbor_indices, group_coords
 
@@ -830,6 +812,72 @@ def test_group_coords_uses_dataconfig_seed_without_ambient_numpy_state():
     _assert_legacy_rng_state_equal(ambient_before, np.random.get_state())
     np.testing.assert_array_equal(first_indices, second_indices)
     np.testing.assert_array_equal(first_coords, second_coords)
+
+
+@pytest.mark.parametrize("policy", ["Nearest", "Min_dist", "4_quadrant"])
+def test_group_coords_matches_scan_centered_owner_with_object_identity(policy):
+    from ptycho.grouping import plan_scan_centered
+    from ptycho_torch.patch_generator import group_coords
+
+    base_x, base_y = _raster(3, spacing=1.0)
+    xcoords = np.concatenate([base_x, base_x])
+    ycoords = np.concatenate([base_y, base_y])
+    object_index = np.repeat(np.arange(2, dtype=np.int64), len(base_x))
+    experiment_id = np.arange(len(xcoords), dtype=np.int64) + 40
+    valid = np.arange(len(xcoords), dtype=np.int64)
+    config = DataConfig(
+        N=N_PIX,
+        C=4,
+        K=8,
+        K_quadrant=20,
+        n_subsample=2,
+        subsample_seed=23,
+        grid_size=(2, 2),
+        neighbor_function=policy,
+        min_neighbor_distance=0.0,
+        max_neighbor_distance=3.0,
+        scan_pattern="Isotropic",
+        x_bounds=(0.0, 1.0),
+        y_bounds=(0.0, 1.0),
+    )
+
+    rows, coords, centers = group_coords(
+        xcoords,
+        ycoords,
+        xcoords,
+        ycoords,
+        None,
+        valid,
+        config,
+        return_center_indices=True,
+        object_index=object_index,
+        experiment_id=experiment_id,
+    )
+    expected = plan_scan_centered(
+        xcoords,
+        ycoords,
+        eligible_indices=valid,
+        object_index=object_index,
+        experiment_id=experiment_id,
+        policy=policy,
+        group_size=4,
+        neighbor_count=8,
+        repeats=2,
+        seed=23,
+        min_neighbor_distance=0.0,
+        max_neighbor_distance=3.0,
+        quadrant_neighbor_count=20,
+        scan_pattern="Isotropic",
+    )
+
+    np.testing.assert_array_equal(rows, expected.neighbor_indices)
+    np.testing.assert_array_equal(centers, expected.center_indices)
+    assert rows.flags.writeable
+    assert centers.flags.writeable
+    np.testing.assert_array_equal(
+        coords,
+        np.stack([xcoords[rows], ycoords[rows]], axis=2)[:, :, None, :],
+    )
 
 
 def test_nearest_group_coords_can_repair_complete_participant_coverage():

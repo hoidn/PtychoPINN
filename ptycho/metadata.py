@@ -110,8 +110,8 @@ class MetadataManager:
                 return super().default(obj)
         
         metadata_json = json.dumps(metadata, indent=2, cls=NumpyEncoder)
-        # Store as 0-d object array to preserve the string
-        save_dict[MetadataManager.METADATA_KEY] = np.array(metadata_json, dtype=object)
+        # Store as a scalar Unicode array so readers do not need pickle enabled.
+        save_dict[MetadataManager.METADATA_KEY] = np.array(metadata_json)
         
         # Save the combined dictionary
         np.savez_compressed(file_path, **save_dict)
@@ -130,6 +130,9 @@ class MetadataManager:
             Tuple of (data_dict, metadata_dict)
             metadata_dict will be None if no metadata is present
         """
+        # Historical project files stored the JSON string in an object scalar.
+        # Canonical acquisition decoding remains pickle-free; this compatibility
+        # utility intentionally keeps reading those maintained legacy files.
         with np.load(file_path, allow_pickle=True) as data:
             # Extract all arrays except metadata
             data_dict = {}
@@ -137,13 +140,24 @@ class MetadataManager:
             
             for key in data.files:
                 if key == MetadataManager.METADATA_KEY:
-                    # Extract and parse metadata
                     try:
-                        metadata_json = str(data[key].item())
+                        encoded = np.asarray(data[key])
+                        if encoded.shape != () or encoded.dtype.kind not in {"U", "S", "O"}:
+                            raise ValueError(
+                                "_metadata must be scalar string or UTF-8 bytes JSON"
+                            )
+                        metadata_json = encoded.item()
+                        if isinstance(metadata_json, bytes):
+                            metadata_json = metadata_json.decode("utf-8")
                         metadata = json.loads(metadata_json)
                         logger.debug(f"Loaded metadata from {file_path}")
-                    except (json.JSONDecodeError, ValueError) as e:
-                        logger.warning(f"Failed to parse metadata from {file_path}: {e}")
+                    except (
+                        json.JSONDecodeError,
+                        UnicodeDecodeError,
+                        TypeError,
+                        ValueError,
+                    ) as exc:
+                        logger.warning(f"Failed to parse metadata from {file_path}: {exc}")
                 else:
                     data_dict[key] = data[key]
         

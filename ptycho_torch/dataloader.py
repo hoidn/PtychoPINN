@@ -2,7 +2,6 @@
 import numpy as np
 from pathlib import Path
 import json
-import zipfile
 from collections import defaultdict
 import time
 import os
@@ -19,12 +18,13 @@ import torch.distributed as dist
 #Memory mapping
 from tensordict import MemoryMappedTensor, TensorDict
 
+from ptycho.acquisition import decode_acquisition, inspect_acquisition
+
 #Patch generation
-from ptycho_torch.patch_generator import group_coords, get_relative_coords, get_neighbor_indices, get_neighbors_indices_within_bounds
+from ptycho_torch.patch_generator import group_coords, get_relative_coords
 
 #Parameters
 from ptycho_torch.config_params import TrainingConfig, DataConfig, ModelConfig
-from ptycho_torch.npz_utils import read_npy_shape
 from ptycho_torch.object_compatibility import resolve_model_object_compatibility
 
 #Helper methods
@@ -39,7 +39,6 @@ from ptycho_torch.scaling_contract import (
 )
 
 # --- Helper functions for the dataloader ---
-_DIFFRACTION_KEYS = ('diffraction', 'diff3d')
 _MMAP_SCHEMA_NAME = "ptycho_torch_mmap"
 _MMAP_SCHEMA_VERSION = 3
 _CI_STATISTICS_CHUNK_SIZE = 256
@@ -74,25 +73,6 @@ def _ci_profile_active(model_config, data_config):
     return profile.version == CI_SCALE_CONTRACT
 
 
-def _select_diffraction_key(available_keys):
-    """Select the first exact diffraction key in loader priority order."""
-    available_keys = set(available_keys)
-    return next((key for key in _DIFFRACTION_KEYS if key in available_keys), None)
-
-
-def _resolve_neighbor_function(data_config):
-    """Map the configured neighbor_function name onto its implementation.
-
-    '4_quadrant' is passed through as a sentinel string: group_coords dispatches
-    on the config value rather than calling it.
-    """
-    if data_config.neighbor_function == 'Nearest':
-        return get_neighbor_indices
-    if data_config.neighbor_function == 'Min_dist':
-        return get_neighbors_indices_within_bounds
-    return '4_quadrant' #This is the one used in PtychoPINNv2
-
-
 def _normalize_legacy_grouping_records(file_list, valid_per_file, grouping_per_file):
     """Upgrade grouping records without inventing unavailable legacy centers."""
     if len(grouping_per_file) != len(valid_per_file):
@@ -115,147 +95,31 @@ def _normalize_legacy_grouping_records(file_list, valid_per_file, grouping_per_f
     return normalized
 
 
-def _align_coords_to_diffraction(xcoords, ycoords, n_diff, source):
-    """Reconcile the scan-position count with the diffraction stack length.
-
-    Some datasets carry trailing coordinate entries with no matching pattern.
-    Those indices would run off the end of the diffraction stack once
-    group_coords maps them back to global indices, so drop them. The reverse
-    (fewer positions than patterns) means patterns with no position, which we
-    refuse to guess at.
-    """
-    if np.ndim(xcoords) != 1 or np.ndim(ycoords) != 1:
-        raise ValueError(
-            f"{source}: xcoords shape {np.shape(xcoords)} and ycoords shape "
-            f"{np.shape(ycoords)} must be one-dimensional."
-        )
-
-    xcoords_len = len(xcoords)
-    ycoords_len = len(ycoords)
-    if xcoords_len != ycoords_len:
-        raise ValueError(
-            f"{source}: xcoords={xcoords_len} and ycoords={ycoords_len} "
-            "must have equal lengths."
-        )
-
-    n_coords = xcoords_len
-    if n_coords == n_diff:
-        return xcoords, ycoords
-    if n_coords < n_diff:
-        raise ValueError(
-            f"{source}: {n_coords} scan positions for {n_diff} diffraction patterns. "
-            f"Every pattern needs a position."
-        )
-    warnings.warn(
-        f"{source}: {n_coords} scan positions for {n_diff} diffraction patterns; "
-        f"dropping the trailing {n_coords - n_diff} positions.",
-        RuntimeWarning, stacklevel=2,
-    )
-    return xcoords[:n_diff], ycoords[:n_diff]
-
-
-def _canonical_diffraction_layout(shape, n_coords, source):
-    """Return canonical (N, H, W) shape and whether the source needs transposing."""
-    if len(shape) != 3:
-        raise ValueError(
-            f"{source}: diffraction data must be 3D (N, H, W) or legacy "
-            f"(H, W, N); got shape {shape}."
-        )
-
-    canonical_square = shape[1] == shape[2]
-    legacy_square = shape[0] == shape[1]
-    canonical_match = n_coords is not None and shape[0] == n_coords
-    legacy_match = n_coords is not None and shape[2] == n_coords
-    if canonical_square != legacy_square:
-        legacy_hwn = legacy_square
-    elif canonical_match != legacy_match:
-        legacy_hwn = legacy_match
-    elif n_coords is not None:
-        # Coordinates may include trailing entries with no matching pattern.
-        canonical_compatible = shape[0] < n_coords
-        legacy_compatible = shape[2] < n_coords
-        if canonical_compatible != legacy_compatible:
-            legacy_hwn = legacy_compatible
-        else:
-            legacy_hwn = shape[2] > max(shape[0], shape[1])
-    else:
-        legacy_hwn = shape[2] > max(shape[0], shape[1])
-
-    if legacy_hwn:
-        return (shape[2], shape[0], shape[1]), True
-    return tuple(shape), False
-
-
 def npz_headers(npz):
-    """
-    Takes a path to an .npz file, which is a Zip archive of .npy files.
-    We can use this to determine shape of the scan tensor in the npz file without loading it
-    This will be useful in the __len__ method for the dataset
+    """Return canonical shape and mmap-compatible aligned coordinates."""
 
-    Checks the 'diffraction' key first (accepted alias here; canonically the H5
-    /raw_data dataset name, specs/data_contracts.md), falling back to 'diff3d',
-    the standalone-NPZ canonical key (docs/specs/spec-ptycho-core.md).
-
-    Taken from: https://stackoverflow.com/questions/68224572/how-to-determine-the-shape-size-of-npz-file
-    Modified to quickly grab dimension we care about
-    """
-    with zipfile.ZipFile(npz) as archive:
-        xcoords = None
-        ycoords = None
-
-        archive_keys = (
-            name[:-4] for name in archive.namelist() if name.endswith('.npy'))
-        diffraction_key = _select_diffraction_key(archive_keys)
-        if diffraction_key is None:
-            raise ValueError(
-                f"Could not find diffraction data in {npz}. "
-                f"Expected standalone-NPZ 'diff3d' key or compatibility alias 'diffraction'. "
-                f"See docs/data_contracts.md for the required NPZ format."
-            )
-        with archive.open(f'{diffraction_key}.npy') as npy:
-            diffraction_shape = read_npy_shape(npy)
-
-        # Second pass for coordinates (load them) - needed for filtering
-        with np.load(npz) as data:
-            if 'xcoords' in data and 'ycoords' in data:
-                xcoords = data['xcoords']
-                ycoords = data['ycoords']
-            else:
-                raise ValueError(f"Could not find 'xcoords' or 'ycoords' in {npz}")
-
-        n_coords = (
-            len(xcoords)
-            if np.ndim(xcoords) == np.ndim(ycoords) == 1 and len(xcoords) == len(ycoords)
-            else None
-        )
-        diffraction_shape, _ = _canonical_diffraction_layout(
-            diffraction_shape, n_coords, npz)
-
-        # The bounds mask and the memory-map allocation are both derived from these
-        # coordinates, so they must agree with the diffraction stack length here,
-        # not just at the later indexing site in memory_map_data.
-        xcoords, ycoords = _align_coords_to_diffraction(
-            xcoords, ycoords, diffraction_shape[0], f"{npz}")
-
-        return diffraction_shape, xcoords, ycoords
+    header = inspect_acquisition(npz, coordinate_policy="trailing")
+    return header.diffraction_shape, header.xcoords, header.ycoords
 
 
 def _validate_writer_inputs(npz_file, tensor_shape, model_config, data_config):
     """Reject writer-required NPZ inputs before memory-map allocation."""
-    required_keys = ["probeGuess", "objectGuess"]
-    if model_config.mode == "Supervised":
-        required_keys.append("label")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        header = inspect_acquisition(npz_file, coordinate_policy="trailing")
+    missing_keys = []
+    if header.object_shape is None:
+        missing_keys.append("objectGuess")
+    if model_config.mode == "Supervised" and header.label_shape is None:
+        missing_keys.append("label")
+    if missing_keys:
+        raise ValueError(
+            f"{npz_file}: missing required key(s): {', '.join(missing_keys)}."
+        )
 
-    with np.load(npz_file) as data:
-        missing_keys = [key for key in required_keys if key not in data]
-        if missing_keys:
-            raise ValueError(
-                f"{npz_file}: missing required key(s): {', '.join(missing_keys)}."
-            )
-
-        probe_shape = data["probeGuess"].shape
-        object_shape = data["objectGuess"].shape
-        label_shape = data["label"].shape if model_config.mode == "Supervised" else None
+    probe_shape = header.probe_shape
+    object_shape = header.object_shape
+    label_shape = header.label_shape if model_config.mode == "Supervised" else None
 
     if len(object_shape) != 2:
         raise ValueError(
@@ -290,52 +154,11 @@ def _validate_writer_inputs(npz_file, tensor_shape, model_config, data_config):
 
 
 def _get_diffraction_stack(npz_file):
-    """
-    Helper to load diffraction stack from NPZ, accepting either key name,
-    with automatic legacy format handling.
+    """Load the canonical diffraction stack through the shared NPZ decoder."""
 
-    Checks 'diffraction' first (accepted alias here; canonically the H5 /raw_data
-    dataset name, specs/data_contracts.md), falling back to 'diff3d', the
-    standalone-NPZ canonical key (docs/specs/spec-ptycho-core.md). Automatically
-    detects and transposes legacy (H, W, N) format to the compliant (N, H, W) format.
-
-    Args:
-        npz_file: Path to NPZ file
-
-    Returns:
-        numpy.ndarray: Diffraction patterns (amplitude, float32) in shape (N, H, W)
-
-    Raises:
-        ValueError: If neither key exists
-    """
-    with np.load(npz_file) as data:
-        diffraction_key = _select_diffraction_key(data.files)
-        if diffraction_key is None:
-            raise ValueError(
-                f"Could not find diffraction data in {npz_file}. "
-                f"Expected standalone-NPZ 'diff3d' key or compatibility alias 'diffraction'. "
-                f"See docs/data_contracts.md for the required NPZ format."
-            )
-        diff_array = data[diffraction_key]
-
-        n_coords = None
-        if 'xcoords' in data and 'ycoords' in data:
-            xcoords = data['xcoords']
-            ycoords = data['ycoords']
-            if (np.ndim(xcoords) == np.ndim(ycoords) == 1 and
-                    len(xcoords) == len(ycoords)):
-                n_coords = len(xcoords)
-
-        _, legacy_hwn = _canonical_diffraction_layout(
-            diff_array.shape, n_coords, npz_file)
-        if legacy_hwn:
-            print(
-                f"⚠ Legacy format {diff_array.shape} detected in {npz_file}, "
-                f"transposing to DATA-001 compliant (N, H, W)"
-            )
-            diff_array = np.transpose(diff_array, [2, 0, 1])
-
-        return diff_array
+    return decode_acquisition(
+        npz_file, coordinate_policy="trailing"
+    ).diff3d
 
 
 # --- Tensordict patcher function ---
@@ -606,8 +429,6 @@ class PtychoDataset(Dataset):
         grouping_per_file = [] # (nn_indices, coords_nn) per file when grouping applies, else None
 
         group_coordinates = self.group_coords_enabled()
-        neighbor_function = _resolve_neighbor_function(self.data_config)
-
         print("Calculating dataset length with coordinate bounds...")
         # Make sure bounds are valid
         if not (0.0 <= self.data_config.x_bounds[0] < self.data_config.x_bounds[1] <= 1.0):
@@ -616,7 +437,10 @@ class PtychoDataset(Dataset):
              raise ValueError(f"Invalid y_bounds: {self.data_config.y_bounds}. Must be [min_pct, max_pct] between 0.0 and 1.0.")
 
         for i, npz_file in enumerate(self.file_list): # Use ordered list
-            tensor_shape, xcoords, ycoords = npz_headers(npz_file)
+            header = inspect_acquisition(npz_file, coordinate_policy="trailing")
+            tensor_shape = header.diffraction_shape
+            xcoords = header.xcoords
+            ycoords = header.ycoords
 
             if i == 0:
                 first_im_shape = tensor_shape[1:] # Get H, W from the first file
@@ -671,10 +495,12 @@ class PtychoDataset(Dataset):
                 nn_indices, coords_nn, center_indices = group_coords(
                     xcoords, ycoords,
                     xcoords[valid_indices], ycoords[valid_indices],
-                    neighbor_function,
+                    None,
                     valid_indices,
                     self.data_config, C=self.data_config.C,
                     return_center_indices=True,
+                    object_index=header.object_index,
+                    experiment_id=i,
                     ensure_complete_coverage=(
                         self.require_complete_group_coverage
                     ))
@@ -980,7 +806,11 @@ class PtychoDataset(Dataset):
         #Pre-scan probe files to determine max number of incoherent modes
         max_modes = 1
         for npz_file in image_paths:
-            p_shape = np.load(npz_file)['probeGuess'].shape
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", RuntimeWarning)
+                p_shape = inspect_acquisition(
+                    npz_file, coordinate_policy="trailing"
+                ).probe_shape
             if len(p_shape) == 3 and p_shape[-1] != 1:
                 max_modes = max(max_modes, p_shape[0])
         if max_modes > 1:
@@ -1019,18 +849,17 @@ class PtychoDataset(Dataset):
             #Writing to non-diffraction memory maps in one go:
             non_diff_timer_start = time.time()
 
-            # Load the canonical stack before coordinating alignment so legacy
-            # (H, W, N) datasets use their pattern count rather than raw axis 0.
-            diff_stack = torch.from_numpy(_get_diffraction_stack(npz_file)).to(torch.float32)
-            n_diff = diff_stack.shape[0]
-            with np.load(npz_file) as npz_data:
-                xcoords_full = npz_data['xcoords']
-                ycoords_full = npz_data['ycoords']
             with warnings.catch_warnings():
                 # calculate_length already warned about this file via npz_headers
                 warnings.simplefilter("ignore", RuntimeWarning)
-                xcoords_full, ycoords_full = _align_coords_to_diffraction(
-                    xcoords_full, ycoords_full, n_diff, f"{npz_file}")
+                acquisition = decode_acquisition(
+                    npz_file,
+                    coordinate_policy="trailing",
+                    experiment_id=i,
+                )
+            diff_stack = torch.from_numpy(acquisition.diff3d).to(torch.float32)
+            xcoords_full = acquisition.xcoords
+            ycoords_full = acquisition.ycoords
 
             #Apply coordinate filter to remove edge points based on self.calculate_length
             xcoords = xcoords_full[self.valid_indices_per_file[i]]
@@ -1083,10 +912,10 @@ class PtychoDataset(Dataset):
                 if self.model_config.mode == 'Supervised':
                     print("Assigning labels...")
                     #Only grab valid labels which were calculated before. Validity based on coordinates
-                    valid_labels = np.load(npz_file)['label'][nn_indices][:,None,:,:] # Channel dimension added for consistency, size = 1
+                    valid_labels = acquisition.label[nn_indices][:,None,:,:] # Channel dimension added for consistency, size = 1
                     
                     #Do phase correction based on prior PtychoNN conventions
-                    objectGuess = np.load(npz_file)['objectGuess']
+                    objectGuess = acquisition.objectGuess
                     obj_phase = np.angle(objectGuess)
                     phase_corr_factor = obj_phase[int(obj_phase.shape[0] / 3.):int(obj_phase.shape[0] * 2 / 3.),
                                                   int(obj_phase.shape[1] / 3.):int(obj_phase.shape[1] * 2 / 3.)].mean()
@@ -1104,7 +933,7 @@ class PtychoDataset(Dataset):
             mmap_ptycho["experiment_id"][start:end] = torch.tensor(i)
 
             #Mapping probes
-            probe_data = np.load(npz_file)['probeGuess']
+            probe_data = acquisition.probeGuess
             if probe_data.ndim == 3 and probe_data.shape[-1] == 1:
                 probe_data = probe_data[..., 0]  # Canonicalize (N, N, 1) -> (N, N)
             probe_physical = np.ascontiguousarray(
@@ -1135,7 +964,7 @@ class PtychoDataset(Dataset):
                 ).to(torch.complex64)
 
             #Object
-            objectGuess = np.load(npz_file)['objectGuess']
+            objectGuess = acquisition.objectGuess
             if int(objectGuess.sum().real) != (objectGuess.shape[0] * objectGuess.shape[1]): #Check if matrix of ones
                 self.data_dict['objectGuess'].append(objectGuess)
             
@@ -1437,7 +1266,7 @@ class PtychoDataset(Dataset):
             nn_indices, coords_nn, center_indices = group_coords(
                 xcoords_full, ycoords_full,
                 xcoords, ycoords,
-                _resolve_neighbor_function(data_config),
+                None,
                 valid_indices,
                 data_config, C=data_config.C, return_center_indices=True)
             nn_indices = nn_indices.astype(np.int64)

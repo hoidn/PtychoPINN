@@ -33,6 +33,7 @@ from pathlib import Path
 from typing import Any, Mapping, Optional, TYPE_CHECKING
 
 import numpy as np
+from ptycho.acquisition import decode_acquisition
 from ptycho.config.legacy_state import scoped_legacy_params
 from ptycho.reconstruction_policy import OutputSpec, resolve_cli_reconstruction_policy
 from ptycho_torch.reconstruction_ports import present_reconstruction_canvas
@@ -477,33 +478,27 @@ def _validate_flat_npz(
     }
     optional_dtypes = {
         "objectGuess": np.dtype(np.complex64),
+        "Y": np.dtype(np.complex64),
+        "probe_simulated": np.dtype(np.complex64),
         "xcoords_start": np.dtype(np.float64),
         "ycoords_start": np.dtype(np.float64),
         "scan_index": np.dtype(np.int64),
+        "object_index": np.dtype(np.int64),
+        "object_amplitude_scale": np.dtype(np.float64),
     }
     with np.load(test_data_path, allow_pickle=False) as archive:
         archive_names = set(archive.files)
-        missing = sorted(set(required_dtypes) - archive_names)
-        if missing:
+        if strict_flat_v1 and "diff3d" not in archive_names:
             raise ValueError(
-                f"{test_data_path}: NPZ is missing required keys {missing}"
-            )
-        if strict_flat_v1:
-            if "diff3d" not in archive_names:
-                raise ValueError(
-                    f"{test_data_path}: flat-v1 NPZ is missing required key 'diff3d'"
-                )
-            diffraction_name = "diff3d"
-        elif "diffraction" in archive_names:
-            diffraction_name = "diffraction"
-        elif "diff3d" in archive_names:
-            diffraction_name = "diff3d"
-        else:
-            raise ValueError(
-                f"{test_data_path}: NPZ requires 'diff3d' or 'diffraction'"
+                f"{test_data_path}: flat-v1 NPZ is missing required key 'diff3d'"
             )
         arrays = {name: np.asarray(archive[name]) for name in archive.files}
 
+    record = decode_acquisition(
+        test_data_path,
+        coordinate_policy="strict" if strict_flat_v1 else "trailing",
+    )
+    diffraction_name = "diff3d" if "diff3d" in arrays else "diffraction"
     expected_dtypes = {
         diffraction_name: np.dtype(np.float32),
         **required_dtypes,
@@ -522,68 +517,20 @@ def _validate_flat_npz(
         if name in arrays and not np.isfinite(arrays[name]).all():
             raise ValueError(f"{test_data_path}: {name} contains nonfinite values")
 
-    diffraction = arrays[diffraction_name]
-    xcoords = arrays["xcoords"]
-    ycoords = arrays["ycoords"]
+    diffraction = record.diff3d
     N = int(data_config.N)
-    if diffraction.ndim != 3:
+    if strict_flat_v1 and arrays["diff3d"].shape != diffraction.shape:
         raise ValueError(
-            f"{test_data_path}: {diffraction_name} must be rank 3, "
-            f"got {diffraction.shape}"
+            f"{test_data_path}: diff3d must have shape (M, N, N) "
+            f"with loaded N={N}, got {arrays['diff3d'].shape}"
         )
-    if diffraction.shape[1:] == (N, N):
-        sample_count = int(diffraction.shape[0])
-    elif not strict_flat_v1 and diffraction.shape[:2] == (N, N):
-        sample_count = int(diffraction.shape[2])
-    else:
+    if diffraction.shape[1:] != (N, N):
         raise ValueError(
             f"{test_data_path}: {diffraction_name} must have shape (M, N, N) "
             f"with loaded N={N}, got {diffraction.shape}"
         )
-    exact_coordinate_shape = (
-        xcoords.shape == (sample_count,)
-        and ycoords.shape == (sample_count,)
-    )
-    compatible_coordinate_shape = (
-        xcoords.ndim == 1
-        and ycoords.ndim == 1
-        and len(xcoords) == len(ycoords)
-        and len(xcoords) >= sample_count
-    )
-    if not (
-        exact_coordinate_shape
-        if strict_flat_v1
-        else compatible_coordinate_shape
-    ):
-        raise ValueError(
-            "xcoords and ycoords must be one-dimensional arrays aligned with "
-            f"{diffraction_name}"
-        )
     if np.any(diffraction < 0):
         raise ValueError(f"{diffraction_name} measurements must be nonnegative")
-    probe_shape = arrays["probeGuess"].shape
-    supported_probe = (
-        probe_shape == (N, N)
-        or probe_shape == (N, N, 1)
-        or (
-            len(probe_shape) == 3
-            and probe_shape[0] > 0
-            and probe_shape[1:] == (N, N)
-        )
-    )
-    if not supported_probe:
-        raise ValueError(
-            "probeGuess must have shape (N, N), (P, N, N), or (N, N, 1) "
-            f"with loaded N={N}; got {probe_shape}"
-        )
-    if "objectGuess" in arrays and arrays["objectGuess"].ndim != 2:
-        raise ValueError("objectGuess must be a rank-2 complex64 truth canvas")
-    if ("xcoords_start" in arrays) != ("ycoords_start" in arrays):
-        raise ValueError("xcoords_start and ycoords_start must be present together")
-    coordinate_count = len(xcoords)
-    for name in ("xcoords_start", "ycoords_start", "scan_index"):
-        if name in arrays and arrays[name].shape != (coordinate_count,):
-            raise ValueError(f"{name} must have shape ({coordinate_count},)")
 
     if dataset_manifest_path is None:
         return
@@ -1111,7 +1058,6 @@ def _run_inference_and_reconstruct(model, raw_data, config, execution_config, de
     Notes:
         - Wraps existing simplified inference logic (lines 563-641)
         - Enforces DTYPE-001 (float32 for diffraction, complex64 for probe)
-        - Handles shape permutations (H,W,N → N,H,W)
         - Averages across batch for single reconstruction
         - DEVICE-MISMATCH-001: Ensures model is on the correct device
     """
@@ -1149,12 +1095,6 @@ def _run_inference_and_reconstruct(model, raw_data, config, execution_config, de
     from ptycho import debug_parity
     debug_parity.log_array_stats("torch.diffraction_raw", raw_data.diff3d)
     debug_parity.log_array_stats("torch.probe_raw", raw_data.probeGuess)
-
-    # Handle different diffraction shapes (H, W, n) vs (n, H, W)
-    # Auto-detect legacy (H, W, n) format where the last dim (n) is the largest
-    if diffraction.ndim == 3 and diffraction.shape[-1] > max(diffraction.shape[0], diffraction.shape[1]):
-        # Transpose from (H, W, n) to (n, H, W)
-        diffraction = diffraction.permute(2, 0, 1)
 
     # Limit to n_groups
     diffraction = diffraction[:config.n_groups]

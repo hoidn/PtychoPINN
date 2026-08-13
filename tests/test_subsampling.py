@@ -8,6 +8,7 @@ import unittest
 import numpy as np
 import tempfile
 from pathlib import Path
+from ptycho.raw_data import RawData
 from ptycho.workflows.components import load_data
 from ptycho.config.config import TrainingConfig, ModelConfig, SamplingConfig
 from ptycho import params
@@ -153,6 +154,7 @@ class TestSubsampling(unittest.TestCase):
                     n_subsample=100,
                     subsample_seed=71,
                 )
+                self.assertFalse((Path(temporary_cwd) / "tmp").exists())
             finally:
                 os.chdir(original_cwd)
 
@@ -242,6 +244,23 @@ class TestSubsampling(unittest.TestCase):
         if data.Y is not None:
             self.assertEqual(data.Y.shape[0], data.diff3d.shape[0])
             self.assertEqual(data.Y.shape[0], n_subsample)
+
+    def test_incompatible_legacy_y_is_ignored(self):
+        """The shared workflow keeps its historical optional-truth fallback."""
+        with tempfile.NamedTemporaryFile(suffix=".npz") as handle:
+            np.savez(
+                handle.name,
+                xcoords=np.arange(3, dtype=np.float64),
+                ycoords=np.arange(3, dtype=np.float64),
+                diffraction=np.ones((3, 4, 4), dtype=np.float32),
+                probeGuess=np.ones((4, 4), dtype=np.complex64),
+                Y=np.ones((1, 4, 4, 1), dtype=np.complex64),
+            )
+
+            with self.assertWarnsRegex(RuntimeWarning, "Ignoring.*Y"):
+                loaded = load_data(handle.name)
+
+        self.assertIsNone(loaded.Y)
     
     def test_sorted_indices_for_consistency(self):
         """Test that subsampled indices are sorted for consistency."""
@@ -359,7 +378,74 @@ class TestSubsampling(unittest.TestCase):
                 objectGuess=np.ones((n, n), dtype=np.complex64),
             )
             loaded = load_data(tmp.name)
+            loaded_raw = RawData.from_file(tmp.name)
             self.assertEqual(loaded.diff3d.shape, (n_scans, n, n))
+            np.testing.assert_array_equal(loaded_raw.diff3d, diffraction_legacy.transpose(2, 0, 1))
+        finally:
+            import os
+            os.unlink(tmp.name)
+
+    def test_load_adapters_reject_conflicting_dual_diffraction_keys(self):
+        n_scans = 3
+        n = 4
+        tmp = tempfile.NamedTemporaryFile(suffix=".npz", delete=False)
+        try:
+            canonical = np.ones((n_scans, n, n), dtype=np.float32)
+            np.savez(
+                tmp.name,
+                xcoords=np.arange(n_scans, dtype=np.float64),
+                ycoords=np.arange(n_scans, dtype=np.float64),
+                diff3d=canonical,
+                diffraction=canonical + 1,
+                probeGuess=np.ones((n, n), dtype=np.complex64),
+            )
+
+            for adapter in (load_data, RawData.from_file):
+                with self.subTest(adapter=adapter.__qualname__):
+                    with self.assertRaisesRegex(ValueError, "conflicting diffraction"):
+                        adapter(tmp.name)
+        finally:
+            import os
+            os.unlink(tmp.name)
+
+    def test_load_adapters_retain_canonical_optional_fields(self):
+        n_scans = 6
+        n = 4
+        tmp = tempfile.NamedTemporaryFile(suffix=".npz", delete=False)
+        try:
+            truth = np.arange(n_scans * n * n).reshape(n_scans, n, n).astype(np.complex64)
+            label = truth + np.complex64(2j)
+            simulated_probe = np.full((n, n), 3 + 4j, dtype=np.complex64)
+            np.savez(
+                tmp.name,
+                xcoords=np.arange(n_scans, dtype=np.float64),
+                ycoords=np.arange(n_scans, dtype=np.float64),
+                diff3d=np.ones((n_scans, n, n), dtype=np.float32),
+                probeGuess=np.ones((n, n), dtype=np.complex64),
+                Y=truth,
+                label=label,
+                probe_simulated=simulated_probe,
+                object_amplitude_scale=np.array(2.5, dtype=np.float64),
+                scale_contract_version=np.array("ci_intensity_v2"),
+                measurement_domain=np.array("count_intensity"),
+                experiment_id=np.array(7, dtype=np.int64),
+                _metadata=np.array('{"source": "adapter-test"}'),
+            )
+
+            complete = RawData.from_file(tmp.name)
+            selected = load_data(tmp.name, n_subsample=3, subsample_seed=19)
+
+            np.testing.assert_array_equal(complete.label, label)
+            np.testing.assert_array_equal(complete.probe_simulated, simulated_probe)
+            self.assertEqual(complete.metadata, {"source": "adapter-test"})
+            np.testing.assert_array_equal(selected.Y, truth[selected.sample_indices])
+            np.testing.assert_array_equal(selected.label, label[selected.sample_indices])
+            np.testing.assert_array_equal(selected.probe_simulated, simulated_probe)
+            self.assertEqual(selected.object_amplitude_scale, np.float64(2.5))
+            self.assertEqual(selected.scale_contract_version, "ci_intensity_v2")
+            self.assertEqual(selected.measurement_domain, "count_intensity")
+            self.assertEqual(selected.experiment_id, 7)
+            self.assertEqual(selected.metadata, {"source": "adapter-test"})
         finally:
             import os
             os.unlink(tmp.name)

@@ -112,6 +112,11 @@ from ptycho import params
 from ptycho.image import reassemble_patches
 from ptycho.model_manager import ModelManager
 from ptycho.generators.registry import resolve_generator
+from ptycho.acquisition import (
+    decode_acquisition,
+    select_acquisition,
+    transform_coordinates,
+)
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -351,88 +356,14 @@ def load_data(file_path, n_images=None, n_subsample=None, flip_x=False, flip_y=F
         raise ValueError("subsample_seed and rng are mutually exclusive")
 
     logger.info(f"Loading data from {file_path} with n_images={n_images}, n_subsample={n_subsample}")
-    # Load data from file
-    data = np.load(file_path)
-
-    # Extract required arrays from loaded data
-    xcoords = data['xcoords']
-    ycoords = data['ycoords']
-    xcoords_start = data['xcoords_start'] if 'xcoords_start' in data else xcoords.copy()
-    ycoords_start = data['ycoords_start'] if 'ycoords_start' in data else ycoords.copy()
-    
-    # Handle flexible diffraction key and shape
-    diff_key = 'diff3d' if 'diff3d' in data else 'diffraction'
-    diff_data = data[diff_key]
-
-    if diff_data.ndim == 4 and diff_data.shape[-1] == 1:
-        diff_data = np.squeeze(diff_data, axis=-1)
-    if diff_data.ndim != 3:
-        raise ValueError(
-            f"Expected diffraction data to have rank 3 or rank 4 with singleton channel, got {diff_data.shape}"
-        )
-
-    dataset_size = int(xcoords.shape[0])
-    # Prefer coordinate-length matching over shape heuristics:
-    # canonical format is (N_scans, H, W); legacy format is (H, W, N_scans).
-    if diff_data.shape[0] == dataset_size:
-        diff3d = diff_data
-    elif diff_data.shape[-1] == dataset_size:
-        diff3d = np.transpose(diff_data, [2, 0, 1])
-    else:
-        raise ValueError(
-            f"Unable to align diffraction shape {diff_data.shape} with xcoords length {dataset_size}."
-        )
-    
-    probeGuess = data['probeGuess']
-    objectGuess = data.get('objectGuess', None)
-    
-    # Optional ground-truth patches. Some NPZs (e.g., Phase C patched_*.npz)
-    # may include a singleton 'Y' with shape (1, N, N, 1) rather than one
-    # per image. Guard against shape mismatches by degrading to None unless
-    # the first axis matches the dataset size. This keeps TensorFlow loader
-    # behavior consistent (it will create a placeholder when Y is missing).
-    Y_patches = data['Y'] if 'Y' in data else None
-
-    # Apply coordinate transformations
-    if flip_x:
-        xcoords = -xcoords
-        xcoords_start = -xcoords_start
-        #probeGuess = probeGuess[::-1, :]
-    if flip_y:
-        ycoords = -ycoords
-        ycoords_start = -ycoords_start
-        #probeGuess = probeGuess[:, ::-1]
-    if swap_xy:
-        xcoords, ycoords = ycoords, xcoords
-        xcoords_start, ycoords_start = ycoords_start, xcoords_start
-        #probeGuess = np.transpose(probeGuess)
-
-    # Apply coordinate scaling
-    xcoords *= coord_scale
-    ycoords *= coord_scale
-    xcoords_start *= coord_scale
-    ycoords_start *= coord_scale
-
-    # Create scan_index array
-    scan_index = np.zeros(diff3d.shape[0], dtype=int)
-
-    # Implement independent subsampling logic
-    dataset_size = xcoords.shape[0]
-
-    # Validate optional Y shape before any indexing with selected_indices
-    if Y_patches is not None:
-        try:
-            if getattr(Y_patches, 'shape', None) is None or Y_patches.shape[0] != dataset_size:
-                # Shape mismatch (e.g., singleton); ignore Y to avoid index errors
-                import logging
-                logging.getLogger(__name__).warning(
-                    "Ignoring NPZ 'Y' with incompatible shape %s (expected first axis %d)",
-                    getattr(Y_patches, 'shape', None), dataset_size,
-                )
-                Y_patches = None
-        except Exception:
-            # Defensive: if anything goes wrong with Y inspection, null it out
-            Y_patches = None
+    record = transform_coordinates(
+        decode_acquisition(file_path, truth_policy="drop_incompatible"),
+        flip_x=flip_x,
+        flip_y=flip_y,
+        swap_xy=swap_xy,
+        scale=coord_scale,
+    )
+    dataset_size = len(record.xcoords)
     
     # Determine how many images to use for subsampling
     if n_subsample is not None:
@@ -448,45 +379,40 @@ def load_data(file_path, n_images=None, n_subsample=None, flip_x=False, flip_y=F
         images_to_use = dataset_size
         logger.info(f"Using full dataset of {dataset_size} images")
     
-    # Perform subsampling if needed
-    if images_to_use < dataset_size:
-        if subsample_seed is not None:
-            logger.info(f"Using seed {subsample_seed} for reproducible subsampling")
-
-        local_rng = rng if rng is not None else np.random.default_rng(subsample_seed)
-
-        # Random subsampling
-        all_indices = np.arange(dataset_size)
-        selected_indices = local_rng.choice(all_indices, size=images_to_use, replace=False)
-        selected_indices = np.sort(selected_indices)  # Sort for consistency
+    selection = select_acquisition(
+        record,
+        count=images_to_use,
+        seed=subsample_seed,
+        rng=rng,
+    )
+    selected_indices = selection.source_indices
+    if selection.mode == "random_without_replacement":
         logger.info(f"Randomly subsampled {images_to_use} images")
-    else:
-        # Use all data
-        selected_indices = np.arange(dataset_size)
     
     # Create RawData object with subsampled data
-    ptycho_data = RawData(xcoords[selected_indices], ycoords[selected_indices],
-                          xcoords_start[selected_indices], ycoords_start[selected_indices],
-                          diff3d[selected_indices], probeGuess,
-                          scan_index[selected_indices], objectGuess=objectGuess,
-                          # Pass Y only when it is per-image and shape-validated
-                          Y=(Y_patches[selected_indices] if Y_patches is not None else None))
+    ptycho_data = RawData(
+        record.xcoords[selected_indices],
+        record.ycoords[selected_indices],
+        record.xcoords_start[selected_indices],
+        record.ycoords_start[selected_indices],
+        record.diff3d[selected_indices],
+        record.probeGuess,
+        record.scan_index[selected_indices],
+        objectGuess=record.objectGuess,
+        Y=(record.Y[selected_indices] if record.Y is not None else None),
+        metadata=record.metadata,
+        object_index=record.object_index[selected_indices],
+        probe_simulated=record.probe_simulated,
+        object_amplitude_scale=record.object_amplitude_scale,
+        label=(record.label[selected_indices] if record.label is not None else None),
+        scale_contract_version=record.scale_contract_version,
+        measurement_domain=record.measurement_domain,
+        experiment_id=record.experiment_id,
+    )
 
     # Persist selected indices for reproducibility
     ptycho_data.sample_indices = np.array(selected_indices, copy=True)
     ptycho_data.subsample_seed = subsample_seed
-    if subsample_seed is not None:
-        try:
-            tmp_dir = Path('tmp')
-            tmp_dir.mkdir(parents=True, exist_ok=True)
-            indices_path = tmp_dir / f"subsample_seed{subsample_seed}_indices.txt"
-            with indices_path.open('w', encoding='utf-8') as handle:
-                for idx in ptycho_data.sample_indices:
-                    handle.write(f"{int(idx)}\n")
-            logger.info("Persisted subsample indices to %s", indices_path)
-        except Exception as exc:
-            logger.warning("Failed to persist subsample indices for seed %s: %s", subsample_seed, exc)
-
     return ptycho_data
 
 def add_public_training_config_arguments(

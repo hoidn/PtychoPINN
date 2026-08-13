@@ -140,13 +140,49 @@ class TestNPZProbeSizeExtraction(unittest.TestCase):
         inferred_N = _infer_probe_size(str(npz_file))
         self.assertEqual(inferred_N, 128)
 
-    def test_infer_probe_size_rectangular(self):
-        """
-        Test utility handles rectangular probes by using first dimension.
+    def test_infer_probe_size_uses_detector_axis_for_multimode_probe(self):
+        from ptycho_torch.train import _infer_probe_size
 
-        Some edge cases may have non-square probes (e.g., 64x32).
-        Utility should use probe.shape[0] to determine N.
-        """
+        n_images, n_modes, detector_size = 10, 3, 64
+        npz_file = self.data_path / "multimode_probe.npz"
+        np.savez(
+            npz_file,
+            diffraction=np.ones(
+                (n_images, detector_size, detector_size), dtype=np.float32
+            ),
+            xcoords=np.arange(n_images, dtype=np.float64),
+            ycoords=np.arange(n_images, dtype=np.float64),
+            probeGuess=np.ones(
+                (n_modes, detector_size, detector_size), dtype=np.complex64
+            ),
+        )
+
+        self.assertEqual(_infer_probe_size(npz_file), detector_size)
+
+    def test_lightning_only_probe_size_matches_native_for_multimode_probe(self):
+        from ptycho_torch.train import _infer_probe_size as infer_native
+        from ptycho_torch.train_lightning_only import (
+            _infer_probe_size as infer_lightning,
+        )
+
+        n_images, n_modes, detector_size = 10, 3, 64
+        npz_file = self.data_path / "multimode_probe_parity.npz"
+        np.savez(
+            npz_file,
+            diffraction=np.ones(
+                (n_images, detector_size, detector_size), dtype=np.float32
+            ),
+            xcoords=np.arange(n_images, dtype=np.float64),
+            ycoords=np.arange(n_images, dtype=np.float64),
+            probeGuess=np.ones(
+                (n_modes, detector_size, detector_size), dtype=np.complex64
+            ),
+        )
+
+        self.assertEqual(infer_lightning(npz_file), infer_native(npz_file))
+
+    def test_infer_probe_size_rectangular(self):
+        """Rectangular acquisitions are invalid at the canonical boundary."""
         n_images = 10
         probe_h, probe_w = 64, 32  # Rectangular
 
@@ -168,11 +204,7 @@ class TestNPZProbeSizeExtraction(unittest.TestCase):
         except ImportError:
             self.skip("_infer_probe_size() not implemented yet")
 
-        inferred_N = _infer_probe_size(str(npz_file))
-        self.assertEqual(
-            inferred_N, probe_h,
-            f"For rectangular probe ({probe_h}x{probe_w}), should use shape[0]={probe_h}"
-        )
+        self.assertIsNone(_infer_probe_size(str(npz_file)))
 
     def test_infer_probe_size_missing_probe(self):
         """
@@ -207,6 +239,19 @@ class TestNPZProbeSizeExtraction(unittest.TestCase):
             inferred_N,
             "When probeGuess missing, _infer_probe_size() should return None for fallback to default"
         )
+
+    def test_infer_probe_size_corrupt_npz_returns_none(self):
+        from ptycho_torch.train import _infer_probe_size as infer_native
+        from ptycho_torch.train_lightning_only import (
+            _infer_probe_size as infer_lightning,
+        )
+
+        with tempfile.NamedTemporaryFile(suffix=".npz") as corrupt:
+            corrupt.write(b"not a zip archive")
+            corrupt.flush()
+
+            self.assertIsNone(infer_native(corrupt.name))
+            self.assertIsNone(infer_lightning(corrupt.name))
 
     def test_infer_probe_size_real_dataset(self):
         """

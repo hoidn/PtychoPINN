@@ -865,55 +865,9 @@ def infer_probe_size(data_file: Path) -> int:
         - Override precedence: .../override_matrix.md row "N"
         - NPZ data contract: specs/data_contracts.md §1
     """
-    import numpy as np
-    import warnings
-
-    fallback_N = 64
-
-    try:
-        # Load NPZ with allow_pickle=False for security
-        with np.load(data_file, allow_pickle=False) as npz_data:
-            if 'probeGuess' not in npz_data:
-                warnings.warn(
-                    f"probeGuess key missing from {data_file}. Using fallback N={fallback_N}.",
-                    UserWarning
-                )
-                return fallback_N
-
-            probe = npz_data['probeGuess']
-
-            # Extract first dimension (assumes square probe)
-            if probe.ndim < 2:
-                warnings.warn(
-                    f"probeGuess has invalid shape {probe.shape} (expected 2D square array). "
-                    f"Using fallback N={fallback_N}.",
-                    UserWarning
-                )
-                return fallback_N
-
-            N = probe.shape[0]
-
-            # Validate square probe
-            if probe.shape[0] != probe.shape[1]:
-                warnings.warn(
-                    f"probeGuess is non-square {probe.shape}. Using first dimension N={N}.",
-                    UserWarning
-                )
-
-            return N
-
-    except FileNotFoundError:
-        warnings.warn(
-            f"Data file {data_file} not found. Using fallback N={fallback_N}.",
-            UserWarning
-        )
-        return fallback_N
-    except Exception as e:
-        warnings.warn(
-            f"Error reading probeGuess from {data_file}: {e}. Using fallback N={fallback_N}.",
-            UserWarning
-        )
-        return fallback_N
+    observation = observe_probe_size(data_file)
+    _emit_resolution_notices(observation.notices)
+    return observation.value
 
 
 @configured_legacy_params

@@ -60,13 +60,15 @@ the shared core.
   ([instructions](https://pytorch.org/get-started/locally/)), then `pip install .`
 - Public training configuration and CLI generation use the declared
   `pydantic-settings` dependency.
-- Input NPZ files with `diff3d`, `xcoords`/`ycoords` scan positions, a complex
+- Input NPZ files with canonical `diff3d` (or compatibility alias
+  `diffraction`), `xcoords`/`ycoords` scan positions, a complex
   `probeGuess`, and `objectGuess`. Under the legacy contract, `diff3d` is
   normalized amplitude (square root of intensity). Under `ci_intensity_v2`, it
   is Poisson-realized detector counts and `probeGuess` is the CI-scaled physical
-  forward probe. The Torch mmap loader also accepts `diffraction` as a
-  compatibility alias; the ordinary `RawData.from_file()` route requires
-  `diff3d`. The resolved configuration must match the NPZ measurement domain.
+  forward probe. Every RAM and mmap path delegates key/layout/identity handling
+  to `ptycho.acquisition`; deterministic neighbor-index planning belongs to
+  `ptycho.grouping`. The resolved configuration must match the NPZ measurement
+  domain.
 
 ## 3. Configuration
 
@@ -183,9 +185,8 @@ complete TF-parity preset below is applied (§3.6).
 - Public `TrainingConfig.sampling.subsample_seed` seeds
   `lightning.pytorch.seed_everything`; `sampling.sequential_sampling=True`
   uses deterministic first-N grouping anchors after raw-row subsampling.
-  Subsampled indices
-  are persisted (`raw.sample_indices`, `tmp/subsample_seed{X}_indices.txt`) and
-  asserted equal across backends.
+  Selected source indices remain available as `raw.sample_indices`; loading no
+  longer writes a hidden `tmp/subsample_seed{X}_indices.txt` sidecar.
 
 ### 3.4. Probe Masking
 

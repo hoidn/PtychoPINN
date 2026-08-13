@@ -136,6 +136,27 @@ class TestRawDataTorchAdapter:
         assert params.cfg == expected_params
         assert adapter._config is config
 
+    def test_acquisition_round_trip_preserves_object_index(self, minimal_raw_data):
+        from ptycho.acquisition import AcquisitionRecord
+        from ptycho_torch.raw_data_bridge import RawDataTorch
+
+        object_index = np.arange(len(minimal_raw_data.xcoords), dtype=np.int64) % 3
+        record = AcquisitionRecord(
+            xcoords=minimal_raw_data.xcoords,
+            ycoords=minimal_raw_data.ycoords,
+            xcoords_start=minimal_raw_data.xcoords_start,
+            ycoords_start=minimal_raw_data.ycoords_start,
+            diff3d=minimal_raw_data.diff3d,
+            probeGuess=minimal_raw_data.probeGuess,
+            scan_index=minimal_raw_data.scan_index,
+            object_index=object_index,
+            objectGuess=minimal_raw_data.objectGuess,
+        )
+
+        restored = RawDataTorch.from_acquisition(record).to_acquisition()
+
+        np.testing.assert_array_equal(restored.object_index, object_index)
+
     def test_config_derived_gridsize_ignores_params_and_preserves_grouping_parity(
         self,
         monkeypatch,
@@ -859,3 +880,68 @@ class TestMemmapBridgeParity:
         #     f"Diffraction shape mismatch: {grouped['diffraction'].shape}"
         # assert grouped['diffraction'].dtype == np.float32, \
         #     f"DATA-001 violation: dtype must be float32, got {grouped['diffraction'].dtype}"
+
+    def test_memmap_bridge_uses_canonical_layout_and_object_identity(
+        self, params_cfg_snapshot, minimal_raw_data, tmp_path
+    ):
+        from ptycho.config.config import ModelConfig, TrainingConfig
+        from ptycho_torch.memmap_bridge import MemmapDatasetBridge
+
+        canonical = minimal_raw_data.diff3d[:20]
+        object_index = np.arange(20, dtype=np.int64) % 3
+        path = tmp_path / "legacy_layout_with_identity.npz"
+        np.savez(
+            path,
+            diff3d=np.transpose(canonical, (1, 2, 0)),
+            xcoords=minimal_raw_data.xcoords[:20],
+            ycoords=minimal_raw_data.ycoords[:20],
+            probeGuess=minimal_raw_data.probeGuess,
+            objectGuess=minimal_raw_data.objectGuess,
+            scan_index=np.arange(20, dtype=np.int32),
+            object_index=object_index,
+        )
+
+        bridge = MemmapDatasetBridge(
+            path,
+            TrainingConfig(
+                model=ModelConfig(N=64, gridsize=2),
+                n_groups=10,
+                neighbor_count=4,
+                nphotons=1e9,
+            ),
+        )
+
+        np.testing.assert_array_equal(bridge.diff3d, canonical)
+        np.testing.assert_array_equal(
+            bridge.raw_data_torch.to_acquisition().object_index,
+            object_index,
+        )
+
+    def test_memmap_bridge_rejects_conflicting_diffraction_aliases(
+        self, params_cfg_snapshot, minimal_raw_data, tmp_path
+    ):
+        from ptycho.config.config import ModelConfig, TrainingConfig
+        from ptycho_torch.memmap_bridge import MemmapDatasetBridge
+
+        canonical = minimal_raw_data.diff3d[:20]
+        path = tmp_path / "conflicting_aliases.npz"
+        np.savez(
+            path,
+            diff3d=canonical,
+            diffraction=canonical + np.float32(1),
+            xcoords=minimal_raw_data.xcoords[:20],
+            ycoords=minimal_raw_data.ycoords[:20],
+            probeGuess=minimal_raw_data.probeGuess,
+            objectGuess=minimal_raw_data.objectGuess,
+        )
+
+        with pytest.raises(ValueError, match="conflicting diffraction stacks"):
+            MemmapDatasetBridge(
+                path,
+                TrainingConfig(
+                    model=ModelConfig(N=64, gridsize=2),
+                    n_groups=10,
+                    neighbor_count=4,
+                    nphotons=1e9,
+                ),
+            )
