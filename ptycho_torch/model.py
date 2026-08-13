@@ -1809,8 +1809,9 @@ class PtychoPINN(nn.Module):
         # convention (reassembly.compute_varpro_basis). Dividing again here
         # suppressed predicted intensity by probe_scale**2 and drove the
         # Poisson equilibrium object to ~probe_scale x truth (washed
-        # reconstructions; deliberate physics divergence from origin/main,
-        # which retains the defect). The default 'amplitude' path keeps the
+        # reconstructions; origin/main carried the same defect until the
+        # mid-July 2026 scale-chain port -- all lineages now share this
+        # convention). The default 'amplitude' path keeps the
         # historical division byte-for-byte.
         if getattr(self.model_config, 'physics_forward_mode', 'amplitude') \
                 == 'rectangular_scaled':
