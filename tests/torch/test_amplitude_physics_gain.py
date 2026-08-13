@@ -987,35 +987,24 @@ class TestAmplitudePhysicsGainBundleRecord:
 
         monkeypatch.setattr(
             components,
-            "train_cdi_model_torch",
-            lambda *_args, **_kwargs: {
+            "_ensure_container",
+            lambda *_args, **_kwargs: object(),
+        )
+
+        def fake_train(*_args, **kwargs):
+            captured.update(kwargs)
+            return {
                 "models": {
                     "autoencoder": model,
                     "diffraction_to_obj": model,
-                }
-            },
-        )
-
-        def fake_save(*, base_path, **_kwargs):
-            bundle_path = Path(base_path).with_suffix(".h5.zip")
-            bundle_path.parent.mkdir(parents=True, exist_ok=True)
-            bundle_path.touch()
-
-        from pathlib import Path
-
-        monkeypatch.setattr(components, "save_torch_bundle", fake_save)
-
-        def fake_persist(path, persisted_model, *, amplitude_physics_gain_record=None):
-            captured.update(
-                path=path,
-                model=persisted_model,
-                record=amplitude_physics_gain_record,
-            )
+                },
+                "bundle_path": output_dir / "wts.h5.zip",
+            }
 
         monkeypatch.setattr(
             components,
-            "_persist_bundle_scaling_metadata",
-            fake_persist,
+            "_train_with_lightning",
+            fake_train,
         )
 
         _, _, results = components.run_cdi_example_torch(
@@ -1026,7 +1015,8 @@ class TestAmplitudePhysicsGainBundleRecord:
             amplitude_physics_gain_record=record,
         )
 
-        assert captured["record"] is record
+        assert captured["persist_bundle"] is True
+        assert captured["amplitude_physics_gain_record"] is record
         assert results["amplitude_physics_gain_record"] is record
         assert results["amplitude_physics_gain_metadata"] == record.to_metadata()
         assert results["bundle_path"] == output_dir / "wts.h5.zip"

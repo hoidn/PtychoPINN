@@ -36,11 +36,11 @@ Spawn pickles the entire `LightningModule` to send to child processes. Several c
 
 ### 2. Strategy Abstraction (`train_utils.py`)
 
-**`get_training_strategy()`** — Extended to handle `strategy='ddp_spawn'`. Returns `DDPStrategy(start_method='spawn', find_unused_parameters=False)`. The `static_graph=True` optimization used by the regular DDP path is omitted for spawn because the model is re-created from pickle each time.
+**`get_training_strategy()`** — Extended to handle `strategy='ddp_spawn'`. Returns `DDPStrategy(start_method='spawn', find_unused_parameters=False)`, using NCCL for CUDA and Lightning's default backend for CPU. The `static_graph=True` optimization used by the regular DDP path is omitted for spawn because the model is re-created from pickle each time.
 
 **`is_spawn_strategy()`** — New helper that checks whether a strategy (string or object) uses spawn. Used by DataModule and other code to branch behavior.
 
-### 3. Run Coordination (`train_lightning_only.py`)
+### 3. Run Coordination (shared Lightning service)
 
 **File-based timestamp synchronization removed** — The old pattern had rank 0 write a `.run_name` file while other ranks polled for it with a 30-second timeout. Under spawn, all children thought they were rank 0 (no `RANK` env var before spawn). Replaced with simple pre-spawn `run_name` generation — anything computed before `trainer.fit()` happens in the parent process only.
 
@@ -52,11 +52,11 @@ The old fine-tuning pattern created a second `L.Trainer` and called `.fit()` aga
 
 **`EncoderFreezeCallback`** — New callback that implements fine-tuning within a single `trainer.fit()` call. At epoch `freeze_at_epoch`, it freezes the encoder and scales all optimizer learning rates by `lr_gamma`. Total training epochs = `epochs + epochs_fine_tune`.
 
-Wired into both `trainer_api.py` (API path) and `train_lightning_only.py` (standalone path) when `epochs_fine_tune > 0`. The two-trainer `ModelFineTuner_Lightning` pattern is no longer used.
+Wired into `ptycho_torch.workflows.components._train_with_lightning` when `epochs_fine_tune > 0`. The shared training service no longer uses the two-trainer `ModelFineTuner_Lightning` pattern; the excluded legacy API still does.
 
 ### 5. DataModule Spawn Safety (`train_utils.py`)
 
-**Worker guard** — `PtychoDataModule`, `PrebuiltPtychoDataModule`, and `PtychoDataModuleLightning` gained a `_resolve_worker_kwargs()` method. Under spawn, it forces `num_workers=0` and `persistent_workers=False` to prevent nested spawning (worker processes within spawn'd training processes), which causes hangs on many systems.
+**Worker guard** — `PtychoDataModule` and `PrebuiltPtychoDataModule` resolve worker settings at their loader boundary. Under spawn, they force `num_workers=0` and `persistent_workers=False` to prevent nested spawning (worker processes within spawned training processes), which causes hangs on many systems.
 
 **Bug fix** — `PrebuiltPtychoDataModule` referenced `self.config.batch_size` but stored the config as `self.training_config`. Fixed the attribute name.
 
@@ -90,4 +90,4 @@ All tests: model pickled across spawn boundary, both ranks loaded memory maps, c
 | `ptycho_torch/train_utils.py` | Extend `get_training_strategy()`, add `is_spawn_strategy()`, add `EncoderFreezeCallback`, add spawn worker guards to DataModules |
 | `ptycho_torch/api/trainer_api.py` | Wire `EncoderFreezeCallback` when fine-tuning is requested |
 | `ptycho_torch/api/base_api.py` | Remove two-trainer fine-tuning, add GPU cleanup in `Trainer.train()` |
-| `ptycho_torch/train_lightning_only.py` | Remove file-based sync, remove manual dist calls, wire `EncoderFreezeCallback` |
+| `ptycho_torch/workflows/components.py` | Shared Trainer construction, serving-checkpoint restoration, fine-tune callback, and run-root publication |

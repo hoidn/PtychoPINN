@@ -9,7 +9,6 @@ import torch
 from tensordict import TensorDict
 
 from ptycho_torch import reassembly
-from ptycho_torch import train_lightning_only as train_module
 from ptycho.config.config import PyTorchExecutionConfig
 from ptycho_torch.config_params import (
     DataConfig,
@@ -1083,7 +1082,9 @@ def test_reconstruction_precision_agrees_with_effective_runtime_json(tmp_path):
         callbacks=[],
         loggers=[],
     )
-    runtime = train_module._build_effective_runtime(
+    from ptycho_torch.runtime_provenance import build_effective_runtime
+
+    runtime = build_effective_runtime(
         11,
         {"precision": "bf16-mixed", "callbacks": [], "logger": []},
         execution_config,

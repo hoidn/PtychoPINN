@@ -580,16 +580,6 @@ def test_ci_statistics_actual_lightning_checkpoint_round_trip(tmp_path):
         torch.testing.assert_close(restored.get_ci_statistics()[name], expected)
 
 
-def test_training_entry_point_constructs_rank_safe_ci_statistics_callback():
-    import ptycho_torch.train_lightning_only as train_lightning_only
-    from ptycho_torch.lightning_utils import CIStatisticsCallback
-
-    lightning_only = train_lightning_only._build_ci_statistics_callback()
-
-    assert isinstance(lightning_only, CIStatisticsCallback)
-    assert lightning_only.metadata_sink is None
-
-
 @pytest.mark.parametrize("is_global_zero", [True, False])
 def test_ci_statistics_callback_registers_every_rank_and_gates_side_effects(
     is_global_zero,

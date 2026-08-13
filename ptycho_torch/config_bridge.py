@@ -226,7 +226,9 @@ def to_training_config(
     data: DataConfig,
     pt_model: ModelConfig,
     training: TrainingConfig,
-    overrides: Optional[Dict[str, Any]] = None
+    overrides: Optional[Dict[str, Any]] = None,
+    *,
+    require_group_count: bool = True,
 ) -> TFTrainingConfig:
     """
     Translate PyTorch configs to TensorFlow TrainingConfig.
@@ -285,7 +287,9 @@ def to_training_config(
             f"overrides=dict(..., nphotons={tensorflow_default_nphotons})"
         )
 
-    if n_groups is None:
+    # Validate n_groups: Missing override leaves params.cfg['n_groups'] = None
+    # breaking downstream workflows that expect valid integer (Phase B.B5.D3)
+    if require_group_count and n_groups is None:
         raise ValueError(
             "n_groups is required in overrides for TrainingConfig. "
             "Missing override leaves params.cfg['n_groups'] = None, breaking downstream workflows. "

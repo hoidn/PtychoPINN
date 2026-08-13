@@ -213,9 +213,10 @@ sampler, worker/prefetch settings, pinning, and collation. The retained
 default sharding step. When a held-out mmap is supplied, it is loaded unchanged
 as validation; only a run without one may split training data.
 
-Legacy `ptycho_torch.api`, inference/reassembly loaders, and the older
-trainer-owned DataModule are not additional maintained training rails; their
-migration or retirement is outside this Phase 2 boundary.
+Legacy `ptycho_torch.api` and inference/reassembly loaders are not additional
+maintained training rails. An already-built mmap enters the shared Lightning
+service through `PrebuiltPtychoDataModule`; no second trainer-owned DataModule
+or loader path remains.
 
 ### 3.4. Probe Masking
 
@@ -284,8 +285,9 @@ configuration profile or registry entry:
 
 An additional default-off mechanism, `parity_scale_mode`
 (`PtychoPINN_Lightning` kwarg; `"off"` \| `"tied"` \| `"input"` \| `"output"` \|
-`"fixed"`), controls the TF-parity global intensity scale; it is forwarded by
-`ptycho_torch/train_lightning_only.py` and driven from
+`"fixed"`), controls the TF-parity global intensity scale; resolved study
+records carry it through the exact payload adapter into the shared service. It
+is driven from
 `scripts/studies/varpro_probe_ablation_runner.py`
 (`--cbam-encoder`, `--parity-init-scheme`, `--parity-scale-mode`, `--scheduler`).
 
@@ -405,6 +407,11 @@ passes the request through the factory exactly once, instantiates
 `do_stitching=True` — runs Lightning prediction and reassembles the image
 (`flip_x`/`flip_y`/`transpose` args control coordinate transforms, `M` the stitch
 window).
+
+Study callers that already own a `PtychoDataset` mmap build it once, wrap it in
+`PrebuiltPtychoDataModule`, and pass that DataModule with the resolved payload
+to the same shared service. Held-out evaluation mmaps remain separate from the
+training validation split.
 
 ## 5. Checkpoints, Persistence, Reproducibility
 

@@ -55,11 +55,12 @@ def ncc_vs(obj_amp, canvas):
 
 
 def main():
-    # argv: [test_npz] [checkpoint] ; defaults to full-phase deadleaves_N64
-    test_npz = Path(sys.argv[1]) if len(sys.argv) > 1 else \
-        REPO / ".artifacts/varpro_ablation/datasets/deadleaves_N64_test.npz"
-    ckpt = sys.argv[2] if len(sys.argv) > 2 else \
-        str(REPO / ".artifacts/varpro_ablation/matrix_dl/gs1_frozen/training_outputs/Synthetic_Runs/train/checkpoints/best-checkpoint.ckpt")
+    if len(sys.argv) != 3:
+        raise SystemExit(
+            "usage: diagnose_stitching.py TEST_NPZ SELECTED_CHECKPOINT"
+        )
+    test_npz = Path(sys.argv[1])
+    ckpt = sys.argv[2]
     arm = ARM_TABLE["gs1_frozen"]
     dc, mc, tc, ic, gc = build_configs(arm, 16, 25)
     SC = Path("/tmp/claude-1000/-home-ollie-Documents-PtychoPINN/9ff76e13-9c97-4cfe-a574-8d5fff1cd235/scratchpad/stitch")

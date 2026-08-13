@@ -90,6 +90,132 @@ def rect_s1s2_init_spy(monkeypatch):
     return SimpleNamespace(calls=calls, record=record)
 
 
+def test_train_with_lightning_accepts_selected_datamodule_unchanged(
+    tmp_path,
+    monkeypatch,
+    rect_s1s2_init_spy,
+):
+    from ptycho.config.config import ModelConfig as PublicModelConfig
+    from ptycho.config.config import TrainingConfig as PublicTrainingConfig
+    from ptycho_torch.config_factory import resolve_training_payload
+    from ptycho_torch.train_utils import PrebuiltPtychoDataModule
+    from ptycho_torch.workflows import components
+
+    train_npz = tmp_path / "train.npz"
+    np.savez(train_npz, probeGuess=np.ones((64, 64), dtype=np.complex64))
+    config = PublicTrainingConfig(
+        model=PublicModelConfig(N=64),
+        train_data_file=train_npz,
+        output_dir=tmp_path,
+        n_groups=10,
+        nphotons=1e9,
+        nepochs=1,
+    )
+    payload = resolve_training_payload(
+        train_data_file=train_npz,
+        output_dir=tmp_path,
+        overrides={"n_groups": 10, "nphotons": 1e9},
+        execution_config=_execution_request(
+            accelerator="cpu",
+            devices=2,
+            strategy="ddp_spawn",
+            num_workers=0,
+            enable_checkpointing=False,
+        ),
+        training_baseline=config,
+    )
+    payload.pt_training_config = replace(
+        payload.pt_training_config,
+        epochs=3,
+        epochs_fine_tune=2,
+        fine_tune_gamma=0.2,
+    )
+    data_module = PrebuiltPtychoDataModule(
+        "unused-map",
+        payload.pt_model_config,
+        payload.pt_data_config,
+        payload.pt_training_config,
+        execution_config=payload.execution_config,
+    )
+    dataset = torch.utils.data.TensorDataset(torch.arange(24))
+    data_module.dataset = dataset
+    data_module.train_dataset = dataset
+    data_module.val_dataset = dataset
+    setup_calls = []
+
+    def setup(stage=None):
+        setup_calls.append(stage)
+        data_module.dataset = dataset
+        data_module.train_dataset = dataset
+        data_module.val_dataset = dataset
+
+    monkeypatch.setattr(data_module, "setup", setup)
+
+    class StubModel:
+        automatic_optimization = True
+        val_loss_name = "val_loss"
+
+        def save_hyperparameters(self):
+            pass
+
+    monkeypatch.setattr(
+        "ptycho_torch.application_factory.build_ptychopinn_application",
+        lambda *_args, **_kwargs: StubModel(),
+    )
+    monkeypatch.setattr(
+        components,
+        "_build_lightning_dataloaders",
+        lambda *_args, **_kwargs: pytest.fail(
+            "a selected DataModule must not be rebuilt"
+        ),
+    )
+    fit_call = {}
+
+    class StubTrainer:
+        is_global_zero = True
+        _accelerator_connector = SimpleNamespace(is_distributed=False)
+
+        def fit(self, model, **kwargs):
+            model._trainer = self
+            fit_call.update(model=model, **kwargs)
+            data_module.dataset = None
+            data_module.train_dataset = None
+            data_module.val_dataset = None
+
+    trainer_kwargs = {}
+
+    def build_trainer(**kwargs):
+        trainer_kwargs.update(kwargs)
+        return StubTrainer()
+
+    monkeypatch.setattr("lightning.pytorch.Trainer", build_trainer)
+
+    results = components._train_with_lightning(
+        data_module,
+        None,
+        config,
+        resolved_payload=payload,
+    )
+
+    assert fit_call["datamodule"] is data_module
+    assert results["train_container"] is data_module
+    assert results["models"]["diffraction_to_obj"]._trainer is None
+    assert setup_calls == ["fit"]
+    assert trainer_kwargs["max_epochs"] == 5
+    assert trainer_kwargs["strategy"]._start_method == "spawn"
+    assert trainer_kwargs["strategy"]._process_group_backend is None
+    assert trainer_kwargs["strategy"]._ddp_kwargs == {
+        "find_unused_parameters": False
+    }
+    freeze_callback = next(
+        callback
+        for callback in trainer_kwargs["callbacks"]
+        if callback.__class__.__name__ == "EncoderFreezeCallback"
+    )
+    assert freeze_callback.freeze_at_epoch == 3
+    assert freeze_callback.lr_gamma == 0.2
+
+
 def test_rect_s1s2_runtime_replaces_prefix_loader_helpers():
     from ptycho_torch.workflows import components
 
@@ -1360,7 +1486,8 @@ class TestWorkflowsComponentsTraining:
         results = torch_components._train_with_lightning(
             train_container=train_container,
             test_container=None,
-            config=training_config
+            config=training_config,
+            execution_config=_execution_request(enable_checkpointing=False),
         )
 
         # Assert Lightning module was instantiated
@@ -1572,10 +1699,11 @@ class TestWorkflowsComponentsRun:
         # Spy flag to track train_cdi_model_torch invocation
         train_cdi_model_torch_called = {"called": False, "args": None}
 
-        def mock_train_cdi_model_torch(train_data, test_data, config):
+        def mock_train_cdi_model_torch(train_data, test_data, config, **kwargs):
             """Spy that records train_cdi_model_torch invocation."""
             train_cdi_model_torch_called["called"] = True
             train_cdi_model_torch_called["args"] = (train_data, test_data, config)
+            train_cdi_model_torch_called["kwargs"] = kwargs
             # Return minimal training results dict
             return {
                 "history": {"train_loss": [0.5, 0.3]},
@@ -1655,32 +1783,16 @@ class TestWorkflowsComponentsRun:
         from ptycho_torch.workflows import components as torch_components
         from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
 
-        # Spy flag to track save_torch_bundle invocation
-        save_torch_bundle_called = {"called": False, "args": None, "kwargs": None}
+        training_kwargs = {}
 
-        def mock_save_torch_bundle(models_dict, base_path, config, **kwargs):
-            """Spy that records save_torch_bundle invocation."""
-            save_torch_bundle_called["called"] = True
-            save_torch_bundle_called["args"] = (models_dict, base_path, config)
-            save_torch_bundle_called["kwargs"] = kwargs
-
-        # Monkeypatch save_torch_bundle
-        monkeypatch.setattr(
-            "ptycho_torch.workflows.components.save_torch_bundle",
-            mock_save_torch_bundle
-        )
-
-        # Monkeypatch train_cdi_model_torch to return minimal results with models
-        def mock_train_cdi_model_torch(train_data, test_data, config):
-            """Return stub results including models dict for persistence."""
+        def mock_train_cdi_model_torch(train_data, test_data, config, **kwargs):
+            """Record the persistence request delegated to the trainer service."""
+            training_kwargs.update(kwargs)
             return {
                 "history": {"train_loss": [0.5, 0.3]},
                 "train_container": {"sentinel": "train"},
                 "test_container": None,
-                "models": {
-                    'autoencoder': {'_sentinel': 'trained_autoencoder'},
-                    'diffraction_to_obj': {'_sentinel': 'trained_diffraction'},
-                },
+                "bundle_path": tmp_path / "wts.h5.zip",
             }
 
         monkeypatch.setattr(
@@ -1713,32 +1825,9 @@ class TestWorkflowsComponentsRun:
             do_stitching=False,
         )
 
-        # Validate save_torch_bundle was called
-        # Red phase: this assertion WILL FAIL because persistence wiring not yet implemented
-        assert save_torch_bundle_called["called"], (
-            "run_cdi_example_torch MUST call save_torch_bundle when config.output_dir is set. "
-            "Phase D4.B2 red phase: persistence wiring not yet implemented. This test documents "
-            "the expected behavior and will pass once Phase D4.C1 adds persistence call."
-        )
-
-        # Validate correct arguments passed (green phase validation)
-        if save_torch_bundle_called["called"]:
-            models_dict_arg, base_path_arg, config_arg = save_torch_bundle_called["args"]
-
-            assert 'autoencoder' in models_dict_arg, (
-                "save_torch_bundle MUST receive models dict with 'autoencoder' key"
-            )
-            assert 'diffraction_to_obj' in models_dict_arg, (
-                "save_torch_bundle MUST receive models dict with 'diffraction_to_obj' key"
-            )
-
-            assert str(tmp_path) in str(base_path_arg), (
-                "save_torch_bundle base_path MUST be within config.output_dir"
-            )
-
-            assert config_arg is config_with_output, (
-                "save_torch_bundle MUST receive the TrainingConfig instance"
-            )
+        assert training_kwargs["persist_bundle"] is True
+        assert training_kwargs["amplitude_physics_gain_record"] is None
+        assert results["bundle_path"] == tmp_path / "wts.h5.zip"
 
     def test_load_inference_bundle_handles_bundle(
         self,
@@ -2072,7 +2161,8 @@ class TestTrainWithLightningRed:
         results = torch_components._train_with_lightning(
             train_container=train_container,
             test_container=None,
-            config=minimal_training_config
+            config=minimal_training_config,
+            execution_config=_execution_request(enable_checkpointing=False),
         )
 
         # RED PHASE ASSERTION (will fail until Phase B2 implements)
@@ -2182,7 +2272,8 @@ class TestTrainWithLightningRed:
         results = torch_components._train_with_lightning(
             train_container=train_container,
             test_container=None,
-            config=minimal_training_config
+            config=minimal_training_config,
+            execution_config=_execution_request(enable_checkpointing=False),
         )
 
         assert rect_s1s2_init_spy.calls[0]["mode"] == "ones"
@@ -2271,7 +2362,8 @@ class TestTrainWithLightningRed:
         results = torch_components._train_with_lightning(
             train_container=train_container,
             test_container=None,
-            config=minimal_training_config
+            config=minimal_training_config,
+            execution_config=_execution_request(enable_checkpointing=False),
         )
 
         # RED PHASE ASSERTION (will fail until Phase B2 implements)
@@ -2697,7 +2789,9 @@ class TestReassembleCdiImageTorchGreen:
         )
 
         # Monkeypatch _train_with_lightning to return mock results with Lightning module
-        def mock_train_with_lightning(train_container, test_container, config):
+        def mock_train_with_lightning(
+            train_container, test_container, config, **_kwargs
+        ):
             """Stub that returns train_results with mock Lightning module."""
             # Return the stitch_train_results fixture enriched with containers
             results = stitch_train_results.copy()
@@ -3368,6 +3462,7 @@ class TestTrainWithLightningGreen:
             accelerator='gpu',  # Override default 'cpu'
             deterministic=False,  # Override default True
             num_workers=4,  # Override default 0
+            enable_checkpointing=False,
         )
         minimal_training_config.gradient_clip.val = 1.0
 
@@ -3466,7 +3561,8 @@ class TestTrainWithLightningGreen:
         # Create an unresolved execution request with deterministic=True.
         exec_config = _execution_request(
             deterministic=True,
-            accelerator='cpu'
+            accelerator='cpu',
+            enable_checkpointing=False,
         )
 
         # Create minimal containers
@@ -3700,7 +3796,7 @@ class TestLightningCheckpointCallbacks:
         from ptycho_torch.workflows.components import _train_with_lightning
 
         # Patch callbacks and Trainer
-        with patch('lightning.pytorch.callbacks.ModelCheckpoint', mock_checkpoint_cls), \
+        with patch('ptycho_torch.workflows.components._ServingModelCheckpoint', mock_checkpoint_cls), \
              patch('lightning.pytorch.Trainer', mock_trainer_cls):
             try:
                 _train_with_lightning(
@@ -3876,7 +3972,7 @@ class TestLightningCheckpointCallbacks:
         from ptycho_torch.workflows.components import _train_with_lightning
 
         # Patch at import site inside the function
-        with patch('lightning.pytorch.callbacks.ModelCheckpoint', mock_checkpoint_cls), \
+        with patch('ptycho_torch.workflows.components._ServingModelCheckpoint', mock_checkpoint_cls), \
              patch('lightning.pytorch.callbacks.EarlyStopping', mock_early_stop_cls), \
              patch('lightning.pytorch.Trainer', mock_trainer_cls):
             try:
@@ -4133,7 +4229,7 @@ class TestLightningExecutionConfig:
         from ptycho_torch.workflows.components import _train_with_lightning
 
         # Patch at import sites
-        with patch('lightning.pytorch.callbacks.ModelCheckpoint', mock_checkpoint_cls), \
+        with patch('ptycho_torch.workflows.components._ServingModelCheckpoint', mock_checkpoint_cls), \
              patch('lightning.pytorch.callbacks.EarlyStopping', mock_early_stop_cls), \
              patch('lightning.pytorch.Trainer', mock_trainer_cls):
             try:
@@ -4173,7 +4269,9 @@ class TestLightningExecutionConfig:
         assert monitor_metric.replace('_loss', '') in filename_template, \
             f"Checkpoint filename '{filename_template}' should reference dynamic metric '{monitor_metric}'"
 
-    def test_trainer_receives_logger(self, minimal_training_config_with_val, monkeypatch):
+    def test_trainer_receives_logger(
+        self, minimal_training_config_with_val, monkeypatch, tmp_path
+    ):
         """
         RED Test: Verify Lightning Trainer receives logger instance from execution config.
 
@@ -4191,7 +4289,7 @@ class TestLightningExecutionConfig:
         - input.md EB3.B1 (workflow logger tests)
         - plans/.../phase_e_execution_knobs/2025-10-23T110500Z/decision/approved.md
         """
-        from unittest.mock import patch, MagicMock, call
+        from unittest.mock import patch, MagicMock, PropertyMock, call
 
         try:
             import lightning.pytorch as L
@@ -4211,12 +4309,19 @@ class TestLightningExecutionConfig:
         # Mock CSVLogger
         mock_csv_logger_cls = MagicMock(spec=CSVLogger)
         mock_csv_logger_instance = MagicMock()
+        log_dir = PropertyMock(return_value=str(tmp_path / "lightning_logs" / "version_0"))
+        type(mock_csv_logger_instance).log_dir = log_dir
         mock_csv_logger_cls.return_value = mock_csv_logger_instance
 
         # Mock Trainer
         mock_trainer_cls = MagicMock(spec=L.Trainer)
         mock_trainer_instance = MagicMock()
         mock_trainer_cls.return_value = mock_trainer_instance
+        logger_was_pinned_before_trainer = []
+        mock_trainer_cls.side_effect = lambda **_kwargs: (
+            logger_was_pinned_before_trainer.append(log_dir.call_count > 0)
+            or mock_trainer_instance
+        )
 
         c = minimal_training_config_with_val.model.gridsize ** 2
         mock_train_container = {
@@ -4242,6 +4347,7 @@ class TestLightningExecutionConfig:
 
         # GREEN Phase Assertions for CSV logger:
         assert mock_csv_logger_cls.called, "CSVLogger not instantiated for logger_backend='csv'"
+        assert logger_was_pinned_before_trainer == [True]
 
         # Trainer should receive the logger instance
         assert mock_trainer_cls.called, "Trainer not instantiated"

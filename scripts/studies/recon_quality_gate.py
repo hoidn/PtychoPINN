@@ -24,7 +24,12 @@ import torch
 
 REPO = Path("/home/ollie/Documents/PtychoPINN")
 sys.path.insert(0, str(REPO)); sys.path.insert(0, str(REPO / "scripts/studies"))
-from varpro_probe_ablation_runner import build_configs, build_test_dataset, ARM_TABLE
+from varpro_probe_ablation_runner import (
+    ARM_TABLE,
+    build_configs,
+    build_test_dataset,
+    selected_checkpoint_from_summary,
+)
 from diagnose_placement import gauge, ncc, trim, MIDDLE
 from ptycho_torch.dataloader import Collate_Lightning
 from ptycho_torch.model import PtychoPINN_Lightning
@@ -93,10 +98,11 @@ def main() -> int:
     rows, failed = [], []
     for arm_name in ARM_TABLE:
         arm_dir = root / arm_name
-        ckpts = list(arm_dir.glob("**/best-checkpoint.ckpt"))
-        if not ckpts:
+        try:
+            checkpoint = selected_checkpoint_from_summary(arm_dir)
+        except (FileNotFoundError, ValueError):
             rows.append((arm_name, None)); failed.append(arm_name); continue
-        r = measure_arm(arm_name, ckpts[0])
+        r = measure_arm(arm_name, checkpoint)
         rows.append((arm_name, r))
         if r["canvas"] < thr:
             failed.append(arm_name)

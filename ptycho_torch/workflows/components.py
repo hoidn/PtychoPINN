@@ -55,6 +55,7 @@ Artifacts:
 # Standard library imports (no torch dependency)
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
+import hashlib
 import io
 import logging
 import math
@@ -62,6 +63,7 @@ from numbers import Integral
 from pathlib import Path
 import zipfile
 from typing import Union, Optional, Tuple, Dict, Any
+import uuid
 
 # Core imports (always available)
 from ptycho import params
@@ -119,6 +121,10 @@ try:
         build_effective_runtime as _build_effective_runtime,
         write_effective_runtime_json,
     )
+    from lightning.pytorch.callbacks import (
+        Callback as _LightningCallback,
+        ModelCheckpoint as _LightningModelCheckpoint,
+    )
 except ImportError as e:
     raise RuntimeError(
         "PyTorch backend modules not available. "
@@ -131,6 +137,409 @@ logger = logging.getLogger(__name__)
 
 _BUNDLE_SCALING_METADATA = "torch_scaling_metadata.pt"
 _BUNDLE_AMPLITUDE_PHYSICS_GAIN_RECORD = "amplitude_physics_gain_record.json"
+_CHECKPOINT_SELECTION_SCHEMA = "serving-checkpoint-selection-v1"
+
+
+def _checkpoint_artifact_path(path, output_root):
+    """Return one checkpoint path relative to its training artifact root."""
+
+    if not path:
+        return None
+    checkpoint_path = Path(path)
+    try:
+        return checkpoint_path.resolve().relative_to(
+            Path(output_root).resolve()
+        ).as_posix()
+    except ValueError as error:
+        raise RuntimeError(
+            f"checkpoint path {checkpoint_path} is outside output root "
+            f"{output_root}"
+        ) from error
+
+
+def _checkpoint_file_sha256(path):
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _checkpoint_score_value(value):
+    if value is None:
+        return None
+    item = getattr(value, "item", None)
+    return float(item() if callable(item) else value)
+
+
+def _in_memory_checkpoint_selection(
+    *,
+    monitor,
+    mode,
+    selection_token,
+    recovery_path=None,
+    output_root=None,
+):
+    return {
+        "schema_version": _CHECKPOINT_SELECTION_SCHEMA,
+        "selection_token": selection_token,
+        "policy": "final",
+        "weights_source": "in_memory",
+        "monitor": monitor,
+        "mode": mode,
+        "selected_path": None,
+        "selected_sha256": None,
+        "selected_epoch": None,
+        "selected_global_step": None,
+        "selected_score": None,
+        "recovery_path": (
+            _checkpoint_artifact_path(recovery_path, output_root)
+            if recovery_path and output_root is not None
+            else None
+        ),
+    }
+
+
+def _write_checkpoint_selection_atomic(path, record):
+    """Publish one strict serving-weight decision without partial JSON."""
+
+    import json
+    import os
+    import tempfile
+
+    output = Path(path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    encoded = (
+        json.dumps(record, indent=2, sort_keys=True, allow_nan=False) + "\n"
+    ).encode("utf-8")
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{output.name}.",
+        suffix=".tmp",
+        dir=output.parent,
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "wb") as stream:
+            stream.write(encoded)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, output)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _read_checkpoint_selection(path, *, selection_token):
+    import json
+
+    try:
+        record = json.loads(Path(path).read_text())
+    except (OSError, json.JSONDecodeError) as error:
+        raise RuntimeError(
+            "training did not publish a readable checkpoint selection record"
+        ) from error
+    if not isinstance(record, dict):
+        raise RuntimeError("checkpoint selection record must be a JSON object")
+    if record.get("schema_version") != _CHECKPOINT_SELECTION_SCHEMA:
+        raise RuntimeError("checkpoint selection record has an unsupported schema")
+    if record.get("selection_token") != selection_token:
+        raise RuntimeError(
+            "checkpoint selection record belongs to a different training invocation"
+        )
+    semantic_record = dict(record)
+    semantic_record.pop("selection_token")
+    return semantic_record
+
+
+def _publish_checkpoint_selection_and_barrier(trainer, path, record):
+    """Publish on global zero while the strategy is live, then release ranks."""
+
+    if bool(getattr(trainer, "is_global_zero", False)):
+        _write_checkpoint_selection_atomic(path, record)
+    strategy = getattr(trainer, "strategy", None)
+    barrier = getattr(strategy, "barrier", None)
+    if not callable(barrier):
+        raise RuntimeError(
+            "Lightning strategy must expose barrier() while publishing the "
+            "checkpoint selection"
+        )
+    barrier("serving_checkpoint_selection_published")
+
+
+def _rank_shared_checkpoint_selection_token(trainer, selection_token):
+    """Broadcast rank zero's invocation token through the live strategy."""
+
+    strategy = getattr(trainer, "strategy", None)
+    broadcast = getattr(strategy, "broadcast", None)
+    if not callable(broadcast):
+        raise RuntimeError(
+            "Lightning strategy must expose broadcast() while resolving the "
+            "checkpoint selection token"
+        )
+    rank_zero_token = (
+        selection_token
+        if bool(getattr(trainer, "is_global_zero", False))
+        else None
+    )
+    shared_token = broadcast(rank_zero_token, src=0)
+    if not isinstance(shared_token, str) or not shared_token:
+        raise RuntimeError(
+            "Lightning strategy did not broadcast a valid checkpoint "
+            "selection token"
+        )
+    return shared_token
+
+
+class _FinalModelSelectionCallback(_LightningCallback):
+    """Publish an explicit final-state decision when checkpoints are disabled."""
+
+    def __init__(self, *, selection_sink, selection_path, selection_token):
+        super().__init__()
+        self.selection_sink = selection_sink
+        self.selection_path = Path(selection_path)
+        self.selection_token = selection_token
+
+    def on_fit_start(self, trainer, pl_module):
+        super().on_fit_start(trainer, pl_module)
+        self.selection_token = _rank_shared_checkpoint_selection_token(
+            trainer,
+            self.selection_token,
+        )
+
+    def on_train_end(self, trainer, pl_module):
+        self.selection_sink.clear()
+        self.selection_sink.update(
+            _in_memory_checkpoint_selection(
+                monitor=None,
+                mode=None,
+                selection_token=self.selection_token,
+            )
+        )
+        _publish_checkpoint_selection_and_barrier(
+            trainer,
+            self.selection_path,
+            self.selection_sink,
+        )
+
+
+class _MilestoneCheckpointCallback(_LightningCallback):
+    """Save requested one-based epoch checkpoints without changing selection."""
+
+    def __init__(self, dirpath: Path, epochs: tuple[int, ...]):
+        super().__init__()
+        if any(type(epoch) is not int or epoch <= 0 for epoch in epochs):
+            raise ValueError("milestone epochs must be positive integers")
+        if tuple(sorted(set(epochs))) != epochs:
+            raise ValueError("milestone epochs must be strictly increasing")
+        self.dirpath = Path(dirpath)
+        self.epochs = epochs
+        self.saved_checkpoints: Dict[int, Path] = {}
+
+    def _save_epoch(self, trainer):
+        epoch = int(trainer.current_epoch) + 1
+        if epoch not in self.epochs or epoch in self.saved_checkpoints:
+            return
+        self.dirpath.mkdir(parents=True, exist_ok=True)
+        checkpoint = self.dirpath / f"epoch-{epoch:04d}.ckpt"
+        trainer.save_checkpoint(str(checkpoint))
+        self.saved_checkpoints[epoch] = checkpoint
+
+    def on_validation_end(self, trainer, pl_module):
+        del pl_module
+        if not trainer.sanity_checking:
+            self._save_epoch(trainer)
+
+    def on_train_epoch_end(self, trainer, pl_module):
+        del pl_module
+        self._save_epoch(trainer)
+
+
+class _LossHistoryCallback(_LightningCallback):
+    """Collect the dynamic train/validation loss metrics for compatibility."""
+
+    def __init__(self):
+        super().__init__()
+        self.train_loss = []
+        self.val_loss = []
+
+    @staticmethod
+    def _find_loss_metric(metrics, prefix):
+        for key in metrics:
+            if prefix in key and "loss" in key:
+                return float(metrics[key])
+        return None
+
+    def on_train_epoch_end(self, trainer, pl_module):
+        del pl_module
+        value = self._find_loss_metric(trainer.callback_metrics, "train")
+        if value is not None:
+            self.train_loss.append(value)
+
+    def on_validation_epoch_end(self, trainer, pl_module):
+        del pl_module
+        value = self._find_loss_metric(trainer.callback_metrics, "val")
+        if value is not None:
+            self.val_loss.append(value)
+
+
+class _TrainingSummaryCallback(_LightningCallback):
+    """Publish initialization identity while the distributed group is live."""
+
+    def __init__(self, path):
+        super().__init__()
+        self.path = Path(path)
+        self.record = None
+
+    def set_record(self, record):
+        self.record = RectS1S2InitializationRecord.from_mapping(record)
+
+    def on_fit_start(self, trainer, pl_module):
+        del pl_module
+        if self.record is None:
+            raise RuntimeError(
+                "rect_s1s2 initialization record must be set before fit"
+            )
+        _publish_training_summary_and_barrier(
+            trainer,
+            self.path,
+            self.record,
+        )
+
+
+class _ServingModelCheckpointMixin:
+    """Save the true-final recovery checkpoint, then restore serving weights."""
+
+    def __init__(
+        self,
+        *,
+        selection_sink,
+        output_root,
+        selection_path=None,
+        selection_token=None,
+        **kwargs,
+    ):
+        self.selection_sink = selection_sink
+        self.output_root = Path(output_root)
+        self.selection_path = Path(
+            selection_path
+            if selection_path is not None
+            else self.output_root / "checkpoint_selection.json"
+        )
+        self.selection_token = selection_token or uuid.uuid4().hex
+        super().__init__(**kwargs)
+
+    def state_dict(self):
+        state = super().state_dict()
+        state["serving_checkpoint_selection"] = dict(self.selection_sink)
+        return state
+
+    def load_state_dict(self, state_dict):
+        state = dict(state_dict)
+        selection = state.pop("serving_checkpoint_selection", None)
+        if selection:
+            self.selection_sink.clear()
+            self.selection_sink.update(selection)
+        return super().load_state_dict(state)
+
+    def on_fit_start(self, trainer, pl_module):
+        super().on_fit_start(trainer, pl_module)
+        self.selection_token = _rank_shared_checkpoint_selection_token(
+            trainer,
+            self.selection_token,
+        )
+
+    def on_train_end(self, trainer, pl_module):
+        # ModelCheckpoint owns last.ckpt. It must capture the true final state
+        # before this callback changes the in-memory module to serving weights.
+        super().on_train_end(trainer, pl_module)
+
+        if self.save_top_k == 0:
+            self.selection_sink.clear()
+            self.selection_sink.update(
+                _in_memory_checkpoint_selection(
+                    monitor=self.monitor,
+                    mode=self.mode,
+                    selection_token=self.selection_token,
+                    recovery_path=self.last_model_path,
+                    output_root=self.output_root,
+                )
+            )
+            _publish_checkpoint_selection_and_barrier(
+                trainer,
+                self.selection_path,
+                self.selection_sink,
+            )
+            return
+
+        strategy = getattr(trainer, "strategy", None)
+        barrier = getattr(strategy, "barrier", None)
+        load_checkpoint = getattr(strategy, "load_checkpoint", None)
+        load_model_state_dict = getattr(strategy, "load_model_state_dict", None)
+        if not all(
+            callable(value)
+            for value in (barrier, load_checkpoint, load_model_state_dict)
+        ):
+            raise RuntimeError(
+                "Lightning strategy must expose barrier(), load_checkpoint(), "
+                "and load_model_state_dict() for serving checkpoint selection"
+            )
+
+        barrier("serving_checkpoint_written")
+        selected_path = Path(self.best_model_path) if self.best_model_path else None
+        if selected_path is None or not selected_path.is_file():
+            raise RuntimeError(
+                "selected best checkpoint does not exist; refusing to bundle "
+                "undeclared final weights"
+            )
+        checkpoint = load_checkpoint(selected_path)
+        load_model_state_dict(checkpoint, strict=True)
+        barrier("serving_checkpoint_restored")
+
+        self.selection_sink.clear()
+        self.selection_sink.update(
+            {
+                "schema_version": _CHECKPOINT_SELECTION_SCHEMA,
+                "selection_token": self.selection_token,
+                "policy": "best",
+                "weights_source": "checkpoint",
+                "monitor": self.monitor,
+                "mode": self.mode,
+                "selected_path": _checkpoint_artifact_path(
+                    selected_path,
+                    self.output_root,
+                ),
+                "selected_sha256": _checkpoint_file_sha256(selected_path),
+                "selected_epoch": int(checkpoint["epoch"]),
+                "selected_global_step": int(checkpoint["global_step"]),
+                "selected_score": _checkpoint_score_value(
+                    self.best_model_score
+                ),
+                "recovery_path": _checkpoint_artifact_path(
+                    self.last_model_path,
+                    self.output_root,
+                ),
+            }
+        )
+        _publish_checkpoint_selection_and_barrier(
+            trainer,
+            self.selection_path,
+            self.selection_sink,
+        )
+
+
+class _ServingModelCheckpoint(
+    _ServingModelCheckpointMixin,
+    _LightningModelCheckpoint,
+):
+    """ModelCheckpoint whose postcondition is the declared serving state."""
+
+
+def _resolve_checkpoint_monitor(execution_config, model, *, has_validation=True):
+    configured = execution_config.checkpoint_monitor_metric
+    if configured == "val_loss" and has_validation:
+        return model.val_loss_name
+    if not has_validation and "val_" in configured:
+        return configured.replace("val_", "train_")
+    return configured
 
 
 def _validate_training_execution_input(
@@ -820,8 +1229,8 @@ def run_cdi_example_torch(
         2. Initialize reconstruction outputs (recon_amp, recon_phase) to None.
         3. If do_stitching and test_data is provided, stitch reconstructed patches
            via _reassemble_cdi_image_torch and merge the results into train_results.
-        4. If config.output_dir is set and train_results contains models, persist
-           them via save_torch_bundle (wts.h5.zip, TensorFlow-convention archive path).
+        4. The shared training service persists the selected serving state to
+           wts.h5.zip under the run root.
         5. Return (recon_amp, recon_phase, train_results), matching the TensorFlow
            baseline signature (specs/ptychodus_api_spec.md §4.5).
 
@@ -843,11 +1252,12 @@ def run_cdi_example_torch(
     """
     _validate_training_execution_input(execution_config, resolved_payload)
 
-    # Step 1: Train the model (Phase D2.B — delegates to Lightning trainer stub)
+    # Step 1: Train the model through the shared Lightning service.
     logger.info("Invoking PyTorch training orchestration via train_cdi_model_torch")
-    # Note: train_cdi_model_torch will need to be updated to accept execution_config
-    # For now, we pass it as a keyword argument for forward compatibility
-    training_kwargs = {}
+    training_kwargs = {
+        "persist_bundle": True,
+        "amplitude_physics_gain_record": amplitude_physics_gain_record,
+    }
     if execution_config is not None:
         training_kwargs["execution_config"] = execution_config
     if overrides is not None:
@@ -887,49 +1297,7 @@ def run_cdi_example_torch(
     else:
         logger.info("Skipping image stitching (do_stitching=False or no test data available)")
 
-    # Step 4: Optional persistence (Phase D4.C1 — save models when output_dir specified)
-    # Mirrors TensorFlow baseline ptycho/workflows/components.py:709-723
-    if config.output_dir and 'models' in train_results and train_results['models']:
-        logger.info(f"Saving trained models to {config.output_dir} via save_torch_bundle")
-        # Build archive path following TensorFlow convention (wts.h5.zip)
-        archive_path = Path(config.output_dir) / "wts.h5"
-        intensity_scale = train_results.get('intensity_scale')
-        save_torch_bundle(
-            models_dict=train_results['models'],
-            base_path=str(archive_path),
-            config=config,
-            intensity_scale=intensity_scale
-        )
-        bundle_path = archive_path.with_suffix(".h5.zip")
-        persisted_model = train_results['models']['diffraction_to_obj']
-        if bundle_path.is_file() and all(
-            hasattr(persisted_model, name)
-            for name in (
-                "data_config",
-                "model_config",
-                "training_config",
-                "inference_config",
-                "get_ci_statistics",
-            )
-        ):
-            _persist_bundle_scaling_metadata(
-                bundle_path,
-                persisted_model,
-                amplitude_physics_gain_record=(
-                    amplitude_physics_gain_record
-                ),
-            )
-        elif amplitude_physics_gain_record is not None:
-            raise RuntimeError(
-                "Cannot persist amplitude_physics_gain_record because the "
-                "training bundle or resolved model metadata is unavailable."
-            )
-        train_results["bundle_path"] = bundle_path
-        logger.info(f"Models saved successfully to {archive_path}.zip")
-    else:
-        logger.debug("Skipping model persistence (no output_dir or no models in train_results)")
-
-    # Step 5: Return tuple matching TensorFlow baseline signature
+    # Step 4: Return tuple matching TensorFlow baseline signature
     # (amplitude, phase, results) per specs/ptychodus_api_spec.md §4.5
     return recon_amp, recon_phase, train_results
 
@@ -1976,7 +2344,11 @@ def _effective_dataloader_settings(
 
 
 def _train_with_lightning(
-    train_container: Union['PtychoDataContainerTorch','PtychoDataset'],
+    train_container: Union[
+        'PtychoDataContainerTorch',
+        'PtychoDataset',
+        'PrebuiltPtychoDataModule',
+    ],
     test_container: Optional['PtychoDataContainerTorch'],
     config: TrainingConfig,
     execution_config: Optional[Any] = None,
@@ -1984,20 +2356,26 @@ def _train_with_lightning(
     *,
     resolved_payload: Optional[TrainingPayload] = None,
     torch_training_seed: Optional[int] = None,
+    datagen_config: Optional[Any] = None,
+    milestone_epochs: tuple[int, ...] = (),
+    persist_bundle: bool = False,
+    intensity_scale: Optional[float] = None,
+    amplitude_physics_gain_record: Optional[
+        AmplitudePhysicsGainRecord
+    ] = None,
 ) -> Dict[str, Any]:
     """
     Orchestrate Lightning trainer execution for PyTorch model training.
 
-    This function implements the Lightning training workflow per Phase D2.B blueprint:
-    1. Derives PyTorch config objects from TensorFlow TrainingConfig
-    2. Instantiates PtychoPINN_Lightning module with all four config dependencies
-    3. Builds train/val dataloaders via _build_lightning_dataloaders helper
-    4. Configures Lightning Trainer with checkpoint/logging settings (ADR-003 Phase C3)
-    5. Executes training via trainer.fit()
-    6. Returns structured results dict with history, containers, and module handle
+    This is the maintained Lightning training implementation. It consumes one
+    resolved payload, accepts either the RAM rail or a selected prebuilt mmap
+    DataModule, constructs the module/callbacks/Trainer, restores the declared
+    serving checkpoint, publishes history and sidecars, and optionally saves a
+    strict bundle.
 
     Args:
-        train_container: Normalized training data container
+        train_container: Normalized training data container, mmap dataset, or
+            selected ``PrebuiltPtychoDataModule``
         test_container: Optional normalized test data container
         config: TrainingConfig with training hyperparameters
         execution_config: Optional unresolved ExecutionRequest. Ignored only
@@ -2016,6 +2394,8 @@ def _train_with_lightning(
             - history: Dict with train_loss and optional val_loss trajectories
             - train_container: Original training container
             - test_container: Original test container
+            - run_dir, selected_checkpoint, training_history, and optional
+              bundle/milestone paths
             - models: Dict with 'diffraction_to_obj' (Lightning module) and 'autoencoder' (sentinel)
                       for dual-model bundle persistence per spec §4.6
 
@@ -2033,7 +2413,10 @@ def _train_with_lightning(
     # B2.2: torch-optional imports with POLICY-001 compliant error messaging
     try:
         import lightning.pytorch as L
-        from ptycho_torch.train_utils import PrebuiltPtychoDataModule
+        from ptycho_torch.train_utils import (
+            PrebuiltPtychoDataModule,
+            get_training_strategy,
+        )
     except ImportError as e:
         raise RuntimeError(
             "PyTorch backend requires torch>=2.2 and lightning. "
@@ -2096,6 +2479,14 @@ def _train_with_lightning(
         pt_training_config,
     )
 
+    pt_inference_config = payload.pt_inference_config
+    from ptycho_torch.config_params import DatagenConfig
+
+    if datagen_config is None:
+        datagen_config = DatagenConfig()
+    elif not isinstance(datagen_config, DatagenConfig):
+        raise TypeError("datagen_config must be a DatagenConfig or None")
+
     # Build the module from the sealed structural identity plus the separately
     # owned scientific/data, training, and inference sections. Runtime execution
     # remains below at the Trainer boundary and cannot alter graph topology.
@@ -2112,12 +2503,16 @@ def _train_with_lightning(
     model.save_hyperparameters()
 
     # B2.3: Build dataloaders via helper
-    data_product = _build_lightning_dataloaders(
-        train_container,
-        test_container,
-        config,
-        payload=payload,
-        torch_training_seed=effective_torch_training_seed,
+    data_product = (
+        train_container
+        if isinstance(train_container, PrebuiltPtychoDataModule)
+        else _build_lightning_dataloaders(
+            train_container,
+            test_container,
+            config,
+            payload=payload,
+            torch_training_seed=effective_torch_training_seed,
+        )
     )
     
     # Data product is a Lightning datamodule for DDP-style launchers and a
@@ -2141,7 +2536,12 @@ def _train_with_lightning(
     if pt_model_config.mode == 'Supervised':
         # Inspect first batch to verify label keys exist
         try:
-            first_batch = next(iter(train_loader))
+            if isinstance(data_product, PrebuiltPtychoDataModule):
+                data_product.setup("fit")
+                supervised_loader = data_product.train_dataloader()
+            else:
+                supervised_loader = train_loader
+            first_batch = next(iter(supervised_loader))
             batch_dict = first_batch[0]  # Extract tensor dict from batch tuple
             if 'label_amp' not in batch_dict or 'label_phase' not in batch_dict:
                 raise RuntimeError(
@@ -2161,68 +2561,54 @@ def _train_with_lightning(
     debug_mode = getattr(config, 'debug', False)
     training_summary_path = output_dir / "training_summary.json"
 
-    # Custom callback to track loss history across epochs
-    class _LossHistoryCallback(L.Callback):
-        """Callback to collect train/val loss per epoch for history dict.
-
-        The model logs metrics with dynamic names like 'poisson_train_Amp_loss'
-        based on model configuration. This callback searches for any metric
-        containing 'train' and 'loss' (or 'val' and 'loss') to capture the loss.
-        """
-
-        def __init__(self):
-            self.train_loss = []
-            self.val_loss = []
-
-        def _find_loss_metric(self, metrics, prefix):
-            """Find loss metric by prefix ('train' or 'val')."""
-            for key in metrics:
-                if prefix in key and 'loss' in key:
-                    return float(metrics[key])
-            return None
-
-        def on_train_epoch_end(self, trainer, pl_module):
-            metrics = trainer.callback_metrics
-            loss_val = self._find_loss_metric(metrics, 'train')
-            if loss_val is not None:
-                self.train_loss.append(loss_val)
-
-        def on_validation_epoch_end(self, trainer, pl_module):
-            metrics = trainer.callback_metrics
-            loss_val = self._find_loss_metric(metrics, 'val')
-            if loss_val is not None:
-                self.val_loss.append(loss_val)
-
     loss_history_cb = _LossHistoryCallback()
-
-    class _TrainingSummaryCallback(L.Callback):
-        """Publish initialization identity while the distributed group is live."""
-
-        def __init__(self, path):
-            super().__init__()
-            self.path = Path(path)
-            self.record = None
-
-        def set_record(self, record):
-            self.record = RectS1S2InitializationRecord.from_mapping(record)
-
-        def on_fit_start(self, trainer, pl_module):
-            if self.record is None:
-                raise RuntimeError(
-                    "rect_s1s2 initialization record must be set before fit"
-                )
-            _publish_training_summary_and_barrier(
-                trainer,
-                self.path,
-                self.record,
-            )
 
     training_summary_cb = _TrainingSummaryCallback(training_summary_path)
 
     # EB1.D: Configure checkpoint/early-stop callbacks (ADR-003 Phase EB1)
+    from ptycho_torch.lightning_utils import (
+        CIStatisticsCallback,
+        ConfigLogger,
+        MetadataLogger,
+    )
+
     callbacks: list = [loss_history_cb, training_summary_cb]
+    if isinstance(data_product, PrebuiltPtychoDataModule):
+        callbacks.append(CIStatisticsCallback())
+    callbacks.append(
+        ConfigLogger(
+            data_config=pt_data_config,
+            model_config=pt_model_config,
+            training_config=pt_training_config,
+            inference_config=pt_inference_config,
+            datagen_config=datagen_config,
+            run_dir=output_dir,
+        )
+    )
+    callbacks.append(
+        MetadataLogger(
+            run_dir=output_dir,
+            notes=pt_training_config.notes,
+            model_name=pt_training_config.model_name,
+        )
+    )
+    total_training_epochs = (
+        pt_training_config.epochs + pt_training_config.epochs_fine_tune
+    )
+    if pt_training_config.epochs_fine_tune > 0:
+        from ptycho_torch.train_utils import EncoderFreezeCallback
+
+        callbacks.append(
+            EncoderFreezeCallback(
+                freeze_at_epoch=pt_training_config.epochs,
+                lr_gamma=pt_training_config.fine_tune_gamma,
+            )
+        )
+    checkpoint_selection: dict[str, Any] = {}
+    checkpoint_selection_path = output_dir / "checkpoint_selection.json"
+    checkpoint_selection_token = uuid.uuid4().hex
     if execution_config.enable_checkpointing:
-        from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
+        from lightning.pytorch.callbacks import EarlyStopping
 
         # Determine if we have validation data to use val metrics
         # Ptycho Datamodule automatically creates a validation dataset on instantiation (see train_utils.py)
@@ -2233,15 +2619,11 @@ def _train_with_lightning(
         # The model's val_loss_name is dynamically constructed based on model_type and loss configuration
         # (e.g., 'poisson_val_Amp_loss' for PINN with amplitude loss, 'mae_val_Phase_loss' for supervised)
         # This ensures checkpoint/early-stop callbacks watch the correct logged metric
-        if has_validation and hasattr(model, 'val_loss_name'):
-            # Use the model's dynamic validation loss name
-            monitor_metric = model.val_loss_name
-        else:
-            # Fall back to execution config default or train loss
-            monitor_metric = execution_config.checkpoint_monitor_metric
-            if 'val_' in monitor_metric and not has_validation:
-                # Fall back to train_loss if val metric requested but no validation data
-                monitor_metric = monitor_metric.replace('val_', 'train_')
+        monitor_metric = _resolve_checkpoint_monitor(
+            execution_config,
+            model,
+            has_validation=has_validation,
+        )
 
         # Build checkpoint filename template using dynamic metric name
         # Format: epoch={epoch:02d}-<metric_short_name>={<full_metric_name>:.4f}
@@ -2252,7 +2634,7 @@ def _train_with_lightning(
         else:
             filename_template = 'epoch={epoch:02d}'
 
-        checkpoint_callback = ModelCheckpoint(
+        checkpoint_selection_callback = _ServingModelCheckpoint(
             dirpath=str(output_dir / "checkpoints"),
             filename=filename_template,
             monitor=monitor_metric,
@@ -2260,8 +2642,12 @@ def _train_with_lightning(
             save_top_k=execution_config.checkpoint_save_top_k,
             save_last=True,  # Always keep last checkpoint for recovery
             verbose=False,
+            selection_sink=checkpoint_selection,
+            output_root=output_dir,
+            selection_path=checkpoint_selection_path,
+            selection_token=checkpoint_selection_token,
         )
-        callbacks.append(checkpoint_callback)
+        callbacks.append(checkpoint_selection_callback)
 
         # EarlyStopping callback (ADR-003 Phase EB1.D)
         # Only add early stopping if validation data is available (otherwise no metric to monitor)
@@ -2273,6 +2659,29 @@ def _train_with_lightning(
                 verbose=False,
             )
             callbacks.append(early_stop_callback)
+    else:
+        checkpoint_selection_callback = _FinalModelSelectionCallback(
+            selection_sink=checkpoint_selection,
+            selection_path=checkpoint_selection_path,
+            selection_token=checkpoint_selection_token,
+        )
+        callbacks.append(checkpoint_selection_callback)
+
+    milestone_callback = None
+    if milestone_epochs:
+        if not execution_config.enable_checkpointing:
+            raise ValueError(
+                "milestone checkpoints require checkpointing to be enabled"
+            )
+        if max(milestone_epochs) > total_training_epochs:
+            raise ValueError(
+                "milestone epochs cannot exceed the configured training epochs"
+            )
+        milestone_callback = _MilestoneCheckpointCallback(
+            output_dir / "checkpoints" / "milestones",
+            milestone_epochs,
+        )
+        callbacks.append(milestone_callback)
 
     # Recon logging callback (MLflow only, opt-in via recon_log_every_n_epochs)
     if (execution_config.logger_backend == 'mlflow'
@@ -2330,6 +2739,9 @@ def _train_with_lightning(
     else:
         logger.info("Logger disabled (logger_backend=None). Loss metrics will not be saved to disk.")
 
+    if lightning_logger is not False:
+        _ = getattr(lightning_logger, "log_dir", None)
+
     automatic_optimization = getattr(model, "automatic_optimization", True)
     effective_accum_steps = pt_training_config.accum_steps
     effective_clip_val = pt_training_config.gradient_clip_val
@@ -2347,10 +2759,14 @@ def _train_with_lightning(
         )
 
     trainer_kwargs = dict(
-        max_epochs=pt_training_config.epochs,
+        max_epochs=total_training_epochs,
         # Execution config overrides (ADR-003 Phase C3)
         accelerator=execution_config.accelerator,  # CPU-safe default, GPU via override
-        strategy=execution_config.strategy,
+        strategy=get_training_strategy(
+            execution_config.strategy,
+            execution_config.devices,
+            accelerator=execution_config.accelerator,
+        ),
         deterministic=execution_config.deterministic,  # Triggers torch.use_deterministic_algorithms
         gradient_clip_val=(
             effective_clip_val if automatic_optimization else None
@@ -2372,16 +2788,10 @@ def _train_with_lightning(
     if automatic_optimization:
         trainer_kwargs["gradient_clip_algorithm"] = effective_clip_algorithm
     trainer = L.Trainer(**trainer_kwargs)
-    effective_runtime = _build_effective_runtime(
-        effective_torch_training_seed,
-        trainer_kwargs,
+    dataloader_settings = _effective_dataloader_settings(
+        data_product,
+        train_loader,
         execution_config,
-        _effective_dataloader_settings(
-            data_product,
-            train_loader,
-            execution_config,
-        ),
-        trainer=trainer,
     )
 
     rect_s1s2_mode = getattr(pt_model_config, "rect_s1s2_init", "ones")
@@ -2403,7 +2813,7 @@ def _train_with_lightning(
     # B2.6: Execute training cycle
     logger.info(
         "Starting Lightning training: %s epochs",
-        pt_training_config.epochs,
+        total_training_epochs,
     )
     if isinstance(data_product, PrebuiltPtychoDataModule):
         try:
@@ -2418,6 +2828,65 @@ def _train_with_lightning(
             logger.error(f"Lightning training failed: {e}")
             raise RuntimeError(f"Lightning training failed. See logs for details.") from e
 
+    milestone_checkpoints = None
+    if milestone_callback is not None:
+        milestone_checkpoints = {
+            epoch: output_dir
+            / "checkpoints"
+            / "milestones"
+            / f"epoch-{epoch:04d}.ckpt"
+            for epoch in milestone_epochs
+        }
+        missing = [
+            epoch
+            for epoch in milestone_epochs
+            if not milestone_checkpoints[epoch].is_file()
+        ]
+        if missing:
+            raise RuntimeError(
+                "requested milestone checkpoints were not captured: "
+                + ", ".join(str(epoch) for epoch in missing)
+            )
+    if (
+        isinstance(data_product, PrebuiltPtychoDataModule)
+        and data_product.train_dataset is None
+    ):
+        data_product.setup("fit")
+
+    effective_runtime = _build_effective_runtime(
+        effective_torch_training_seed,
+        trainer_kwargs,
+        execution_config,
+        dataloader_settings,
+        trainer=trainer,
+    )
+
+    checkpoint_selection_token = checkpoint_selection_callback.selection_token
+    if (
+        not execution_config.enable_checkpointing
+        and bool(getattr(trainer, "is_global_zero", True))
+    ):
+        _write_checkpoint_selection_atomic(
+            checkpoint_selection_path,
+            _in_memory_checkpoint_selection(
+                monitor=None,
+                mode=None,
+                selection_token=checkpoint_selection_token,
+            ),
+        )
+    checkpoint_selection.clear()
+    checkpoint_selection.update(
+        _read_checkpoint_selection(
+            checkpoint_selection_path,
+            selection_token=checkpoint_selection_token,
+        )
+    )
+    effective_runtime["checkpoint_selection"] = dict(checkpoint_selection)
+
+    selected_path = checkpoint_selection.get("selected_path")
+    selected_checkpoint = (
+        output_dir / selected_path if selected_path is not None else None
+    )
     if bool(getattr(trainer, "is_global_zero", False)):
         write_effective_runtime_json(
             output_dir / "effective_runtime.json",
@@ -2430,6 +2899,56 @@ def _train_with_lightning(
         "train_loss": loss_history_cb.train_loss,
         "val_loss": loss_history_cb.val_loss if test_container is not None or isinstance(data_product, PrebuiltPtychoDataModule) else None
     }
+    from ptycho_torch.training_history import build_training_history
+
+    training_history = build_training_history(
+        output_dir,
+        csv_logger=(
+            lightning_logger
+            if execution_config.logger_backend == "csv"
+            else None
+        ),
+        model=model,
+        training_config=pt_training_config,
+    )
+
+    bundle_path = None
+    should_persist = bool(getattr(trainer, "is_global_zero", True))
+    if persist_bundle and should_persist:
+        archive_path = output_dir / "wts.h5"
+        save_torch_bundle(
+            models_dict={
+                "diffraction_to_obj": model,
+                "autoencoder": model,
+            },
+            base_path=str(archive_path),
+            config=config,
+            intensity_scale=intensity_scale,
+        )
+        bundle_path = archive_path.with_suffix(".h5.zip")
+        if bundle_path.is_file() and all(
+            hasattr(model, name)
+            for name in (
+                "data_config",
+                "model_config",
+                "training_config",
+                "inference_config",
+                "get_ci_statistics",
+            )
+        ):
+            _persist_bundle_scaling_metadata(
+                bundle_path,
+                model,
+                amplitude_physics_gain_record=amplitude_physics_gain_record,
+            )
+        elif amplitude_physics_gain_record is not None:
+            raise RuntimeError(
+                "Cannot persist amplitude_physics_gain_record because the "
+                "training bundle or resolved model metadata is unavailable."
+            )
+
+    if hasattr(model, "_trainer"):
+        model._trainer = None
 
     logger.info("Lightning training complete")
 
@@ -2444,6 +2963,13 @@ def _train_with_lightning(
         "training_summary_path": training_summary_path,
         "execution_config": execution_config,
         "effective_runtime": effective_runtime,
+        "checkpoint_selection": dict(checkpoint_selection),
+        "run_dir": output_dir,
+        "selected_checkpoint": selected_checkpoint,
+        "training_history": training_history,
+        "milestone_checkpoints": milestone_checkpoints,
+        "bundle_path": bundle_path,
+        "should_persist": should_persist,
         "models": {
             "diffraction_to_obj": model,
             "autoencoder": model,
@@ -2725,6 +3251,10 @@ def train_cdi_model_torch(
     *,
     resolved_payload: Optional[TrainingPayload] = None,
     torch_training_seed: Optional[int] = None,
+    persist_bundle: bool = False,
+    amplitude_physics_gain_record: Optional[
+        AmplitudePhysicsGainRecord
+    ] = None,
 ) -> Dict[str, Any]:
     """
     Train the CDI model using PyTorch Lightning backend.
@@ -2750,12 +3280,6 @@ def train_cdi_model_torch(
         ImportError: If Phase C adapters not available
         TypeError: If input data types are invalid
 
-    Phase D2.B Status:
-        - Entry signature: ✅ COMPLETE (matches TensorFlow)
-        - _ensure_container helper: ✅ COMPLETE (normalizes inputs via Phase C adapters)
-        - Lightning orchestration: 🔶 STUB (returns minimal dict, full impl pending)
-        - Torch-optional: ✅ COMPLETE (importable without torch)
-
     Example:
         >>> config = TrainingConfig(model=ModelConfig(N=64), nepochs=10, ...)
         >>> results = train_cdi_model_torch(train_data, test_data, config)
@@ -2773,10 +3297,7 @@ def train_cdi_model_torch(
         logger.info("Normalizing test data via _ensure_container")
         test_container = _ensure_container(test_data, config)
 
-    # Step 3: Initialize probe (TODO: implement probe handling for PyTorch)
-    # TensorFlow baseline: probe.set_probe_guess(None, train_container.probe)
-    # For Phase D2.B stub, skip probe initialization
-    logger.debug("Probe initialization deferred to full Lightning implementation")
+    # Probe ownership remains with the normalized data/model boundary.
 
     # Step 4: Delegate to Lightning trainer
     logger.info("Delegating to Lightning trainer via _train_with_lightning")
@@ -2789,16 +3310,28 @@ def train_cdi_model_torch(
         lightning_kwargs["resolved_payload"] = resolved_payload
     if torch_training_seed is not None:
         lightning_kwargs["torch_training_seed"] = torch_training_seed
+    if persist_bundle:
+        lightning_kwargs["persist_bundle"] = True
+    if amplitude_physics_gain_record is not None:
+        lightning_kwargs["amplitude_physics_gain_record"] = (
+            amplitude_physics_gain_record
+        )
+    intensity_scale = None
+    if hasattr(train_container, 'physics_scaling_constant'):
+        import torch
+
+        scale_tensor = torch.as_tensor(train_container.physics_scaling_constant)
+        intensity_scale = float(scale_tensor.reshape(-1)[0].item())
+    if intensity_scale is not None:
+        lightning_kwargs["intensity_scale"] = intensity_scale
     results = _train_with_lightning(
         train_container,
         test_container,
         config,
         **lightning_kwargs,
     )
-    if hasattr(train_container, 'physics_scaling_constant'):
-        import torch
-        scale_tensor = torch.as_tensor(train_container.physics_scaling_constant)
-        results['intensity_scale'] = float(scale_tensor.reshape(-1)[0].item())
+    if intensity_scale is not None:
+        results['intensity_scale'] = intensity_scale
 
     return results
 

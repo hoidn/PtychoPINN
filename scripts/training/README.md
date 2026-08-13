@@ -28,7 +28,8 @@ alignment and provenance checks. See
 
 This entry point loads the standalone NPZ through `RawData`, groups it in
 memory, and uses ordinary DataLoaders. It does not select the TensorDict mmap
-route; that route belongs to `ptycho_torch.train_lightning_only`.
+route; mmap-aware study adapters select `PrebuiltPtychoDataModule` explicitly
+and pass it to the shared Lightning service.
 
 ## Configuration shape
 

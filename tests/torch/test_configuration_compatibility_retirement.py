@@ -1,8 +1,5 @@
 """Contract checks for retired unversioned configuration entry points."""
 
-import pytest
-
-
 def test_runner_modules_do_not_expose_retired_configuration_loaders():
     import ptycho_torch.inference as inference
     import ptycho_torch.train as train
@@ -24,13 +21,3 @@ def test_utils_do_not_rehydrate_configuration_from_unversioned_sources():
         "validate_and_process_config",
     ):
         assert not hasattr(utils, name)
-
-
-def test_lightning_runner_requires_resolved_five_record_tuple():
-    from ptycho_torch import train_lightning_only
-
-    with pytest.raises(
-        TypeError,
-        match="existing_config must be a five-member resolved config tuple",
-    ):
-        train_lightning_only.main("unused", existing_config=None)

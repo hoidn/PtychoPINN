@@ -40,7 +40,10 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO)); sys.path.insert(0, str(REPO / "scripts/studies"))
 
 from varpro_probe_ablation_runner import (
-    build_test_dataset, run_inference_variant, compute_metrics,
+    build_test_dataset,
+    compute_metrics,
+    run_inference_variant,
+    selected_checkpoint_from_summary,
 )
 from diagnose_placement import gauge, ncc, trim, MIDDLE
 from ptycho_torch.dataloader import Collate_Lightning
@@ -102,8 +105,9 @@ def _checkpoint_from_args(explicit: Optional[Path], root: Path) -> Path:
         if not explicit.is_file():
             raise FileNotFoundError(f"checkpoint not found: {explicit}")
         return explicit
-    matches = sorted(root.glob("gs1_frozen/**/best-checkpoint.ckpt"))
-    if not matches:
+    try:
+        return selected_checkpoint_from_summary(root / "gs1_frozen")
+    except (FileNotFoundError, ValueError) as error:
         generation_reference = (
             anchor_checkpoint_generation_reference()
             if root.name == "matrix_lines_ci_v2"
@@ -112,8 +116,7 @@ def _checkpoint_from_args(explicit: Optional[Path], root: Path) -> Path:
         raise FileNotFoundError(
             f"no current CI checkpoint under {root}/gs1_frozen. Generate it with:\n"
             f"  {generation_reference}"
-        )
-    return matches[0]
+        ) from error
 
 
 def _apply_checkpoint_ci_statistics(model, dataset) -> None:
@@ -341,7 +344,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--out", type=Path, default=OUT,
-        help="checkpoint root under which gs1_frozen/**/best-checkpoint.ckpt is globbed "
+        help="matrix root containing gs1_frozen/summary.json "
              f"(default: {OUT})",
     )
     parser.add_argument(

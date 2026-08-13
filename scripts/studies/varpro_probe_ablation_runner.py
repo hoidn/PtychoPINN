@@ -1,20 +1,9 @@
 """VarPro / probe-weighting ablation harness (Task 1.5).
 
-Trains via ``ptycho_torch.train_lightning_only::main()`` -- NOT
-``ptycho_torch.train``'s ``cli_main`` -- per the decision recorded in
-``docs/plans/2026-07-01-varpro-ablation-phase1-findings.md`` ("Path
-equivalence") and investigated in ``.superpowers/sdd/task-1.4b-investigation.md``:
-the canonical ``train.py`` path has a semantic scaling gap (missing
-``rms_scaling_constant``/probe-normalization computation) that main's real
-training runs never exercised, while ``train_lightning_only.py::main()`` is
-the entry point main's own CLAUDE.md documents and a live DDP hotfix
-(commit ``93ca0fc0``) proves was actually run in production.
-
 For each arm this harness:
   1. Builds ``ptycho_torch.config_params`` dataclasses directly (ablation
      knobs are plain ``ModelConfig`` fields -- no CLI-flag threading needed).
-  2. Calls ``train_lightning_only.main(existing_config=...)`` as a thin,
-     in-process driver (no subprocess, no modification to that file).
+  2. Trains through the shared Lightning service with a prebuilt mmap.
   3. Loads the resulting Lightning checkpoint once via
      ``lightning_utils.load_checkpoint_with_configs`` and stages the held-out
      test NPZ into its own memory-mapped ``PtychoDataset`` (mirroring
@@ -454,7 +443,7 @@ def read_metrics_json(path: Path) -> Dict[str, Any]:
 # Plotting helpers live in ablation_figures.py (F2); imported at module top.
 
 # ---------------------------------------------------------------------------
-# Training driver -- thin wrapper around train_lightning_only.py::main()
+# Training driver
 # ---------------------------------------------------------------------------
 
 def build_configs(arm_cfg: Dict[str, Any], batch_size: int = 16, epochs: int = 50):
@@ -527,9 +516,7 @@ def build_configs(arm_cfg: Dict[str, Any], batch_size: int = 16, epochs: int = 5
 
 
 def stage_train_dir(train_npz: Path, scratch_dir: Path) -> Path:
-    """``train_lightning_only``'s data module globs every ``*.npz`` in a
-    directory, pooling them -- so the training npz must be isolated (must
-    not also contain the held-out test npz)."""
+    """Isolate the training NPZ from the held-out test source."""
     scratch_dir.mkdir(parents=True, exist_ok=True)
     link = scratch_dir / train_npz.name
     if link.exists() or link.is_symlink():
@@ -538,39 +525,92 @@ def stage_train_dir(train_npz: Path, scratch_dir: Path) -> Path:
     return scratch_dir
 
 
+def _resolve_training_seed() -> int:
+    raw = os.environ.get("PTYCHO_TORCH_SEED", "")
+    if not raw:
+        return 42
+    try:
+        return int(raw)
+    except ValueError as error:
+        raise ValueError(
+            f"Invalid PTYCHO_TORCH_SEED={raw!r}: must be an integer"
+        ) from error
+
+
 def run_training(
     arm_cfg: Dict[str, Any], train_npz: Path, output_dir: Path,
     epochs: int, batch_size: int, run_name: str = "train",
     parity_scale_mode: str = "off", parity_fixed_delta: float = 0.0,
     parity_init_scheme: str = "default",
-) -> Tuple[Path, tuple]:
-    """Invoke ``train_lightning_only.py::main()`` directly (in-process, not a
-    CLI subprocess) with configs built from ``arm_cfg``. Per the Task 1.4b
-    decision record, this is the entry point main's real training runs used
-    (train.py's cli_main path has an unresolved scaling-semantics gap).
-    train_lightning_only.py itself is not modified except for the
-    ``parity_*`` passthrough kwargs (Task 1, TF-parity intensity-scale
-    mechanism), whose defaults preserve current behavior exactly.
-    """
-    from ptycho_torch.train_lightning_only import main as train_main
+) -> Tuple[Dict[str, Any], tuple]:
+    """Train one arm through the shared Lightning service and mmap rail."""
+    from ptycho_torch.config_factory import (
+        create_training_payload_from_resolved_configs,
+    )
+    from ptycho_torch.execution_request import resolve_runtime_execution_request
+    from ptycho_torch.train_utils import build_prebuilt_ptycho_datamodule
+    from ptycho_torch.workflows.components import _train_with_lightning
 
     configs = build_configs(arm_cfg, batch_size=batch_size, epochs=epochs)
+    data_config, model_config, training_config, inference_config, datagen_config = configs
     train_dir = stage_train_dir(train_npz, output_dir / "train_data")
-    run_dir = train_main(
-        ptycho_dir=str(train_dir),
-        existing_config=configs,
-        output_dir=str(output_dir / "training_outputs"),
-        run_name=run_name,
+    run_dir = output_dir / "training_outputs" / run_name
+    execution_config = resolve_runtime_execution_request(
+        None,
+        mode="training",
+    ).config
+    runtime_training_config = dataclasses.replace(
+        training_config,
+        n_devices=execution_config.devices,
+        strategy=execution_config.strategy,
+        device=(
+            "cuda"
+            if execution_config.accelerator in {"cuda", "gpu"}
+            else execution_config.accelerator
+        ),
+        num_workers=execution_config.num_workers,
+        orchestrator="Lightning",
+    )
+    payload = create_training_payload_from_resolved_configs(
+        data_config,
+        model_config,
+        runtime_training_config,
+        inference_config,
+        execution_config,
+        train_data_file=train_npz,
+        output_dir=run_dir,
+        n_groups=runtime_training_config.n_groups,
         parity_scale_mode=parity_scale_mode,
         parity_fixed_delta=parity_fixed_delta,
         parity_init_scheme=parity_init_scheme,
     )
-    if run_dir is None:
-        raise RuntimeError(
-            "train_lightning_only.main() returned no run_dir "
-            "(training likely failed on a non-rank-0 process or crashed silently)"
-        )
-    return Path(run_dir), configs
+    data_module = build_prebuilt_ptycho_datamodule(
+        train_dir,
+        run_dir / "data" / "memmap",
+        model_config,
+        data_config,
+        runtime_training_config,
+        execution_config=execution_config,
+        validation_fraction=0.05,
+        validation_seed=42,
+        drop_last_training=True,
+        torch_training_seed=_resolve_training_seed(),
+    )
+    result = _train_with_lightning(
+        data_module,
+        None,
+        payload.tf_training_config,
+        resolved_payload=payload,
+        datagen_config=datagen_config,
+        torch_training_seed=_resolve_training_seed(),
+    )
+    return result, (
+        data_config,
+        model_config,
+        runtime_training_config,
+        inference_config,
+        datagen_config,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -697,7 +737,7 @@ def run_arm(
     parity_scale_mode: str = "off", parity_fixed_delta: float = 0.0,
     parity_init_scheme: str = "default",
 ) -> Dict[str, Any]:
-    from ptycho_torch.lightning_utils import find_best_checkpoint, load_checkpoint_with_configs
+    from ptycho_torch.lightning_utils import load_checkpoint_with_configs
     from ptycho_torch.model import PtychoPINN_Lightning
 
     if arm_cfg is None:
@@ -706,15 +746,17 @@ def run_arm(
     arm_dir.mkdir(parents=True, exist_ok=True)
 
     resolved_epochs = 1 if smoke else (epochs or 50)
-    run_dir, _configs = run_training(
+    training_result, _ = run_training(
         arm_cfg, train_npz, arm_dir, epochs=resolved_epochs, batch_size=batch_size,
         parity_scale_mode=parity_scale_mode, parity_fixed_delta=parity_fixed_delta,
         parity_init_scheme=parity_init_scheme,
     )
 
-    ckpt_path = find_best_checkpoint(run_dir)
+    run_dir = Path(training_result["run_dir"])
+    ckpt_path = training_result.get("selected_checkpoint")
     if ckpt_path is None:
         raise FileNotFoundError(f"No checkpoint found under {run_dir}/checkpoints")
+    del training_result
     # Load configs from the checkpoint itself as the persisted source of truth
     # for what the model was actually trained with. The runner now copies
     # caller-owned records, so this is an artifact-authority choice rather than
@@ -794,7 +836,13 @@ def run_arm(
             f"Arm '{arm}' failed output validation ({len(problems)} problem(s)): " + "; ".join(problems)
         )
 
-    summary = {"arm": arm, "arm_config": arm_cfg, "run_dir": str(run_dir), "variants": variant_summaries}
+    summary = {
+        "arm": arm,
+        "arm_config": arm_cfg,
+        "run_dir": str(run_dir),
+        "selected_checkpoint": os.path.relpath(ckpt_path, arm_dir),
+        "variants": variant_summaries,
+    }
     (arm_dir / "summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True))
     return summary
 
@@ -815,6 +863,23 @@ def _merge_json_dict(path: Path, key: str, value: Any) -> None:
     path.write_text(json.dumps(existing, indent=2, sort_keys=True))
 
 
+def selected_checkpoint_from_summary(arm_dir: Path) -> Path:
+    """Return the checkpoint declared by one completed arm summary."""
+    arm_dir = Path(arm_dir)
+    summary_path = arm_dir / "summary.json"
+    if not summary_path.is_file():
+        raise FileNotFoundError(f"arm summary not found: {summary_path}")
+    selected = json.loads(summary_path.read_text()).get("selected_checkpoint")
+    if not selected:
+        raise ValueError(f"{summary_path} does not declare selected_checkpoint")
+    checkpoint = Path(selected)
+    if not checkpoint.is_absolute():
+        checkpoint = arm_dir / checkpoint
+    if not checkpoint.is_file():
+        raise FileNotFoundError(f"selected checkpoint not found: {checkpoint}")
+    return checkpoint
+
+
 def _write_invocation_record(
     output_root: Path, arm: str, train_npz: Path, test_npz: Path, smoke: bool,
     seed: Optional[int] = None,
@@ -822,10 +887,8 @@ def _write_invocation_record(
     parity_init_scheme: str = "default",
     cbam_encoder: Optional[str] = None, scheduler: Optional[str] = None,
 ) -> None:
-    from ptycho_torch.train_lightning_only import _resolve_seed
-
     path = output_root / "invocation.json"
-    effective_seed = seed if seed is not None else _resolve_seed()
+    effective_seed = seed if seed is not None else _resolve_training_seed()
     record = {
         "argv": sys.argv,
         "seed": effective_seed,
@@ -886,7 +949,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--seed", type=int, default=None,
         help="Training seed. Sets PTYCHO_TORCH_SEED before training; "
-             "defaults to 42 when omitted (see train_lightning_only._resolve_seed)",
+             "defaults to 42 when omitted",
     )
     # TF-parity global intensity-scale mechanism (Task 1, docs/plans/
     # 2026-07-08-cnn-n128-tf-parity.md). Threaded straight to

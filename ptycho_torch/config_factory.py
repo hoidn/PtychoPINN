@@ -805,6 +805,89 @@ def create_training_payload(
 
 
 @configured_legacy_params
+def create_training_payload_from_resolved_configs(
+    data_config: PTDataConfig,
+    model_config: PTModelConfig,
+    training_config: PTTrainingConfig,
+    inference_config: PTInferenceConfig,
+    execution_config: PyTorchExecutionConfig,
+    *,
+    train_data_file: Path,
+    output_dir: Path,
+    n_groups: int | None,
+    test_data_file: Path | None = None,
+    parity_scale_mode: str = "off",
+    parity_fixed_delta: float = 0.0,
+    parity_init_scheme: str = "default",
+) -> TrainingPayload:
+    """Adapt already-resolved Torch records without resolving defaults again."""
+
+    expected = (
+        (data_config, PTDataConfig, "data_config"),
+        (model_config, PTModelConfig, "model_config"),
+        (training_config, PTTrainingConfig, "training_config"),
+        (inference_config, PTInferenceConfig, "inference_config"),
+        (execution_config, PyTorchExecutionConfig, "execution_config"),
+    )
+    for value, value_type, name in expected:
+        if not isinstance(value, value_type):
+            raise TypeError(f"{name} must be a {value_type.__name__}")
+    if n_groups is not None and (
+        isinstance(n_groups, bool)
+        or not isinstance(n_groups, int)
+        or n_groups <= 0
+    ):
+        raise ValueError("n_groups must be a positive integer")
+
+    from ptycho_torch.config_bridge import to_model_config, to_training_config
+
+    canonical_model = to_model_config(data_config, model_config)
+    canonical_training = to_training_config(
+        canonical_model,
+        data_config,
+        model_config,
+        training_config,
+        overrides={
+            "train_data_file": Path(train_data_file),
+            "test_data_file": (
+                Path(test_data_file) if test_data_file is not None else None
+            ),
+            "output_dir": Path(output_dir),
+            "n_groups": n_groups,
+            "nphotons": data_config.nphotons,
+        },
+        require_group_count=False,
+    )
+    if n_groups is None:
+        canonical_training = canonical_training.model_copy(
+            update={
+                "sampling": canonical_training.sampling.model_copy(
+                    update={"n_groups": None}
+                )
+            }
+        )
+    payload = TrainingPayload(
+        tf_training_config=canonical_training,
+        pt_data_config=data_config,
+        pt_model_config=model_config,
+        pt_training_config=training_config,
+        pt_inference_config=inference_config,
+        model_spec=derive_model_spec(
+            canonical_model,
+            model_config,
+            data_config,
+            parity_scale_mode=parity_scale_mode,
+            parity_fixed_delta=parity_fixed_delta,
+            parity_init_scheme=parity_init_scheme,
+        ),
+        execution_config=execution_config,
+        overrides_applied={"source": "resolved_torch_configs"},
+    )
+    _project_legacy_config(payload.tf_training_config, (), ())
+    return payload
+
+
+@configured_legacy_params
 def create_inference_payload(
     model_path: Path,
     test_data_file: Path,

@@ -67,6 +67,83 @@ from ptycho_torch.execution_request import (
 )
 
 
+def test_resolved_torch_records_build_exact_training_payload(tmp_path):
+    from ptycho.config.config import PyTorchExecutionConfig
+    from ptycho_torch.config_factory import (
+        create_training_payload_from_resolved_configs,
+    )
+
+    data = PTDataConfig(N=128, grid_size=(2, 2), C=4, K=7, nphotons=3e7)
+    model = PTModelConfig(
+        C_model=4,
+        C_forward=4,
+        object_big=True,
+        rect_s1s2_trainable=True,
+    )
+    training = PTTrainingConfig(
+        learning_rate=4e-4,
+        epochs=3,
+        batch_size=5,
+    )
+    inference = PTInferenceConfig(patch_weighting="uniform")
+    execution = PyTorchExecutionConfig(
+        accelerator="cpu",
+        devices=1,
+        strategy="auto",
+        num_workers=0,
+    )
+
+    payload = create_training_payload_from_resolved_configs(
+        data,
+        model,
+        training,
+        inference,
+        execution,
+        train_data_file=tmp_path / "train.npz",
+        output_dir=tmp_path / "run",
+        n_groups=23,
+        parity_scale_mode="fixed",
+        parity_fixed_delta=0.75,
+        parity_init_scheme="tf_glorot",
+    )
+
+    assert payload.pt_data_config is data
+    assert payload.pt_model_config is model
+    assert payload.pt_training_config is training
+    assert payload.pt_inference_config is inference
+    assert payload.execution_config is execution
+    assert payload.tf_training_config.data.train_data_file == tmp_path / "train.npz"
+    assert payload.tf_training_config.output_dir == tmp_path / "run"
+    assert payload.tf_training_config.sampling.n_groups == 23
+    assert payload.tf_training_config.model.N == 128
+    assert payload.tf_training_config.model.gridsize == 2
+    assert payload.model_spec.parity_scale_mode == "fixed"
+    assert payload.model_spec.parity_fixed_delta == 0.75
+    assert payload.model_spec.parity_init_scheme == "tf_glorot"
+
+
+def test_resolved_torch_records_preserve_use_all_group_semantics(tmp_path):
+    from ptycho.config.config import PyTorchExecutionConfig
+    from ptycho_torch.config_factory import (
+        create_training_payload_from_resolved_configs,
+    )
+
+    training = PTTrainingConfig(n_groups=None)
+    payload = create_training_payload_from_resolved_configs(
+        PTDataConfig(),
+        PTModelConfig(),
+        training,
+        PTInferenceConfig(),
+        PyTorchExecutionConfig(accelerator="cpu", devices=1),
+        train_data_file=tmp_path / "train.npz",
+        output_dir=tmp_path / "run",
+        n_groups=None,
+    )
+
+    assert training.n_groups is None
+    assert payload.tf_training_config.sampling.n_groups is None
+
+
 def test_datagen_config_converts_owned_fields_to_simulation_without_changing_payload_shape():
     datagen = DatagenConfig(
         objects_per_probe=6,

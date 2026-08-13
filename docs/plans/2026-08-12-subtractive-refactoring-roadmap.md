@@ -107,7 +107,7 @@ they are not completion quotas.
 | 0 | Bound the installable package and delete proven orphans | **Complete on all three branches** | [Execution plan and evidence](2026-08-12-fno-stable-orphan-removal-plan.md) |
 | 1 | One NPZ decoder/selector and one backend-neutral grouping/index plan | **Complete on all three branches** | Phase 0; policy/fixture inventory |
 | 2 | One Torch batch contract and loader/sampler path over RAM and mmap materializers | **Complete on all three branches** | Phase 1 |
-| 3 | One shared Torch training/save service; retire duplicate trainer construction | Pending | Phase 2 |
+| 3 | One shared Torch training/save service; retire duplicate trainer construction | **Active on `refactor`** | Phase 2 |
 | 4 | Retire `grid_lines_torch_runner.py` after maintained callers move to public workflows | Pending | Phase 3 plus public parity and spec migration |
 | 5 | Evaluate contract-sensitive and lower-value parallel paths | Conditional | Named prerequisite per item |
 

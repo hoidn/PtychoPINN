@@ -71,8 +71,8 @@ caller supplies arrays or a data object
 caller supplies one NPZ file
   └─ RawData loader ──► grouping in memory ──► model-ready container / DataLoader
 
-caller supplies an NPZ directory to train_lightning_only
-  └─ PtychoDataset ──► TensorDict memory map ──► PtychoDataModuleLightning
+caller selects the explicit mmap adapter for an NPZ directory
+  └─ PtychoDataset ──► TensorDict memory map ──► PrebuiltPtychoDataModule
 
 caller invokes the grid-lines study runner
   └─ grid-lines cached-NPZ adapter ──► dict container ──► ordinary DataLoader
@@ -96,7 +96,7 @@ There are therefore three different persistence/residency modes:
 | `RawData.from_simulation()` or `generate_simulated_data()` followed directly by a workflow call | In-memory object | Remains in memory unless the caller explicitly saves it. |
 | `RawData` and `PtychoDataContainerTorch` workflow inputs | In-memory arrays | Bypass NPZ I/O and the on-disk memory map. |
 | Unified/file-oriented training CLIs and `python -m ptycho_torch.train` | One standalone NPZ path | Load through `RawData`, group in memory, adapt to `PtychoDataContainerTorch`, then use ordinary DataLoaders. |
-| `ptycho_torch.train_lightning_only.main(ptycho_dir=...)` | Directory containing standalone NPZ scans | Build or open the TensorDict mmap through `PtychoDataModuleLightning`. This is the established Lightning multi-device/DDP data rail. |
+| Mmap-aware study adapter using `build_prebuilt_ptycho_datamodule()` | Directory containing standalone NPZ scans | Build or open the TensorDict mmap through `PrebuiltPtychoDataModule`, then pass that selected rail to the shared Lightning service. |
 | `scripts/studies/grid_lines_torch_runner.py` | Grid-lines train/test cached NPZ paths | Load the specialized cache into dictionaries, select grid-lines probe/coordinate semantics, adapt to the dict-container batch contract, and call `_train_with_lightning`. This path currently constructs a single-device Trainer. |
 | `PrebuiltPtychoDataModule` | Existing TensorDict mmap | Reopen the already-built map without reparsing source NPZs. |
 | Default Torch inference CLI | One standalone NPZ path | Load through `RawData` and run inference in memory. |
@@ -106,7 +106,7 @@ The factory-resolved `PyTorchExecutionConfig` controls devices, DDP strategy,
 workers, and Lightning runtime mechanics after this routing decision. It does
 not select a dataset schema or convert a grid-lines cache into the mmap schema.
 In particular, requesting DDP does not cause a file-based or grid-lines entry
-point to switch automatically to `PtychoDataModuleLightning`.
+point to switch automatically to `PrebuiltPtychoDataModule`.
 
 ### Standalone NPZ Versus Grid-Lines Cached NPZ
 
@@ -116,7 +116,7 @@ different pipeline stages:
 | Format | Typical contents | Consumer |
 |---|---|---|
 | Standalone scan NPZ through `RawData` | One ungrouped 3-D `diff3d` stack, `xcoords`, `ycoords`, `probeGuess`, and the other acquisition fields required by `RawData.from_file()` | Unified/file-oriented workflows and the default Torch inference route |
-| Standalone scan NPZ through the Torch mmap writer | One ungrouped 3-D `diff3d` stack, or the accepted `diffraction` compatibility alias, plus scan coordinates and the writer-required acquisition fields | `PtychoDataModuleLightning` / `PtychoDataset` mmap route |
+| Standalone scan NPZ through the Torch mmap writer | One ungrouped 3-D `diff3d` stack, or the accepted `diffraction` compatibility alias, plus scan coordinates and the writer-required acquisition fields | `PrebuiltPtychoDataModule` / `PtychoDataset` mmap route |
 | Grid-lines cached NPZ | Pre-grouped/channelized `diffraction`, `Y_I`, `Y_phi`, `coords_nominal`, `coords_true`, `YY_full`, and optional `probe_simulated` | Grid-lines cached-dataset adapter |
 
 `RawData.from_file()` requires the standalone key `diff3d`; it does not apply
@@ -334,6 +334,11 @@ projects the public compatibility record into `params.cfg`.
 `InferencePayload` is smaller: it carries the public inference projection,
 Torch data/inference settings, execution settings, and applied overrides.
 Saved model structure comes from the validated checkpoint/artifact identity.
+
+Studies that already hold the five resolved Torch records use
+`create_training_payload_from_resolved_configs()` to adapt those exact objects;
+the adapter does not run default resolution again. The shared Lightning
+service consumes that payload and any prebuilt mmap DataModule directly.
 
 The public and Torch model records overlap only where the backends share a
 public concept. Torch-only topology and physics fields remain in the Torch
