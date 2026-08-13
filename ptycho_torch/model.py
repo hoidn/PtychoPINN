@@ -1139,9 +1139,8 @@ class PoissonIntensityLayer(nn.Module):
 class RectangularScaledDiffraction(nn.Module):
     """Analytic real/imag intensity forward with folded probe/physics scaling (B5).
 
-    Ported verbatim from ``main``'s ``ptycho_torch.model.RectangularScaledDiffraction``
-    (bit-identical to ``ptycho_torch.beta_modules.model``), with the only change
-    being the Task 1.2 ``requires_grad`` patch on ``s1``/``s2`` (gated by
+    Ported from ``main``'s ``ptycho_torch.model.RectangularScaledDiffraction``
+    with the Task 1.2 ``requires_grad`` patch on ``s1``/``s2`` (gated by
     ``model_config.rect_s1s2_trainable``). Used only when
     ``ModelConfig.physics_forward_mode == 'rectangular_scaled'``.
 

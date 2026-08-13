@@ -433,7 +433,6 @@ competing owner.
 | `ptycho_synthetic` / `synthetic_pipeline.py` | **Supported default:** complete generic PyTorch synthetic workflow |
 | `ptycho_study` / `ptycho.workflows.study_runner` | **Supported study layer:** composes per-arm configs and runs the generic runner once per arm |
 | `simulate_and_save.py` | **Supported low-level tool:** simulate from a prepared object/probe NPZ |
-| `run_with_synthetic_lines.py` | **Deprecated compatibility/history only:** delegates to `ptycho_synthetic --stages simulate` and contains no simulation logic |
 
 The simulation-only CLI keeps its own canonical simulation-file flag:
 
@@ -449,23 +448,6 @@ python scripts/simulation/simulate_and_save.py \
 `dead_leaves` or `natural_patch` inputs with their dedicated producer first.
 `grf` is not a supported `SyntheticObjectConfig.kind` and must not be recorded
 under another label.
-
-### Deprecated lines-wrapper migration
-
-`scripts/simulation/run_with_synthetic_lines.py` is retained only so
-historical simulation-only commands can delegate to the generic runner; do
-not use it for new recipes. It rejects its old `--simulation-config` option
-(migrate the document to `ptycho_synthetic --config`) and the historical
-`--n-images` (split it into explicit `--train-patterns`/`--test-patterns`,
-then choose `--training-groups`/`--validation-groups` independently). The
-adapter translates only unambiguous names:
-
-| Historical wrapper name | Generic name |
-|---|---|
-| `--output-dir` | `--output-root` (adapter-owned) |
-| `--probe-size` | `--N` |
-| `--n-photons` | `--photons-per-pattern` |
-| `--buffer` | `--scan-buffer` |
 
 ### SimulationConfig example and probe transforms
 

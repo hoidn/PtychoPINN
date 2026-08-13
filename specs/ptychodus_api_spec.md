@@ -11,7 +11,7 @@ The API is built around a **one-way data flow**: parameters are defined in the m
 
 The central function that bridges these two systems is `ptycho.config.config.update_legacy_dict()`. Any external system, like `ptychodus`, **must** use this bridge to configure `ptychopinn` correctly.
 
-**⚠️ PyTorch Requirement:** PyTorch `>= 2.2` is a **mandatory runtime dependency** for the PyTorch backend (`ptycho_torch/`). The project declares `torch` in `pyproject.toml`; supported PyTorch workflows require version 2.2 or newer. The TensorFlow backend (`ptycho/`) continues to function independently, but callers integrating the PyTorch stack **must** ensure a supported PyTorch installation is available. For installation guidance, see the PyTorch workflow guide at <doc-ref type="workflow">docs/workflows/pytorch.md</doc-ref>.
+**⚠️ PyTorch Requirement:** PyTorch `>= 2.2` is a **mandatory runtime dependency** for the PyTorch backend (`ptycho_torch/`). The project declares `torch>=2.2` in `pyproject.toml`. The TensorFlow backend (`ptycho/`) continues to function independently, but callers integrating the PyTorch stack **must** ensure a supported PyTorch installation is available. For installation guidance, see the PyTorch workflow guide at <doc-ref type="workflow">docs/workflows/pytorch.md</doc-ref>.
 
 ### 2. Core Components
 

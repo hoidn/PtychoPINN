@@ -3,7 +3,7 @@ plus the Task 2.5 (B3) config-gated dispatch inside ``ForwardModel.forward``.
 
 Covers the additive `reassemble_patches_position_real_probe` function in
 `ptycho_torch/helper.py`, exercised through its real signature/return contract
-(the one consumed by the dangling call in `beta_modules/model.py`):
+used by `ForwardModel`:
 `probe=`, `use_probe_weights=` kwargs, returning `(imgs_merged, boolean_mask, M)`.
 
 The Task 2.5 additions:
@@ -109,7 +109,7 @@ def test_reassemble_patches_position_real_probe_c1_no_nan_support_preserved():
 
 def test_reassemble_patches_position_real_probe_return_contract_shapes():
     """Return contract: (imgs_merged, boolean_mask, M) with the shapes/dtypes
-    expected by the beta_modules/model.py call site (unpacked as
+    expected by the `ForwardModel` call site (unpacked as
     `reassembled_obj, _, _`)."""
     N = 8
     M = 12

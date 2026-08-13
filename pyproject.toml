@@ -38,7 +38,7 @@ dependencies = [
     "tensorflow-probability",
     "tensordict",
     "tomli; python_version < '3.11'",
-    "torch",
+    "torch>=2.2",
     "tqdm",
     "ujson",
 ]
@@ -52,11 +52,31 @@ ptycho_inference = "scripts.inference.inference:main"
 ptycho_synthetic = "scripts.simulation.synthetic_pipeline:main"
 ptycho_study = "ptycho.workflows.study_runner:main"
 
-[tool.setuptools.package-data]
-datasets = ["*.npz"]
+[tool.setuptools]
+include-package-data = false
 
 [tool.setuptools.packages.find]
 where = ["."]
+include = [
+    "frc",
+    "ptycho",
+    "ptycho.*",
+    "ptycho_torch",
+    "ptycho_torch.*",
+    "scripts.training",
+    "scripts.inference",
+    "scripts.simulation",
+]
+exclude = [
+    "ptycho.trash",
+    "ptycho.trash.*",
+    "ptycho_torch.beta_modules",
+    "ptycho_torch.beta_modules.*",
+    "ptycho_torch.configs",
+    "ptycho_torch.configs.*",
+    "ptycho_torch.notebooks",
+    "ptycho_torch.notebooks.*",
+]
 
 [tool.setuptools_scm]
 

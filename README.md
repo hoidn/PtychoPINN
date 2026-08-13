@@ -102,10 +102,6 @@ Use the comparison and study scripts described in
   - Architectures: `fno`, `fno_vanilla`
 
 #### Older Flags and Modes
-- `scripts/simulation/run_with_synthetic_lines.py` is a deprecated,
-  simulation-only compatibility adapter. Migrate new work to
-  `ptycho_synthetic`; see its historical migration notes under
-  `scripts/simulation/README.md`.
 - Unified training's `sampling.n_images` field is deprecated; use
   `sampling.n_groups`.
 - PyTorch `--device` and `--disable_mlflow` are older; use `--accelerator` and `--logger none`.

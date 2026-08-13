@@ -26,7 +26,6 @@ Core Workflow Functions:
     Data Pipeline Integration:
         - load_data(): Load NPZ data with coordinate transformations and validation
         - create_ptycho_data_container(): Factory for RawData → PtychoDataContainer conversion
-        - load_and_prepare_data(): Legacy data loading interface (deprecated)
     
     End-to-End Workflow Orchestration:
         - run_cdi_example(): Complete training → reconstruction → visualization pipeline
@@ -561,27 +560,6 @@ def setup_configuration(args: argparse.Namespace, yaml_path: Optional[str]) -> T
         return config
     except (yaml.YAMLError, IOError, ValueError) as e:
         logger.error(f"Error setting up configuration: {e}")
-        raise
-
-def load_and_prepare_data(data_file_path: str) -> Tuple[RawData, RawData, Any]:
-    """
-    Load and prepare the data from a single file path.
-
-    Args:
-        data_file_path (str): Path to the data file
-
-    Returns:
-        Tuple[RawData, RawData, Any]: A tuple containing the full dataset, training subset, and additional data
-    """
-    # TODO deprecated
-    from ptycho.loader import load_xpp_npz
-    if not os.path.exists(data_file_path):
-        raise FileNotFoundError(f"Data file not found: {data_file_path}")
-
-    try:
-        return load_xpp_npz(data_file_path)
-    except Exception as e:
-        logger.error(f"Error loading data from {data_file_path}: {str(e)}")
         raise
 
 from typing import Union
