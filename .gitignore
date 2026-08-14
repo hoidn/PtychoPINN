@@ -203,3 +203,8 @@ docs/plans/**/reports/**
 plans/**/reports/**
 
 .worktrees/
+
+# Branch-local working docs on refactor: keep as untracked working state, never commit
+docs/plans/
+docs/superpowers/
+docs/workflows/
