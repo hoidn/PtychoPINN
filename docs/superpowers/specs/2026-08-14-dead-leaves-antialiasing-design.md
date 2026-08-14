@@ -35,11 +35,14 @@ The public synthetic CLI exposes the same setting as
 `argparse.BooleanOptionalAction`. Because the parser suppresses omitted
 defaults, an omitted flag does not override a config-file value.
 
-Enabling the setting with an object kind other than `dead_leaves` is an error.
-Explicit false is semantically the same as omission. The canonical simulation
-serializer therefore omits the field when false, preserving historical default
-configuration dictionaries and SHA-256 identities; it includes the field when
-true, which changes dataset identity.
+Enabling the setting is valid only for the generated
+`dead_leaves` / `dead-leaves-object-v2` pair. The synthetic workflow resolver
+rejects it for Lines, the historical v1 compatibility recipe, and source-backed
+`frozen-object-bank-v1` inputs, where rasterization has already happened and the
+setting would otherwise be ignored. Explicit false is semantically the same as
+omission. The canonical simulation serializer therefore omits the field when
+false, preserving historical default configuration dictionaries and SHA-256
+identities; it includes the field when true, which changes dataset identity.
 
 The low-level generator reads the same choice from its existing option mapping:
 
@@ -63,11 +66,32 @@ The true path uses the fixed four subpixel positions used by Ptychodus:
 (1/3, 1/3), (1/3, 2/3), (2/3, 1/3), (2/3, 2/3)
 ```
 
-Each leaf's geometry is selected once. The implementation rasterizes that same
-circle or polygon at each sample position, accumulates a per-pixel sample count,
-and divides by four to obtain coverage in `{0, 0.25, 0.5, 0.75, 1}`. OpenCV
-fixed-point coordinates provide the translated subpixel draws; `LINE_AA` is not
-used because OpenCV edge filtering is a different algorithm.
+Each leaf's geometry is selected once. The hard and sampled paths share the
+same integer center and radius for circles and the same polygon vertices after
+the existing NumPy-to-`int32` truncation. For output pixel `(y, x)`, a sample
+offset `(u_y, u_x)` represents the point `(y + u_y, x + u_x)`. The equivalent
+OpenCV draw translates the geometry by `(-u_y, -u_x)` before evaluating the
+integer output lattice.
+
+The translation uses one byte-defined fixed-point contract on both branches:
+
+- `shift=8` and fixed-point scale `Q=256`;
+- each translated coordinate is encoded with
+  `int(numpy.rint((coordinate - offset) * Q))`;
+- a circle radius is encoded as `int(radius * Q)` because the existing radius
+  is integral;
+- filled shapes use `LINE_8`, not `LINE_AA`; and
+- the four sample masks are accumulated as integer counts before division.
+
+Thus one third is represented as `85/256` and two thirds as `171/256`, avoiding
+branch-specific floating-point-to-integer choices. The implementation divides
+the accumulated count by four to obtain coverage in
+`{0, 0.25, 0.5, 0.75, 1}`.
+
+The sampling contract is anchored to
+[Ptychodus `generate_dead_leaves_object` at commit `085dcd3`](https://github.com/AdvancedPhotonSource/ptychodus/blob/085dcd3c56b5f0c70aacc5e715967dafbf9e2e1a/src/ptychodus/api/object_gen.py#L368-L424).
+The local implementation extends those four offsets to polygons while retaining
+the local generator's existing quantized geometry.
 
 For coverage `c`, the new material replaces the previous topmost material by
 linear interpolation:
@@ -97,12 +121,13 @@ and the existing fixed radius/iteration arguments. It additionally passes the
 resolved `dead_leaves_anti_aliasing` value into `create_dead_leaves`.
 
 The synthetic resolver derives the default recipe from `object.kind`, validates
-the kind/recipe pair, and rejects unsupported pairs before simulation. The flat
-acquisition path builds its truth object through that registry instead of its
-inline Lines-only constructor. Object provenance records the recipe, producer
-symbols, source commit, realized array hash, RNG identity, and phase identity.
-The simulation configuration hash separately records an enabled anti-aliasing
-choice.
+the kind/recipe pair, and rejects unsupported pairs before simulation. Its
+recipe-aware validation also rejects enabled anti-aliasing for any pair except
+`dead_leaves` / `dead-leaves-object-v2`. The flat acquisition path builds its
+truth object through that registry instead of its inline Lines-only constructor.
+Object provenance records the recipe, producer symbols, source commit, realized
+array hash, RNG identity, and phase identity. The simulation configuration hash
+separately records an enabled anti-aliasing choice.
 
 On `fno-stable`, retain its existing registry and route the new field through
 the existing Dead Leaves builder. Both branches must produce the same v2 Dead
@@ -114,7 +139,8 @@ Leaves object for the same canonical settings and seed.
   Leaves output exactly.
 - Existing Lines behavior, default serialized configuration, and default
   simulation digest remain unchanged.
-- True anti-aliasing is never silently ignored for another object family.
+- True anti-aliasing is never silently ignored for another object family,
+  historical compatibility recipe, or source-backed object bank.
 - Invalid direct `obj_arg` values fail before generating leaves.
 - No new dependency is introduced; NumPy and the existing OpenCV dependency are
   sufficient.
@@ -134,13 +160,15 @@ Focused tests must establish:
 4. config-file and CLI values resolve to the same canonical field, explicit
    true changes the simulation digest, and the default dictionary/digest remain
    unchanged;
-5. true with a non-Dead-Leaves kind is rejected;
+5. true with a non-Dead-Leaves kind, the v1 compatibility recipe, or a frozen
+   object-bank recipe is rejected;
 6. `refactor` accepts and executes the registered Dead Leaves producer instead
    of failing the current Lines-only preflight;
 7. manifests bind the selected recipe, RNG and phase identities, enabled
    anti-aliasing setting, and realized object hash; and
 8. the same seeded v2 producer settings yield equal object arrays on
-   `refactor` and `fno-stable`.
+   `refactor` and `fno-stable`; both branches carry the same fixed expected
+   array hash for one small seeded anti-aliased fixture.
 
 Run the focused generator, simulation-config, CLI, synthetic-workflow, and flat
 acquisition tests on each branch before broader regression tests.
