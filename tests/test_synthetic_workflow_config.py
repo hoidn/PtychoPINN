@@ -670,6 +670,33 @@ def test_cnn_ci_profile_resolves_the_complete_locked_contract():
     assert resolved.data.measurement_domain == "count_intensity"
 
 
+def test_ffno_ci_contract_uses_generator_output_mode():
+    values = {
+        "simulation": {
+            "scale_contract_version": "ci_intensity_v2",
+            "measurement_domain": "count_intensity",
+        },
+        "model": {
+            "architecture": "ffno",
+            "physics_forward_mode": "rectangular_scaled",
+            "generator_output_mode": "real_imag",
+            "loss_function": "Poisson",
+        },
+        "training": {"torch_loss_mode": "poisson", "nll": True},
+    }
+
+    resolved = _resolve(file_values=values)
+    assert resolved.model.cnn_output_mode == "amp_phase"
+    assert resolved.model.generator_output_mode == "real_imag"
+
+    values["model"].update(
+        cnn_output_mode="real_imag",
+        generator_output_mode="amp_phase",
+    )
+    with pytest.raises(ValueError, match="model.generator_output_mode"):
+        _resolve(file_values=values)
+
+
 @pytest.mark.parametrize("source_name", ("file_values", "cli_values"))
 def test_cnn_ci_profile_rejects_a_contradicting_architecture(source_name):
     with pytest.raises(ValueError, match="model.architecture.*cnn-lines-ci"):

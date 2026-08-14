@@ -61,6 +61,17 @@ ptycho_synthetic --profile cnn-lines-ci \
   --output-root outputs/synthetic-cnn-ci
 ```
 
+### Public integration smokes
+
+The runner-level GPU gates cover the CNN/C4 count-intensity path and the
+FFNO/GS1 equivalent through all four stages:
+
+```bash
+python -m pytest -q \
+  tests/torch/test_synthetic_cnn_c4_ci_integration.py \
+  tests/torch/test_synthetic_ffno_gs1_ci_integration.py
+```
+
 ### GS2/custom-probe example
 
 This five-epoch example selects grid size 2 (`C=4`), the established legacy

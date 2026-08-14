@@ -1166,9 +1166,14 @@ def _validate_scaling(
             "training.torch_loss_mode must be 'poisson' for the CI "
             "count-intensity rectangular forward"
         )
-    if model.cnn_output_mode != "real_imag":
+    output_mode_field = (
+        "cnn_output_mode"
+        if model.architecture == "cnn"
+        else "generator_output_mode"
+    )
+    if getattr(model, output_mode_field) != "real_imag":
         raise ValueError(
-            "model.cnn_output_mode must be 'real_imag' when "
+            f"model.{output_mode_field} must be 'real_imag' when "
             "model.physics_forward_mode='rectangular_scaled'"
         )
     if not inference.varpro_scaling:
