@@ -44,11 +44,12 @@ def synthetic_ptycho_npz(tmp_path):
     grid_side = int(np.sqrt(n_scans))
     xcoords = np.tile(np.arange(grid_side), grid_side).astype(np.float32) * 10.0
     ycoords = np.repeat(np.arange(grid_side), grid_side).astype(np.float32) * 10.0
+    diffraction = np.random.rand(n_scans, N, N).astype(np.float32)
 
     data = {
         # RawData required keys
-        "diff3d": np.random.rand(n_scans, N, N).astype(np.float32),
-        "diffraction": np.random.rand(n_scans, N, N).astype(np.float32),  # Alias
+        "diff3d": diffraction,
+        "diffraction": diffraction,  # Compatibility alias
         "xcoords": xcoords,
         "ycoords": ycoords,
         "probeGuess": np.ones((N, N), dtype=np.complex64),

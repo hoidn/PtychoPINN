@@ -382,9 +382,8 @@ def test_workflow_forwards_torch_overrides_to_lightning(monkeypatch):
     overrides = {"physics_forward_mode": "rectangular_scaled"}
     captured = {}
 
-    def fake_train(train_data, test_data, config, execution_config=None, overrides=None):
-        captured["execution_config"] = execution_config
-        captured["overrides"] = overrides
+    def fake_train(train_data, test_data, config, **kwargs):
+        captured.update(kwargs)
         return {"models": {}}
 
     monkeypatch.setattr(components, "train_cdi_model_torch", fake_train)
@@ -477,15 +476,13 @@ def test_cli_rect_s1s2_initialization_precedence_reaches_training(
     else:
         assert authored_overrides["rect_s1s2_init"] == cli_mode
 
-    forwarded = captured["overrides"]
     assert captured["resolved_payload"].execution_config is not None
     assert "execution_config" not in captured
-    assert forwarded["physics_forward_mode"] == "rectangular_scaled"
-    assert forwarded["scale_contract_version"] == "ci_intensity_v2"
-    assert forwarded["measurement_domain"] == "count_intensity"
-    assert forwarded["torch_loss_mode"] == "poisson"
-    assert forwarded["rect_s1s2_init"] == expected_mode
-    assert (
-        captured["resolved_payload"].pt_model_config.rect_s1s2_init
-        == expected_mode
-    )
+    model = captured["resolved_payload"].pt_model_config
+    data = captured["resolved_payload"].pt_data_config
+    training = captured["resolved_payload"].pt_training_config
+    assert model.physics_forward_mode == "rectangular_scaled"
+    assert data.scale_contract_version == "ci_intensity_v2"
+    assert data.measurement_domain == "count_intensity"
+    assert training.torch_loss_mode == "poisson"
+    assert model.rect_s1s2_init == expected_mode

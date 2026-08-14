@@ -11,6 +11,7 @@ def test_synthetic_npz_fixture_contract(synthetic_ptycho_npz):
     data = dict(np.load(train_npz))
     for key in ("diffraction", "Y_I", "Y_phi", "coords_nominal", "coords_true"):
         assert key in data, f"Missing required key: {key}"
+    np.testing.assert_array_equal(data["diff3d"], data["diffraction"])
 
 
 def test_pinn_uses_fno_generator_when_selected():
