@@ -165,7 +165,8 @@ test_*/**/pinn_frc_curves.csv
 /orchestration.yaml
 /plan.md
 /pytorch_workflow_analysis.md
-/studies/
+/studies/*
+!/studies/lines_arch_profile/
 /supervisor.sh
 /sync/
 /test_script_wrapper_fix.sh

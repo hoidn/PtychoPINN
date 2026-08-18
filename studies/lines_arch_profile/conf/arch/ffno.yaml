@@ -1,0 +1,4 @@
+# @package _global_
+# Arch-specific knobs (fno_modes, fno_width, ...) belong here; defaults suffice.
+model:
+  architecture: ffno

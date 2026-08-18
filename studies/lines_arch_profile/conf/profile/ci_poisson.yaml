@@ -1,0 +1,20 @@
+# @package _global_
+# Mirrors the cnn-lines-ci contract fields minus its architecture lock, so the
+# arch group stays a free axis.
+study:
+  profile_name: ci_poisson
+simulation:
+  scale_contract_version: ci_intensity_v2
+  measurement_domain: count_intensity
+model:
+  physics_forward_mode: rectangular_scaled
+  loss_function: Poisson
+  rect_s1s2_trainable: true
+  rect_s1s2_init: dose_closure
+training:
+  torch_loss_mode: poisson
+  nll: true
+  gradient_clip_val: 1.0
+  gradient_clip_algorithm: norm
+inference:
+  varpro_scaling: true

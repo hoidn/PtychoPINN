@@ -1,0 +1,14 @@
+# @package _global_
+study:
+  profile_name: legacy_mae
+simulation:
+  scale_contract_version: legacy_v1
+  measurement_domain: normalized_amplitude
+model:
+  physics_forward_mode: amplitude
+  loss_function: MAE
+training:
+  torch_loss_mode: mae
+  nll: false
+inference:
+  varpro_scaling: false
