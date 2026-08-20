@@ -1013,33 +1013,6 @@ def reconstruct_npz_barycentric(
     )
 
 
-def _run_barycentric_inference_and_reconstruct(
-    model,
-    test_data_path,
-    pt_inference_config,
-    execution_config,
-    device,
-    output_dir,
-    quiet=False,
-):
-    """Compatibility adapter for already-loaded callers; public CLIs load once."""
-    result = _reconstruct_loaded_npz_barycentric(
-        model,
-        Path(test_data_path),
-        run_root=Path(output_dir),
-        groups_per_center=1,
-        inference_config=pt_inference_config,
-        device=device,
-        num_workers=int(getattr(execution_config, "num_workers", 0) or 0),
-        inference_batch_size=getattr(
-            execution_config, "inference_batch_size", None
-        ),
-        precision=getattr(execution_config, "precision", "32-true"),
-        quiet=quiet,
-    )
-    return result.amplitude, result.phase
-
-
 def _run_inference_and_reconstruct(model, raw_data, config, execution_config, device, quiet=False, intensity_scale=None):
     """
     Extract inference logic into testable helper function (Phase D.C C3).
@@ -1658,26 +1631,15 @@ Examples:
 
     # --- Phase D.C C3: Delegate to inference helper (Conformance D4 routing) ---
     try:
-        if reassembly_route == 'barycentric':
-            amplitude, phase = _run_barycentric_inference_and_reconstruct(
-                model=model,
-                test_data_path=test_data_path,
-                pt_inference_config=payload.pt_inference_config,
-                execution_config=execution_config,
-                device=device,
-                output_dir=output_dir,
-                quiet=args.quiet,
-            )
-        else:
-            amplitude, phase = _run_inference_and_reconstruct(
-                model=model,
-                raw_data=raw_data,
-                config=tf_inference_config,
-                execution_config=execution_config,
-                device=device,
-                quiet=args.quiet,
-                intensity_scale=params_dict.get('intensity_scale'),
-            )
+        amplitude, phase = _run_inference_and_reconstruct(
+            model=model,
+            raw_data=raw_data,
+            config=tf_inference_config,
+            execution_config=execution_config,
+            device=device,
+            quiet=args.quiet,
+            intensity_scale=params_dict.get('intensity_scale'),
+        )
 
         # Save individual reconstructions (required by test contract)
         save_individual_reconstructions(amplitude, phase, output_dir)

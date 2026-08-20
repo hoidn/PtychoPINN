@@ -367,6 +367,14 @@ def plan_sample_then_group(
         )
         policy = "raw_k_choose_c_oversampling"
     else:
+        if enable_oversampling and (
+            group_size <= 1 or effective_neighbors < group_size
+        ):
+            raise ValueError(
+                "enable_oversampling requires group_size>1 and "
+                f"neighbor_pool_size>=group_size; got group_size={group_size!r}, "
+                f"neighbor_pool_size={neighbor_pool_size!r}"
+            )
         neighbors, centers = _sample_then_group(
             xcoords,
             ycoords,

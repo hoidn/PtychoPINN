@@ -119,7 +119,6 @@ from ptycho import params
 from ptycho import grouping
 from ptycho.acquisition import canonicalize_identity_index
 from ptycho.autotest.debug import debug
-from ptycho import diffsim as datasets
 from ptycho import tf_helper as hh
 
 # Constants, # TODO cleanup / refactor
