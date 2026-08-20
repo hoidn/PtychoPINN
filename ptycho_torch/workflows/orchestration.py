@@ -37,7 +37,7 @@ def resolve_amplitude_physics_gain(*args, **kwargs):
 def load_inference_bundle_torch(*args, **kwargs):
     """Lazy adapter to strict Torch bundle reload."""
 
-    from ptycho_torch.workflows.components import load_inference_bundle_torch as load
+    from .bundle_io import load_inference_bundle_torch as load
 
     return load(*args, **kwargs)
 

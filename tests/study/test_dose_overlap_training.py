@@ -26,6 +26,7 @@ def test_train_cdi_model_normalizes_history(monkeypatch):
     Ensure TensorFlow workflow returns dict-based history even if Keras produces a History object.
     """
     from ptycho.workflows import components as workflow_components
+    from ptycho.workflows import workflow_orchestration
 
     train_raw = object()
     test_raw = object()
@@ -50,8 +51,8 @@ def test_train_cdi_model_normalizes_history(monkeypatch):
     def fake_train_eval(dataset, **kwargs):
         return {'history': FakeHistory(), 'model_instance': object()}
 
-    monkeypatch.setattr(workflow_components, 'create_ptycho_data_container', fake_create_container)
-    monkeypatch.setattr(workflow_components.probe, 'set_probe_guess', lambda *args, **kwargs: None)
+    monkeypatch.setattr(workflow_orchestration, 'create_ptycho_data_container', fake_create_container)
+    monkeypatch.setattr(workflow_orchestration.probe, 'set_probe_guess', lambda *args, **kwargs: None)
     monkeypatch.setattr('ptycho.loader.PtychoDataset', FakeDataset)
     monkeypatch.setattr('ptycho.train_pinn.train_eval', fake_train_eval)
 

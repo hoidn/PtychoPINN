@@ -23,13 +23,14 @@ logging.getLogger().setLevel(logging.DEBUG)
 logging.getLogger().addHandler(file_handler)
 logging.getLogger().addHandler(console_handler)
 
-from ptycho.workflows.components import (
+from ptycho.workflows.config_cli import (
     add_public_training_config_arguments,
     setup_configuration,
     load_data,
-    save_outputs,
-    logger
 )
+from ptycho.workflows.workflow_orchestration import save_outputs
+
+logger = logging.getLogger(__name__)
 from ptycho.workflows.backend_selector import run_cdi_example_with_backend
 from ptycho.config import (
     validate_runnable_training_config,

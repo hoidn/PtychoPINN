@@ -5,10 +5,8 @@ import argparse
 import os
 import sys
 import matplotlib.pyplot as plt
-from ptycho.workflows.components import (
-    setup_configuration,
-    run_cdi_example,
-)
+from ptycho.workflows.config_cli import setup_configuration
+from ptycho.workflows.workflow_orchestration import run_cdi_example
 
 def save_plot_to_file(fig, filename):
     fig.savefig(filename, dpi=300, bbox_inches='tight')
@@ -200,7 +198,7 @@ def main():
     )
     from ptycho import tf_helper as hh
     from ptycho import baselines as bl
-    from ptycho.workflows.components import create_ptycho_data_container
+    from ptycho.workflows.workflow_orchestration import create_ptycho_data_container
 
     # Simulate data
     simulated_data, ground_truth_patches = simulate_from_npz(

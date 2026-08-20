@@ -912,7 +912,7 @@ def reconstruct_npz_barycentric(
     """Strictly reload one bundle and reconstruct one flat NPZ through mmap."""
     from ptycho.config.legacy_state import isolated_archived_params_scope
     from ptycho_torch.config_params import InferenceConfig
-    from ptycho_torch.workflows.components import load_inference_bundle_torch
+    from ptycho_torch.workflows.bundle_io import load_inference_bundle_torch
 
     if isinstance(groups_per_center, bool) or not isinstance(groups_per_center, int):
         raise TypeError("groups_per_center must be a positive integer")
@@ -1572,7 +1572,7 @@ Examples:
     # Replaces manual checkpoint search with factory-validated wts.h5.zip loading
     try:
         import torch
-        from ptycho_torch.workflows.components import load_inference_bundle_torch
+        from ptycho_torch.workflows.bundle_io import load_inference_bundle_torch
 
         # load_inference_bundle_torch expects bundle_dir containing wts.h5.zip
         # It handles CONFIG-001 (restores params.cfg from archive) and returns

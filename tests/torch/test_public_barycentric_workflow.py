@@ -220,7 +220,7 @@ def _install_stubs(monkeypatch, model, *, reconstruct=None):
         reconstruct = MagicMock(
             return_value=(canvas, SimpleNamespace(), _diagnostics(), prescale)
         )
-    monkeypatch.setattr(components, "load_inference_bundle_torch", loader)
+    monkeypatch.setattr("ptycho_torch.workflows.bundle_io.load_inference_bundle_torch", loader)
     monkeypatch.setattr(dataloader, "PtychoDataset", build_dataset)
     monkeypatch.setattr(reassembly, "reconstruct_image_barycentric", reconstruct)
     monkeypatch.setattr(

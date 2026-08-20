@@ -549,7 +549,7 @@ def run_training(
     )
     from ptycho_torch.execution_request import resolve_runtime_execution_request
     from ptycho_torch.train_utils import build_prebuilt_ptycho_datamodule
-    from ptycho_torch.workflows.components import _train_with_lightning
+    from ptycho_torch.workflows.lightning_service import _train_with_lightning
 
     configs = build_configs(arm_cfg, batch_size=batch_size, epochs=epochs)
     data_config, model_config, training_config, inference_config, datagen_config = configs

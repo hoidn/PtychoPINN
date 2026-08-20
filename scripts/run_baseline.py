@@ -24,13 +24,16 @@ from ptycho.config.config import (
 )
 from ptycho.image.cropping import align_for_evaluation
 from ptycho.loader import PtychoDataset
-from ptycho.workflows.components import (
-    create_ptycho_data_container,
+import logging
+
+from ptycho.workflows.config_cli import (
     load_data,
-    logger,
     parse_arguments,
     setup_configuration,
 )
+from ptycho.workflows.workflow_orchestration import create_ptycho_data_container
+
+logger = logging.getLogger(__name__)
 
 
 BASELINE_STITCH_SIZE = 20

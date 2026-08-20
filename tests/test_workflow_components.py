@@ -74,7 +74,7 @@ class TestLoadInferenceBundle(unittest.TestCase):
         self.create_mock_model_archive(include_diffraction_model=True)
         
         # Mock ModelManager.load_multiple_models
-        with patch('ptycho.workflows.components.ModelManager.load_multiple_models') as mock_load:
+        with patch('ptycho.workflows.bundle_loading.ModelManager.load_multiple_models') as mock_load:
             # Create a mock model
             mock_model = MagicMock(spec=tf.keras.Model)
             mock_load.return_value = {'diffraction_to_obj': mock_model}
@@ -115,7 +115,7 @@ class TestLoadInferenceBundle(unittest.TestCase):
             return {"diffraction_to_obj": MagicMock(spec=tf.keras.Model)}
 
         with patch(
-            "ptycho.workflows.components.ModelManager.load_multiple_models",
+            "ptycho.workflows.bundle_loading.ModelManager.load_multiple_models",
             side_effect=load_and_restore_archive,
         ):
             model, archived_config = load_inference_bundle_explicit(self.model_dir)
@@ -162,7 +162,7 @@ class TestLoadInferenceBundle(unittest.TestCase):
         # Create mock archive without diffraction_to_obj model
         self.create_mock_model_archive(include_diffraction_model=False)
         
-        with patch('ptycho.workflows.components.ModelManager.load_multiple_models') as mock_load:
+        with patch('ptycho.workflows.bundle_loading.ModelManager.load_multiple_models') as mock_load:
             # Return dict without diffraction_to_obj
             mock_load.return_value = {'some_other_model': MagicMock()}
             
@@ -192,7 +192,7 @@ class TestLoadInferenceBundle(unittest.TestCase):
         """Test that string paths are converted to Path objects."""
         self.create_mock_model_archive(include_diffraction_model=True)
         
-        with patch('ptycho.workflows.components.ModelManager.load_multiple_models') as mock_load:
+        with patch('ptycho.workflows.bundle_loading.ModelManager.load_multiple_models') as mock_load:
             mock_model = MagicMock(spec=tf.keras.Model)
             mock_load.return_value = {'diffraction_to_obj': mock_model}
             
@@ -205,7 +205,7 @@ class TestLoadInferenceBundle(unittest.TestCase):
         """Test that exceptions from ModelManager are properly propagated."""
         self.create_mock_model_archive(include_diffraction_model=True)
         
-        with patch('ptycho.workflows.components.ModelManager.load_multiple_models') as mock_load:
+        with patch('ptycho.workflows.bundle_loading.ModelManager.load_multiple_models') as mock_load:
             # Simulate an error in ModelManager
             mock_load.side_effect = RuntimeError("Mock loading error")
             
@@ -227,7 +227,7 @@ class TestLoadInferenceBundle(unittest.TestCase):
             raise RuntimeError("archive reconstruction failed")
 
         with patch(
-            "ptycho.workflows.components.ModelManager.load_multiple_models",
+            "ptycho.workflows.bundle_loading.ModelManager.load_multiple_models",
             side_effect=fail_after_archive_mutation,
         ):
             with self.assertRaisesRegex(

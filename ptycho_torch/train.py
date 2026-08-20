@@ -432,7 +432,7 @@ Examples:
             test_data = RawData.from_file(str(test_data_file)) if test_data_file else None
 
             # Route through run_cdi_example_torch for bundle persistence
-            from ptycho_torch.workflows.components import run_cdi_example_torch
+            from ptycho_torch.workflows.legacy import run_cdi_example_torch
             amplitude, phase, results = run_cdi_example_torch(
                 train_data=train_data,
                 test_data=test_data,

@@ -386,7 +386,7 @@ def test_workflow_forwards_torch_overrides_to_lightning(monkeypatch):
         captured.update(kwargs)
         return {"models": {}}
 
-    monkeypatch.setattr(components, "train_cdi_model_torch", fake_train)
+    monkeypatch.setattr("ptycho_torch.workflows.legacy.train_cdi_model_torch", fake_train)
 
     components.run_cdi_example_torch(
         object(),
@@ -452,7 +452,7 @@ def test_cli_rect_s1s2_initialization_precedence_reaches_training(
         "ptycho_torch.config_factory.create_training_payload",
         spy_factory,
     )
-    monkeypatch.setattr(components, "run_cdi_example_torch", fake_run)
+    monkeypatch.setattr("ptycho_torch.workflows.legacy.run_cdi_example_torch", fake_run)
     argv = [
         "train.py",
         "--train_data_file", str(tiny_train_npz),

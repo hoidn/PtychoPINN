@@ -29,15 +29,15 @@ class TestTFWorkflowGeneratorIntegration:
         mock_generator.build_models.return_value = (MagicMock(), MagicMock())
 
         # Patch resolve_generator
-        with patch('ptycho.workflows.components.resolve_generator', return_value=mock_generator) as mock_resolve:
+        with patch('ptycho.workflows.workflow_orchestration.resolve_generator', return_value=mock_generator) as mock_resolve:
             # Patch train_pinn at the source module (it's imported inside the function)
             with patch('ptycho.train_pinn.train_eval') as mock_train_eval:
                 mock_train_eval.return_value = {'history': {}}
 
                 # Patch create_ptycho_data_container
-                with patch('ptycho.workflows.components.create_ptycho_data_container'):
+                with patch('ptycho.workflows.workflow_orchestration.create_ptycho_data_container'):
                     # Patch probe.set_probe_guess
-                    with patch('ptycho.workflows.components.probe'):
+                    with patch('ptycho.workflows.workflow_orchestration.probe'):
                         from ptycho.workflows.components import train_cdi_model
                         from ptycho.raw_data import RawData
 

@@ -23,7 +23,8 @@ from ptycho.config import (
 )
 from ptycho.metadata import MetadataManager
 from ptycho.workflows.backend_selector import run_cdi_example_with_backend
-from ptycho.workflows.components import load_data, save_outputs, setup_configuration
+from ptycho.workflows.config_cli import load_data, setup_configuration
+from ptycho.workflows.workflow_orchestration import save_outputs
 
 
 logger = logging.getLogger(__name__)
