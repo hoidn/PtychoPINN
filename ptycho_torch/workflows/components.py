@@ -73,6 +73,7 @@ from ptycho.config.legacy_state import (
 )
 from ptycho.metadata import MetadataManager
 from ptycho.raw_data import RawData
+from ptycho.grouping import group_from_config
 from ptycho_torch.scaling_contract import (
     AmplitudePhysicsGainRecord,
     CI_SCALE_CONTRACT,
@@ -1211,14 +1212,14 @@ def _ensure_container(
         logger.debug("Generating grouped Torch RAM data from RawData")
         sample_indices = getattr(data, 'sample_indices', None)
         metadata = getattr(data, 'metadata', None)
-        grouped_data = data.generate_grouped_data(
-            N=config.model.N,
-            K=config.sampling.neighbor_count,
-            nsamples=config.sampling.n_groups,
-            dataset_path=str(config.data.train_data_file) if config.data.train_data_file else None,
-            sequential_sampling=config.sampling.sequential_sampling,
-            gridsize=config.model.gridsize,
-            seed=config.sampling.subsample_seed,
+        grouped_data = group_from_config(
+            data,
+            config,
+            dataset_path=(
+                str(config.data.train_data_file)
+                if config.data.train_data_file
+                else None
+            ),
         )
         actual_sample_indices = grouped_data.get('sample_indices')
         if sample_indices is not None and actual_sample_indices is not None:

@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import ast
+import subprocess
+import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -37,3 +39,18 @@ def test_torch_tree_has_no_module_level_tensorflow_import():
         if any(name.split(".")[0] == "tensorflow" for name in _module_imports(path)):
             offenders.append(path.relative_to(REPO_ROOT).as_posix())
     assert not offenders, f"module-level tensorflow import in torch tree: {offenders}"
+
+
+def test_torch_workflow_import_does_not_load_tensorflow():
+    code = (
+        "import sys; import ptycho_torch.workflows.components as m; "
+        "assert m is not None; "
+        "sys.exit(1 if 'tensorflow' in sys.modules else 0)"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True
+    )
+    assert result.returncode == 0, (
+        "importing the torch workflow facade pulled in tensorflow\n"
+        f"stdout={result.stdout}\nstderr={result.stderr}"
+    )

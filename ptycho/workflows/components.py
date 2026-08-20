@@ -99,6 +99,7 @@ from pydantic_settings.sources.providers.cli import CliSettingsSource
 from ptycho import loader, probe
 from typing import Union, Optional, Tuple, Dict, Any
 from ptycho.raw_data import RawData
+from ptycho.grouping import group_from_config
 from ptycho.loader import PtychoDataContainer
 from ptycho.config.config import TrainingConfig, update_legacy_dict
 from ptycho.config.legacy_state import (
@@ -508,15 +509,14 @@ def create_ptycho_data_container(data: Union[RawData, PtychoDataContainer], conf
     if isinstance(data, PtychoDataContainer):
         return data
     elif isinstance(data, RawData):
-        dataset = data.generate_grouped_data(
-            config.model.N,
-            K=config.sampling.neighbor_count,
-            nsamples=config.sampling.n_groups,
-            dataset_path=str(config.data.train_data_file) if config.data.train_data_file else None,
-            sequential_sampling=config.sampling.sequential_sampling,
-            gridsize=config.model.gridsize,
-            enable_oversampling=config.sampling.enable_oversampling,
-            neighbor_pool_size=config.sampling.neighbor_pool_size,
+        dataset = group_from_config(
+            data,
+            config,
+            dataset_path=(
+                str(config.data.train_data_file)
+                if config.data.train_data_file
+                else None
+            ),
         )
         return loader.load(lambda: dataset, data.probeGuess, which=None, create_split=False)
     else:

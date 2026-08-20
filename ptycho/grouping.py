@@ -312,6 +312,33 @@ def _oversample(
     return np.asarray(pool)[selected], np.asarray(pool_centers, dtype=np.int64)[selected]
 
 
+def group_from_config(
+    raw_data: RawData,
+    config: TrainingConfig,
+    *,
+    dataset_path: Optional[str] = None,
+) -> dict:
+    """Decide the shared grouping semantics once and delegate to ``RawData``.
+
+    Both backend mirrors route through here so seed, oversampling, pool size,
+    and count semantics live in exactly one place.  Requests the shared path
+    cannot honor (e.g. K choose C oversampling required but not enabled)
+    surface as ``ValueError`` from ``generate_grouped_data``.
+    """
+    sampling = config.sampling
+    return raw_data.generate_grouped_data(
+        N=config.model.N,
+        K=sampling.neighbor_count,
+        nsamples=sampling.n_groups,
+        dataset_path=dataset_path,
+        seed=sampling.subsample_seed,
+        sequential_sampling=sampling.sequential_sampling,
+        gridsize=config.model.gridsize,
+        enable_oversampling=sampling.enable_oversampling,
+        neighbor_pool_size=sampling.neighbor_pool_size,
+    )
+
+
 def plan_sample_then_group(
     xcoords: np.ndarray,
     ycoords: np.ndarray,
