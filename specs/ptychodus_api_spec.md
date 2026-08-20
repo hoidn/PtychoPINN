@@ -306,8 +306,12 @@ Scaling
 
 Archive identification and backend tagging
 - File name: Model archives SHALL use the canonical base name `wts.h5` with a zip extension, i.e. `wts.h5.zip`.
-- Manifest: Archives SHALL include a `manifest.dill` at the root with, at minimum, `{'models': [...], 'version': 'X.Y'}`.
-  PyTorch archives MUST additionally include `backend: 'pytorch'`; TensorFlow MAY omit this field and defaults to `'tensorflow'`.
+- Manifest: TensorFlow archives SHALL include a `manifest.dill` at the root with, at minimum, `{'models': [...], 'version': 'X.Y'}`.
+  PyTorch archives SHALL instead include a `manifest.json` at the root with, at minimum, `{'models': [...], 'version': 'X.Y'}`, an
+  explicit `manifest_version` marker (currently `'torch-manifest-v1'`), and `backend: 'pytorch'`; TensorFlow MAY omit `backend`
+  and defaults to `'tensorflow'`. Per-model config projections are stored as `params.json` (PyTorch) rather than `params.dill`.
+  Pre-JSON PyTorch archives (`manifest.dill` + per-model `params.dill`) are supported exclusively via
+  `python scripts/migrate_legacy_bundle.py`, which migrates the manifest, params, and sealed identity together.
 - Contents: TensorFlow archives contain Keras/SavedModel payloads and serialized custom objects; PyTorch archives contain Lightning
   `.ckpt` payload(s) and serialized hyperparameters required for state-free reload. The outer archive structure remains identical.
 - PyTorch object-policy identity: newly written PyTorch archives use

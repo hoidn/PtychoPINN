@@ -606,22 +606,29 @@ class TestAmplitudePhysicsGainBundleRecord:
         *,
         representative_archive_members=None,
     ):
-        import dill
+        import json
         import zipfile
+
+        from ptycho_torch.artifact_schema import (
+            TORCH_MANIFEST_JSON_VERSION,
+            TORCH_MANIFEST_MEMBER,
+            TORCH_PARAMS_MEMBER,
+        )
 
         bundle_path.parent.mkdir(parents=True, exist_ok=True)
         manifest = {
             "models": ["autoencoder", "diffraction_to_obj"],
             "version": "2.0-pytorch",
+            "manifest_version": TORCH_MANIFEST_JSON_VERSION,
             "backend": "pytorch",
         }
         params_payload = {"_version": "2.0-pytorch"}
         with zipfile.ZipFile(bundle_path, "w", zipfile.ZIP_DEFLATED) as archive:
-            archive.writestr("manifest.dill", dill.dumps(manifest))
+            archive.writestr(TORCH_MANIFEST_MEMBER, json.dumps(manifest))
             for model_name in manifest["models"]:
                 archive.writestr(
-                    f"{model_name}/params.dill",
-                    dill.dumps(params_payload),
+                    f"{model_name}/{TORCH_PARAMS_MEMBER}",
+                    json.dumps(params_payload),
                 )
             members = (
                 TestAmplitudePhysicsGainBundleRecord
@@ -638,8 +645,10 @@ class TestAmplitudePhysicsGainBundleRecord:
 
         from ptycho_torch.workflows import components
 
+        from ptycho_torch.artifact_schema import TORCH_MANIFEST_MEMBER
+
         rewritten_members = {
-            "manifest.dill",
+            TORCH_MANIFEST_MEMBER,
             components._BUNDLE_SCALING_METADATA,
             components._BUNDLE_AMPLITUDE_PHYSICS_GAIN_RECORD,
         }
@@ -856,7 +865,7 @@ class TestAmplitudePhysicsGainBundleRecord:
         mock_train_npz,
         tmp_path,
     ):
-        import dill
+        import json
         import zipfile
 
         from ptycho import params
@@ -869,15 +878,17 @@ class TestAmplitudePhysicsGainBundleRecord:
             bundle_path,
             self._model_for_payload(payload),
         )
+        from ptycho_torch.artifact_schema import TORCH_MANIFEST_MEMBER
+
         with pytest.warns(UserWarning, match="Duplicate name"):
             with zipfile.ZipFile(bundle_path, "a") as archive:
                 archive.writestr(
-                    "manifest.dill",
-                    dill.dumps({"models": ["forged"]}),
+                    TORCH_MANIFEST_MEMBER,
+                    json.dumps({"models": ["forged"]}),
                 )
         params_before = dict(params.cfg)
 
-        with pytest.raises(ValueError, match="duplicate.*manifest.dill"):
+        with pytest.raises(ValueError, match="duplicate.*manifest.json"):
             components.load_inference_bundle_torch(bundle_path.parent)
 
         assert params.cfg == params_before

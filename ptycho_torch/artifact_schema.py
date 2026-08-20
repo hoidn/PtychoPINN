@@ -31,7 +31,15 @@ from ptycho_torch.scaling_contract import (
 
 TORCH_ARTIFACT_BACKEND = "pytorch"
 ARTIFACT_SCHEMA_V1_VERSION = "torch-artifact-portable-v1"
-CURRENT_ARTIFACT_SCHEMA_VERSION = "torch-artifact-portable-v2"
+ARTIFACT_SCHEMA_V2_VERSION = "torch-artifact-portable-v2"
+CURRENT_ARTIFACT_SCHEMA_VERSION = ARTIFACT_SCHEMA_V2_VERSION
+SUPPORTED_ARTIFACT_SCHEMA_VERSIONS = (
+    ARTIFACT_SCHEMA_V1_VERSION,
+    ARTIFACT_SCHEMA_V2_VERSION,
+)
+TORCH_MANIFEST_JSON_VERSION = "torch-manifest-v1"
+TORCH_MANIFEST_MEMBER = "manifest.json"
+TORCH_PARAMS_MEMBER = "params.json"
 TORCH_BUNDLE_VERSION = "2.0-pytorch"
 REQUIRED_BUNDLE_ROLES = frozenset({"autoencoder", "diffraction_to_obj"})
 
@@ -216,14 +224,10 @@ def decode_artifact_identity(payload: Mapping[str, Any]) -> DecodedArtifactIdent
             f"unsupported artifact backend {backend!r}; expected 'pytorch'"
         )
     schema = payload.get("schema_version")
-    if schema not in {
-        ARTIFACT_SCHEMA_V1_VERSION,
-        CURRENT_ARTIFACT_SCHEMA_VERSION,
-    }:
+    if schema not in SUPPORTED_ARTIFACT_SCHEMA_VERSIONS:
         raise ValueError(
             f"unsupported Torch artifact schema {schema!r}; "
-            f"expected {ARTIFACT_SCHEMA_V1_VERSION!r} or "
-            f"{CURRENT_ARTIFACT_SCHEMA_VERSION!r}"
+            f"expected one of {SUPPORTED_ARTIFACT_SCHEMA_VERSIONS!r}"
         )
     expected_keys = {
         "backend",
@@ -413,10 +417,7 @@ def validate_torch_bundle_manifest(manifest: Mapping[str, Any]) -> str:
     schema = manifest.get("artifact_schema_version")
     if schema is None:
         return "metadata-free-legacy"
-    if schema not in {
-        ARTIFACT_SCHEMA_V1_VERSION,
-        CURRENT_ARTIFACT_SCHEMA_VERSION,
-    }:
+    if schema not in SUPPORTED_ARTIFACT_SCHEMA_VERSIONS:
         raise ValueError(f"unsupported wts.h5.zip artifact schema {schema!r}")
     return schema
 

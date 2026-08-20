@@ -1840,14 +1840,21 @@ class TestWorkflowsComponentsRun:
         manifest = {
             "models": ["autoencoder", "diffraction_to_obj"],
             "version": "2.0-pytorch",
+            "backend": "pytorch",
+            "artifact_schema_version": "torch-artifact-portable-v2",
         }
+        metadata = {"schema_version": "torch-artifact-portable-v2"}
         monkeypatch.setattr(
             "ptycho_torch.workflows.bundle_io._read_torch_bundle_manifest_and_params",
             lambda _base_path: (manifest, archived),
         )
         monkeypatch.setattr(
             "ptycho_torch.workflows.bundle_io._read_bundle_scaling_metadata",
-            lambda _zip_path: None,
+            lambda _zip_path: metadata,
+        )
+        monkeypatch.setattr(
+            "ptycho_torch.workflows.bundle_io._decode_bundle_metadata",
+            lambda _metadata: object(),
         )
         loaded_model = SimpleNamespace()
         reconstructed = {
@@ -1867,7 +1874,7 @@ class TestWorkflowsComponentsRun:
                 scale_contract_version="legacy_v1",
                 measurement_domain="normalized_amplitude",
             )
-            return reconstructed, decoded, None
+            return reconstructed, decoded, kwargs["identity"]
 
         monkeypatch.setattr(
             "ptycho_torch.workflows.bundle_io._reconstruct_inference_bundle_explicit",
@@ -1895,12 +1902,11 @@ class TestWorkflowsComponentsRun:
 
     def test_explicit_archive_reconstruction_ignores_poisoned_global(
         self,
-        monkeypatch,
         tmp_path,
         params_cfg_snapshot,
     ):
-        """The modern archive core receives decoded params/identity explicitly."""
-        from types import SimpleNamespace
+        """The retired identity-free route raises loudly without touching cfg."""
+        import pytest as _pytest
 
         from ptycho import params
         from ptycho_torch.workflows import components
@@ -1914,37 +1920,6 @@ class TestWorkflowsComponentsRun:
             "models": ["autoencoder", "diffraction_to_obj"],
             "version": "2.0-pytorch",
         }
-        loaded_model = SimpleNamespace(
-            data_config=SimpleNamespace(
-                scale_contract_version=None,
-                measurement_domain=None,
-            )
-        )
-        reconstructed = {
-            "autoencoder": loaded_model,
-            "diffraction_to_obj": loaded_model,
-        }
-        captured = {}
-
-        def reconstruct_explicit(
-            base_path,
-            *,
-            manifest,
-            params_dict,
-            model_name,
-        ):
-            captured.update(
-                base_path=base_path,
-                manifest=manifest,
-                params_dict=params_dict,
-                model_name=model_name,
-            )
-            return reconstructed, params_dict
-
-        monkeypatch.setattr(
-            "ptycho_torch.workflows.bundle_io._reconstruct_torch_bundle_explicit",
-            reconstruct_explicit,
-        )
         params.cfg.clear()
         params.cfg.update({"N": 999, "gridsize": 9, "poison": True})
         poisoned = dict(params.cfg)
@@ -1955,26 +1930,20 @@ class TestWorkflowsComponentsRun:
         )
 
         assert callable(reconstruct)
-        models, decoded, identity = reconstruct(
-            tmp_path / "wts.h5",
-            tmp_path / "wts.h5.zip",
-            manifest=manifest,
-            params_dict=archived,
-            identity=None,
-            explicit_profile=(
-                "legacy_v1",
-                "normalized_amplitude",
-            ),
-            model_name="diffraction_to_obj",
-        )
+        with _pytest.raises(ValueError, match="migrate_legacy_bundle"):
+            reconstruct(
+                tmp_path / "wts.h5",
+                tmp_path / "wts.h5.zip",
+                manifest=manifest,
+                params_dict=archived,
+                identity=None,
+                explicit_profile=(
+                    "legacy_v1",
+                    "normalized_amplitude",
+                ),
+                model_name="diffraction_to_obj",
+            )
 
-        assert models is reconstructed
-        assert decoded is not archived
-        assert decoded["scale_contract_version"] == "legacy_v1"
-        assert decoded["measurement_domain"] == "normalized_amplitude"
-        assert identity is None
-        assert captured["manifest"] is manifest
-        assert captured["params_dict"] is archived
         assert params.cfg == poisoned
 
 

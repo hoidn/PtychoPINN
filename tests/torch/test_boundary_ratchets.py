@@ -54,3 +54,14 @@ def test_torch_workflow_import_does_not_load_tensorflow():
         "importing the torch workflow facade pulled in tensorflow\n"
         f"stdout={result.stdout}\nstderr={result.stderr}"
     )
+
+
+def test_torch_tree_has_no_dill_and_no_unsafe_torch_load():
+    offenders = []
+    for path in sorted((REPO_ROOT / "ptycho_torch").rglob("*.py")):
+        if "__pycache__" in path.parts:
+            continue
+        text = path.read_text()
+        if "import dill" in text or "weights_only=False" in text:
+            offenders.append(path.relative_to(REPO_ROOT).as_posix())
+    assert not offenders, f"dill or unsafe torch.load in torch tree: {offenders}"

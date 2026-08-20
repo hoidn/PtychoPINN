@@ -15,13 +15,10 @@ from ptycho import params
 from ptycho.config.legacy_state import transactional_legacy_params
 from ptycho_torch.model_manager import (
     _read_torch_bundle_manifest_and_params,
-    _reconstruct_torch_bundle_explicit,
 )
 from ptycho_torch.scaling_contract import (
     AmplitudePhysicsGainRecord,
     CI_SCALE_CONTRACT,
-    LEGACY_SCALE_CONTRACT,
-    NORMALIZED_AMPLITUDE,
     amplitude_physics_gain_record_from_json,
     amplitude_physics_gain_record_to_json,
     ci_scaling_active,
@@ -96,9 +93,11 @@ def _persist_bundle_scaling_metadata(
     buffer = io.BytesIO()
     torch.save(payload, buffer)
 
-    import dill
+    import json
     import os
     import tempfile
+
+    from ptycho_torch.artifact_schema import TORCH_MANIFEST_MEMBER
 
     with zipfile.ZipFile(archive_path, "r") as archive:
         members = {
@@ -106,12 +105,12 @@ def _persist_bundle_scaling_metadata(
             for info in archive.infolist()
             if info.filename
             not in {
-                "manifest.dill",
+                TORCH_MANIFEST_MEMBER,
                 _BUNDLE_SCALING_METADATA,
                 _BUNDLE_AMPLITUDE_PHYSICS_GAIN_RECORD,
             }
         }
-        manifest = dill.loads(archive.read("manifest.dill"))
+        manifest = json.loads(archive.read(TORCH_MANIFEST_MEMBER))
     validate_torch_bundle_manifest(manifest)
     manifest.update(
         backend=TORCH_ARTIFACT_BACKEND,
@@ -125,7 +124,7 @@ def _persist_bundle_scaling_metadata(
     os.close(handle)
     try:
         with zipfile.ZipFile(temporary_name, "w", zipfile.ZIP_DEFLATED) as archive:
-            archive.writestr("manifest.dill", dill.dumps(manifest))
+            archive.writestr(TORCH_MANIFEST_MEMBER, json.dumps(manifest))
             for name, content in members.items():
                 archive.writestr(name, content)
             archive.writestr(_BUNDLE_SCALING_METADATA, buffer.getvalue())
@@ -151,7 +150,7 @@ def _read_bundle_scaling_metadata(archive_path: Path):
         return torch.load(
             io.BytesIO(archive.read(_BUNDLE_SCALING_METADATA)),
             map_location="cpu",
-            weights_only=False,
+            weights_only=True,
         )
 
 
@@ -169,17 +168,13 @@ def _read_bundle_amplitude_physics_gain_record(
 
 def _decode_bundle_metadata(metadata):
     from ptycho_torch.artifact_schema import (
-        ARTIFACT_SCHEMA_V1_VERSION,
-        CURRENT_ARTIFACT_SCHEMA_VERSION,
+        SUPPORTED_ARTIFACT_SCHEMA_VERSIONS,
         decode_artifact_identity,
         upgrade_unversioned_sections,
     )
 
     schema = metadata.get("schema_version") if isinstance(metadata, dict) else None
-    if schema in {
-        ARTIFACT_SCHEMA_V1_VERSION,
-        CURRENT_ARTIFACT_SCHEMA_VERSION,
-    }:
+    if schema in SUPPORTED_ARTIFACT_SCHEMA_VERSIONS:
         return decode_artifact_identity(metadata)
     if schema == "ci-entrypoints-v1":
         return upgrade_unversioned_sections(
@@ -209,7 +204,7 @@ def _strictly_reconstruct_bundle_model(archive_path: Path, identity, model_name:
             state_dict = torch.load(
                 io.BytesIO(archive.read(f"{model_name}/model.pth")),
                 map_location="cpu",
-                weights_only=False,
+                weights_only=True,
             )
         except KeyError as exc:
             raise RuntimeError(
@@ -264,30 +259,12 @@ def _reconstruct_inference_bundle_explicit(
     available_models = manifest["models"]
 
     if identity is None:
-        required_profile = (
-            LEGACY_SCALE_CONTRACT,
-            NORMALIZED_AMPLITUDE,
+        raise ValueError(
+            "wts.h5.zip has no sealed Torch identity metadata; the in-process "
+            "legacy restore path was retired. Run "
+            "`python scripts/migrate_legacy_bundle.py SOURCE_DIR OUT_DIR` to "
+            "migrate this pre-JSON or unsealed bundle."
         )
-        if explicit_profile != required_profile:
-            raise ValueError(
-                "This metadata-free bundle is provenance-known legacy. Supply both "
-                "scale_contract_version='legacy_v1' and "
-                "measurement_domain='normalized_amplitude'."
-            )
-        models_dict, _ = _reconstruct_torch_bundle_explicit(
-            str(archive_path),
-            manifest=manifest,
-            params_dict=params_dict,
-            model_name=model_name,
-        )
-        for loaded_model in models_dict.values():
-            loaded_model.data_config.scale_contract_version = (
-                LEGACY_SCALE_CONTRACT
-            )
-            loaded_model.data_config.measurement_domain = NORMALIZED_AMPLITUDE
-        decoded_params["scale_contract_version"] = LEGACY_SCALE_CONTRACT
-        decoded_params["measurement_domain"] = NORMALIZED_AMPLITUDE
-        return models_dict, decoded_params, None
 
     persisted_profile = resolve_scale_contract(
         identity.data_config.scale_contract_version,
@@ -354,8 +331,7 @@ def _decode_pinned_inference_bundle(
 ) -> Tuple[Any, dict, Optional[AmplitudePhysicsGainRecord]]:
     """Decode and reconstruct all members from one private snapshot."""
     from ptycho_torch.artifact_schema import (
-        ARTIFACT_SCHEMA_V1_VERSION,
-        CURRENT_ARTIFACT_SCHEMA_VERSION,
+        SUPPORTED_ARTIFACT_SCHEMA_VERSIONS,
         validate_torch_bundle_manifest,
     )
 
@@ -368,46 +344,32 @@ def _decode_pinned_inference_bundle(
         _read_bundle_amplitude_physics_gain_record(zip_path)
     )
     if metadata is None:
-        known_legacy = (
-            params_dict.get("_version") == "2.0-pytorch"
-            and "scale_contract_version" not in params_dict
-            and "measurement_domain" not in params_dict
+        raise ValueError(
+            "wts.h5.zip has no sealed Torch identity metadata; the in-process "
+            "legacy restore path was retired. Run "
+            "`python scripts/migrate_legacy_bundle.py SOURCE_DIR OUT_DIR` to "
+            "migrate this pre-JSON or unsealed bundle."
         )
-        if not known_legacy:
-            raise ValueError(
-                "wts.h5.zip has no versioned Torch metadata and is not the "
-                "declared metadata-free legacy_v1 era"
-            )
-        identity = None
-    else:
-        metadata_schema = metadata.get("schema_version")
-        if (
-            manifest_era in {
-                ARTIFACT_SCHEMA_V1_VERSION,
-                CURRENT_ARTIFACT_SCHEMA_VERSION,
-            }
-            and metadata_schema != manifest_era
-        ):
-            raise ValueError(
-                "wts.h5.zip root manifest and metadata schemas disagree: "
-                f"manifest={manifest_era!r}, declares {metadata_schema!r}"
-            )
-        if (
-            manifest_era == "metadata-free-legacy"
-            and metadata_schema != "ci-entrypoints-v1"
-        ):
-            raise ValueError(
-                "wts.h5.zip legacy root supports only transitional "
-                f"ci-entrypoints-v1 metadata, found {metadata_schema!r}"
-            )
-        identity = _decode_bundle_metadata(metadata)
+    metadata_schema = metadata.get("schema_version")
+    if (
+        manifest_era in SUPPORTED_ARTIFACT_SCHEMA_VERSIONS
+        and metadata_schema != manifest_era
+    ):
+        raise ValueError(
+            "wts.h5.zip root manifest and metadata schemas disagree: "
+            f"manifest={manifest_era!r}, declares {metadata_schema!r}"
+        )
+    if (
+        manifest_era == "metadata-free-legacy"
+        and metadata_schema != "ci-entrypoints-v1"
+    ):
+        raise ValueError(
+            "wts.h5.zip legacy root supports only transitional "
+            f"ci-entrypoints-v1 metadata, found {metadata_schema!r}"
+        )
+    identity = _decode_bundle_metadata(metadata)
 
     if amplitude_physics_gain_record is not None:
-        if identity is None:
-            raise ValueError(
-                "amplitude physics gain sidecar requires persisted ModelSpec "
-                "metadata for its scalar join"
-            )
         model_gain = validate_amplitude_physics_gain(
             identity.model_spec.to_model_config()
         )
@@ -426,6 +388,7 @@ def _decode_pinned_inference_bundle(
         explicit_profile=explicit_profile,
         model_name=model_name,
     )
+    params_dict["artifact_schema_version"] = metadata_schema
     return models_dict, params_dict, amplitude_physics_gain_record
 
 

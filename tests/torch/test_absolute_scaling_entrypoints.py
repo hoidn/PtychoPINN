@@ -328,7 +328,7 @@ def test_ci_bundle_recovers_profile_configs_and_frozen_statistics(tmp_path):
     )
 
     with zipfile.ZipFile(base_path.with_suffix(".h5.zip"), "r") as archive:
-        manifest = dill.loads(archive.read("manifest.dill"))
+        manifest = json.loads(archive.read("manifest.json"))
         persisted_identity = torch.load(
             io.BytesIO(archive.read("torch_scaling_metadata.pt")),
             map_location="cpu",
