@@ -638,14 +638,14 @@ def test_same_split_bundle_persistence_records_npzs_and_key_checksums(monkeypatc
 
     monkeypatch.setenv("PTYCHO_DISABLE_MEMOIZE", "1")
     cfg = GridLinesConfig(
-        N=8,
+        N=64,
         gridsize=1,
         output_dir=tmp_path,
         probe_npz=tmp_path / "probe.npz",
         probe_source="custom",
     )
     config = TrainingConfig(
-        model=ModelConfig(N=8, gridsize=1, object_big=False),
+        model=ModelConfig(N=64, gridsize=1, object_big=False),
         data=DataConfig(nphotons=1e9),
         nepochs=1,
         batch_size=1,
@@ -707,14 +707,14 @@ def test_reused_same_split_bundle_loads_data_and_updates_identity_manifest(monke
 
     monkeypatch.setenv("PTYCHO_DISABLE_MEMOIZE", "1")
     cfg = GridLinesConfig(
-        N=8,
+        N=64,
         gridsize=1,
         output_dir=tmp_path / "source",
         probe_npz=tmp_path / "probe.npz",
         probe_source="custom",
     )
     config = TrainingConfig(
-        model=ModelConfig(N=8, gridsize=1, object_big=False),
+        model=ModelConfig(N=64, gridsize=1, object_big=False),
         data=DataConfig(nphotons=1e9),
         nepochs=1,
         batch_size=1,
@@ -769,14 +769,14 @@ def test_reused_same_split_bundle_checksum_mismatch_is_rejected(monkeypatch, tmp
 
     monkeypatch.setenv("PTYCHO_DISABLE_MEMOIZE", "1")
     cfg = GridLinesConfig(
-        N=8,
+        N=64,
         gridsize=1,
         output_dir=tmp_path / "source",
         probe_npz=tmp_path / "probe.npz",
         probe_source="custom",
     )
     config = TrainingConfig(
-        model=ModelConfig(N=8, gridsize=1, object_big=False),
+        model=ModelConfig(N=64, gridsize=1, object_big=False),
         data=DataConfig(nphotons=1e9),
         nepochs=1,
         batch_size=1,
@@ -942,7 +942,7 @@ def test_pinn_training_config_resolution_is_pure(monkeypatch, tmp_path):
     monkeypatch.setitem(params.cfg, "N", 999)
     ambient = dict(params.cfg)
     cfg = GridLinesConfig(
-        N=8,
+        N=64,
         gridsize=1,
         output_dir=tmp_path,
         probe_npz=tmp_path / "probe.npz",
@@ -965,7 +965,7 @@ def test_pinn_training_config_resolution_is_pure(monkeypatch, tmp_path):
 
     resolved = hio._resolve_pinn_training_config(cfg)
 
-    assert resolved.model.N == 8
+    assert resolved.model.N == 64
     assert resolved.model.gridsize == 1
     assert resolved.nepochs == 3
     assert resolved.batch_size == 2
@@ -995,7 +995,7 @@ def test_pinn_comparator_contains_legacy_training_and_uses_explicit_postprocessi
     fake_model = FakeModel()
     calls = {}
     cfg = GridLinesConfig(
-        N=8,
+        N=64,
         gridsize=1,
         output_dir=tmp_path,
         probe_npz=tmp_path / "probe.npz",
@@ -1013,7 +1013,9 @@ def test_pinn_comparator_contains_legacy_training_and_uses_explicit_postprocessi
         batch_size=2,
     )
     data = _toy_split_bundle()
-    data["train"]["container"] = SimpleNamespace(probe=_toy_probe())
+    data["train"]["container"] = SimpleNamespace(
+        probe=np.ones((cfg.N, cfg.N), dtype=np.complex64)
+    )
     expected_intensity_scale = float(
         np.sqrt(np.float32(cfg.nphotons)) / np.float32(cfg.N / 2)
     )
@@ -1125,21 +1127,21 @@ def test_pinn_comparator_contains_legacy_training_and_uses_explicit_postprocessi
 
     assert params.cfg == ambient
     assert calls["train"]["intensity_scale"] == expected_intensity_scale
-    assert calls["train"]["legacy"]["N"] == 8
+    assert calls["train"]["legacy"]["N"] == cfg.N
     assert calls["train"]["legacy"]["gridsize"] == 1
     assert calls["train"]["legacy"]["h5_path"] == hio.CANONICAL_PINN_H5_PATH
     assert calls["save"]["legacy"]["intensity_scale"] == pytest.approx(expected_intensity_scale)
     assert calls["inference"]["intensity_scale"] == pytest.approx(expected_intensity_scale)
     assert calls["stitch"] == [
         {
-            "N": 8,
+            "N": cfg.N,
             "gridsize": 1,
             "nimgs_test": 1,
             "outer_offset_test": 6,
             "part": "amp",
         },
         {
-            "N": 8,
+            "N": cfg.N,
             "gridsize": 1,
             "nimgs_test": 1,
             "outer_offset_test": 6,

@@ -110,7 +110,6 @@ def test_public_adapter_owner_modules_obey_the_static_architecture():
     config_dir = Path(resolution.__file__).parent
     owners = {"config.py", "resolution.py", "strict_types.py"}
     forbidden = (
-        "BaseModel",
         "pydantic.dataclasses",
         "validate_assignment",
         "model_dump",
@@ -153,16 +152,17 @@ def test_f1_installed_pydantic_revalidates_mutable_stdlib_dataclasses():
         adapter.validate_python(mutated, strict=True)
 
 
-def test_f3_public_records_remain_reflection_neutral_stdlib_dataclasses():
+def test_f3_public_records_expose_stable_reflection_and_copy_interfaces():
     model_signature = inspect.signature(ModelConfig)
-    training_signature = inspect.signature(TrainingConfig)
     inference_signature = inspect.signature(InferenceConfig)
 
     assert dict(ModelConfig.__pydantic_config__) == _EXPECTED_ADAPTER_POLICY
-    assert dict(TrainingConfig.__pydantic_config__) == _EXPECTED_ADAPTER_POLICY
+    assert {
+        key: TrainingConfig.model_config[key] for key in _EXPECTED_ADAPTER_POLICY
+    } == _EXPECTED_ADAPTER_POLICY
     assert dict(InferenceConfig.__pydantic_config__) == _EXPECTED_ADAPTER_POLICY
     assert "N" in {item.name for item in fields(ModelConfig)}
-    assert tuple(training_signature.parameters)[:3] == (
+    assert tuple(TrainingConfig.model_fields)[:3] == (
         "model",
         "batch_size",
         "nepochs",
@@ -175,23 +175,28 @@ def test_f3_public_records_remain_reflection_neutral_stdlib_dataclasses():
     assert "N" in model_signature.parameters
 
     model = ModelConfig()
-    training = TrainingConfig(model, sampling=SamplingConfig(training_groups=7))
+    training = TrainingConfig(
+        model=model,
+        sampling=SamplingConfig(training_groups=7),
+    )
     assert ModelConfig() == model
     assert hash(ModelConfig()) == hash(model)
-    assert replace(training, batch_size=8).batch_size == 8
-    assert asdict(training)["model"]["N"] == 64
+    assert training.model_copy(update={"batch_size": 8}).batch_size == 8
+    assert training.model_dump()["model"]["N"] == 64
     assert pickle.loads(pickle.dumps(training)) == training
 
 
-def test_f4_cached_complete_adapters_report_nested_dotted_paths():
+def test_f4_complete_public_validators_report_nested_dotted_paths():
     assert isinstance(resolution._MODEL_CONFIG_ADAPTER, TypeAdapter)
-    assert isinstance(resolution._TRAINING_CONFIG_ADAPTER, TypeAdapter)
     assert isinstance(resolution._INFERENCE_CONFIG_ADAPTER, TypeAdapter)
 
     with pytest.raises(ValueError, match=r"training\.model\.gridsize"):
         resolve_training_config({"model": {"gridsize": "2"}}, {})
 
-    mutated = TrainingConfig(ModelConfig(), sampling=SamplingConfig(training_groups=7))
+    mutated = TrainingConfig(
+        model=ModelConfig(),
+        sampling=SamplingConfig(training_groups=7),
+    )
     mutated.model = "not-a-model"
     with pytest.raises(ValueError, match=r"training\.model"):
         validate_training_config_structure(mutated)
@@ -238,44 +243,53 @@ def test_strict_instance_boundaries_reject_closed_string_subclasses(
     value,
 ):
     for invalid in _closed_string_variants(value):
-        if owner == "model":
-            record = replace(ModelConfig(), **{field: invalid})
-            validator = validate_model_config_structure
-        elif owner == "training":
-            record = TrainingConfig(ModelConfig(), **{field: invalid})
-            validator = validate_training_config_structure
-        elif owner == "training_loss":
-            record = TrainingConfig(
-                ModelConfig(), loss=LossConfig(**{field: invalid})
-            )
-            validator = validate_training_config_structure
-        elif owner == "training_gradient_clip":
-            record = TrainingConfig(
-                ModelConfig(), gradient_clip=GradientClipConfig(**{field: invalid})
-            )
-            validator = validate_training_config_structure
-        elif owner == "training_optimizer":
-            from ptycho.config.config import OptimizerConfig
-            record = TrainingConfig(
-                ModelConfig(), optimizer=OptimizerConfig(**{field: invalid})
-            )
-            validator = validate_training_config_structure
-        elif owner == "training_scheduler":
-            from ptycho.config.config import SchedulerConfig
-            record = TrainingConfig(
-                ModelConfig(), scheduler=SchedulerConfig(**{field: invalid})
-            )
-            validator = validate_training_config_structure
-        else:
-            record = InferenceConfig(
-                ModelConfig(),
-                Path("model"),
-                Path("test.npz"),
-                **{field: invalid},
-            )
-            validator = validate_inference_config_structure
-
         with pytest.raises(ValueError, match=field):
+            if owner == "model":
+                record = replace(ModelConfig(), **{field: invalid})
+                validator = validate_model_config_structure
+            elif owner == "training":
+                record = TrainingConfig(
+                    model=ModelConfig(),
+                    **{field: invalid},
+                )
+                validator = validate_training_config_structure
+            elif owner == "training_loss":
+                record = TrainingConfig(
+                    model=ModelConfig(),
+                    loss=LossConfig(**{field: invalid}),
+                )
+                validator = validate_training_config_structure
+            elif owner == "training_gradient_clip":
+                record = TrainingConfig(
+                    model=ModelConfig(),
+                    gradient_clip=GradientClipConfig(**{field: invalid}),
+                )
+                validator = validate_training_config_structure
+            elif owner == "training_optimizer":
+                from ptycho.config.config import OptimizerConfig
+
+                record = TrainingConfig(
+                    model=ModelConfig(),
+                    optimizer=OptimizerConfig(**{field: invalid}),
+                )
+                validator = validate_training_config_structure
+            elif owner == "training_scheduler":
+                from ptycho.config.config import SchedulerConfig
+
+                record = TrainingConfig(
+                    model=ModelConfig(),
+                    scheduler=SchedulerConfig(**{field: invalid}),
+                )
+                validator = validate_training_config_structure
+            else:
+                record = InferenceConfig(
+                    ModelConfig(),
+                    Path("model"),
+                    Path("test.npz"),
+                    **{field: invalid},
+                )
+                validator = validate_inference_config_structure
+
             validator(record)
 
 
@@ -285,7 +299,7 @@ def test_strict_instance_boundaries_reject_closed_string_subclasses(
         (
             validate_training_config_structure,
             TrainingConfig(
-                ModelConfig(
+                model=ModelConfig(
                     object_layout="single_patch",
                     training_canvas="relative_overlap",
                 ),
@@ -454,13 +468,25 @@ def test_mapping_path_conversion_rejects_bytes_with_dotted_errors(owner, field, 
     "value",
     ["string-path", PurePosixPath("pure-path"), _GenericPathLike("pathlike")],
 )
-def test_strict_instance_path_validation_rejects_non_path(owner, field, dotted_path, value):
+def test_direct_instance_path_boundaries_follow_owner_contract(
+    owner,
+    field,
+    dotted_path,
+    value,
+):
     if owner == "training_data":
-        record = TrainingConfig(ModelConfig(), data=DataConfig(**{field: value}))
-        validator = validate_training_config_structure
+        record = TrainingConfig(
+            model=ModelConfig(),
+            data=DataConfig(**{field: value}),
+        )
+        resolved = getattr(record.data, field)
+        assert resolved == Path(value)
+        assert type(resolved) is type(Path())
     elif owner == "training":
-        record = TrainingConfig(ModelConfig(), **{field: value})
-        validator = validate_training_config_structure
+        record = TrainingConfig(model=ModelConfig(), **{field: value})
+        resolved = getattr(record, field)
+        assert resolved == Path(value)
+        assert type(resolved) is type(Path())
     else:
         values = {
             "model": ModelConfig(),
@@ -469,10 +495,8 @@ def test_strict_instance_path_validation_rejects_non_path(owner, field, dotted_p
             field: value,
         }
         record = InferenceConfig(**values)
-        validator = validate_inference_config_structure
-
-    with pytest.raises(ValueError, match=dotted_path):
-        validator(record)
+        with pytest.raises(ValueError, match=dotted_path):
+            validate_inference_config_structure(record)
 
 
 def test_f7_post_init_alias_and_default_behavior_is_stable():
@@ -480,7 +504,7 @@ def test_f7_post_init_alias_and_default_behavior_is_stable():
     assert defaulted.sampling.training_groups == 512
 
     with pytest.warns(DeprecationWarning, match="n_images") as caught:
-        directly_adapted = resolution._TRAINING_CONFIG_ADAPTER.validate_python(
+        directly_adapted = TrainingConfig.model_validate(
             {"model": {}, "sampling": {"n_images": 8}}
         )
     assert directly_adapted.sampling.training_groups == 8
@@ -503,33 +527,30 @@ def test_f7_post_init_alias_and_default_behavior_is_stable():
 
 
 @pytest.mark.parametrize(
-    "record,adapter",
+    "record",
     [
-        (
-            TrainingConfig(
-                ModelConfig(),
-                data=DataConfig(train_data_file=Path("train.npz")),
-                sampling=SamplingConfig(training_groups=7),
-            ),
-            lambda: resolution._TRAINING_CONFIG_ADAPTER,
+        TrainingConfig(
+            model=ModelConfig(),
+            data=DataConfig(train_data_file=Path("train.npz")),
+            sampling=SamplingConfig(training_groups=7),
         ),
-        (
-            InferenceConfig(
-                ModelConfig(),
-                Path("model"),
-                Path("test.npz"),
-                inference_groups=7,
-            ),
-            lambda: resolution._INFERENCE_CONFIG_ADAPTER,
+        InferenceConfig(
+            ModelConfig(),
+            Path("model"),
+            Path("test.npz"),
+            inference_groups=7,
         ),
     ],
 )
-def test_f8_legacy_projection_is_byte_identical(record, adapter):
+def test_f8_legacy_projection_is_byte_identical(record):
     baseline_projection = pickle.dumps(dataclass_to_legacy_dict(record))
     baseline_update = {}
     update_legacy_dict(baseline_update, record)
 
-    adapted = adapter().validate_python(asdict(record))
+    if isinstance(record, TrainingConfig):
+        adapted = TrainingConfig.model_validate(record.model_dump(mode="python"))
+    else:
+        adapted = resolution._INFERENCE_CONFIG_ADAPTER.validate_python(asdict(record))
     adapted_update = {}
     update_legacy_dict(adapted_update, adapted)
 

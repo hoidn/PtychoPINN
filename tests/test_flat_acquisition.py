@@ -129,7 +129,7 @@ def test_nongrid_public_adapter_forwards_the_callers_seed(monkeypatch):
         nongrid_simulation, "_generate_simulated_data_legacy_params", fake_legacy
     )
     config = TrainingConfig(
-        model=ModelConfig(N=8, gridsize=1, object_big=False),
+        model=ModelConfig(N=64, gridsize=1, object_big=False),
         sampling=SamplingConfig(training_groups=1),
     )
 
@@ -150,7 +150,7 @@ def test_nongrid_rejects_ambiguous_coordinate_seed_sources():
     from ptycho import nongrid_simulation
 
     config = TrainingConfig(
-        model=ModelConfig(N=8, gridsize=1, object_big=False),
+        model=ModelConfig(N=64, gridsize=1, object_big=False),
         sampling=SamplingConfig(training_groups=1),
     )
 
@@ -247,7 +247,7 @@ def test_singleton_extraction_scope_does_not_rewrite_logical_gs2(monkeypatch):
     from ptycho import nongrid_simulation, params
 
     logical = TrainingConfig(
-        model=ModelConfig(N=8, gridsize=2, object_big=True),
+        model=ModelConfig(N=64, gridsize=2, object_big=True),
         data=DataConfig(nphotons=1e5),
         sampling=SamplingConfig(training_groups=2),
     )
@@ -255,6 +255,8 @@ def test_singleton_extraction_scope_does_not_rewrite_logical_gs2(monkeypatch):
     monkeypatch.setattr(params, "cfg", dict(ambient))
 
     def fake_from_simulation(xcoords, ycoords, probe, obj, scan_index):
+        # 8x8 probe -> the bounded legacy scope projects the physical singleton
+        # N=8, independent of the logical ModelConfig (N=64, gridsize=2).
         assert params.cfg["N"] == 8
         assert params.cfg["gridsize"] == 1
         assert params.cfg["nphotons"] == 1e5
@@ -282,6 +284,7 @@ def test_singleton_extraction_scope_does_not_rewrite_logical_gs2(monkeypatch):
     )
 
     assert raw.diff3d.shape == (2, 8, 8)
+    assert logical.model.N == 64
     assert logical.model.gridsize == 2
     assert params.cfg == ambient
 
@@ -292,7 +295,7 @@ def test_detector_seed_is_independent_of_identical_coordinate_stream(monkeypatch
     from ptycho import nongrid_simulation
 
     config = TrainingConfig(
-        model=ModelConfig(N=8, gridsize=1, object_big=False),
+        model=ModelConfig(N=64, gridsize=1, object_big=False),
         data=DataConfig(nphotons=1e5),
         sampling=SamplingConfig(training_groups=2),
     )

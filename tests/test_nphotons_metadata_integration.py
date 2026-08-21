@@ -135,13 +135,12 @@ class TestNphotonsMetadataIntegration(unittest.TestCase):
         train_command = [
             sys.executable, 
             str(project_root / "scripts" / "training" / "train.py"),
-            "--train_data_file", str(data_file),
-            "--test_data_file", str(data_file),  # Use same file for simplicity
+            "--data.train_data_file", str(data_file),
+            "--data.test_data_file", str(data_file),  # Use same file for simplicity
             "--output_dir", str(training_output_dir),
             "--nepochs", "2",  # Minimal epochs for fast testing
-            "--n_images", "50", 
-            "--gridsize", "1",
-            "--nphotons", str(nphotons),  # Explicitly set nphotons
+            "--sampling.training_groups", "50",
+            "--data.nphotons", str(nphotons),  # Explicitly set nphotons
             "--quiet"
         ]
         
@@ -309,13 +308,12 @@ class TestNphotonsMetadataIntegration(unittest.TestCase):
         train_command = [
             sys.executable,
             str(project_root / "scripts" / "training" / "train.py"),
-            "--train_data_file", str(sim_file),
-            "--test_data_file", str(sim_file),
+            "--data.train_data_file", str(sim_file),
+            "--data.test_data_file", str(sim_file),
             "--output_dir", str(training_output_dir),
             "--nepochs", "2",
-            "--n_images", "50",
-            "--gridsize", "1", 
-            "--nphotons", str(config_nphotons),  # Different from data
+            "--sampling.training_groups", "50",
+            "--data.nphotons", str(config_nphotons),  # Different from data
             "--quiet"
         ]
         

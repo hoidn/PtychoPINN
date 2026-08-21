@@ -3807,8 +3807,8 @@ class TestLightningCheckpointCallbacks:
         call_kwargs = mock_checkpoint_cls.call_args.kwargs
         assert call_kwargs.get('save_top_k') == 3, \
             f"Expected save_top_k=3, got {call_kwargs.get('save_top_k')}"
-        assert call_kwargs.get('monitor') == 'train_loss', \
-            f"Expected monitor='train_loss', got {call_kwargs.get('monitor')}"
+        assert call_kwargs.get('monitor') == 'poisson_train_loss', \
+            f"Expected monitor='poisson_train_loss', got {call_kwargs.get('monitor')}"
         assert call_kwargs.get('mode') == 'max', \
             f"Expected mode='max', got {call_kwargs.get('mode')}"
 
