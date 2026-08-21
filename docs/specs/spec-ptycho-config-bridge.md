@@ -91,20 +91,27 @@ The following mappings are normative. Where not listed, identical field names/ty
   - `TrainingConfig.debug: bool` → used by PyTorch only; optional carry‑over to TF ignored (no TF field).
 
 - Data paths
-  - `DataConfig.train_data_file: PathLike` → `TrainingConfig.train_data_file: Path`
-  - `DataConfig.test_data_file: PathLike` → `TrainingConfig.test_data_file: Path`
-  - `InferenceConfig.model_path: PathLike` → `InferenceConfig.model_path: Path`
+  - `TrainingConfig.train_data_file: Optional[str]` → `TrainingConfig.data.train_data_file: Path`
+    - Lives on torch `TrainingConfig` (not `DataConfig`); `to_training_config`
+      reads it (or the `train_data_file` override) into TensorFlow's nested
+      `data` record.
+  - `TrainingConfig.test_data_file: Optional[str]` → `TrainingConfig.data.test_data_file: Path`
+  - `model_path: PathLike` (a required `to_inference_config` override key; torch
+    `InferenceConfig` has no such field) → `InferenceConfig.model_path: Path`
 
 - Grouping / sampling
   - `TrainingConfig.n_groups: Optional[int]` → `TrainingConfig.n_groups: Optional[int]` (identity)
   - `TrainingConfig.n_images: Optional[int]` → `TrainingConfig.n_images: Optional[int]` (deprecated; preserved for compatibility)
-  - `DataConfig.n_raw_frames_selected: int` → `TrainingConfig.train_raw_selection: Optional[int]`
-    - The retired `DataConfig.n_subsample` held two meanings. The training
-      meaning is now `n_raw_frames_selected` and maps to the TensorFlow
-      `TrainingConfig.train_raw_selection` (raw frames selected before grouping).
-      The inference meaning is `groups_per_center` (repeated neighbor groups
-      per valid center) and is a reconstruction-only runtime argument; it has no
-      TensorFlow `TrainingConfig` field.
+  - `n_subsample` override → `TrainingConfig.sampling.n_subsample: Optional[int]`
+    - Raw frames selected before grouping reach TensorFlow through the
+      `n_subsample` override key on `to_training_config`; it lands in
+      `TrainingConfig.sampling.n_subsample`. The override key is still spelled
+      `n_subsample` on this branch (Task 6 owns the rename to
+      `n_raw_frames_selected`). The retired `DataConfig.n_subsample` held two
+      meanings: the training meaning is this override; the inference meaning is
+      `groups_per_center` (repeated neighbor groups per valid center), a
+      reconstruction-only runtime argument with no TensorFlow `TrainingConfig`
+      field.
   - `TrainingConfig.sequential_sampling: bool` → `TrainingConfig.sequential_sampling: bool` (unchanged)
 
 - Loss/weights (if present in PyTorch configs)
@@ -168,7 +175,7 @@ Unknown flat factory override names are rejected rather than silently dropped.
 - This applies to both backends to keep legacy modules in sync (e.g., physics routines, helpers).
 - `update_legacy_dict` performs KEY_MAPPINGS translation to legacy names and value serialization.
 
-### 5.1 Simulation-owned legacy keys
+### 5.2 Simulation-owned legacy keys
 
 The `SimulationConfig` bridge is deliberately narrower than the training and
 inference bridges. It flattens only generated-data properties:
@@ -209,10 +216,14 @@ from ptycho_torch import config_bridge
 from ptycho.config.config import update_legacy_dict
 import ptycho.params as params
 
-pt_data = DataConfig(N=128, gridsize=2, nphotons=1e9, K=7,
-                     train_data_file=Path('train.npz'), test_data_file=Path('test.npz'))
+pt_data = DataConfig(N=128, gridsize=2, nphotons=1e9, K=7)
 pt_model = PTModel(mode='Unsupervised', amp_activation='silu')
-pt_train = PTTrain(epochs=50, output_dir=Path('outputs/run1'))
+pt_train = PTTrain(
+    epochs=50,
+    output_dir=Path('outputs/run1'),
+    train_data_file=Path('train.npz'),
+    test_data_file=Path('test.npz'),
+)
 
 tf_model = config_bridge.to_model_config(pt_data, pt_model)
 tf_train = config_bridge.to_training_config(

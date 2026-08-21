@@ -174,9 +174,9 @@ CASES = [
     dict(
         name="c1_bigF",
         B=1, C=1,
-        data_config_kwargs=dict(N=N, C=1, grid_size=(1, 1)),
+        data_config_kwargs=dict(N=N, gridsize=1),
         model_config_kwargs=dict(
-            object_big=False, C_forward=1, C_model=1, num_datasets=1,
+            object_big=False, num_datasets=1,
             training_patch_weighting="probe", rect_s1s2_trainable=True,
         ),
         positions_fn=_c1_positions,
@@ -185,9 +185,9 @@ CASES = [
     dict(
         name="c1_bigT_probe",
         B=1, C=1,
-        data_config_kwargs=dict(N=N, C=1, grid_size=(1, 1)),
+        data_config_kwargs=dict(N=N, gridsize=1),
         model_config_kwargs=dict(
-            object_big=True, C_forward=1, C_model=1, num_datasets=1,
+            object_big=True, num_datasets=1,
             training_patch_weighting="probe", rect_s1s2_trainable=True,
         ),
         positions_fn=_c1_positions,
@@ -196,9 +196,9 @@ CASES = [
     dict(
         name="c1_bigT_uniform",
         B=1, C=1,
-        data_config_kwargs=dict(N=N, C=1, grid_size=(1, 1)),
+        data_config_kwargs=dict(N=N, gridsize=1),
         model_config_kwargs=dict(
-            object_big=True, C_forward=1, C_model=1, num_datasets=1,
+            object_big=True, num_datasets=1,
             training_patch_weighting="uniform", rect_s1s2_trainable=True,
         ),
         positions_fn=_c1_positions,
@@ -207,9 +207,9 @@ CASES = [
     dict(
         name="c4_bigT_probe",
         B=1, C=4,
-        data_config_kwargs=dict(N=N, C=4, grid_size=(2, 2)),
+        data_config_kwargs=dict(N=N, gridsize=2),
         model_config_kwargs=dict(
-            object_big=True, C_forward=4, C_model=4, num_datasets=1,
+            object_big=True, num_datasets=1,
             training_patch_weighting="probe", rect_s1s2_trainable=True,
         ),
         positions_fn=_c4_positions,
@@ -218,9 +218,9 @@ CASES = [
     dict(
         name="c4_bigT_uniform",
         B=1, C=4,
-        data_config_kwargs=dict(N=N, C=4, grid_size=(2, 2)),
+        data_config_kwargs=dict(N=N, gridsize=2),
         model_config_kwargs=dict(
-            object_big=True, C_forward=4, C_model=4, num_datasets=1,
+            object_big=True, num_datasets=1,
             training_patch_weighting="uniform", rect_s1s2_trainable=True,
         ),
         positions_fn=_c4_positions,

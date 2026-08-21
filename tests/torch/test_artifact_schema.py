@@ -43,6 +43,86 @@ def _legacy_data_payload(data) -> dict:
     return payload
 
 
+def _legacy_artifact_payload(*, era, c_model, c_forward, data_c, grid_size):
+    """Build a legacy artifact payload with chosen model twins and data grid.
+
+    The model section stores ``C_model``/``C_forward`` and the data section
+    stores ``C``/``grid_size``; callers may make the two sides disagree to pin
+    the cross-section channel-faithfulness rejection.
+    """
+    from ptycho_torch.artifact_schema import encode_artifact_identity
+
+    spec, data, training, inference = _identity_parts()
+    payload = encode_artifact_identity(spec, data, training, inference)
+
+    spec_version = (
+        "torch-model-spec-portable-v1"
+        if era == "torch-artifact-portable-v1"
+        else "torch-model-spec-portable-v2"
+    )
+    model_fields = dict(payload["model_spec"]["model_config"])
+    model_fields["C_model"] = c_model
+    model_fields["C_forward"] = c_forward
+    if era == "torch-artifact-portable-v1":
+        grouped = model_fields.pop("object_layout") == "grouped_patches"
+        model_fields.pop("training_canvas")
+        model_fields["object_big"] = grouped
+    payload["model_spec"] = {
+        **payload["model_spec"],
+        "schema_version": spec_version,
+        "model_config": model_fields,
+    }
+    payload["schema_version"] = era
+
+    data_section = _legacy_data_payload(data)
+    data_section["C"] = data_c
+    data_section["grid_size"] = grid_size
+    payload["data_config"] = data_section
+    return payload
+
+
+@pytest.mark.parametrize(
+    "era",
+    ["torch-artifact-portable-v1", "torch-artifact-portable-v2"],
+)
+def test_legacy_artifact_rejects_model_data_channel_disagreement(era):
+    from ptycho_torch.artifact_schema import decode_artifact_identity
+
+    payload = _legacy_artifact_payload(
+        era=era,
+        c_model=1,
+        c_forward=1,
+        data_c=4,
+        grid_size=(2, 2),
+    )
+    with pytest.raises(
+        ValueError,
+        match=r"C_model=1 conflicts with data section grid product 4",
+    ):
+        decode_artifact_identity(payload)
+
+
+def test_unversioned_upgrade_rejects_model_data_channel_disagreement():
+    from ptycho_torch.artifact_schema import upgrade_unversioned_sections
+
+    spec, data, training, inference = _identity_parts()
+    data_payload = _legacy_data_payload(data)
+    data_payload["C"] = 4
+    data_payload["grid_size"] = (2, 2)
+    model_payload = dict(spec.to_payload()["model_config"], C_model=1, C_forward=1)
+
+    with pytest.raises(
+        ValueError,
+        match=r"C_model=1 conflicts with data section grid product 4",
+    ):
+        upgrade_unversioned_sections(
+            data_config=data_payload,
+            model_config=model_payload,
+            training_config=asdict(training),
+            inference_config=asdict(inference),
+        )
+
+
 def test_current_artifact_roundtrip_preserves_model_spec_and_tensor_values():
     from ptycho_torch.artifact_schema import (
         CURRENT_ARTIFACT_SCHEMA_VERSION,

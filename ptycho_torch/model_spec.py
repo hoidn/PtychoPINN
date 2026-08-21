@@ -155,10 +155,67 @@ PORTABLE_V2_MODEL_FIELDS = (
     "phase_loss_coeff",
 )
 
-PORTABLE_V3_MODEL_FIELDS = tuple(
-    name
-    for name in PORTABLE_V2_MODEL_FIELDS
-    if name not in ("C_model", "C_forward")
+# portable-v3 drops the C-family channel twins carried by v1/v2 (channel
+# identity now derives from DataConfig.gridsize at consumption). Written as an
+# independent frozen literal, NOT derived from PORTABLE_V2_MODEL_FIELDS, so a
+# future edit to one era can never silently rewrite the other (Decision 6).
+PORTABLE_V3_MODEL_FIELDS = (
+    "mode",
+    "architecture",
+    "fno_modes",
+    "fno_width",
+    "fno_blocks",
+    "fno_cnn_blocks",
+    "learned_input_channels",
+    "fno_input_transform",
+    "max_hidden_channels",
+    "resnet_width",
+    "spectral_bottleneck_blocks",
+    "spectral_bottleneck_modes",
+    "spectral_bottleneck_share_weights",
+    "spectral_bottleneck_gate_init",
+    "spectral_bottleneck_gate_mode",
+    "generator_output_mode",
+    "cnn_output_mode",
+    "use_shared_decoder",
+    "intensity_scale_trainable",
+    "intensity_scale",
+    "max_position_jitter",
+    "num_datasets",
+    "n_filters_scale",
+    "amp_activation",
+    "batch_norm",
+    "probe_mask",
+    "probe_mask_tensor",
+    "probe_mask_sigma",
+    "probe_mask_diameter",
+    "edge_pad",
+    "decoder_last_c_outer_fraction",
+    "decoder_last_amp_channels",
+    "use_legacy_decoder_channel_override",
+    "eca_encoder",
+    "cbam_encoder",
+    "cbam_bottleneck",
+    "cbam_decoder",
+    "eca_decoder",
+    "spatial_decoder",
+    "decoder_spatial_kernel",
+    "object_layout",
+    "training_canvas",
+    "probe_big",
+    "offset",
+    "training_patch_weighting",
+    "physics_forward_mode",
+    "rect_s1s2_trainable",
+    "rect_s1s2_init",
+    "amplitude_physics_gain",
+    "pad_object",
+    "gaussian_smoothing_sigma",
+    "loss_function",
+    "amp_loss",
+    "phase_loss",
+    "amp_loss_coeff",
+    "phase_loss_coeff",
 )
 
 MODEL_SPEC_V1_MODEL_FIELDS = PORTABLE_V1_MODEL_FIELDS
@@ -166,7 +223,11 @@ MODEL_SPEC_V2_MODEL_FIELDS = PORTABLE_V2_MODEL_FIELDS
 MODEL_SPEC_V3_MODEL_FIELDS = PORTABLE_V3_MODEL_FIELDS
 
 _RUNTIME_MODEL_FIELDS = tuple(item.name for item in fields(ModelConfig))
-for _schema_fields in (PORTABLE_V1_MODEL_FIELDS, PORTABLE_V2_MODEL_FIELDS):
+for _schema_fields in (
+    PORTABLE_V1_MODEL_FIELDS,
+    PORTABLE_V2_MODEL_FIELDS,
+    PORTABLE_V3_MODEL_FIELDS,
+):
     if len(_schema_fields) != len(set(_schema_fields)):
         raise RuntimeError("portable ModelSpec field declaration contains duplicates")
 if set(_RUNTIME_MODEL_FIELDS) != set(PORTABLE_V3_MODEL_FIELDS) | {"object_big"}:

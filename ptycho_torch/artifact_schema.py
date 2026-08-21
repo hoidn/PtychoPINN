@@ -153,8 +153,63 @@ ARTIFACT_V2_DATA_FIELDS = (
     "x_bounds",
     "y_bounds",
 )
-ARTIFACT_V2_TRAINING_FIELDS = PORTABLE_V1_TRAINING_FIELDS
-ARTIFACT_V2_INFERENCE_FIELDS = PORTABLE_V1_INFERENCE_FIELDS
+ARTIFACT_V2_TRAINING_FIELDS = (
+    "training_directories",
+    "nll",
+    "device",
+    "strategy",
+    "n_devices",
+    "framework",
+    "orchestrator",
+    "learning_rate",
+    "epochs",
+    "batch_size",
+    "epochs_fine_tune",
+    "fine_tune_gamma",
+    "scheduler",
+    "lr_warmup_epochs",
+    "lr_min_ratio",
+    "plateau_factor",
+    "plateau_patience",
+    "plateau_min_lr",
+    "plateau_threshold",
+    "num_workers",
+    "accum_steps",
+    "gradient_clip_val",
+    "gradient_clip_algorithm",
+    "optimizer",
+    "momentum",
+    "weight_decay",
+    "adam_beta1",
+    "adam_beta2",
+    "log_grad_norm",
+    "grad_norm_log_freq",
+    "stage_1_epochs",
+    "stage_2_epochs",
+    "stage_3_epochs",
+    "physics_weight_schedule",
+    "stage_3_lr_factor",
+    "torch_loss_mode",
+    "torch_mae_pred_l2_match_target",
+    "experiment_name",
+    "notes",
+    "model_name",
+    "output_dir",
+    "train_data_file",
+    "test_data_file",
+    "n_groups",
+)
+ARTIFACT_V2_INFERENCE_FIELDS = (
+    "middle_trim",
+    "batch_size",
+    "experiment_number",
+    "pad_eval",
+    "window",
+    "patch_weighting",
+    "varpro_scaling",
+    "log_patch_stats",
+    "patch_stats_limit",
+)
 
 # portable-v3: channel identity stated once (gridsize); raw selection named.
 ARTIFACT_V3_DATA_FIELDS = (
@@ -179,8 +234,63 @@ ARTIFACT_V3_DATA_FIELDS = (
     "x_bounds",
     "y_bounds",
 )
-ARTIFACT_V3_TRAINING_FIELDS = PORTABLE_V1_TRAINING_FIELDS
-ARTIFACT_V3_INFERENCE_FIELDS = PORTABLE_V1_INFERENCE_FIELDS
+ARTIFACT_V3_TRAINING_FIELDS = (
+    "training_directories",
+    "nll",
+    "device",
+    "strategy",
+    "n_devices",
+    "framework",
+    "orchestrator",
+    "learning_rate",
+    "epochs",
+    "batch_size",
+    "epochs_fine_tune",
+    "fine_tune_gamma",
+    "scheduler",
+    "lr_warmup_epochs",
+    "lr_min_ratio",
+    "plateau_factor",
+    "plateau_patience",
+    "plateau_min_lr",
+    "plateau_threshold",
+    "num_workers",
+    "accum_steps",
+    "gradient_clip_val",
+    "gradient_clip_algorithm",
+    "optimizer",
+    "momentum",
+    "weight_decay",
+    "adam_beta1",
+    "adam_beta2",
+    "log_grad_norm",
+    "grad_norm_log_freq",
+    "stage_1_epochs",
+    "stage_2_epochs",
+    "stage_3_epochs",
+    "physics_weight_schedule",
+    "stage_3_lr_factor",
+    "torch_loss_mode",
+    "torch_mae_pred_l2_match_target",
+    "experiment_name",
+    "notes",
+    "model_name",
+    "output_dir",
+    "train_data_file",
+    "test_data_file",
+    "n_groups",
+)
+ARTIFACT_V3_INFERENCE_FIELDS = (
+    "middle_trim",
+    "batch_size",
+    "experiment_number",
+    "pad_eval",
+    "window",
+    "patch_weighting",
+    "varpro_scaling",
+    "log_patch_stats",
+    "patch_stats_limit",
+)
 
 _DATA_FIELDS_BY_ERA = {
     ARTIFACT_SCHEMA_V1_VERSION: PORTABLE_V1_DATA_FIELDS,
@@ -247,6 +357,50 @@ def validate_legacy_channel_faithfulness(era: str, data_values: Mapping[str, Any
             f"{stored_c} conflicts with grid_size={grid!r}"
         )
     return grid[0]
+
+
+def _legacy_model_stored_c(model_spec_payload: Mapping[str, Any]) -> Optional[int]:
+    """Return the pre-strip ``C_model`` from a legacy model-spec payload.
+
+    Current-era (portable-v3) model specs carry no channel twins and return
+    ``None``. Legacy (v1/v2) specs always carry ``C_model``; ``ModelSpec.
+    from_payload`` has already enforced ``C_model == C_forward`` within the
+    model section, so this value is the single stored model channel count.
+    """
+    if not isinstance(model_spec_payload, Mapping):
+        return None
+    model_config = model_spec_payload.get("model_config")
+    if not isinstance(model_config, Mapping):
+        return None
+    return model_config.get("C_model")
+
+
+def _require_legacy_model_data_channel_agreement(
+    era: str,
+    gridsize: int,
+    stored_c_model,
+) -> None:
+    """Reject a legacy payload whose model channel twins disagree with the grid.
+
+    ``validate_legacy_channel_faithfulness`` already closes the within-data
+    join (``C == grid_size`` product). This closes the cross-section join: the
+    model section's stored ``C_model`` must equal the data section's validated
+    grid product, otherwise the payload is internally inconsistent and must be
+    rejected loudly rather than silently preferring one side.
+    """
+    if stored_c_model is None:
+        return
+    if isinstance(stored_c_model, bool) or not isinstance(stored_c_model, int):
+        raise ValueError(
+            f"{era} model section C_model must be an int, got {stored_c_model!r}"
+        )
+    product = gridsize * gridsize
+    if stored_c_model != product:
+        raise ValueError(
+            f"{era} artifact channel identity is unfaithful across sections: "
+            f"model section C_model={stored_c_model} conflicts with data "
+            f"section grid product {product} (gridsize={gridsize})"
+        )
 
 
 def _upgrade_legacy_data_values(era: str, data_values: Mapping[str, Any]) -> dict[str, Any]:
@@ -380,6 +534,12 @@ def decode_artifact_identity(payload: Mapping[str, Any]) -> DecodedArtifactIdent
         expected_fields=_DATA_FIELDS_BY_ERA[schema],
     )
     if legacy:
+        gridsize = validate_legacy_channel_faithfulness(schema, data_values)
+        _require_legacy_model_data_channel_agreement(
+            schema,
+            gridsize,
+            _legacy_model_stored_c(payload["model_spec"]),
+        )
         data_values = _upgrade_legacy_data_values(schema, data_values)
     data = DataConfig(**data_values)
     training = TrainingConfig(
@@ -519,6 +679,11 @@ def upgrade_unversioned_sections(
     data = DataConfig(**data_values)
     training = TrainingConfig(**training_values)
     inference = InferenceConfig(**inference_values)
+    _require_legacy_model_data_channel_agreement(
+        "unversioned",
+        data.gridsize,
+        raw_model.get("C_model"),
+    )
     resolve_scale_contract(data.scale_contract_version, data.measurement_domain)
     canonical = to_model_config(data, model)
     spec = derive_model_spec(
