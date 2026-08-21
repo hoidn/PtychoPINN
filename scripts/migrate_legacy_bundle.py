@@ -72,6 +72,11 @@ def _create_legacy_model(gridsize: int, N: int, params_dict: dict):
     from ptycho_torch.model import PtychoPINN_Lightning
 
     channels = int(params_dict.get("C", gridsize * gridsize))
+    if channels != gridsize * gridsize:
+        raise ValueError(
+            "legacy params channel identity is unfaithful: stored C="
+            f"{channels} conflicts with gridsize={gridsize}"
+        )
     if params_dict.get("model_type", "pinn") != "pinn":
         raise ValueError(
             "metadata-free legacy_v1 wts.h5.zip supports only the declared "
@@ -79,8 +84,7 @@ def _create_legacy_model(gridsize: int, N: int, params_dict: dict):
         )
     data_config = DataConfig(
         N=N,
-        C=channels,
-        grid_size=(gridsize, gridsize),
+        gridsize=gridsize,
         K=params_dict.get("neighbor_count", 6),
         nphotons=params_dict.get("nphotons", 1e5),
         scale_contract_version="legacy_v1",
@@ -88,8 +92,6 @@ def _create_legacy_model(gridsize: int, N: int, params_dict: dict):
     )
     model_config = ModelConfig(
         architecture="cnn",
-        C_model=channels,
-        C_forward=channels,
         n_filters_scale=int(params_dict.get("n_filters_scale", 2)),
         amp_activation=params_dict.get("amp_activation", "silu"),
         mode="Unsupervised",

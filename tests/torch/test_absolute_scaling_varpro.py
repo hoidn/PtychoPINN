@@ -155,7 +155,6 @@ def _run_ci_reconstruction(
     dataset = _CIDataset(measured_intensity, probe_physical, textures)
     data_config = DataConfig(
         N=_N,
-        C=1,
         scale_contract_version="ci_intensity_v2",
         measurement_domain="count_intensity",
     )

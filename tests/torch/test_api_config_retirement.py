@@ -205,9 +205,8 @@ def test_save_pytorch_projects_resolved_owners_without_reading_legacy_global(
 ):
     data_config = DataConfig(
         N=128,
-        C=4,
         K=7,
-        grid_size=(2, 2),
+        gridsize=2,
         nphotons=2.5e6,
     )
     model_config = ModelConfig(

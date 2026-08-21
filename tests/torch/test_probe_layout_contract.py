@@ -26,7 +26,7 @@ N = 8
 def _layer():
     from ptycho_torch.model import ProbeIllumination
 
-    return ProbeIllumination(ModelConfig(), DataConfig(N=N, C=1, grid_size=(1, 1)))
+    return ProbeIllumination(ModelConfig(), DataConfig(N=N, gridsize=1))
 
 
 def _x(batch=4, channels=1):
@@ -46,11 +46,9 @@ def _rectangular_forward_model():
 
     model_config = ModelConfig(
         object_big=False,
-        C_model=1,
-        C_forward=1,
         physics_forward_mode="rectangular_scaled",
     )
-    data_config = DataConfig(N=N, C=1, grid_size=(1, 1))
+    data_config = DataConfig(N=N, gridsize=1)
     return ForwardModel(model_config, data_config)
 
 

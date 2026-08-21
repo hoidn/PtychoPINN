@@ -1474,7 +1474,7 @@ def execute_reconstruction_stage(
         canvas_weights=result.canvas_weights,
         canvas_anchor=result.canvas_anchor,
         channel_indices=result.channel_indices,
-        expected_channels=int(request.resolved_workflow.data.C),
+        expected_channels=int(request.resolved_workflow.data.gridsize ** 2),
     )
     reassembly = result.reassembly.to_jsonable()
     if not isinstance(reassembly, Mapping):
@@ -1488,7 +1488,7 @@ def execute_reconstruction_stage(
     _write_reconstruction_atomic(reconstruction_path, payload)
     _load_reconstruction_artifact(
         reconstruction_path,
-        expected_channels=int(request.resolved_workflow.data.C),
+        expected_channels=int(request.resolved_workflow.data.gridsize ** 2),
     )
     return ReconstructionStageResult(
         reconstruction_path=reconstruction_path,
@@ -1512,7 +1512,7 @@ def execute_evaluation_stage(
 
     reconstruction = _load_reconstruction_artifact(
         request.reconstruction_path,
-        expected_channels=int(request.resolved_workflow.data.C),
+        expected_channels=int(request.resolved_workflow.data.gridsize ** 2),
     )
     manifest = _load_matching_dataset_manifest(
         request.dataset_manifest_path,
@@ -1540,7 +1540,7 @@ def execute_evaluation_stage(
         channel_indices=reconstruction["channel_indices"],
         groups_per_center=(request.resolved_workflow.inference.groups_per_center),
         output_dir=request.output_root / "reconstruction",
-        expected_channels=int(request.resolved_workflow.data.C),
+        expected_channels=int(request.resolved_workflow.data.gridsize ** 2),
         measurement_domain=(
             request.resolved_workflow.simulation.measurement_domain
         ),

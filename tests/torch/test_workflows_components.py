@@ -764,8 +764,8 @@ class TestWorkflowsComponentsTraining:
             prefetch_factor=7,
         )
         payload = SimpleNamespace(
-            pt_data_config=DataConfig(N=64, C=1, grid_size=(1, 1)),
-            pt_model_config=ModelConfig(C_forward=1, C_model=1),
+            pt_data_config=DataConfig(N=64, gridsize=1),
+            pt_model_config=ModelConfig(),
             pt_training_config=TrainingConfig(batch_size=5),
             execution_config=execution,
         )
@@ -823,12 +823,11 @@ class TestWorkflowsComponentsTraining:
             tf_training_config=canonical,
             pt_data_config=DataConfig(
                 N=64,
-                C=1,
-                grid_size=(1, 1),
+                gridsize=1,
                 scale_contract_version="legacy_v1",
                 measurement_domain="normalized_amplitude",
             ),
-            pt_model_config=ModelConfig(C_forward=1, C_model=1),
+            pt_model_config=ModelConfig(),
             pt_training_config=TrainingConfig(
                 strategy="auto",
                 num_workers=99,
@@ -1288,15 +1287,12 @@ class TestWorkflowsComponentsTraining:
         c = minimal_training_config.model.gridsize ** 2
         pt_data_config = DataConfig(
             N=minimal_training_config.model.N,
-            C=c,
-            grid_size=(minimal_training_config.model.gridsize, minimal_training_config.model.gridsize),
+            gridsize=minimal_training_config.model.gridsize,
         )
 
         pt_model_config = PTModelConfig(
             mode='Unsupervised',  # 'pinn' in TF maps to 'Unsupervised' in PyTorch
             n_filters_scale=minimal_training_config.model.n_filters_scale,
-            C_model=c,
-            C_forward=c,
         )
 
         pt_training_config = PTTrainingConfig(
@@ -1350,7 +1346,7 @@ class TestWorkflowsComponentsTraining:
 
         Design contract (phase_c4d_blockers/plan.md §B1-B2):
         - When config.model.gridsize=2, PyTorch DataConfig MUST set C=4 (2×2)
-        - ModelConfig MUST set C_model=4 and C_forward=4 to match grouping
+        - channel identity derives from gridsize (C = gridsize**2) to match grouping
         - PtychoPINN_Lightning first conv layer MUST expect 4 input channels (not 1)
 
         Test mechanism:
@@ -1360,14 +1356,14 @@ class TestWorkflowsComponentsTraining:
         - Assert first conv layer has in_channels == gridsize**2 == 4
 
         Expected failure mode (RED phase):
-        - _train_with_lightning manually builds PTDataConfig with default C=1
-        - Lightning module created with C_model=1 → first conv expects 1 channel
+        - _train_with_lightning manually builds PTDataConfig with default gridsize
+        - Lightning module created with gridsize=1 → first conv expects 1 channel
         - Assertion fails: in_channels=1 != expected 4
 
         GREEN phase fix:
         - Refactor _train_with_lightning to reuse config_factory.create_training_payload
         - Factory propagates gridsize → C via grid_size tuple → C = grid_size[0]*grid_size[1]
-        - ModelConfig receives C_model=4, Lightning module conv layers match
+        - ModelConfig receives Lightning module conv layers match
         """
         from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
         from ptycho_torch.workflows import components as torch_components
@@ -1841,9 +1837,9 @@ class TestWorkflowsComponentsRun:
             "models": ["autoencoder", "diffraction_to_obj"],
             "version": "2.0-pytorch",
             "backend": "pytorch",
-            "artifact_schema_version": "torch-artifact-portable-v2",
+            "artifact_schema_version": "torch-artifact-portable-v3",
         }
-        metadata = {"schema_version": "torch-artifact-portable-v2"}
+        metadata = {"schema_version": "torch-artifact-portable-v3"}
         monkeypatch.setattr(
             "ptycho_torch.workflows.bundle_io._read_torch_bundle_manifest_and_params",
             lambda _base_path: (manifest, archived),
@@ -3193,7 +3189,7 @@ class TestDecoderLastShapeParity:
         )
         data_config = DataConfig(
             N=64,
-            grid_size=(1, 1)  # gridsize=1
+            gridsize=1  # gridsize=1
         )
 
         # --- 2. Construct representative decoder input ---
@@ -3267,7 +3263,7 @@ class TestDecoderLastShapeParity:
         )
         data_config = DataConfig(
             N=64,
-            grid_size=(1, 1)
+            gridsize=1
         )
 
         # --- 2. Construct decoder input (same dims as test_probe_big_shape_alignment) ---

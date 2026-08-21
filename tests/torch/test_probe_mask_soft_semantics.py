@@ -47,7 +47,7 @@ def test_normalize_probe_like_tf_supports_soft_mask_controls():
 
 def test_probe_illumination_uses_soft_disk_when_probe_mask_enabled():
     n = 16
-    data_cfg = DataConfig(N=n, C=1, grid_size=(1, 1))
+    data_cfg = DataConfig(N=n, gridsize=1)
     model_cfg = ModelConfig(
         probe_mask=True,
         probe_mask_sigma=1.0,

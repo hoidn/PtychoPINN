@@ -7,13 +7,11 @@ from ptycho_torch.config_params import ModelConfig, DataConfig, TrainingConfig, 
 @pytest.mark.parametrize("torch_mae_pred_l2_match_target", [False, True])
 def test_poisson_loss_uses_physics_scale(torch_mae_pred_l2_match_target):
     model_cfg = ModelConfig(
-        C_model=1,
-        C_forward=1,
         object_big=False,
         probe_big=False,
         loss_function="Poisson",
     )
-    data_cfg = DataConfig(N=64, C=1, grid_size=(1, 1))
+    data_cfg = DataConfig(N=64, gridsize=1)
     train_cfg = TrainingConfig(
         device="cpu",
         torch_loss_mode="poisson",

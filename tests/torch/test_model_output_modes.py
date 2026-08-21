@@ -39,7 +39,7 @@ def test_amp_phase_logits_bounds():
         generator_output='amp_phase_logits',
     )
 
-    x = torch.randn(2, data_config.C, data_config.N, data_config.N)
+    x = torch.randn(2, data_config.gridsize ** 2, data_config.N, data_config.N)
     x_complex, amp, phase = model._predict_complex(x)
 
     assert torch.all(amp >= 0)
@@ -65,7 +65,7 @@ def test_amp_phase_mode_accepts_tuple():
         generator_output='amp_phase',
     )
 
-    x = torch.randn(1, data_config.C, data_config.N, data_config.N)
+    x = torch.randn(1, data_config.gridsize ** 2, data_config.N, data_config.N)
     x_complex, amp, phase = model._predict_complex(x)
 
     assert amp.shape == phase.shape
@@ -82,11 +82,10 @@ def _cnn_configs(cnn_output_mode, mode='Unsupervised'):
         architecture='cnn',
         cnn_output_mode=cnn_output_mode,
         mode=mode,
-        C_model=1,
         object_big=False,
         probe_big=False,  # Decoder_last returns the ScaledTanh-bounded primary path only
     )
-    data_config = DataConfig(N=64, C=1, grid_size=(1, 1))
+    data_config = DataConfig(N=64, gridsize=1)
     training_config = TrainingConfig()
     return model_config, data_config, training_config
 
@@ -103,7 +102,7 @@ def test_cnn_default_output_mode_is_amp_phase():
     )
     assert model.generator_output == 'amp_phase'
 
-    x = torch.randn(1, data_config.C, data_config.N, data_config.N)
+    x = torch.randn(1, data_config.gridsize ** 2, data_config.N, data_config.N)
     x_complex, amp, phase = model._predict_complex(x)
     assert torch.is_complex(x_complex)
 
@@ -120,7 +119,7 @@ def test_cnn_real_imag_unsupervised_combines_torch_complex():
     model.eval()
     assert model.generator_output == 'real_imag'
 
-    x = torch.randn(1, data_config.C, data_config.N, data_config.N)
+    x = torch.randn(1, data_config.gridsize ** 2, data_config.N, data_config.N)
     with torch.no_grad():
         real, imag = model.autoencoder(x)
         x_complex, amp, phase = model._predict_complex(x)
@@ -142,7 +141,7 @@ def test_cnn_real_imag_supervised_output_unaffected():
     """Amendment #4: real_imag is UNSUPERVISED-ONLY. The supervised path keeps its
     amp/phase combine and its output is byte-identical regardless of cnn_output_mode."""
     _, data_config, training_config = _cnn_configs('amp_phase', mode='Supervised')
-    x = torch.randn(1, data_config.C, data_config.N, data_config.N)
+    x = torch.randn(1, data_config.gridsize ** 2, data_config.N, data_config.N)
 
     def build(cnn_output_mode):
         torch.manual_seed(20260702)
@@ -180,11 +179,10 @@ def _decoder_configs(cnn_output_mode, C, *, use_shared_decoder, object_big=True)
         use_shared_decoder=use_shared_decoder,
         cnn_output_mode=cnn_output_mode,
         mode='Unsupervised',
-        C_model=C,
         object_big=object_big,
         probe_big=False,
     )
-    data_config = DataConfig(N=64, C=C, grid_size=(1, C))
+    data_config = DataConfig(N=64, gridsize=math.isqrt(C))
     return model_config, data_config
 
 
@@ -223,7 +221,7 @@ def test_autoencoder_shared_decoder_opt_in_builds_shared_decoder():
     assert not hasattr(autoencoder, 'decoder_phase')
 
 
-@pytest.mark.parametrize("C", [1, 2, 4])
+@pytest.mark.parametrize("C", [1, 4])
 @pytest.mark.parametrize("cnn_output_mode", ["amp_phase", "real_imag"])
 def test_shared_decoder_shape_contract(C, cnn_output_mode):
     """Shared decoder emits 2*C_out raw channels split into two (B, C_out, N, N)
@@ -231,7 +229,7 @@ def test_shared_decoder_shape_contract(C, cnn_output_mode):
     model_config, data_config = _shared_decoder_configs(cnn_output_mode, C)
     autoencoder = Autoencoder(model_config, data_config)
 
-    x = torch.randn(2, data_config.C, data_config.N, data_config.N)
+    x = torch.randn(2, data_config.gridsize ** 2, data_config.N, data_config.N)
     branch1, branch2 = autoencoder(x)
 
     assert branch1.shape == (2, C, data_config.N, data_config.N)
@@ -240,7 +238,7 @@ def test_shared_decoder_shape_contract(C, cnn_output_mode):
     assert torch.isfinite(branch2).all()
 
 
-@pytest.mark.parametrize("C", [1, 2, 4])
+@pytest.mark.parametrize("C", [1, 4])
 @pytest.mark.parametrize("cnn_output_mode", ["amp_phase", "real_imag"])
 def test_separate_decoder_shape_contract(C, cnn_output_mode):
     model_config, data_config = _decoder_configs(
@@ -250,7 +248,7 @@ def test_separate_decoder_shape_contract(C, cnn_output_mode):
     )
     autoencoder = Autoencoder(model_config, data_config)
 
-    x = torch.randn(2, data_config.C, data_config.N, data_config.N)
+    x = torch.randn(2, data_config.gridsize ** 2, data_config.N, data_config.N)
     branch1, branch2 = autoencoder(x)
 
     assert branch1.shape == (2, C, data_config.N, data_config.N)
@@ -310,7 +308,7 @@ def test_shared_decoder_real_imag_matches_b1_scaledtanh_box(C):
     autoencoder = Autoencoder(model_config, data_config)
     autoencoder.eval()
 
-    x = torch.randn(2, data_config.C, data_config.N, data_config.N)
+    x = torch.randn(2, data_config.gridsize ** 2, data_config.N, data_config.N)
     with torch.no_grad():
         real, imag = autoencoder(x)
 
@@ -330,7 +328,7 @@ def test_shared_decoder_amp_phase_matches_configured_activations(C):
     autoencoder = Autoencoder(model_config, data_config)
     autoencoder.eval()
 
-    x = torch.randn(2, data_config.C, data_config.N, data_config.N)
+    x = torch.randn(2, data_config.gridsize ** 2, data_config.N, data_config.N)
     with torch.no_grad():
         amp, phase = autoencoder(x)
 

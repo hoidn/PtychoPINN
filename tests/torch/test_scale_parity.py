@@ -30,15 +30,16 @@ from ptycho_torch.lightning_utils import (
     load_checkpoint_with_configs,
     load_configs_from_checkpoint,
 )
+from ptycho_torch.object_compatibility import resolve_torch_model_object_policy
 from ptycho_torch.utils import config_to_json_serializable_dict
 
 
 def _tiny_configs(**model_overrides):
     model_cfg = ModelConfig(
-        C_model=1, C_forward=1, object_big=False, probe_big=False,
+        object_big=False, probe_big=False,
         n_filters_scale=1, **model_overrides,
     )
-    data_cfg = DataConfig(N=64, C=1, grid_size=(1, 1))
+    data_cfg = DataConfig(N=64, gridsize=1)
     train_cfg = TrainingConfig(device="cpu")
     infer_cfg = InferenceConfig()
     return model_cfg, data_cfg, train_cfg, infer_cfg
@@ -55,8 +56,10 @@ def _build_model(parity_scale_mode="off", parity_fixed_delta=0.0, parity_init_sc
 
 
 def _save_checkpoint_with_configs(model, model_cfg, data_cfg, train_cfg, infer_cfg, tmp_path, name="run"):
-    """Create the declared unversioned config/checkpoint layout so the
-    compatibility loader can be exercised without a full training loop.
+    """Mimic ptycho_torch.lightning_utils.ConfigLogger's on-disk layout
+    (``run_dir/configs/*.json`` + ``run_dir/checkpoints/*.ckpt``) so
+    ``load_checkpoint_with_configs`` -- which reads that layout -- can be
+    exercised without a full Lightning training loop.
     """
     run_dir = tmp_path / name
     config_dir = run_dir / "configs"
@@ -131,7 +134,7 @@ def test_milestone_checkpoint_loads_configs_from_run_directory(tmp_path):
 
     expected = (
         data_cfg,
-        model.model_config,
+        resolve_torch_model_object_policy(model_cfg),
         train_cfg,
         infer_cfg,
         DatagenConfig(),

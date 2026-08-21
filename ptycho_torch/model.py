@@ -166,15 +166,21 @@ def _effective_cnn_output_mode(model_config: ModelConfig) -> str:
     return "real_imag"
 
 
-def _semantic_component_channels(model_config: ModelConfig) -> int:
+def _semantic_component_channels(
+    model_config: ModelConfig,
+    data_config: DataConfig,
+) -> int:
     compatibility = resolve_model_object_compatibility(model_config)
     if compatibility.layout == "grouped_patch_components_v1":
-        return int(model_config.C_model)
+        return data_config.gridsize * data_config.gridsize
     return 1
 
-def _decoder_component_channels(model_config: ModelConfig) -> int:
+def _decoder_component_channels(
+    model_config: ModelConfig,
+    data_config: DataConfig,
+) -> int:
     compatibility = resolve_model_object_compatibility(model_config)
-    semantic_channels = _semantic_component_channels(model_config)
+    semantic_channels = _semantic_component_channels(model_config, data_config)
     if compatibility.layout == "single_patch_components_v1" or not getattr(
         model_config,
         "use_legacy_decoder_channel_override",
@@ -211,7 +217,7 @@ def _build_generator_module_from_config(
         "out_channels": 2,
         "hidden_channels": getattr(model_config, "fno_width", 32),
         "modes": getattr(model_config, "fno_modes", 12),
-        "C": getattr(data_config, "C", 4),
+        "C": data_config.gridsize * data_config.gridsize,
         "input_transform": getattr(model_config, "fno_input_transform", "none"),
         "output_mode": generator_mode,
     }
@@ -250,13 +256,13 @@ def _build_generator_module_from_config(
                 "neuralop_uno checkpoint rebuild only supports the locked Lines128 "
                 f"CDI contract (N=128); got N={getattr(data_config, 'N', None)}."
             )
-        if tuple(getattr(data_config, "grid_size", (1, 1))) != (1, 1):
+        if getattr(data_config, "gridsize", 1) != 1:
             raise ValueError(
                 "neuralop_uno checkpoint rebuild only supports the locked "
-                f"gridsize=1 CDI contract; got grid_size={getattr(data_config, 'grid_size', None)}."
+                f"gridsize=1 CDI contract; got gridsize={getattr(data_config, 'gridsize', None)}."
             )
         return NeuralopUnoGeneratorModule(
-            C=getattr(data_config, "C", 1),
+            C=data_config.gridsize * data_config.gridsize,
             output_mode=generator_mode,
         )
 
@@ -471,7 +477,7 @@ class Encoder(nn.Module):
         self.N = self.data_config.N
         starting_coeff = 64 / (self.N / 32)
         self.object_compatibility = resolve_model_object_compatibility(model_config)
-        self.filters = [_semantic_component_channels(model_config)]
+        self.filters = [_semantic_component_channels(model_config, data_config)]
 
         #Starting output channels is 64. Last output size will always be n_filters_scale * 128.
         if self.N == 64:
@@ -597,7 +603,7 @@ class Decoder_last(nn.Module):
 
         #Grab parameters
         self.N = self.data_config.N
-        self.gridsize = self.data_config.grid_size
+        self.gridsize = self.data_config.gridsize
         
         # Normal heads reserve one latent feature per semantic output component,
         # matching the reference decoder's component-wise outer-support path.
@@ -706,7 +712,7 @@ class Decoder_phase(Decoder_base):
         self.model_config = model_config # Store configs if needed directly
         self.data_config = data_config
 
-        num_channels = _semantic_component_channels(model_config)
+        num_channels = _semantic_component_channels(model_config, data_config)
         #Nn layers
 
         #Custom nn layers with specific identifiable names
@@ -741,7 +747,7 @@ class Decoder_amp(Decoder_base):
         self.model_config = model_config # Store configs if needed directly
         self.data_config = data_config
 
-        num_channels = _decoder_component_channels(model_config)
+        num_channels = _decoder_component_channels(model_config, data_config)
 
         #Custom nn layers with specific identifiable names
         # Task 2.3 / B1 (Amendment #11): the amplitude head becomes the REAL head in
@@ -822,7 +828,7 @@ class Decoder_shared(Decoder_base):
         self.model_config = model_config
         self.data_config = data_config
 
-        C_out = _decoder_component_channels(model_config)
+        C_out = _decoder_component_channels(model_config, data_config)
         n_levels = len(self.blocks)
 
         self.refinement_blocks = nn.ModuleList()
@@ -1362,7 +1368,7 @@ class ForwardModel(nn.Module):
         #Configuration from passed instances
         self.n_filters_scale = self.model_config.n_filters_scale
         self.N = self.data_config.N
-        self.gridsize = self.data_config.grid_size
+        self.gridsize = self.data_config.gridsize
         self.offset = self.model_config.offset
         self.object_compatibility = resolve_model_object_compatibility(
             self.model_config

@@ -54,9 +54,9 @@ def test_resolved_data_identity_is_nested_immutable_and_materializes_fresh():
     digest = api.synthetic_workflow_sha256(resolved)
 
     with pytest.raises(FrozenInstanceError):
-        resolved.data.C = 99
+        resolved.data.gridsize = 99
 
-    assert resolved.data.C == 1
+    assert resolved.data.gridsize == 1
     assert api.synthetic_workflow_sha256(resolved) == digest
     first = api.materialize_data_config(resolved)
     second = api.materialize_data_config(resolved)
@@ -68,9 +68,9 @@ def test_resolved_data_identity_is_nested_immutable_and_materializes_fresh():
         for item in fields(resolved.data)
     }
 
-    first.C = 99
-    assert resolved.data.C == 1
-    assert second.C == 1
+    first.gridsize = 99
+    assert resolved.data.gridsize == 1
+    assert second.gridsize == 1
 
 
 def test_workflow_digest_excludes_caller_owned_output_and_probe_locations(tmp_path):
@@ -129,11 +129,10 @@ def test_data_snapshot_projects_every_live_default_into_identity():
         "scale_contract_version",
         "measurement_domain",
         "N",
-        "C",
+        "gridsize",
         "K",
-        "n_subsample",
+        "n_raw_frames_selected",
         "subsample_seed",
-        "grid_size",
         "x_bounds",
         "y_bounds",
         "probe_scale",
@@ -161,10 +160,9 @@ def test_profile_precedence_and_derived_data_match_the_normative_example():
     assert resolved.training.epochs == 5
     assert resolved.simulation.train.object.diffractions_per_object == 4096
     assert resolved.simulation.test.object.diffractions_per_object == 1024
-    assert resolved.data.grid_size == (2, 2)
-    assert resolved.data.C == 4
+    assert resolved.data.gridsize == 2
     assert resolved.data.K == 4
-    assert resolved.data.n_subsample == 4096
+    assert resolved.data.n_raw_frames_selected == 4096
     assert resolved.training.training_groups == 4096
     assert resolved.training.validation_groups == 1024
     assert resolved.inference.groups_per_center == 1
@@ -188,7 +186,7 @@ def test_argparse_omissions_do_not_overwrite_file_or_profile_values():
         cli_values=cli_values,
     )
 
-    assert resolved.data.grid_size == (2, 2)
+    assert resolved.data.gridsize == 2
     assert resolved.training.epochs == 7
     assert resolved.training.batch_size == 16
 
@@ -420,9 +418,7 @@ def test_gridsize_derives_object_probe_and_channel_geometry(gridsize, expected):
         resolved.model.probe_big,
     ) == expected
     assert resolved.model.pad_object is True
-    assert resolved.model.C_model == gridsize**2
-    assert resolved.model.C_forward == gridsize**2
-    assert resolved.data.C == gridsize**2
+    assert resolved.data.gridsize == gridsize
 
 
 @pytest.mark.parametrize(
@@ -557,7 +553,7 @@ def test_sampling_inequalities_are_inclusive_at_the_boundary():
         }
     )
 
-    assert resolved.data.C == 4
+    assert resolved.data.gridsize == 2
     assert resolved.data.K == 4
     assert resolved.training.training_groups == 4
     assert resolved.training.validation_groups == 4
@@ -579,14 +575,14 @@ def test_sampling_inequalities_are_inclusive_at_the_boundary():
                 "simulation": {"gridsize": 2},
                 "model": {"C_model": 1},
             },
-            "model.C_model",
+            "unknown field(s) under model: C_model",
         ),
         (
             {
                 "simulation": {"gridsize": 2},
                 "model": {"C_forward": 1},
             },
-            "model.C_forward",
+            "unknown field(s) under model: C_forward",
         ),
     ],
 )
@@ -1039,16 +1035,14 @@ def test_unknown_profile_fails_with_the_profile_name():
 
 SEALED_SYNTHETIC_LINES_IDENTITY = {
     50: {
-        "digest": "ca3db16f48227e243211d105382108319466d427af5ea8c5ad9f7745600807b9",
-        "payload_bytes": 5037,
+        "digest": "8ecba64a6db509fc5cbe71bd7b97ad62e6a014277d32c5cec5575d557f2ea616",
+        "payload_bytes": 5010,
     },
     5: {
-        "digest": "95ebbc1734d986ec0ceee0dd24803e41fbdbb1be6e77ae3ecacdcdbad0f718f9",
-        "payload_bytes": 5036,
+        "digest": "90db8d19797d2f3bd4ef7c4fc751a762512d71d306cb11b30ab0148f910d3974",
+        "payload_bytes": 5009,
     },
 }
-
-
 @pytest.mark.parametrize("epochs", (50, 5))
 def test_sealed_synthetic_lines_v1_identity_is_unchanged(epochs):
     """Adding another profile must not move the established public recipe."""

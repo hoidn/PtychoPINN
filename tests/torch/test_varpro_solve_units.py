@@ -202,7 +202,6 @@ def _run_reconstruction(model, dataset, *, varpro_scaling: bool,
                          verbose: bool = False):
     data_config = DataConfig(
         N=_N,
-        C=1,
         scale_contract_version="legacy_v1",
         measurement_domain="normalized_amplitude",
     )

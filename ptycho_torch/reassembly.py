@@ -168,12 +168,12 @@ def reassemble_single_channel(im_tensor: torch.Tensor,
     dynamic_pad = torch.ceil(max_offset).int()
 
     #Subtracting COM to get relative coordinates (to center)
-    if data_config.C == 1:
+    if data_config.gridsize == 1:
         #Recenter
         adjusted_offsets = global_coords - com[None,:]
         #Reshape offset
         adjusted_offsets = adjusted_offsets[:,None,:]
-    elif data_config.C > 1: #Unused at the moment
+    elif data_config.gridsize > 1: #Unused at the moment
         B, C, H, W = im_tensor.shape
         #Recenter
         adjusted_offsets = global_coords - com[None, None,:]
@@ -194,7 +194,7 @@ def reassemble_single_channel(im_tensor: torch.Tensor,
     translated_images_4d = hh.Translation(padded_images, adjusted_offsets, jitter_amt=0.0)
     ones_4d = hh.Translation(padded_ones, adjusted_offsets, jitter_amt=0.0)
 
-    if data_config.C == 1:
+    if data_config.gridsize == 1:
         #Squeeze channel dimension
         translated_images = translated_images_4d.squeeze(1)
         translated_ones = ones_4d.squeeze(1)
@@ -353,7 +353,7 @@ def reconstruct_image(model: nn.Module,
             batch_output = model.forward_predict(x, positions, probe, in_scale)
             
             # Reassembly
-            if data_config.C == 1:
+            if data_config.gridsize == 1:
                 reassembled_batch_image, reassembled_batch_ones = reassemble_single_channel(
                     batch_output,           # im_tensor
                     center_of_mass,         # com
@@ -2153,7 +2153,7 @@ def detect_swap_probe_reference(model: nn.Module,
     """
     compatibility = resolve_model_object_compatibility(model_config)
     C_in = (
-        model_config.C_model
+        data_config.gridsize * data_config.gridsize
         if compatibility.layout == "grouped_patch_components_v1"
         else 1
     )

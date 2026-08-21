@@ -67,10 +67,8 @@ def test_simplified_ci_inference_fails_before_computing_output_scale(monkeypatch
     )
 
     class CIModel:
-        data_config = DataConfig(N=4, C=1, grid_size=(1, 1))
+        data_config = DataConfig(N=4, gridsize=1)
         model_config = ModelConfig(
-            C_model=1,
-            C_forward=1,
             physics_forward_mode="rectangular_scaled",
             cnn_output_mode="real_imag",
         )
@@ -115,14 +113,11 @@ def test_explicit_legacy_simplified_inference_remains_available(monkeypatch):
         torch_loss_mode = "poisson"
         data_config = DataConfig(
             N=4,
-            C=1,
-            grid_size=(1, 1),
+            gridsize=1,
             scale_contract_version="legacy_v1",
             measurement_domain="normalized_amplitude",
         )
         model_config = ModelConfig(
-            C_model=1,
-            C_forward=1,
             physics_forward_mode="rectangular_scaled",
             cnn_output_mode="real_imag",
         )

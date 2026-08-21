@@ -490,7 +490,7 @@ class TestMigrateLegacyBundle:
         models, params = load_inference_bundle_torch(out)
         assert params["scale_contract_version"] == "legacy_v1"
         assert params["measurement_domain"] == "normalized_amplitude"
-        assert params["artifact_schema_version"] == "torch-artifact-portable-v2"
+        assert params["artifact_schema_version"] == "torch-artifact-portable-v3"
         for name in ("autoencoder", "diffraction_to_obj"):
             loaded = models[name]
             assert loaded.data_config.scale_contract_version == "legacy_v1"

@@ -77,8 +77,8 @@ class _ModelStub:
     def __init__(self):
         from ptycho_torch.config_params import DataConfig, ModelConfig
 
-        self.model_config = ModelConfig(C_model=1, C_forward=1)
-        self.data_config = DataConfig(N=64, C=1, grid_size=(1, 1))
+        self.model_config = ModelConfig()
+        self.data_config = DataConfig(N=64, gridsize=1)
 
     def eval(self):
         return self

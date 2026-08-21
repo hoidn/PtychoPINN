@@ -11,11 +11,9 @@ def _coherent_configs(*, object_layout="single_patch", training_canvas="independ
     from ptycho.config.config import ModelConfig as CanonicalModelConfig
     from ptycho_torch.config_params import DataConfig, ModelConfig
 
-    data = DataConfig(N=64, C=1, grid_size=(1, 1), probe_scale=4.0)
+    data = DataConfig(N=64, gridsize=1, probe_scale=4.0)
     model = ModelConfig(
-        C_model=1,
-        C_forward=1,
-        object_layout=object_layout,
+                object_layout=object_layout,
         training_canvas=training_canvas,
         training_patch_weighting="probe",
         object_big=None,
@@ -40,10 +38,12 @@ def _legacy_v1_payload(spec):
     )
 
     model = spec.to_model_config()
-    legacy = {
-        name: getattr(model, name)
-        for name in MODEL_SPEC_V1_MODEL_FIELDS
-    }
+    legacy = {}
+    for name in MODEL_SPEC_V1_MODEL_FIELDS:
+        if name in ("C_model", "C_forward"):
+            legacy[name] = 1  # derived at decode; dropped by the upgrade
+        else:
+            legacy[name] = getattr(model, name)
     return {
         "schema_version": MODEL_SPEC_V1_VERSION,
         "model_config": legacy,
@@ -63,8 +63,8 @@ def test_current_model_spec_v2_owns_public_axes_not_object_big():
     spec = derive_model_spec(canonical, model, data)
     payload = spec.to_payload()
 
-    assert CURRENT_MODEL_SPEC_VERSION == "torch-model-spec-portable-v2"
-    assert payload["schema_version"] == "torch-model-spec-portable-v2"
+    assert CURRENT_MODEL_SPEC_VERSION == "torch-model-spec-portable-v3"
+    assert payload["schema_version"] == "torch-model-spec-portable-v3"
     assert "object_big" not in payload["model_config"]
     assert payload["model_config"]["object_layout"] == "single_patch"
     assert payload["model_config"]["training_canvas"] == "independent"
@@ -81,8 +81,8 @@ def test_frozen_model_spec_v1_deterministically_upgrades_to_v2():
 
     upgraded = ModelSpec.from_payload(legacy_payload)
 
-    assert upgraded.schema_version == "torch-model-spec-portable-v2"
-    assert upgraded.to_payload()["schema_version"] == "torch-model-spec-portable-v2"
+    assert upgraded.schema_version == "torch-model-spec-portable-v3"
+    assert upgraded.to_payload()["schema_version"] == "torch-model-spec-portable-v3"
     assert upgraded.to_model_config() == current.to_model_config()
 
 
@@ -142,3 +142,34 @@ def test_v1_upgrade_preserves_parity_and_tensor_mask():
         upgraded.to_model_config().probe_mask_tensor,
         model.probe_mask_tensor,
     )
+
+
+def test_v2_model_fields_are_a_frozen_tuple_and_v3_drops_the_c_family():
+    from ptycho_torch.model_spec import (
+        MODEL_SPEC_V2_MODEL_FIELDS,
+        MODEL_SPEC_V3_MODEL_FIELDS,
+    )
+
+    # Both eras are explicit frozen snapshots, not reflection-derived sets.
+    assert isinstance(MODEL_SPEC_V2_MODEL_FIELDS, tuple)
+    assert isinstance(MODEL_SPEC_V3_MODEL_FIELDS, tuple)
+    assert len(set(MODEL_SPEC_V2_MODEL_FIELDS)) == len(MODEL_SPEC_V2_MODEL_FIELDS)
+    assert len(set(MODEL_SPEC_V3_MODEL_FIELDS)) == len(MODEL_SPEC_V3_MODEL_FIELDS)
+    # v3 is exactly v2 minus the stored C-family.
+    assert set(MODEL_SPEC_V3_MODEL_FIELDS) == (
+        set(MODEL_SPEC_V2_MODEL_FIELDS) - {"C_model", "C_forward"}
+    )
+    assert "C_model" not in MODEL_SPEC_V3_MODEL_FIELDS
+    assert "C_forward" not in MODEL_SPEC_V3_MODEL_FIELDS
+
+
+def test_from_payload_rejects_c_model_forward_mismatch():
+    from ptycho_torch.model_spec import ModelSpec, derive_model_spec
+
+    canonical, data, model = _coherent_configs()
+    spec = derive_model_spec(canonical, model, data)
+    payload = _legacy_v1_payload(spec)
+    payload["model_config"]["C_model"] = 2  # C_forward stays 1
+
+    with pytest.raises(ValueError, match=r"C_model=2.*C_forward=1"):
+        ModelSpec.from_payload(payload)

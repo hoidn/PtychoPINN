@@ -72,7 +72,7 @@ def _nested_grid_lines_simulation(probe_path: Path) -> SimulationConfig:
         ),
         scan=ScanSimulationConfig(
             kind="grid",
-            grid_size=(2, 2),
+            gridsize=2,
             offset=5,
             outer_offset_train=9,
             outer_offset_test=21,
@@ -1108,7 +1108,7 @@ class TestDatasetPersistence:
                 ),
             ),
             object=SyntheticObjectConfig(kind="lines", image_size=(64, 64)),
-            scan=ScanSimulationConfig(grid_size=(1, 1)),
+            scan=ScanSimulationConfig(gridsize=1),
             detector=DetectorSimulationConfig(photons_per_pattern=1e8),
             seed=3,
         )

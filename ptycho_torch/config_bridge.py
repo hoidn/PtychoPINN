@@ -18,11 +18,10 @@ MVP Scope (9 fields):
 Design Decisions:
     1. Side-effect free: Functions return new dataclass instances without mutating inputs
     2. Override pattern: Accept dict parameter for fields missing from PyTorch configs
-    3. Type conversion: Handle tuple→int (grid_size), enum mapping (mode→model_type), field renames (epochs→nepochs, K→neighbor_count)
+    3. Type conversion: enum mapping (mode→model_type), field renames (epochs→nepochs, K→neighbor_count)
     4. Modular for future refactor: Designed to support eventual migration to shared dataclasses (Open Question Q1)
 
 Critical Transformations:
-    - grid_size: Tuple[int, int] → gridsize: int (extract first element, assumes square grids)
     - mode: 'Unsupervised' | 'Supervised' → model_type: 'pinn' | 'supervised' (enum mapping)
     - epochs: int → nepochs: int (field rename)
     - K: int → neighbor_count: int (semantic mapping)
@@ -36,7 +35,7 @@ Usage:
     import ptycho.params as params
 
     # Instantiate PyTorch configs
-    pt_data = DataConfig(N=128, grid_size=(2, 2), nphotons=1e9, K=7)
+    pt_data = DataConfig(N=128, gridsize=2, nphotons=1e9, K=7)
     pt_model = ModelConfig(mode='Unsupervised', amp_activation='silu')
     pt_train = TrainingConfig(epochs=50)
 
@@ -95,13 +94,12 @@ def to_model_config(
     Translate PyTorch DataConfig and ModelConfig to TensorFlow ModelConfig.
 
     Performs critical field transformations:
-    - grid_size tuple → gridsize int (extracts first element, assumes square grids)
     - mode enum → model_type enum ('Unsupervised'→'pinn', 'Supervised'→'supervised')
     - amp_activation normalization (silu→swish, SiLU→swish)
     - Merges fields from both PyTorch configs into single TensorFlow ModelConfig
 
     Args:
-        data: PyTorch DataConfig instance (provides N, grid_size, nphotons)
+        data: PyTorch DataConfig instance (provides N, gridsize, nphotons)
         model: PyTorch ModelConfig instance (provides mode, architecture params)
         overrides: Optional dict of additional fields to override defaults
 
@@ -109,7 +107,7 @@ def to_model_config(
         TensorFlow ModelConfig instance with translated fields
 
     Raises:
-        ValueError: If grid_size is non-square, mode has invalid value, or activation unknown
+        ValueError: If mode has invalid value or activation unknown
     """
     overrides = overrides or {}
     from ptycho_torch.object_compatibility import (
@@ -117,14 +115,8 @@ def to_model_config(
     )
     model = resolve_torch_model_object_policy(model)
 
-    # Extract gridsize from grid_size tuple (assumes square grids)
-    grid_h, grid_w = data.grid_size
-    if grid_h != grid_w:
-        raise ValueError(
-            f"Non-square grids not supported by TensorFlow backend: "
-            f"grid_size={data.grid_size}. Use square grids (e.g., (2, 2))."
-        )
-    gridsize = grid_h
+    # DataConfig.gridsize is a single square side length; no tuple to unpack.
+    gridsize = data.gridsize
 
     # Map mode enum to model_type enum
     mode_to_model_type = {

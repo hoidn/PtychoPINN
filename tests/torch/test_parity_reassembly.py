@@ -28,9 +28,8 @@ def test_reassembly_parity_simple_case():
     torch_patches = torch.from_numpy(patches[..., 0]).unsqueeze(0)  # (1, 2, N, N)
     torch_offsets = torch.from_numpy(offsets.astype(np.float32)).permute(1, 0, 2, 3)  # (1, 2, 1, 2)
 
-    data_cfg = DataConfig(N=N, grid_size=(1, 1))
+    data_cfg = DataConfig(N=N, gridsize=1)
     model_cfg = ModelConfig()
-    model_cfg.C_forward = 2
 
     torch_out, _, _ = reassemble_patches_position_real(
         torch_patches,

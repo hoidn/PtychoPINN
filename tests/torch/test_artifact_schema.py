@@ -18,11 +18,9 @@ from ptycho_torch.scaling_contract import (
 
 
 def _identity_parts(*, tensor_mask=False):
-    data = DataConfig(N=64, C=1, grid_size=(1, 1), probe_scale=4.0)
+    data = DataConfig(N=64, gridsize=1, probe_scale=4.0)
     mask = torch.arange(16, dtype=torch.float32).reshape(4, 4) if tensor_mask else None
     model = ModelConfig(
-        C_model=1,
-        C_forward=1,
         object_big=False,
         probe_big=False,
         probe_mask=bool(tensor_mask),
@@ -33,6 +31,16 @@ def _identity_parts(*, tensor_mask=False):
     canonical = to_model_config(data, model)
     spec = derive_model_spec(canonical, model, data)
     return spec, data, training, inference
+
+
+def _legacy_data_payload(data) -> dict:
+    """Project a live (v3) DataConfig onto the historical unversioned wire shape."""
+    payload = asdict(data)
+    gridsize = payload.pop("gridsize")
+    payload["C"] = gridsize * gridsize
+    payload["grid_size"] = (gridsize, gridsize)
+    payload["n_subsample"] = payload.pop("n_raw_frames_selected")
+    return payload
 
 
 def test_current_artifact_roundtrip_preserves_model_spec_and_tensor_values():
@@ -106,12 +114,12 @@ def test_unversioned_current_sections_require_exact_field_sets():
     from ptycho_torch.artifact_schema import upgrade_unversioned_sections
 
     spec, data, training, inference = _identity_parts()
-    model_payload = spec.to_payload()["model_config"]
+    model_payload = dict(spec.to_payload()["model_config"], object_big=False)
     model_payload.pop("fno_width")
 
     with pytest.raises(ValueError, match=r"unversioned.*model_config.*missing.*fno_width"):
         upgrade_unversioned_sections(
-            data_config=asdict(data),
+            data_config=_legacy_data_payload(data),
             model_config=model_payload,
             training_config=asdict(training),
             inference_config=asdict(inference),
@@ -122,13 +130,13 @@ def test_known_metadata_free_legacy_upgrade_adds_only_explicit_profile():
     from ptycho_torch.artifact_schema import upgrade_unversioned_sections
 
     spec, data, training, inference = _identity_parts()
-    data_payload = asdict(data)
+    data_payload = _legacy_data_payload(data)
     data_payload.pop("scale_contract_version")
     data_payload.pop("measurement_domain")
 
     decoded = upgrade_unversioned_sections(
         data_config=data_payload,
-        model_config=spec.to_payload()["model_config"],
+        model_config=dict(spec.to_payload()["model_config"], object_big=False),
         training_config=asdict(training),
         inference_config=asdict(inference),
         explicit_profile=(LEGACY_SCALE_CONTRACT, NORMALIZED_AMPLITUDE),
@@ -190,7 +198,7 @@ def test_current_application_checkpoint_dual_writes_identity_and_reloads(tmp_pat
         "schema_version": CURRENT_ARTIFACT_SCHEMA_VERSION,
     }
     assert checkpoint["hyper_parameters"]["model_spec"]["schema_version"] == (
-        "torch-model-spec-portable-v2"
+        "torch-model-spec-portable-v3"
     )
 
     loaded = PtychoPINN_Lightning.load_from_checkpoint(
@@ -401,7 +409,7 @@ def test_transitional_ci_entrypoints_bundle_upgrades_and_strict_loads(tmp_path):
     )
     transitional = {
         "schema_version": "ci-entrypoints-v1",
-        "data_config": asdict(data),
+        "data_config": _legacy_data_payload(data),
         "model_config": asdict(model.model_config),
         "training_config": asdict(training),
         "inference_config": asdict(inference),

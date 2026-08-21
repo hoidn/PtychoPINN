@@ -29,13 +29,12 @@ class DataConfig:
 
     #General sizing parameters
     N: int = 64  # Size of the diffraction patterns/object patch
-    C: int = 4    # Number of channels
+    gridsize: int = 2  # Square group side length; C = gridsize**2 derived at consumption
     K: int = 6    # Number of nearest neighbors for lookup
     #Grid parameters specifically for overlap constraint
     K_quadrant: int = 30 # Number of nearest neighbors for quadrant lookup
-    n_subsample: int = 7 # Subsampling factor for coordinates (if applicable)
+    n_raw_frames_selected: int = 7 # Training: raw frames selected before grouping
     subsample_seed: Optional[int] = None # Random seed for reproducible subsampling
-    grid_size: Tuple[int, int] = (2, 2) # Grid size for scanning positions
     neighbor_function: Literal['Nearest','Min_dist','4_quadrant'] = 'Nearest'
     min_neighbor_distance: float = 0.0
     max_neighbor_distance: float = 3.0
@@ -110,7 +109,6 @@ class ModelConfig:
     num_datasets: int = 1 #Number of unique datasets being trained. For instantiating fitting constants
 
     #Model architecture parameters
-    C_model: int = DataConfig.C
     n_filters_scale: int = 2 # Shrinking factor for channels in network layers
     amp_activation: str = 'silu' # Activation function for amplitude part
     batch_norm: bool = False # Whether to use batch normalization
@@ -151,7 +149,6 @@ class ModelConfig:
     # explicit historical/diagnostic zero-border opt-out.
     probe_big: bool = True
     offset: int = 6 # Offset parameter (for nearest neighbor patches)
-    C_forward: int = DataConfig.C # Number of channels
     # B3 (Task 2.5): reassembly weighting for the object_big forward path.
     # 'central_mask' = unchanged default (binary center-mask via
     # reassemble_patches_position_real); 'probe' = |Probe|^2-weighted assembly;

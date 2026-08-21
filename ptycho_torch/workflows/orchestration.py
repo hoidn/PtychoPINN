@@ -240,7 +240,7 @@ def _synthetic_factory_overrides(
         )
         overrides[target] = getattr(resolved.inference, item.name)
     overrides["n_groups"] = resolved.training.training_groups
-    overrides["n_subsample"] = resolved.training.train_raw_selection
+    overrides["n_raw_frames_selected"] = resolved.training.train_raw_selection
     return overrides
 
 
@@ -401,7 +401,7 @@ def _validate_synthetic_payload_identity(
 ) -> None:
     """Check the synthetic data/loss/gain owners agree after factory resolution."""
 
-    if payload.pt_data_config.n_subsample != resolved.training.train_raw_selection:
+    if payload.pt_data_config.n_raw_frames_selected != resolved.training.train_raw_selection:
         raise ValueError("resolved payload changed synthetic train raw selection")
     if payload.pt_data_config.K != resolved.training.neighbor_count:
         raise ValueError("resolved payload changed synthetic neighbor count")

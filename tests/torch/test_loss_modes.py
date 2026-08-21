@@ -31,7 +31,7 @@ def _build_stub_module(
 ) -> _LoggingCaptureModule:
     """Create a Lightning module with a deterministic stubbed model."""
     model_cfg = ModelConfig(mode='Unsupervised', loss_function='Poisson')
-    data_cfg = DataConfig(N=64, grid_size=(1, 1))
+    data_cfg = DataConfig(N=64, gridsize=1)
     train_cfg = TrainingConfig(
         epochs=1,
         batch_size=2,
@@ -117,10 +117,8 @@ def test_supervised_compute_loss_accepts_experiment_ids():
     model_cfg = ModelConfig(
         mode='Supervised',
         loss_function='MAE',
-        C_forward=1,
-        C_model=1,
     )
-    data_cfg = DataConfig(N=64, C=1, grid_size=(1, 1))
+    data_cfg = DataConfig(N=64, gridsize=1)
     train_cfg = TrainingConfig(
         epochs=1,
         batch_size=1,

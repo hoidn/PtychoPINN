@@ -19,8 +19,6 @@ def _tiny_model(intensity_scale: float):
 
     return PtychoPINN_Lightning(
         PTModelConfig(
-            C_model=1,
-            C_forward=1,
             object_big=False,
             probe_big=False,
             n_filters_scale=1,
@@ -29,7 +27,7 @@ def _tiny_model(intensity_scale: float):
             rect_s1s2_trainable=False,
             intensity_scale=intensity_scale,
         ),
-        PTDataConfig(N=64, C=1, grid_size=(1, 1)),
+        PTDataConfig(N=64, gridsize=1),
         PTTrainingConfig(device="cpu", torch_loss_mode="poisson"),
         PTInferenceConfig(),
     )

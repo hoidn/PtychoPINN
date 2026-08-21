@@ -409,7 +409,7 @@ Examples:
             )
 
             print(f"✓ Factory created configs: N={payload.pt_data_config.N}, "
-                  f"gridsize={payload.pt_data_config.grid_size}, "
+                  f"gridsize={payload.pt_data_config.gridsize}, "
                   f"epochs={payload.pt_training_config.epochs}")
             print(f"✓ Execution config: accelerator={payload.execution_config.accelerator}, "
                   f"deterministic={payload.execution_config.deterministic}, "

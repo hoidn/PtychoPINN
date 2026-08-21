@@ -65,7 +65,11 @@ def reassemble_patches_position_real(inputs: torch.Tensor, offsets_xy: torch.Ten
 
     assert inputs.dtype == torch.complex64, 'Input must be complex'
 
-    B, _, N, _ = inputs.shape
+    # Number of patches to reassemble per image is the input channel dim
+    # (the single honest source). It equals gridsize**2 on the grouped
+    # training/barycentric paths, but the uniform-stitch inference path
+    # collapses scan positions into the channel dim, so it can differ.
+    B, C, N, _ = inputs.shape
 
     from ptycho import debug_parity
     debug_parity.log_array_stats("torch.reassemble.inputs", inputs)
@@ -74,9 +78,6 @@ def reassemble_patches_position_real(inputs: torch.Tensor, offsets_xy: torch.Ten
     if os.getenv("PTYCHO_TORCH_STITCH_DEBUG") == "1":
         from ptycho_torch.debug import summarize_offsets
         print(summarize_offsets("offsets_input", offsets_xy))
-
-    #Setting the channels for forward model to a specific C_forward. Model may use this differently
-    C = model_config.C_forward
 
     if crop_size is not None:
         if crop_size <= 0 or crop_size > N:
@@ -238,9 +239,8 @@ def reassemble_patches_position_real_probe(inputs: torch.Tensor,
     '''
 
     assert inputs.dtype == torch.complex64, 'Input must be complex'
-
     B, C_in, N, _ = inputs.shape
-    C = model_config.C_forward
+    C = C_in  # patches per image == input channel dim (honest source)
 
     if padded_size is None:
         padded_size = get_padded_size(data_config, model_config)
@@ -509,7 +509,7 @@ def get_padded_size(data_config: DataConfig, model_config: ModelConfig) -> int: 
 
 def get_bigN(data_config: DataConfig, model_config: ModelConfig) -> int: # Added configs
     N = data_config.N # Use config
-    gridsize = data_config.grid_size # Use config
+    gridsize = (data_config.gridsize, data_config.gridsize) # Use config
     offset = math.ceil(data_config.max_neighbor_distance) # Use config
     #Add extra offset if odd, otherwise get weird padding mismatch error
     if offset % 2 == 1:

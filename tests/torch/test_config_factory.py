@@ -73,10 +73,8 @@ def test_resolved_torch_records_build_exact_training_payload(tmp_path):
         create_training_payload_from_resolved_configs,
     )
 
-    data = PTDataConfig(N=128, grid_size=(2, 2), C=4, K=7, nphotons=3e7)
+    data = PTDataConfig(N=128, gridsize=2, K=7, nphotons=3e7)
     model = PTModelConfig(
-        C_model=4,
-        C_forward=4,
         object_big=True,
         rect_s1s2_trainable=True,
     )
@@ -421,20 +419,16 @@ class TestTrainingPayloadStructure:
 
     def test_gridsize_sets_channel_count(self, mock_train_npz, temp_output_dir):
         """
-        Gridsize override synchronizes C_forward and C_model with data channel count.
+        Gridsize override is the single channel-identity statement.
 
         Regression test for ADR-003 C4.D3: create_training_payload() must set
-        pt_model_config.C_forward and C_model to match pt_data_config.C when
-        gridsize is specified. This ensures PyTorch helpers (reassemble_patches_position_real)
-        receive tensor shapes consistent with the grouping strategy.
+        pt_data_config.gridsize from the override. The channel count is derived
+        at consumption as gridsize**2; ModelConfig C_model/C_forward are retired.
 
         Expected behavior:
-            - gridsize=1 → C=1, C_forward=1, C_model=1
-            - gridsize=2 → C=4, C_forward=4, C_model=4
-            - Default (no gridsize override) → C=4, C_forward=4, C_model=4
-
-        Reference: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T061500Z/
-                   phase_c4_cli_integration_debug/coords_relative_investigation.md
+            - gridsize=1 -> 1 channel
+            - gridsize=2 -> 4 channels
+            - Default (no gridsize override) -> gridsize=2 -> 4 channels
         """
         # Case 1: gridsize=1 (single-position groups)
         payload_gs1 = create_training_payload(
@@ -442,9 +436,8 @@ class TestTrainingPayloadStructure:
             output_dir=temp_output_dir,
             overrides={'gridsize': 1, 'n_groups': 512},
         )
-        assert payload_gs1.pt_data_config.C == 1, "DataConfig.C should match gridsize**2 (1)"
-        assert payload_gs1.pt_model_config.C_forward == 1, "ModelConfig.C_forward should match DataConfig.C"
-        assert payload_gs1.pt_model_config.C_model == 1, "ModelConfig.C_model should match DataConfig.C"
+        assert payload_gs1.pt_data_config.gridsize == 1
+        assert payload_gs1.overrides_applied["C"] == 1
 
         # Case 2: gridsize=2 (2x2 = 4 overlapping positions)
         payload_gs2 = create_training_payload(
@@ -452,23 +445,19 @@ class TestTrainingPayloadStructure:
             output_dir=temp_output_dir,
             overrides={'gridsize': 2, 'n_groups': 512},
         )
-        assert payload_gs2.pt_data_config.C == 4, "DataConfig.C should match gridsize**2 (4)"
-        assert payload_gs2.pt_model_config.C_forward == 4, "ModelConfig.C_forward should match DataConfig.C"
-        assert payload_gs2.pt_model_config.C_model == 4, "ModelConfig.C_model should match DataConfig.C"
+        assert payload_gs2.pt_data_config.gridsize == 2
+        assert payload_gs2.overrides_applied["C"] == 4
 
-        # Case 3: No gridsize override (default grid_size=(2,2) → C=4)
+        # Case 3: No gridsize override (default gridsize -> C derived once)
         payload_default = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
             overrides={'n_groups': 512},
         )
-        # Default grid_size is (2,2) per PTDataConfig defaults (config_params.py:29)
-        # but factory may compute C from overrides; accept any C >= 1
-        assert payload_default.pt_data_config.C >= 1, "DataConfig.C should be positive"
-        assert payload_default.pt_model_config.C_forward == payload_default.pt_data_config.C, \
-            "ModelConfig.C_forward must always match DataConfig.C"
-        assert payload_default.pt_model_config.C_model == payload_default.pt_data_config.C, \
-            "ModelConfig.C_model must always match DataConfig.C"
+        assert payload_default.pt_data_config.gridsize >= 1
+        assert payload_default.overrides_applied["C"] == (
+            payload_default.pt_data_config.gridsize ** 2
+        )
 
     def test_training_payload_infers_probe_size_for_pt_data_config(self, mock_train_npz_128, temp_output_dir):
         """Factory should propagate inferred N into pt_data_config and TF model config."""
@@ -569,16 +558,15 @@ class TestConfigBridgeTranslation:
         - All config_bridge.py transformations applied correctly
     """
 
-    def test_grid_size_tuple_to_gridsize_int(self, mock_train_npz, temp_output_dir):
-        """Factory converts grid_size (2, 2) → gridsize 2 via bridge."""
+    def test_gridsize_override_reaches_both_configs(self, mock_train_npz, temp_output_dir):
+        """Factory passes gridsize 2 through to PyTorch and TensorFlow configs."""
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
             overrides={'n_groups': 512, 'gridsize': 2},
         )
-        # GREEN phase assertions:
-        assert payload.pt_data_config.grid_size == (2, 2)  # PyTorch tuple
-        assert payload.tf_training_config.model.gridsize == 2  # TensorFlow int
+        assert payload.pt_data_config.gridsize == 2
+        assert payload.tf_training_config.model.gridsize == 2
 
     def test_epochs_to_nepochs_conversion(self, mock_train_npz, temp_output_dir):
         """Factory maps epochs → nepochs via bridge."""

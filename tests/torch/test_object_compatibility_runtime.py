@@ -55,14 +55,12 @@ def test_model_topology_and_forward_share_object_compatibility_identity(
     )
 
     model = ModelConfig(
-        C_model=4,
-        C_forward=4,
         object_big=object_big,
         training_patch_weighting="probe",
         pad_object=False,
         probe_big=True,
     )
-    data = DataConfig(N=64, C=4, grid_size=(2, 2))
+    data = DataConfig(N=64, gridsize=2)
     resolved = resolve_model_object_compatibility(model)
 
     encoder = Encoder(model, data)

@@ -80,11 +80,9 @@ class TestConfigPlumbing:
             ModelConfig(
                 object_big=False,
                 probe_big=False,
-                C_model=1,
-                C_forward=1,
                 amplitude_physics_gain=16.0,
             ),
-            DataConfig(N=64, C=1, grid_size=(1, 1)),  # CNN autoencoder needs N>=64
+            DataConfig(N=64, gridsize=1),  # CNN autoencoder needs N>=64
             TrainingConfig(device="cpu", torch_loss_mode="mae"),
             InferenceConfig(),
         )
@@ -98,7 +96,7 @@ class TestScalingContractValidation:
 
     @staticmethod
     def _configs(gain, physics_forward_mode="amplitude", **data_overrides):
-        data_cfg = DataConfig(N=N, C=1, grid_size=(1, 1), **data_overrides)
+        data_cfg = DataConfig(N=N, gridsize=1, **data_overrides)
         model_cfg = ModelConfig(
             physics_forward_mode=physics_forward_mode,
             amplitude_physics_gain=gain,
@@ -1039,12 +1037,10 @@ class TestForwardApplication:
 
         model_cfg = ModelConfig(
             object_big=False,
-            C_model=1,
-            C_forward=1,
             amplitude_physics_gain=gain,
             **model_overrides,
         )
-        data_cfg = DataConfig(N=N, C=1, grid_size=(1, 1))
+        data_cfg = DataConfig(N=N, gridsize=1)
         return ForwardModel(model_cfg, data_cfg)
 
     @staticmethod
@@ -1111,7 +1107,7 @@ class TestForwardApplication:
         from ptycho_torch.model import PtychoPINN
 
         n_model = 64  # CNN autoencoder needs N>=64
-        data_cfg = DataConfig(N=n_model, C=1, grid_size=(1, 1))
+        data_cfg = DataConfig(N=n_model, gridsize=1)
         train_cfg = TrainingConfig(device="cpu", torch_loss_mode="mae")
 
         def build(gain):
@@ -1120,8 +1116,6 @@ class TestForwardApplication:
                 ModelConfig(
                     object_big=False,
                     probe_big=False,
-                    C_model=1,
-                    C_forward=1,
                     amplitude_physics_gain=gain,
                 ),
                 data_cfg,

@@ -772,7 +772,7 @@ def test_validate_simulation_compatibility_rejects_model_shape_conflicts():
     simulation = api.SimulationConfig(
         N=128,
         probe=api.ProbeSimulationConfig(transform_pipeline="pad_preserve:128"),
-        scan=api.ScanSimulationConfig(grid_size=(2, 2)),
+        scan=api.ScanSimulationConfig(gridsize=2),
     )
 
     with pytest.raises(ValueError, match=r"simulation.N=128.*model.N=64"):

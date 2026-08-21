@@ -66,12 +66,6 @@ def build_ptychopinn_application(
     if not isinstance(model_spec, ModelSpec):
         raise TypeError("model_spec must be a ModelSpec")
     model_config = model_spec.to_model_config()
-    if model_config.C_model != data_config.C or model_config.C_forward != data_config.C:
-        raise ValueError(
-            "ModelSpec channel joins conflict with data_config.C: "
-            f"C_model={model_config.C_model}, C_forward={model_config.C_forward}, "
-            f"data C={data_config.C}"
-        )
 
     desired_loss = "Poisson" if training_config.torch_loss_mode == "poisson" else "MAE"
     if model_config.mode == "Supervised":

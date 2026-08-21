@@ -646,6 +646,7 @@ class PtychoDataset(Dataset):
                  training_config: 'TrainingConfig' = None,
                  data_dir: str = 'data/memmap', remake_map: bool = False,
                  defer_ci_statistics: bool = False,
+                 groups_per_center: int = 1,
                  require_complete_group_coverage: bool = False):
         
         # --- Initial loading ---
@@ -654,6 +655,7 @@ class PtychoDataset(Dataset):
         self.object_compatibility = resolve_model_object_compatibility(model_config)
         self.ci_contract_active = _ci_profile_active(model_config, data_config)
         self.defer_ci_statistics = defer_ci_statistics
+        self.groups_per_center = groups_per_center
         if not isinstance(require_complete_group_coverage, bool):
             raise TypeError(
                 "require_complete_group_coverage must be a bool"
@@ -838,7 +840,7 @@ class PtychoDataset(Dataset):
         When coordinate grouping applies, the groups are built here rather than
         estimated: group_coords can return fewer groups than there are valid
         points (a '4_quadrant' center whose quadrants are not all populated is
-        discarded), so `n_valid_points * n_subsample` overcounts. Grouping once
+        discarded), so `n_valid_points * groups_per_center` overcounts. Grouping once
         and caching it keeps the allocation, cum_length, and the tensors written
         by memory_map_data exactly consistent -- and means the grouping is not
         recomputed with different random draws on the write pass.
@@ -912,14 +914,16 @@ class PtychoDataset(Dataset):
             # ---------------------------------
 
             # Build the coordinate groups now so the length is the true group count.
-            # n_subsample is applied inside group_coords, so it is not multiplied in here.
+            # groups_per_center is applied inside group_coords, so it is not multiplied in here.
             if group_coordinates and n_valid_points > 0:
                 nn_indices, coords_nn, center_indices = group_coords(
                     xcoords, ycoords,
                     xcoords[valid_indices], ycoords[valid_indices],
                     None,
                     valid_indices,
-                    self.data_config, C=self.data_config.C,
+                    self.data_config,
+                    C=self.data_config.gridsize * self.data_config.gridsize,
+                    groups_per_center=self.groups_per_center,
                     return_center_indices=True,
                     object_index=header.object_index,
                     experiment_id=i,
@@ -936,10 +940,10 @@ class PtychoDataset(Dataset):
                     )
                 )
                 length_contribution = len(nn_indices)
-                if length_contribution != n_valid_points * self.data_config.n_subsample:
+                if length_contribution != n_valid_points * self.groups_per_center:
                     print(f"  {npz_file}: grouping kept {length_contribution} of "
-                          f"{n_valid_points * self.data_config.n_subsample} candidate groups "
-                          f"({n_valid_points} valid points x {self.data_config.n_subsample} subsamples).")
+                          f"{n_valid_points * self.groups_per_center} candidate groups "
+                          f"({n_valid_points} valid points x {self.groups_per_center} groups per center).")
             else:
                 grouping_per_file.append(None)
                 length_contribution = n_valid_points
@@ -1127,7 +1131,7 @@ class PtychoDataset(Dataset):
         """
         #Config grabbing/setting using stored configs
         if self.object_compatibility.layout == 'grouped_patch_components_v1':
-            n_channels = self.data_config.grid_size[0] * self.data_config.grid_size[1]
+            n_channels = self.data_config.gridsize * self.data_config.gridsize
         else:
             n_channels = 1
 
@@ -1252,7 +1256,7 @@ class PtychoDataset(Dataset):
         self.data_dict['objectGuess'] = []
         effective_batch_normalization = (
             self.data_config.normalize == 'Batch' or
-            (self.data_config.normalize == 'Group' and self.data_config.C == 1 and
+            (self.data_config.normalize == 'Group' and self.data_config.gridsize == 1 and
              self.model_config.mode != 'Supervised')
         )
         if self.data_config.normalize == 'None' or effective_batch_normalization:
@@ -1472,7 +1476,7 @@ class PtychoDataset(Dataset):
 
                 #Calculate group normalization if specified
                 if (not self.ci_contract_active and
-                        self.data_config.normalize == 'Group' and self.data_config.C > 1):
+                        self.data_config.normalize == 'Group' and self.data_config.gridsize > 1):
                     # RMS normalization
                     norm_rms_factor = hh.get_rms_scaling_factor(diff_stack[nn_indices[j:local_to]], self.data_config)
                     mmap_ptycho["rms_scaling_constant"][global_from:global_to] = norm_rms_factor

@@ -14,8 +14,8 @@ from ptycho_torch.config_params import (
 
 
 def _coherent_configs(**model_overrides):
-    data = DataConfig(N=64, C=4, grid_size=(2, 2), probe_scale=4.0)
-    model = ModelConfig(C_model=4, C_forward=4, **model_overrides)
+    data = DataConfig(N=64, gridsize=2, probe_scale=4.0)
+    model = ModelConfig(**model_overrides)
     canonical = to_model_config(data, model)
     return canonical, data, model
 
@@ -25,6 +25,7 @@ def test_model_spec_declares_every_torch_model_field_exactly_once():
         CANONICAL_MODEL_FIELDS,
         PORTABLE_V1_MODEL_FIELDS,
         PORTABLE_V2_MODEL_FIELDS,
+        PORTABLE_V3_MODEL_FIELDS,
         TORCH_COMPATIBILITY_ALIAS_FIELDS,
         TORCH_EXTENSION_FIELDS,
     )
@@ -36,7 +37,13 @@ def test_model_spec_declares_every_torch_model_field_exactly_once():
     assert set(CANONICAL_MODEL_FIELDS).isdisjoint(TORCH_EXTENSION_FIELDS)
     assert len(PORTABLE_V1_MODEL_FIELDS) == len(set(PORTABLE_V1_MODEL_FIELDS))
     assert len(PORTABLE_V2_MODEL_FIELDS) == len(set(PORTABLE_V2_MODEL_FIELDS))
-    assert set(PORTABLE_V2_MODEL_FIELDS) == owned
+    assert len(PORTABLE_V3_MODEL_FIELDS) == len(set(PORTABLE_V3_MODEL_FIELDS))
+    assert set(PORTABLE_V3_MODEL_FIELDS) == owned
+    # frozen history: v2 = v3 plus the retired stored channel twins
+    assert set(PORTABLE_V2_MODEL_FIELDS) - set(PORTABLE_V3_MODEL_FIELDS) == {
+        "C_model",
+        "C_forward",
+    }
 
 
 def test_model_spec_is_versioned_and_materializes_fresh_model_configs():
@@ -87,10 +94,8 @@ def test_model_spec_rejects_shared_and_data_join_mismatches():
     with pytest.raises(ValueError, match=r"fno_width.*canonical.*48|fno_width.*48.*canonical"):
         derive_model_spec(replace(canonical, fno_width=32), model, data)
 
-    with pytest.raises(ValueError, match=r"C_model.*data.*4"):
-        derive_model_spec(canonical, replace(model, C_model=1), data)
 
-    with pytest.raises(ValueError, match=r"gridsize.*grid_size"):
+    with pytest.raises(ValueError, match=r"gridsize"):
         derive_model_spec(replace(canonical, gridsize=1), model, data)
 
 
@@ -111,10 +116,8 @@ def test_model_spec_preserves_tensor_mask_without_aliasing():
     from ptycho_torch.model_spec import derive_model_spec
 
     mask = torch.arange(16, dtype=torch.float32).reshape(4, 4)
-    data = DataConfig(N=64, C=4, grid_size=(2, 2), probe_scale=4.0)
+    data = DataConfig(N=64, gridsize=2, probe_scale=4.0)
     model = ModelConfig(
-        C_model=4,
-        C_forward=4,
         probe_mask=True,
         probe_mask_tensor=mask,
     )
@@ -209,7 +212,7 @@ def test_training_payload_carries_current_model_spec(tmp_path):
     )
 
     assert payload.model_spec.to_model_config() == payload.pt_model_config
-    assert payload.model_spec.schema_version == "torch-model-spec-portable-v2"
+    assert payload.model_spec.schema_version == "torch-model-spec-portable-v3"
 
 
 def test_ci_training_payload_and_model_spec_carry_dose_closure(tmp_path):

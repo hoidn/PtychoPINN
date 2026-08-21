@@ -63,14 +63,11 @@ def _training_payload(
     return SimpleNamespace(
         pt_data_config=PTDataConfig(
             N=64,
-            C=1,
-            grid_size=(1, 1),
+            gridsize=1,
             scale_contract_version="legacy_v1",
             measurement_domain="normalized_amplitude",
         ),
         pt_model_config=PTModelConfig(
-            C_model=1,
-            C_forward=1,
             physics_forward_mode=physics_forward_mode,
             loss_function="MAE",
         ),

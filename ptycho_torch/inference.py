@@ -307,23 +307,6 @@ def _validate_loaded_reconstruction_identity(
         model_config,
         model.training_config,
     )
-    if model_config.C_model != data_config.C:
-        raise ValueError(
-            f"model_config.C_model={model_config.C_model} conflicts with data_config.C={data_config.C}"
-        )
-    if model_config.C_forward != data_config.C:
-        raise ValueError(
-            f"model_config.C_forward={model_config.C_forward} conflicts with data_config.C={data_config.C}"
-        )
-    if (
-        model_config.object_layout == "grouped_patches"
-        and int(data_config.grid_size[0]) * int(data_config.grid_size[1])
-        != data_config.C
-    ):
-        raise ValueError(
-            "grouped model channel count must equal data_config.grid_size product"
-        )
-
     gain_record = loader_params.get("amplitude_physics_gain_record")
     if expected_workflow is None:
         return
@@ -695,7 +678,7 @@ def _validate_authentic_channels(
         raise ValueError(
             "mmap dataset is missing images/nn_indices/coords_global channel identity"
         ) from error
-    C = int(data_config.C)
+    C = int(data_config.gridsize) ** 2
     if (
         images.ndim < 2
         or images.shape[1] != C
@@ -749,10 +732,7 @@ def _reconstruct_loaded_npz_barycentric(
     from ptycho_torch.reassembly import reconstruct_image_barycentric
     from ptycho_torch.reassembly_diagnostics import ReassemblyDiagnostics
 
-    runtime_data_config = replace(
-        model.data_config,
-        n_subsample=groups_per_center,
-    )
+    runtime_data_config = model.data_config
     runtime_training_config = replace(
         model.training_config,
         device=str(device),
@@ -790,6 +770,7 @@ def _reconstruct_loaded_npz_barycentric(
                 training_config=runtime_training_config,
                 data_dir=str(workspace / "mmap" / "memmap"),
                 remake_map=True,
+                groups_per_center=groups_per_center,
                 require_complete_group_coverage=(
                     runtime_data_config.neighbor_function == "Nearest"
                     and groups_per_center == 1
@@ -1078,10 +1059,8 @@ def _run_inference_and_reconstruct(model, raw_data, config, execution_config, de
 
     # Match expected channel count for grouped inputs (gridsize>1)
     expected_channels = None
-    if hasattr(model, 'data_config') and hasattr(model.data_config, 'C'):
-        expected_channels = int(model.data_config.C)
-    elif hasattr(model, 'model_config') and hasattr(model.model_config, 'C_model'):
-        expected_channels = int(model.model_config.C_model)
+    if hasattr(model, 'data_config') and hasattr(model.data_config, 'gridsize'):
+        expected_channels = int(model.data_config.gridsize) ** 2
     elif hasattr(config, 'model') and hasattr(config.model, 'gridsize'):
         expected_channels = int(config.model.gridsize) ** 2
 
@@ -1105,7 +1084,7 @@ def _run_inference_and_reconstruct(model, raw_data, config, execution_config, de
     from ptycho_torch import helper as hh
     from ptycho_torch.config_params import DataConfig as PTDataConfig
 
-    data_cfg_norm = PTDataConfig(N=int(N), grid_size=(1, 1))
+    data_cfg_norm = PTDataConfig(N=int(N), gridsize=1)
     rms_scale = _training_normalization_scale(diffraction)
     rms_scale = rms_scale.to(device=device, dtype=torch.float32)
 
@@ -1155,13 +1134,11 @@ def _run_inference_and_reconstruct(model, raw_data, config, execution_config, de
 
     # Minimal configs required for padding and translation
     N = patch_complex.shape[-1]
-    data_cfg = DataConfig(N=int(N), grid_size=(1, 1))
+    data_cfg = DataConfig(N=int(N), gridsize=1)
     model_cfg = ModelConfig()
     # Collapse batch into channel dimension so reassembly uses all patches
     patch_complex_reassemble = patch_complex.reshape(1, -1, N, N)
     offsets_reassemble = offsets.reshape(1, -1, 1, 2)
-    # Ensure channel consistency for reassembly (C_forward must match predicted channels)
-    model_cfg.C_forward = int(patch_complex_reassemble.shape[1])
 
     crop_size = getattr(config, "stitch_crop_size", 20)
     if crop_size > N:

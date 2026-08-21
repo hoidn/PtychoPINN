@@ -69,7 +69,7 @@ class TestLightningCheckpointSerialization:
         # Create PyTorch config objects directly
         data_cfg = DataConfig(
             N=64,
-            grid_size=(1, 1),  # Minimal gridsize for fast test
+            gridsize=1,  # Minimal gridsize for fast test
         )
 
         model_cfg = ModelConfig(
@@ -363,8 +363,7 @@ class TestLightningCheckpointSerialization:
         image_size = 128 if architecture == "neuralop_uno" else 64
         data_cfg = DataConfig(
             N=image_size,
-            C=1,
-            grid_size=(1, 1),
+            gridsize=1,
         )
         model_cfg = ModelConfig(
             mode=mode,

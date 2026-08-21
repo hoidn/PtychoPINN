@@ -54,12 +54,11 @@ def _configuration_identity():
         scale_contract_version="legacy_v1",
         measurement_domain="normalized_amplitude",
         N=128,
-        C=4,
         K=9,
         K_quadrant=11,
-        n_subsample=3,
+        n_raw_frames_selected=3,
         subsample_seed=17,
-        grid_size=(2, 2),
+        gridsize=2,
         neighbor_function="4_quadrant",
         min_neighbor_distance=0.25,
         max_neighbor_distance=2.5,
@@ -95,7 +94,6 @@ def _configuration_identity():
         intensity_scale=4321.5,
         max_position_jitter=2,
         num_datasets=3,
-        C_model=4,
         n_filters_scale=3,
         amp_activation="silu",
         batch_norm=True,
@@ -119,7 +117,6 @@ def _configuration_identity():
         training_canvas="relative_overlap",
         probe_big=False,
         offset=4,
-        C_forward=4,
         training_patch_weighting="probe",
         physics_forward_mode="amplitude",
         rect_s1s2_trainable=False,
@@ -238,22 +235,33 @@ def _project_portable_v1(
     spec,
 ) -> dict[str, Any]:
     resolved_model = spec.to_model_config()
+    channels = data.gridsize * data.gridsize
+    model_config = {
+        name: getattr(resolved_model, name)
+        for name in MODEL_SPEC_V1_MODEL_FIELDS
+        if name not in ("C_model", "C_forward")
+    }
+    model_config["C_model"] = channels
+    model_config["C_forward"] = channels
+    data_config = {
+        name: getattr(data, name)
+        for name in PORTABLE_V1_DATA_FIELDS
+        if name not in ("C", "grid_size", "n_subsample")
+    }
+    data_config["C"] = channels
+    data_config["grid_size"] = (data.gridsize, data.gridsize)
+    data_config["n_subsample"] = data.n_raw_frames_selected
     return {
         "backend": portable_v2["backend"],
         "schema_version": ARTIFACT_SCHEMA_V1_VERSION,
         "model_spec": {
             "schema_version": MODEL_SPEC_V1_VERSION,
-            "model_config": {
-                name: getattr(resolved_model, name)
-                for name in MODEL_SPEC_V1_MODEL_FIELDS
-            },
+            "model_config": model_config,
             "parity_scale_mode": spec.parity_scale_mode,
             "parity_fixed_delta": spec.parity_fixed_delta,
             "parity_init_scheme": spec.parity_init_scheme,
         },
-        "data_config": {
-            name: getattr(data, name) for name in PORTABLE_V1_DATA_FIELDS
-        },
+        "data_config": data_config,
         "training_config": {
             name: getattr(training, name)
             for name in PORTABLE_V1_TRAINING_FIELDS

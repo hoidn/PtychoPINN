@@ -25,12 +25,7 @@ from pathlib import Path
 import dill
 import torch
 
-from ptycho_torch.artifact_schema import (
-    PORTABLE_V1_DATA_FIELDS,
-    PORTABLE_V1_INFERENCE_FIELDS,
-    PORTABLE_V1_TRAINING_FIELDS,
-    encode_artifact_identity,
-)
+from ptycho_torch.artifact_schema import encode_artifact_identity
 from ptycho_torch.config_params import (
     DataConfig,
     InferenceConfig,
@@ -44,15 +39,14 @@ _METADATA_MEMBER = "torch_scaling_metadata.pt"
 
 _V1 = "torch-artifact-portable-v1"
 _V2 = "torch-artifact-portable-v2"
+_V3 = "torch-artifact-portable-v3"
 
 
 def _tiny_model():
     from ptycho_torch.model import PtychoPINN_Lightning
 
-    data_config = DataConfig(N=64, C=1, grid_size=(1, 1))
+    data_config = DataConfig(N=64, gridsize=1)
     model_config = ModelConfig(
-        C_model=1,
-        C_forward=1,
         object_big=False,
         probe_big=False,
         n_filters_scale=1,
@@ -120,20 +114,51 @@ def _state_dict_bytes(model) -> bytes:
     return buffer.getvalue()
 
 
-def _payload_as_v1(payload: dict) -> dict:
-    """Project a current identity payload down to the frozen v1 field tuples."""
+def _downgrade_data_section(section: dict) -> dict:
+    """Project a live (v3) data section onto the frozen legacy wire shape."""
+    gridsize = section["gridsize"]
+    legacy = {
+        name: value
+        for name, value in section.items()
+        if name not in ("gridsize", "n_raw_frames_selected")
+    }
+    legacy["C"] = gridsize * gridsize
+    legacy["grid_size"] = (gridsize, gridsize)
+    legacy["n_subsample"] = section["n_raw_frames_selected"]
+    return legacy
+
+
+def _downgrade_spec_payload(spec_payload: dict, *, to_version: str, channels: int) -> dict:
+    """Project a live (spec-v3) ModelSpec payload onto the v1/v2 wire shape."""
+    model_fields = dict(spec_payload["model_config"])
+    model_fields["C_model"] = channels
+    model_fields["C_forward"] = channels
+    if to_version == "torch-model-spec-portable-v1":
+        grouped = model_fields.pop("object_layout") == "grouped_patches"
+        model_fields.pop("training_canvas")
+        model_fields["object_big"] = grouped
+    return {
+        **spec_payload,
+        "schema_version": to_version,
+        "model_config": model_fields,
+    }
+
+
+def _payload_as_legacy(payload: dict, era: str) -> dict:
+    """Project a current identity payload down to the frozen v1/v2 wire shape."""
+    channels = payload["data_config"]["gridsize"] ** 2
     downgraded = dict(payload)
-    downgraded["schema_version"] = _V1
-    for section, fields in (
-        ("data_config", PORTABLE_V1_DATA_FIELDS),
-        ("training_config", PORTABLE_V1_TRAINING_FIELDS),
-        ("inference_config", PORTABLE_V1_INFERENCE_FIELDS),
-    ):
-        downgraded[section] = {
-            name: payload[section][name]
-            for name in fields
-            if name in payload[section]
-        }
+    downgraded["schema_version"] = era
+    downgraded["data_config"] = _downgrade_data_section(payload["data_config"])
+    downgraded["model_spec"] = _downgrade_spec_payload(
+        payload["model_spec"],
+        to_version=(
+            "torch-model-spec-portable-v1"
+            if era == _V1
+            else "torch-model-spec-portable-v2"
+        ),
+        channels=channels,
+    )
     return downgraded
 
 
@@ -176,13 +201,13 @@ def build_bundle(tmp_path: Path, era: str) -> Path:
     model = _tiny_model()
     weights = _state_dict_bytes(model)
 
-    if era not in {"portable_v1", "portable_v2_json"}:
+    if era not in {"portable_v1", "portable_v2_json", "portable_v3"}:
         raise ValueError(f"unknown bundle era {era!r}")
 
-    schema = _V1 if era == "portable_v1" else _V2
+    schema = {"portable_v1": _V1, "portable_v2_json": _V2, "portable_v3": _V3}[era]
     payload = _identity_payload(model)
-    if era == "portable_v1":
-        payload = _payload_as_v1(payload)
+    if era in ("portable_v1", "portable_v2_json"):
+        payload = _payload_as_legacy(payload, schema)
     metadata_buffer = io.BytesIO()
     torch.save(payload, metadata_buffer)
 

@@ -25,5 +25,5 @@ itself remains byte-for-byte unchanged.
 | Fixture | SHA-256 |
 | --- | --- |
 | `pydantic_pre_migration_portable_v1.json` | `3851004d18c298bf7f3cc3e01883f8a4fc50c9443f6c64750df2c840b33af9a4` |
-| `pydantic_pre_migration_portable_v2.json` | `fc034f1e5c2ef882ac76988bf4a2a9cf5d0d126aedb4c0df099d65ddc673547e` |
-| `pydantic_pre_migration_tensor_mask.json` | `8a4ca0741092187c93f43965115a28ae0d81cc54bebde7ce0942a1ca2fc86c14` |
+| `pydantic_pre_migration_portable_v2.json` | `4234ef6494782f9a9dff926c64704ad9b2484cd8bb963b1029c81813bc95f8ed` |
+| `pydantic_pre_migration_tensor_mask.json` | `94dad3273d553ec8a6c97984de46235b33a4ec1f19cf0a5372130193fdd4daa7` |

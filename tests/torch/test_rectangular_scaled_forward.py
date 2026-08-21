@@ -74,7 +74,13 @@ def _filtered_kwargs(stored: dict, cls) -> dict:
 
 def _rebuild_configs(metadata: dict):
     """Rebuild configs from stored metadata, forcing rectangular_scaled mode."""
-    data_cfg = DataConfig(**_filtered_kwargs(metadata["data_config"], DataConfig))
+    data_meta = dict(metadata["data_config"])
+    if "grid_size" in data_meta:
+        grid = data_meta.pop("grid_size")
+        data_meta["gridsize"] = int(grid[0])
+    if "n_subsample" in data_meta:
+        data_meta["n_raw_frames_selected"] = data_meta.pop("n_subsample")
+    data_cfg = DataConfig(**_filtered_kwargs(data_meta, DataConfig))
     model_kwargs = _filtered_kwargs(metadata["model_config"], ModelConfig)
     model_kwargs["physics_forward_mode"] = "rectangular_scaled"
     model_cfg = ModelConfig(**model_kwargs)
@@ -211,12 +217,12 @@ def test_rectangular_bigT_parity_under_main_padding(fixture_path, monkeypatch):
 
 def test_rectangular_scaled_requires_real_imag_object():
     """Fail fast: rectangular_scaled needs real/imag-derived object patches."""
-    data_cfg = DataConfig(N=64, C=1, grid_size=(1, 1))
+    data_cfg = DataConfig(N=64, gridsize=1)
     train_cfg = TrainingConfig()
 
     # Default CNN emits amp/phase -> not real/imag -> must raise.
     amp_phase_cfg = ModelConfig(
-        object_big=False, C_model=1, C_forward=1,
+        object_big=False,
         physics_forward_mode="rectangular_scaled",
     )
     with pytest.raises(ValueError, match="real/imag"):
@@ -224,7 +230,7 @@ def test_rectangular_scaled_requires_real_imag_object():
 
     # CNN opt-in real/imag contract -> allowed.
     real_imag_cfg = ModelConfig(
-        object_big=False, C_model=1, C_forward=1,
+        object_big=False,
         physics_forward_mode="rectangular_scaled",
         cnn_output_mode="real_imag",
     )
@@ -236,7 +242,7 @@ def test_probe_mask_resolved_like_amplitude_path():
     to the amplitude path's ProbeIllumination, and coincides with the bare probe
     when no mask is configured."""
     N = 16
-    data_cfg = DataConfig(N=N, C=1, grid_size=(1, 1))
+    data_cfg = DataConfig(N=N, gridsize=1)
     B = 2
     x = (torch.randn(B, 1, N, N) + 1j * torch.randn(B, 1, N, N)).to(torch.complex64)
     probe_2d = (torch.randn(N, N) + 1j * torch.randn(N, N)).to(torch.complex64)
@@ -246,7 +252,7 @@ def test_probe_mask_resolved_like_amplitude_path():
 
     # --- default (no mask): rect path == bare-probe rect_scaler ---
     bare_cfg = ModelConfig(
-        object_big=False, C_model=1, C_forward=1,
+        object_big=False,
         physics_forward_mode="rectangular_scaled",
     )
     fm_bare = ForwardModel(bare_cfg, data_cfg)
@@ -262,7 +268,7 @@ def test_probe_mask_resolved_like_amplitude_path():
     # --- masked case: rect path applies the SAME mask as the amplitude path ---
     mask_tensor = (torch.rand(N, N) > 0.3).to(torch.float32)
     masked_cfg = ModelConfig(
-        object_big=False, C_model=1, C_forward=1,
+        object_big=False,
         physics_forward_mode="rectangular_scaled",
         probe_mask=mask_tensor,
     )

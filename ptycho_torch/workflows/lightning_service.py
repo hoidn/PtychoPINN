@@ -544,7 +544,7 @@ def _train_with_lightning(
     # channel propagation. The compatibility factory remains for declared
     # CONFIG-001 callers.
     # CRITICAL (Phase C4.D B2): Factory ensures C = gridsize**2 is propagated to
-    # pt_model_config.C_model and pt_model_config.C_forward, preventing channel mismatch
+    # the single gridsize-derived channel identity, preventing channel mismatch
     # when gridsize > 1 (see docs/findings.md#BUG-TF-001).
     from ptycho_torch.config_factory import (
         build_training_factory_overrides,

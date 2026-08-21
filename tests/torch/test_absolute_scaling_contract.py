@@ -210,7 +210,7 @@ def test_lightning_rejects_invalid_ci_before_generator_resolution(monkeypatch):
                 mode="Unsupervised",
                 physics_forward_mode="rectangular_scaled",
             ),
-            DataConfig(N=64, grid_size=(1, 1)),
+            DataConfig(N=64, gridsize=1),
             TrainingConfig(torch_loss_mode="mae"),
             InferenceConfig(),
         )

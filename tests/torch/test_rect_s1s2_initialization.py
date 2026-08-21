@@ -413,8 +413,6 @@ class _RealRectBoundary(torch.nn.Module):
             object_layout="single_patch",
             training_canvas="independent",
             probe_big=False,
-            C_model=channels,
-            C_forward=channels,
             num_datasets=num_datasets,
             probe_mask=probe_mask,
             probe_mask_diameter=(
@@ -424,8 +422,7 @@ class _RealRectBoundary(torch.nn.Module):
         )
         data_config = DataConfig(
             N=detector_size,
-            C=channels,
-            grid_size=(1, 1) if channels == 1 else (3, 3),
+            gridsize=1 if channels == 1 else (3, 3),
         )
         self.model = torch.nn.Module()
         self.model.forward_model = ForwardModel(model_config, data_config)

@@ -69,19 +69,19 @@ def _write_npz(path, diff3d, xcoords, ycoords, probe, obj):
 
 
 def _configs(**data_overrides):
-    data_config = DataConfig(N=N_PIX, grid_size=(1, 1), C=1, K=4, **data_overrides)
-    model_config = ModelConfig(C_model=1, C_forward=1)
+    data_config = DataConfig(N=N_PIX, gridsize=1, K=4, **data_overrides)
+    model_config = ModelConfig()
     training_config = TrainingConfig(batch_size=8)
     return data_config, model_config, training_config
 
 
 def _group_configs(normalize='Group', data_scaling='Parseval'):
     data_config = DataConfig(
-        N=N_PIX, grid_size=(2, 2), C=4, K=6, n_subsample=1,
+        N=N_PIX, gridsize=2, K=6, n_raw_frames_selected=1,
         neighbor_function='4_quadrant', scan_pattern='Isotropic',
         x_bounds=(0.0, 1.0), y_bounds=(0.0, 1.0), normalize=normalize,
         data_scaling=data_scaling)
-    model_config = ModelConfig(C_model=4, C_forward=4, object_big=True)
+    model_config = ModelConfig(object_big=True)
     training_config = TrainingConfig(batch_size=8)
     return data_config, model_config, training_config
 
@@ -169,8 +169,8 @@ def test_memory_map_mixed_mode_directory(tmp_path):
 
 def test_multifile_getitem_preserves_scalar_and_tensor_probe_identity(tmp_path):
     data_config, _, training_config = _configs(
-        x_bounds=(0.0, 1.0), y_bounds=(0.0, 1.0), n_subsample=1)
-    model_config = ModelConfig(C_model=1, C_forward=1, object_big=False)
+        x_bounds=(0.0, 1.0), y_bounds=(0.0, 1.0), n_raw_frames_selected=1)
+    model_config = ModelConfig(object_big=False)
     payload_exp0 = _make_arrays(n_images=12, rng=np.random.default_rng(11))
     payload_exp1 = list(_make_arrays(n_images=12, rng=np.random.default_rng(22)))
     payload_exp1[3] *= 2.5

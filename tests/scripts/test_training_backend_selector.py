@@ -126,7 +126,7 @@ def test_public_factory_override_map_reads_nested_training_config():
     overrides = build_training_factory_overrides(config)
 
     assert overrides["n_groups"] == 7
-    assert overrides["n_subsample"] == 32
+    assert overrides["n_raw_frames_selected"] == 32
     assert overrides["nphotons"] == 2.5e7
     assert overrides["neighbor_count"] == 5
     assert overrides["test_data_file"] == Path("test.npz")
@@ -642,10 +642,8 @@ class TestTrainingCliBackendDispatch:
         mock_pt_model_config = PTModelConfig(
             mode='Supervised',
             loss_function='MAE',
-            C_forward=4,
-            C_model=4,
         )
-        mock_pt_data_config = PTDataConfig(C=4)
+        mock_pt_data_config = PTDataConfig(gridsize=2)
         mock_pt_training_config = PTTrainingConfig(torch_loss_mode='mae')
         mock_payload = SimpleNamespace(
             pt_model_config=mock_pt_model_config,
@@ -762,7 +760,7 @@ class TestTrainingCliBackendDispatch:
             TrainingConfig as PTTrainingConfig,
         )
         mock_payload = MagicMock()
-        mock_payload.pt_model_config = PTModelConfig(mode='Unsupervised', C_forward=4, C_model=4)
+        mock_payload.pt_model_config = PTModelConfig(mode='Unsupervised')
         mock_payload.pt_data_config = PTDataConfig()
         mock_payload.pt_training_config = PTTrainingConfig(
             accum_steps=2,

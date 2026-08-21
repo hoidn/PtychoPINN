@@ -51,8 +51,7 @@ def _write_npz(path, payload):
 def _ci_configs(**data_overrides):
     data_config = DataConfig(
         N=N_PIX,
-        C=1,
-        grid_size=(1, 1),
+        gridsize=1,
         x_bounds=(0.0, 1.0),
         y_bounds=(0.0, 1.0),
         normalize="Batch",
@@ -61,8 +60,6 @@ def _ci_configs(**data_overrides):
     )
     model_config = ModelConfig(
         mode="Unsupervised",
-        C_model=1,
-        C_forward=1,
         object_big=False,
         physics_forward_mode="rectangular_scaled",
         cnn_output_mode="real_imag",
@@ -121,27 +118,23 @@ def test_explicit_legacy_loader_fields_and_tuple_aliases_are_byte_identical(
     payload = _count_intensity_arrays()
     baseline_data = DataConfig(
         N=N_PIX,
-        C=1,
-        grid_size=(1, 1),
+        gridsize=1,
         x_bounds=(0.0, 1.0),
         y_bounds=(0.0, 1.0),
         normalize="Batch",
     )
     legacy_data = DataConfig(
         N=N_PIX,
-        C=1,
-        grid_size=(1, 1),
+        gridsize=1,
         x_bounds=(0.0, 1.0),
         y_bounds=(0.0, 1.0),
         normalize="Batch",
         scale_contract_version="legacy_v1",
         measurement_domain="normalized_amplitude",
     )
-    baseline_model = ModelConfig(C_model=1, C_forward=1, object_big=False)
+    baseline_model = ModelConfig(object_big=False)
     legacy_model = ModelConfig(
         mode="Unsupervised",
-        C_model=1,
-        C_forward=1,
         object_big=False,
         physics_forward_mode="rectangular_scaled",
         cnn_output_mode="real_imag",

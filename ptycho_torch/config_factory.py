@@ -312,7 +312,7 @@ def build_training_factory_overrides(
     if model.model_type == "supervised":
         overrides["torch_loss_mode"] = "mae"
     if sampling.n_subsample is not None:
-        overrides["n_subsample"] = sampling.n_subsample
+        overrides["n_raw_frames_selected"] = sampling.n_subsample
     for name in (
         "fno_modes",
         "fno_width",

@@ -20,7 +20,7 @@ def test_pinn_uses_fno_generator_when_selected():
     from ptycho_torch.model import PtychoPINN
 
     cfg = ModelConfig(architecture="fno")
-    data_cfg = DataConfig(C=1, grid_size=(1, 1), N=64)
+    data_cfg = DataConfig(gridsize=1, N=64)
     train_cfg = TrainingConfig()
 
     model = PtychoPINN(cfg, data_cfg, train_cfg)
@@ -39,7 +39,7 @@ def test_fno_hyperparams_propagate_to_generator():
         fno_blocks=3,
         fno_cnn_blocks=1,
     )
-    data_cfg = DataConfig(C=1, grid_size=(1, 1), N=64)
+    data_cfg = DataConfig(gridsize=1, N=64)
     train_cfg = TrainingConfig()
 
     model = PtychoPINN(cfg, data_cfg, train_cfg)
@@ -64,7 +64,7 @@ def test_fno_generator_forward_pass():
         fno_blocks=2,
         cnn_blocks=1,
         modes=4,
-        C=1,  # gridsize=1
+        C=1,  # generator channel count (not the retired config field)
     )
 
     # Create synthetic input

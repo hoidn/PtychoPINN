@@ -112,7 +112,7 @@ class TestConfigBridgeMVP(unittest.TestCase):
         # 1. Instantiate PyTorch configs with MVP-aligned values
         pt_data = DataConfig(
             N=128,
-            grid_size=(2, 2),
+            gridsize=2,
             nphotons=1e9,
             K=7  # Maps to neighbor_count in TensorFlow
         )
@@ -285,7 +285,6 @@ class TestConfigBridgeParity:
     # ============================================================================
 
     @pytest.mark.parametrize('pt_field,pt_value,tf_field,tf_value', [
-        pytest.param('grid_size', (3, 3), 'gridsize', 3, id='gridsize-tuple-to-int'),
         pytest.param('mode', 'Unsupervised', 'model_type', 'pinn', id='model_type-unsupervised'),
         pytest.param('mode', 'Supervised', 'model_type', 'supervised', id='model_type-supervised'),
         pytest.param('amp_activation', 'silu', 'amp_activation', 'swish', id='amp_activation-silu'),
@@ -302,12 +301,8 @@ class TestConfigBridgeParity:
         from ptycho_torch import config_bridge
 
         # Create PyTorch config with test value
-        if pt_field in ['grid_size']:
-            pt_data = DataConfig(**{pt_field: pt_value})
-            pt_model = ModelConfig()
-        else:
-            pt_data = DataConfig()
-            pt_model = ModelConfig(**{pt_field: pt_value})
+        pt_data = DataConfig()
+        pt_model = ModelConfig(**{pt_field: pt_value})
 
         # Translate to TensorFlow
         tf_model = config_bridge.to_model_config(pt_data, pt_model)
@@ -555,22 +550,8 @@ class TestConfigBridgeParity:
     # Test Case 5: Error Handling & Validation
     # ============================================================================
 
-    @pytest.mark.parametrize('invalid_value,expected_error,error_fragment', [
-        pytest.param((2, 3), ValueError, 'Non-square grids', id='gridsize-non-square'),
-    ])
-    def test_gridsize_error_handling(self, params_cfg_snapshot, invalid_value, expected_error, error_fragment):
-        """Test grid_size validation (non-square grids should raise ValueError)."""
-        from ptycho_torch.config_params import DataConfig, ModelConfig
-        from ptycho_torch import config_bridge
-
-        pt_data = DataConfig(grid_size=invalid_value)
-        pt_model = ModelConfig()
-
-        with pytest.raises(expected_error) as exc_info:
-            config_bridge.to_model_config(pt_data, pt_model)
-
-        assert error_fragment in str(exc_info.value), \
-            f"Error message should contain '{error_fragment}'"
+    # Non-square grid rejection retired with torch-artifact-portable-v3:
+    # DataConfig.gridsize is a plain int, non-square is structurally impossible.
 
     @pytest.mark.parametrize('invalid_value,expected_error,error_fragment', [
         pytest.param('InvalidMode', ValueError, 'Invalid mode', id='model_type-invalid-enum'),
@@ -743,7 +724,7 @@ class TestConfigBridgeParity:
         from ptycho_torch import config_bridge
 
         # PyTorch config with n_subsample=7 (coordinate subsampling, not sample count)
-        pt_data = DataConfig(n_subsample=7)
+        pt_data = DataConfig(n_raw_frames_selected=7)
         pt_model = ModelConfig()
         pt_train = TrainingConfig()
 
@@ -778,7 +759,7 @@ class TestConfigBridgeParity:
         from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig
         from ptycho_torch import config_bridge
 
-        pt_data = DataConfig(n_subsample=7)  # PyTorch coordinate subsampling
+        pt_data = DataConfig(n_raw_frames_selected=7)  # PyTorch coordinate subsampling
         pt_model = ModelConfig()
         pt_train = TrainingConfig()
 
@@ -815,7 +796,7 @@ class TestConfigBridgeParity:
         from ptycho_torch.config_params import DataConfig, ModelConfig, InferenceConfig
         from ptycho_torch import config_bridge
 
-        pt_data = DataConfig(n_subsample=7)  # PyTorch coordinate subsampling
+        pt_data = DataConfig(n_raw_frames_selected=7)  # PyTorch coordinate subsampling
         pt_model = ModelConfig()
         pt_infer = InferenceConfig()
 
@@ -849,7 +830,7 @@ class TestConfigBridgeParity:
         from ptycho_torch.config_params import DataConfig, ModelConfig, InferenceConfig
         from ptycho_torch import config_bridge
 
-        pt_data = DataConfig(n_subsample=7)
+        pt_data = DataConfig(n_raw_frames_selected=7)
         pt_model = ModelConfig()
         pt_infer = InferenceConfig()
 
@@ -1080,7 +1061,7 @@ class TestConfigBridgeParity:
         # Instantiate PyTorch configs with canonical values from supervisor_summary.md
         pt_data = DataConfig(
             N=128,
-            grid_size=(3, 3),  # Produces gridsize=3
+            gridsize=3,  # Produces gridsize=3
             K=6,  # Produces neighbor_count=6
             nphotons=5e8,
             probe_scale=2.0
@@ -1224,7 +1205,7 @@ class TestConfigBridgeParity:
         from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig
         from ptycho_torch import config_bridge
 
-        pt_data = DataConfig(nphotons=1e9, K=4, grid_size=(2, 2))
+        pt_data = DataConfig(nphotons=1e9, K=4, gridsize=2)
         pt_model = ModelConfig()
         pt_train = TrainingConfig()
 
@@ -1295,7 +1276,7 @@ class TestConfigBridgeArchitecture:
         from ptycho_torch.config_params import DataConfig, ModelConfig
         from ptycho_torch import config_bridge
 
-        pt_data = DataConfig(N=64, grid_size=(1, 1))
+        pt_data = DataConfig(N=64, gridsize=1)
         pt_model = ModelConfig()
 
         tf_model = config_bridge.to_model_config(
@@ -1311,7 +1292,7 @@ class TestConfigBridgeArchitecture:
         from ptycho_torch.config_params import DataConfig, ModelConfig
         from ptycho_torch import config_bridge
 
-        pt_data = DataConfig(N=64, grid_size=(1, 1))
+        pt_data = DataConfig(N=64, gridsize=1)
         pt_model = ModelConfig()
 
         tf_model = config_bridge.to_model_config(pt_data, pt_model)
@@ -1323,7 +1304,7 @@ class TestConfigBridgeArchitecture:
         from ptycho_torch.config_params import DataConfig, ModelConfig
         from ptycho_torch import config_bridge
 
-        pt_data = DataConfig(N=64, grid_size=(1, 1))
+        pt_data = DataConfig(N=64, gridsize=1)
         pt_model = ModelConfig(architecture='fno')
 
         tf_model = config_bridge.to_model_config(pt_data, pt_model)
@@ -1335,7 +1316,7 @@ class TestConfigBridgeArchitecture:
         from ptycho_torch.config_params import DataConfig, ModelConfig
         from ptycho_torch import config_bridge
 
-        pt_data = DataConfig(N=64, grid_size=(1, 1))
+        pt_data = DataConfig(N=64, gridsize=1)
         pt_model = ModelConfig(architecture='fno')
         pt_model.fno_input_transform = 'sqrt'
 

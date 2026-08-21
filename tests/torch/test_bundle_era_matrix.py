@@ -5,7 +5,7 @@ import pytest
 
 from tests.torch.era_fixtures import build_bundle
 
-SUPPORTED_ERAS = ["portable_v1", "portable_v2_json"]
+SUPPORTED_ERAS = ["portable_v1", "portable_v2_json", "portable_v3"]
 
 
 @pytest.mark.parametrize("era", SUPPORTED_ERAS)

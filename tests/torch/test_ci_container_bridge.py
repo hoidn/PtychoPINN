@@ -133,16 +133,13 @@ def _payload(*, ci: bool):
     return SimpleNamespace(
         pt_data_config=DataConfig(
             N=N,
-            C=1,
-            grid_size=(1, 1),
+            gridsize=1,
             scale_contract_version=("ci_intensity_v2" if ci else "legacy_v1"),
             measurement_domain=(
                 "count_intensity" if ci else "normalized_amplitude"
             ),
         ),
         pt_model_config=ModelConfig(
-            C_model=1,
-            C_forward=1,
             mode="Unsupervised",
             architecture="cnn",
             physics_forward_mode=("rectangular_scaled" if ci else "amplitude"),

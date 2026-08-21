@@ -55,9 +55,9 @@ TRAINING_INPUTS_BY_OWNER = {
         "N",
         "K",
         "K_quadrant",
-        "n_subsample",
+        "n_raw_frames_selected",
         "subsample_seed",
-        "grid_size",
+        "gridsize",
         "neighbor_function",
         "min_neighbor_distance",
         "max_neighbor_distance",
@@ -184,9 +184,6 @@ TRAINING_INPUTS_BY_OWNER = {
         "sequential_sampling",
     },
     "derived_constraint": {
-        "C",
-        "C_model",
-        "C_forward",
         "loss_function",
         "nll",
         "train_data_file",
@@ -198,7 +195,7 @@ INFERENCE_INPUTS_BY_OWNER = {
     "data": {
         "N",
         "K",
-        "grid_size",
+        "gridsize",
         "probe_scale",
         "subsample_seed",
         "scale_contract_version",
@@ -229,12 +226,9 @@ INFERENCE_INPUTS_BY_OWNER = {
     },
     "bridge": {
         "n_groups",
-        "n_subsample",
+        "n_raw_frames_selected",
     },
     "derived_constraint": {
-        "C",
-        "C_model",
-        "C_forward",
         "model_path",
         "test_data_file",
         "output_dir",
@@ -242,13 +236,11 @@ INFERENCE_INPUTS_BY_OWNER = {
 }
 
 TRAINING_ALIASES = {
-    "gridsize": "grid_size",
     "neighbor_count": "K",
     "model_type": "mode",
     "max_epochs": "epochs",
 }
 INFERENCE_ALIASES = {
-    "gridsize": "grid_size",
     "neighbor_count": "K",
     "model_type": "mode",
 }
@@ -269,13 +261,13 @@ def _aliases_from_rules(rules):
 
 
 def test_training_registry_matches_literal_phase_inventory() -> None:
-    assert len(TRAINING_INPUT_RULES) == 132
+    assert len(TRAINING_INPUT_RULES) == 129
     assert _rules_by_owner(TRAINING_INPUT_RULES) == TRAINING_INPUTS_BY_OWNER
     assert _aliases_from_rules(TRAINING_INPUT_RULES) == TRAINING_ALIASES
 
 
 def test_inference_registry_matches_literal_phase_inventory() -> None:
-    assert len(INFERENCE_INPUT_RULES) == 34
+    assert len(INFERENCE_INPUT_RULES) == 31
     assert _rules_by_owner(INFERENCE_INPUT_RULES) == INFERENCE_INPUTS_BY_OWNER
     assert _aliases_from_rules(INFERENCE_INPUT_RULES) == INFERENCE_ALIASES
 
@@ -326,12 +318,6 @@ def test_inference_patch_rejects_sorted_unknown_names() -> None:
             "Supervised",
         ),
         (
-            normalize_training_patch,
-            {"gridsize": 2, "grid_size": (2, 2)},
-            "grid_size",
-            (2, 2),
-        ),
-        (
             normalize_inference_patch,
             {"neighbor_count": 4, "K": 4},
             "K",
@@ -342,12 +328,6 @@ def test_inference_patch_rejects_sorted_unknown_names() -> None:
             {"model_type": "Supervised", "mode": "Supervised"},
             "mode",
             "Supervised",
-        ),
-        (
-            normalize_inference_patch,
-            {"gridsize": 2, "grid_size": (2, 2)},
-            "grid_size",
-            (2, 2),
         ),
     ],
 )
@@ -390,12 +370,6 @@ def test_equal_alias_and_canonical_are_consumed_once(
             "mode",
         ),
         (
-            normalize_training_patch,
-            {"gridsize": 2, "grid_size": (3, 3)},
-            "gridsize",
-            "grid_size",
-        ),
-        (
             normalize_inference_patch,
             {"neighbor_count": 5, "K": 4},
             "neighbor_count",
@@ -406,12 +380,6 @@ def test_equal_alias_and_canonical_are_consumed_once(
             {"model_type": "Supervised", "mode": "Unsupervised"},
             "model_type",
             "mode",
-        ),
-        (
-            normalize_inference_patch,
-            {"gridsize": 2, "grid_size": (3, 3)},
-            "gridsize",
-            "grid_size",
         ),
     ],
 )
@@ -500,12 +468,9 @@ def test_factory_specific_baselines_lock_all_phase_divergences() -> None:
     training = training_factory_baseline()
     inference = inference_factory_baseline()
 
-    assert training.data.grid_size == (1, 1)
-    assert training.data.C == 1
+    assert training.data.gridsize == 1
     assert training.data.K == 6
     assert training.data.nphotons == 1e9
-    assert training.model.C_model == 1
-    assert training.model.C_forward == 1
     assert training.model.loss_function == "Poisson"
     assert training.model.object_layout == "grouped_patches"
     assert training.model.training_canvas == "relative_overlap"
@@ -517,14 +482,11 @@ def test_factory_specific_baselines_lock_all_phase_divergences() -> None:
     assert training.inference.log_patch_stats is False
     assert training.inference.patch_stats_limit is None
 
-    assert inference.data.grid_size == (1, 1)
-    assert inference.data.C == 1
+    assert inference.data.gridsize == 1
     assert inference.data.K == 4
     assert inference.data.nphotons == DataConfig().nphotons
     assert inference.data.scale_contract_version == "ci_intensity_v2"
     assert inference.data.measurement_domain == "count_intensity"
-    assert inference.model.C_model == 1
-    assert inference.model.C_forward == 1
     assert inference.model.object_layout == "grouped_patches"
     assert inference.model.training_canvas == "relative_overlap"
     assert inference.model.training_patch_weighting == "central_mask"
@@ -555,10 +517,8 @@ def test_training_resolution_returns_fresh_records_without_mutating_inputs() -> 
     probe_mask = torch.ones(4, 4)
     directories = ["existing"]
     baseline = TorchConfigBaseline(
-        data=DataConfig(grid_size=(1, 1), C=1, N=64, nphotons=1e9),
+        data=DataConfig(gridsize=1, N=64, nphotons=1e9),
         model=ModelConfig(
-            C_model=1,
-            C_forward=1,
             probe_mask_tensor=probe_mask,
         ),
         training=TrainingConfig(
@@ -807,47 +767,37 @@ def test_training_resolution_rejects_invalid_effective_owner_domain(
 
 
 @pytest.mark.parametrize("field_name", ["C", "C_model", "C_forward"])
-def test_training_rejects_conflicting_explicit_derived_channel(
+def test_training_rejects_retired_channel_fields_as_unknown(
     field_name: str,
 ) -> None:
     with pytest.raises(
         ValueError,
-        match=rf"{field_name}.*grid_size.*4",
+        match=rf"unknown training input field\(s\): {field_name}",
     ):
-        resolve_training_bundle(
-            baseline=training_factory_baseline(),
-            normalized=normalize_training_patch(
-                {
-                    "grid_size": (2, 2),
-                    field_name: 3,
-                    "n_groups": 1,
-                }
-            ),
-            observations=_training_observations(),
+        normalize_training_patch(
+            {
+                "gridsize": 2,
+                field_name: 3,
+                "n_groups": 1,
+            }
         )
 
 
-def test_equal_explicit_derived_channels_are_accepted_once() -> None:
+def test_derived_channel_is_recorded_once_from_gridsize() -> None:
     resolved = resolve_training_bundle(
         baseline=training_factory_baseline(),
         normalized=normalize_training_patch(
             {
-                "grid_size": (2, 2),
-                "C": 4,
-                "C_model": 4,
-                "C_forward": 4,
+                "gridsize": 2,
                 "n_groups": 1,
             }
         ),
         observations=_training_observations(),
     )
 
-    assert resolved.data.C == 4
-    assert resolved.model.C_model == 4
-    assert resolved.model.C_forward == 4
-    assert resolved.audit["C_source"] == "derived:grid_size"
-    assert resolved.audit["C_model_source"] == "derived:grid_size"
-    assert resolved.audit["C_forward_source"] == "derived:grid_size"
+    assert resolved.data.gridsize == 2
+    assert resolved.audit["C"] == 4
+    assert resolved.audit["C_source"] == "derived:gridsize"
 
 
 @pytest.mark.parametrize(
@@ -956,11 +906,11 @@ def test_probe_fallback_notice_is_deferred_through_later_failure(
 
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        with pytest.raises(ValueError, match="C_model.*grid_size"):
+        with pytest.raises(ValueError, match="gridsize must be a positive integer"):
             resolve_training_bundle(
                 baseline=training_factory_baseline(),
                 normalized=normalize_training_patch(
-                    {"C_model": 2, "n_groups": 1}
+                    {"gridsize": 0, "n_groups": 1}
                 ),
                 observations=observations,
             )
@@ -997,13 +947,13 @@ def test_inference_resolution_is_runtime_only_and_bridge_n_subsample_stays_bridg
     resolved = resolve_inference_bundle(
         baseline=baseline,
         normalized=normalize_inference_patch(
-            {"n_groups": 8, "n_subsample": 19}
+            {"n_groups": 8, "n_raw_frames_selected": 19}
         ),
         observations=_inference_observations(),
     )
 
     assert resolved.data.N == 128
-    assert resolved.data.n_subsample == baseline.data.n_subsample
+    assert resolved.data.n_raw_frames_selected == baseline.data.n_raw_frames_selected
     assert resolved.bridge["n_groups"] == 8
     assert resolved.bridge["n_subsample"] == 19
     assert resolved.bridge["model_path"] == Path("model")
@@ -1495,17 +1445,15 @@ def test_inference_factory_audit_keeps_aliases_provenance_only(
         ),
     )
 
-    assert payload.overrides_applied["grid_size"] == (2, 2)
+    assert payload.overrides_applied["gridsize"] == 2
     assert payload.overrides_applied["K"] == 5
     assert payload.overrides_applied["mode"] == "Unsupervised"
     assert {
-        "gridsize",
         "neighbor_count",
         "model_type",
     }.isdisjoint(payload.overrides_applied)
     assert payload.overrides_applied["input_aliases"] == {
         "K": ("neighbor_count",),
-        "grid_size": ("gridsize",),
         "mode": ("model_type",),
     }
     assert "topology_compatibility" not in payload.overrides_applied

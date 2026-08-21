@@ -55,7 +55,7 @@ class TestPatchStatsCLI:
 
         # Create a minimal mock payload to avoid downstream errors
         mock_payload = MagicMock()
-        mock_payload.pt_data_config = MagicMock(N=64, grid_size=(2,2))
+        mock_payload.pt_data_config = MagicMock(N=64, gridsize=2)
         mock_payload.pt_training_config = MagicMock(epochs=2)
         mock_payload.pt_model_config = MagicMock()
         mock_payload.tf_training_config = MagicMock()
@@ -104,7 +104,7 @@ class TestPatchStatsCLI:
         """
         mock_factory = MagicMock()
         mock_payload = MagicMock()
-        mock_payload.pt_data_config = MagicMock(N=64, grid_size=(2,2))
+        mock_payload.pt_data_config = MagicMock(N=64, gridsize=2)
         mock_payload.pt_training_config = MagicMock(epochs=2)
         mock_payload.pt_model_config = MagicMock()
         mock_payload.tf_training_config = MagicMock()

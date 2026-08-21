@@ -1,5 +1,4 @@
 import json
-import dill
 import io
 import subprocess
 import sys
@@ -58,16 +57,13 @@ def _tiny_configs(*, legacy: bool = False):
     if legacy:
         data_config = DataConfig(
             N=64,
-            C=1,
-            grid_size=(1, 1),
+            gridsize=1,
             scale_contract_version=LEGACY_SCALE_CONTRACT,
             measurement_domain=NORMALIZED_AMPLITUDE,
         )
     else:
-        data_config = DataConfig(N=64, C=1, grid_size=(1, 1))
+        data_config = DataConfig(N=64, gridsize=1)
     model_config = ModelConfig(
-        C_model=1,
-        C_forward=1,
         object_big=False,
         probe_big=False,
         n_filters_scale=1,
@@ -335,11 +331,9 @@ def test_ci_bundle_recovers_profile_configs_and_frozen_statistics(tmp_path):
             weights_only=False,
         )
     assert manifest["backend"] == "pytorch"
-    assert manifest["artifact_schema_version"] == "torch-artifact-portable-v2"
-    assert persisted_identity["schema_version"] == "torch-artifact-portable-v2"
-    assert persisted_identity["model_spec"]["schema_version"] == (
-        "torch-model-spec-portable-v2"
-    )
+    assert manifest["artifact_schema_version"] == "torch-artifact-portable-v3"
+    assert persisted_identity["schema_version"] == "torch-artifact-portable-v3"
+    assert persisted_identity["model_spec"]["schema_version"] == "torch-model-spec-portable-v3"
 
     models, params = components.load_inference_bundle_torch(tmp_path / "bundle")
 

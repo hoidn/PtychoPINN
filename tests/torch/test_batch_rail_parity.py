@@ -28,14 +28,13 @@ def _configs(grid_size=1, *, ci=False, batch_size=4, num_workers=0, strategy="au
         TrainingConfig as PublicTrainingConfig,
     )
 
-    channels = grid_size**2
     data = DataConfig(
         N=N,
-        C=channels,
+        gridsize=grid_size,
         K=1 if grid_size == 1 else 6,
         K_quadrant=8,
-        n_subsample=1,
-        grid_size=(grid_size, grid_size),
+        n_raw_frames_selected=1,
+
         neighbor_function="Nearest" if grid_size == 1 else "4_quadrant",
         scan_pattern="Isotropic",
         x_bounds=(0.0, 1.0),
@@ -45,8 +44,6 @@ def _configs(grid_size=1, *, ci=False, batch_size=4, num_workers=0, strategy="au
         measurement_domain="count_intensity" if ci else "normalized_amplitude",
     )
     model = ModelConfig(
-        C_model=channels,
-        C_forward=channels,
         object_big=grid_size > 1,
         physics_forward_mode="rectangular_scaled" if ci else "amplitude",
         cnn_output_mode="real_imag" if ci else "amp_phase",
@@ -393,12 +390,12 @@ def test_real_lightning_cpu_ddp_shards_train_and_uses_explicit_validation_map(
 
             def configs():
                 data = DataConfig(
-                    N=N, C=1, K=1, n_subsample=1, grid_size=(1, 1),
+                    N=N, K=1, n_raw_frames_selected=1, gridsize=1,
                     x_bounds=(0.0, 1.0), y_bounds=(0.0, 1.0),
                     scale_contract_version="legacy_v1",
                     measurement_domain="normalized_amplitude",
                 )
-                model = ModelConfig(C_model=1, C_forward=1, object_big=False)
+                model = ModelConfig(object_big=False)
                 training = TrainingConfig(
                     batch_size=2, device="cpu", strategy="ddp", num_workers=0,
                     orchestrator="Mlflow",

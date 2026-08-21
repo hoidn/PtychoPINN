@@ -32,8 +32,8 @@ def test_reassembly_offset_sign_matches_tf():
     ).numpy()
 
     # Torch output
-    data_cfg = DataConfig(N=N, grid_size=(1, 1), C=1)
-    model_cfg = ModelConfig(C_forward=1, C_model=1, object_big=True)
+    data_cfg = DataConfig(N=N, gridsize=1)
+    model_cfg = ModelConfig(object_big=True)
     torch_out = reassemble_patches_position_real(
         torch.from_numpy(patch_torch),
         torch.from_numpy(offsets.astype(np.float32)),

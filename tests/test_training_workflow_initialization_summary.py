@@ -93,8 +93,8 @@ def test_pytorch_workflow_returns_initialization_and_summary_path(
 
     payload = argparse.Namespace(
         tf_training_config=config,
-        pt_data_config=DataConfig(N=64, C=1, grid_size=(1, 1)),
-        pt_model_config=TorchModelConfig(C_model=1, C_forward=1),
+        pt_data_config=DataConfig(N=64, gridsize=1),
+        pt_model_config=TorchModelConfig(),
         pt_training_config=TorchTrainingConfig(),
         model_spec=object(),
     )
