@@ -17,15 +17,15 @@ from ptycho.config.resolution import (
     validate_training_config_structure,
 )
 
-_N_IMAGES_DEPRECATION_MESSAGE = (
+_N_IMAGES_DEPRECATION_MESSAGE_TEMPLATE = (
     "Parameter 'n_images' is deprecated and will be removed in a future "
-    "version. Use 'n_groups' instead, which always means the number of "
+    "version. Use '{canonical}' instead, which always means the number of "
     "groups regardless of gridsize."
 )
 
 
 _TRAINING_SAMPLING_FIELDS = frozenset({
-    "n_groups", "n_images", "n_subsample", "subsample_seed",
+    "training_groups", "n_images", "train_raw_selection", "subsample_seed",
     "neighbor_count", "enable_oversampling", "neighbor_pool_size", "sequential_sampling",
 })
 _TRAINING_DATA_FIELDS = frozenset({"train_data_file", "test_data_file", "nphotons"})
@@ -85,20 +85,29 @@ _PUBLIC_RESOLVER_CASES = [
     pytest.param(
         resolve_training_config,
         _training_source,
+        "training_groups",
         id="training",
     ),
     pytest.param(
         resolve_inference_config,
         _inference_source,
+        "inference_groups",
         id="inference",
     ),
 ]
 
 
-def _assert_single_n_images_deprecation(caught_warnings):
+def _assert_single_n_images_deprecation(caught_warnings, canonical):
     assert len(caught_warnings) == 1
     assert caught_warnings[0].category is DeprecationWarning
-    assert str(caught_warnings[0].message) == _N_IMAGES_DEPRECATION_MESSAGE
+    assert str(caught_warnings[0].message) == _N_IMAGES_DEPRECATION_MESSAGE_TEMPLATE.format(
+        canonical=canonical
+    )
+
+
+def _canonical_groups(config, canonical):
+    """Return the canonical group-count field for a resolved config."""
+    return getattr(_sampling(config), canonical)
 
 
 def test_training_file_value_survives_omitted_cli_value():
@@ -148,27 +157,27 @@ def test_training_cli_nested_model_value_overrides_file_value():
 
 def test_inference_file_value_survives_omitted_cli_value():
     config = resolve_inference_config(
-        _inference_source(n_groups=9, model={"N": 128}),
+        _inference_source(inference_groups=9, model={"N": 128}),
         {},
     )
 
-    assert config.training_groups == 9
+    assert config.inference_groups == 9
     assert config.model.N == 128
 
 
 def test_inference_explicit_cli_value_overrides_file():
     config = resolve_inference_config(
-        _inference_source(n_groups=9),
-        {"n_groups": 3},
+        _inference_source(inference_groups=9),
+        {"inference_groups": 3},
     )
 
-    assert config.training_groups == 3
+    assert config.inference_groups == 3
 
 
 def test_inference_yaml_root_values_and_explicit_defaults_resolve_by_precedence():
     config = resolve_inference_config(
         _inference_source(
-            n_groups=9,
+            inference_groups=9,
             neighbor_count=7,
             subsample_seed=123,
             debug=True,
@@ -176,7 +185,7 @@ def test_inference_yaml_root_values_and_explicit_defaults_resolve_by_precedence(
             backend="pytorch",
         ),
         {
-            "n_groups": 3,
+            "inference_groups": 3,
             "neighbor_count": 4,
             "subsample_seed": 45,
             "debug": False,
@@ -185,7 +194,7 @@ def test_inference_yaml_root_values_and_explicit_defaults_resolve_by_precedence(
         },
     )
 
-    assert config.training_groups == 3
+    assert config.inference_groups == 3
     assert config.neighbor_count == 4
     assert config.subsample_seed == 45
     assert config.debug is False
@@ -229,58 +238,61 @@ def test_inference_cli_nested_model_value_overrides_file_flat_value():
 
 
 @pytest.mark.parametrize(
-    ("resolver", "source_factory"),
+    ("resolver", "source_factory", "canonical_groups"),
     _PUBLIC_RESOLVER_CASES,
 )
 def test_n_images_alone_resolves_to_canonical_n_groups(
     resolver,
     source_factory,
+    canonical_groups,
 ):
     with pytest.warns(DeprecationWarning) as caught_warnings:
         config = resolver(source_factory(n_images=7), {})
 
-    _assert_single_n_images_deprecation(caught_warnings)
-    assert _sampling(config).training_groups == 7
+    _assert_single_n_images_deprecation(caught_warnings, canonical_groups)
+    assert _canonical_groups(config, canonical_groups) == 7
     assert _sampling(config).n_images is None
 
 
 @pytest.mark.parametrize(
-    ("resolver", "source_factory"),
+    ("resolver", "source_factory", "canonical_groups"),
     _PUBLIC_RESOLVER_CASES,
 )
 def test_equal_n_images_and_n_groups_in_one_source_are_accepted_once(
     resolver,
     source_factory,
+    canonical_groups,
 ):
     with pytest.warns(DeprecationWarning) as caught_warnings:
         config = resolver(
-            source_factory(n_images=7, n_groups=7),
+            source_factory(n_images=7, **{canonical_groups: 7}),
             {},
         )
 
-    _assert_single_n_images_deprecation(caught_warnings)
-    assert _sampling(config).training_groups == 7
+    _assert_single_n_images_deprecation(caught_warnings, canonical_groups)
+    assert _canonical_groups(config, canonical_groups) == 7
     assert _sampling(config).n_images is None
 
 
 @pytest.mark.parametrize(
-    ("resolver", "source_factory"),
+    ("resolver", "source_factory", "canonical_groups"),
     _PUBLIC_RESOLVER_CASES,
 )
 def test_unequal_n_images_and_n_groups_in_one_source_fail_without_warning(
     resolver,
     source_factory,
+    canonical_groups,
 ):
     with warnings.catch_warnings(record=True) as caught_warnings:
         warnings.simplefilter("always")
         with pytest.raises(ValueError) as error:
             resolver(
-                source_factory(n_images=7, n_groups=9),
+                source_factory(n_images=7, **{canonical_groups: 9}),
                 {},
             )
 
     assert "n_images" in str(error.value)
-    assert "n_groups" in str(error.value)
+    assert canonical_groups in str(error.value)
     assert caught_warnings == []
 
 
@@ -288,33 +300,33 @@ def test_file_n_images_then_cli_n_groups_uses_cli_canonical_value_inference():
     with pytest.warns(DeprecationWarning) as caught_warnings:
         config = resolve_inference_config(
             _inference_source(n_images=7),
-            {"n_groups": 11},
+            {"inference_groups": 11},
         )
 
-    _assert_single_n_images_deprecation(caught_warnings)
-    assert config.training_groups == 11
+    _assert_single_n_images_deprecation(caught_warnings, "inference_groups")
+    assert config.inference_groups == 11
     assert config.n_images is None
 
 
 def test_file_n_images_then_cli_n_groups_conflict_raises_for_training():
     # The training resolver deep-merges sources before pydantic validation.
-    # file sampling={n_images: 7} merged with CLI sampling={n_groups: 11}
-    # gives sampling={n_images: 7, n_groups: 11}, which is a conflict.
+    # file sampling={n_images: 7} merged with CLI sampling={training_groups: 11}
+    # gives sampling={n_images: 7, training_groups: 11}, which is a conflict.
     # Users must use consistent naming within the merged training config.
     import warnings as _warnings
     with _warnings.catch_warnings(record=True) as caught:
         _warnings.simplefilter("always")
-        with pytest.raises(ValueError, match="n_images.*n_groups|n_groups.*n_images|conflicts"):
+        with pytest.raises(ValueError, match="n_images.*training_groups|training_groups.*n_images|conflicts"):
             resolve_training_config(
                 _training_source(n_images=7),
-                {"sampling": {"n_groups": 11}},
+                {"sampling": {"training_groups": 11}},
             )
     # No deprecation warning when conflict is detected before alias resolution
     assert not any(issubclass(w.category, DeprecationWarning) for w in caught)
 
 
 def test_file_n_images_only_training_resolves_to_n_groups():
-    # When only n_images is provided (no n_groups anywhere), the alias resolves
+    # When only n_images is provided (no training_groups anywhere), the alias resolves
     # and a deprecation warning is emitted.
     with pytest.warns(DeprecationWarning) as caught_warnings:
         config = resolve_training_config(
@@ -322,7 +334,7 @@ def test_file_n_images_only_training_resolves_to_n_groups():
             {},
         )
 
-    _assert_single_n_images_deprecation(caught_warnings)
+    _assert_single_n_images_deprecation(caught_warnings, "training_groups")
     assert config.sampling.training_groups == 11
     assert config.sampling.n_images is None
 
@@ -330,43 +342,44 @@ def test_file_n_images_only_training_resolves_to_n_groups():
 def test_file_n_groups_then_cli_n_images_uses_cli_alias_value_inference():
     with pytest.warns(DeprecationWarning) as caught_warnings:
         config = resolve_inference_config(
-            _inference_source(n_groups=7),
+            _inference_source(inference_groups=7),
             {"n_images": 11},
         )
 
-    _assert_single_n_images_deprecation(caught_warnings)
-    assert config.training_groups == 11
+    _assert_single_n_images_deprecation(caught_warnings, "inference_groups")
+    assert config.inference_groups == 11
     assert config.n_images is None
 
 
 def test_file_n_groups_then_cli_n_images_conflict_raises_for_training():
     # The training resolver deep-merges sources before pydantic validation.
-    # file sampling={n_groups: 7} merged with CLI sampling={n_images: 11}
-    # gives sampling={n_groups: 7, n_images: 11}, which is a conflict.
+    # file sampling={training_groups: 7} merged with CLI sampling={n_images: 11}
+    # gives sampling={training_groups: 7, n_images: 11}, which is a conflict.
     import warnings as _warnings
     with _warnings.catch_warnings(record=True) as caught:
         _warnings.simplefilter("always")
-        with pytest.raises(ValueError, match="n_images.*n_groups|n_groups.*n_images|conflicts"):
+        with pytest.raises(ValueError, match="n_images.*training_groups|training_groups.*n_images|conflicts"):
             resolve_training_config(
-                _training_source(n_groups=7),
+                _training_source(training_groups=7),
                 {"sampling": {"n_images": 11}},
             )
     assert not any(issubclass(w.category, DeprecationWarning) for w in caught)
 
 
 @pytest.mark.parametrize(
-    ("resolver", "source_factory"),
+    ("resolver", "source_factory", "canonical_groups"),
     _PUBLIC_RESOLVER_CASES,
 )
 def test_n_groups_without_n_images_emits_no_compatibility_warning(
     resolver,
     source_factory,
+    canonical_groups,
 ):
     with warnings.catch_warnings(record=True) as caught_warnings:
         warnings.simplefilter("always")
-        config = resolver(source_factory(n_groups=7), {})
+        config = resolver(source_factory(**{canonical_groups: 7}), {})
 
-    assert _sampling(config).training_groups == 7
+    assert _canonical_groups(config, canonical_groups) == 7
     assert _sampling(config).n_images is None
     assert caught_warnings == []
 
@@ -377,7 +390,7 @@ def test_failed_structural_resolution_with_n_images_emits_no_warning_inference()
         with pytest.raises(ValueError, match="gridsize"):
             resolve_inference_config(
                 _inference_source(n_images=7, gridsize=0),
-                {"n_groups": 11},
+                {"inference_groups": 11},
             )
 
     assert caught_warnings == []
@@ -400,7 +413,7 @@ def test_failed_structural_resolution_with_n_images_training_warns_then_fails():
 
 
 def test_n_images_resolution_leaves_source_mappings_unchanged_inference():
-    file_values = _inference_source(n_groups=7)
+    file_values = _inference_source(inference_groups=7)
     cli_values = {"n_images": 11}
     original_file = deepcopy(file_values)
     original_cli = deepcopy(cli_values)
@@ -413,7 +426,7 @@ def test_n_images_resolution_leaves_source_mappings_unchanged_inference():
 
 
 def test_n_images_resolution_leaves_source_mappings_unchanged_training():
-    # Use a case where only n_images is in the file (no n_groups anywhere)
+    # Use a case where only n_images is in the file (no training_groups anywhere)
     # so the alias resolves without conflict and sources remain unmodified.
     file_values = _training_source(n_images=7)
     cli_values = {}
@@ -432,18 +445,18 @@ def test_direct_inference_config_n_images_construction_retains_post_init_behavio
     with pytest.warns(DeprecationWarning) as caught_warnings:
         config = _direct_inference_config(n_images=7)
 
-    _assert_single_n_images_deprecation(caught_warnings)
-    assert config.training_groups == 7
+    _assert_single_n_images_deprecation(caught_warnings, "inference_groups")
+    assert config.inference_groups == 7
     assert config.n_images == 7
 
 
 def test_direct_training_config_n_images_construction_clears_n_images():
     # TrainingConfig uses SamplingConfig pydantic validator which clears n_images to None
-    # and sets n_groups from n_images.
+    # and sets training_groups from n_images.
     with pytest.warns(DeprecationWarning) as caught_warnings:
         config = _direct_training_config(n_images=7)
 
-    _assert_single_n_images_deprecation(caught_warnings)
+    _assert_single_n_images_deprecation(caught_warnings, "training_groups")
     assert config.sampling.training_groups == 7
     assert config.sampling.n_images is None
 
@@ -452,17 +465,17 @@ def test_direct_inference_config_n_images_n_groups_conflict_remains_accepted():
     # InferenceConfig __post_init__ accepts conflicting values (both retained, no warning).
     with warnings.catch_warnings(record=True) as caught_warnings:
         warnings.simplefilter("always")
-        config = _direct_inference_config(n_images=7, n_groups=9)
+        config = _direct_inference_config(n_images=7, inference_groups=9)
 
-    assert config.training_groups == 9
+    assert config.inference_groups == 9
     assert config.n_images == 7
     assert caught_warnings == []
 
 
 def test_direct_training_config_n_images_n_groups_conflict_raises():
-    # SamplingConfig pydantic validator rejects conflicting n_images and n_groups.
-    with pytest.raises(ValueError, match="n_images.*n_groups|n_groups.*n_images"):
-        _direct_training_config(n_images=7, n_groups=9)
+    # SamplingConfig pydantic validator rejects conflicting n_images and training_groups.
+    with pytest.raises(ValueError, match="n_images.*training_groups|training_groups.*n_images"):
+        _direct_training_config(n_images=7, training_groups=9)
 
 
 def test_inference_unknown_root_names_are_sorted():
@@ -525,7 +538,7 @@ def test_training_unknown_nested_model_names_are_reported():
         ),
         (
             resolve_inference_config,
-            _inference_source(model={"N": 64}, n_groups=9),
+            _inference_source(model={"N": 64}, inference_groups=9),
             {"N": 128, "output_dir": "cli-output"},
         ),
     ],
@@ -668,7 +681,7 @@ def test_training_and_inference_tensorflow_object_policy_mismatch_fails(
 
 
 @pytest.mark.parametrize(
-    ("resolver", "source_factory"),
+    ("resolver", "source_factory", "canonical_groups"),
     _PUBLIC_RESOLVER_CASES,
 )
 @pytest.mark.parametrize(
@@ -682,6 +695,7 @@ def test_training_and_inference_tensorflow_object_policy_mismatch_fails(
 def test_resolver_object_policy_types_use_stable_value_errors(
     resolver,
     source_factory,
+    canonical_groups,
     field,
     value,
 ):
@@ -830,7 +844,7 @@ def test_resolved_training_legacy_projection_matches_equivalent_direct_config():
                 "test_data_file": None,
             },
             "output_dir": "outputs/train",
-            "sampling": {"n_groups": 7},
+            "sampling": {"training_groups": 7},
         },
         {},
     )
@@ -860,7 +874,7 @@ def test_update_legacy_skip_none_preserves_all_projected_none_sentinels():
                 "test_data_file": None,
             },
             "output_dir": "outputs/train",
-            "sampling": {"n_groups": 7},
+            "sampling": {"training_groups": 7},
         },
         {},
     )
@@ -897,7 +911,7 @@ def test_training_structural_record_can_be_inspected_but_is_not_runnable(
 def _training_cfg_with_flat_updates(train_path, **flat_updates):
     """Build a TrainingConfig from flat kwargs, routing sub-config fields appropriately."""
     data_fields = {"nphotons", "test_data_file"}
-    sampling_fields = {"n_groups", "n_images", "n_subsample", "subsample_seed",
+    sampling_fields = {"training_groups", "n_images", "train_raw_selection", "subsample_seed",
                        "neighbor_count", "enable_oversampling", "neighbor_pool_size"}
     data_kw = {k: flat_updates.pop(k) for k in list(flat_updates) if k in data_fields}
     sampling_kw = {k: flat_updates.pop(k) for k in list(flat_updates) if k in sampling_fields}
@@ -914,8 +928,8 @@ def _training_cfg_with_flat_updates(train_path, **flat_updates):
     [
         ({"batch_size": 0}, "batch_size"),
         ({"nphotons": 0}, "nphotons"),
-        ({"n_groups": 0}, "n_groups"),
-        ({"n_subsample": 0}, "n_subsample"),
+        ({"training_groups": 0}, "training_groups"),
+        ({"train_raw_selection": 0}, "train_raw_selection"),
     ],
 )
 def test_runnable_training_requires_positive_execution_values(

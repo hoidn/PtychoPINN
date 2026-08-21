@@ -82,10 +82,10 @@ _ALIAS_CASES = [
     ('nll_weight', 0.75, 'tf_loss', 'nll_weight'),
     ('realspace_mae_weight', 0.5, 'tf_loss', 'realspace_mae_weight'),
     ('realspace_weight', 0.125, 'tf_loss', 'realspace_weight'),
-    ('n_groups', 32, 'sampling', 'n_groups'),
-    # n_images lifts into sampling, where SamplingConfig converts it to n_groups.
-    ('n_images', 24, 'sampling', 'n_groups'),
-    ('n_subsample', 8, 'sampling', 'n_subsample'),
+    ('training_groups', 32, 'sampling', 'training_groups'),
+    # n_images lifts into sampling, where SamplingConfig converts it to training_groups.
+    ('n_images', 24, 'sampling', 'training_groups'),
+    ('train_raw_selection', 8, 'sampling', 'train_raw_selection'),
     ('subsample_seed', 7, 'sampling', 'subsample_seed'),
     ('neighbor_count', 6, 'sampling', 'neighbor_count'),
     ('enable_oversampling', True, 'sampling', 'enable_oversampling'),

@@ -130,7 +130,7 @@ def test_data_snapshot_projects_every_live_default_into_identity():
         "measurement_domain",
         "N",
         "gridsize",
-        "K",
+        "neighbor_count",
         "n_raw_frames_selected",
         "subsample_seed",
         "x_bounds",
@@ -161,7 +161,7 @@ def test_profile_precedence_and_derived_data_match_the_normative_example():
     assert resolved.simulation.train.object.diffractions_per_object == 4096
     assert resolved.simulation.test.object.diffractions_per_object == 1024
     assert resolved.data.gridsize == 2
-    assert resolved.data.K == 4
+    assert resolved.data.neighbor_count == 4
     assert resolved.data.n_raw_frames_selected == 4096
     assert resolved.training.training_groups == 4096
     assert resolved.training.validation_groups == 1024
@@ -554,7 +554,7 @@ def test_sampling_inequalities_are_inclusive_at_the_boundary():
     )
 
     assert resolved.data.gridsize == 2
-    assert resolved.data.K == 4
+    assert resolved.data.neighbor_count == 4
     assert resolved.training.training_groups == 4
     assert resolved.training.validation_groups == 4
 
@@ -787,9 +787,9 @@ def test_public_boundaries_revalidate_rect_s1s2_initialization_contract(
 def test_public_boundaries_revalidate_replaced_data_snapshots(boundary_name):
     api = _api()
     resolved = _resolve()
-    invalid = replace(resolved, data=replace(resolved.data, K=0))
+    invalid = replace(resolved, data=replace(resolved.data, neighbor_count=0))
 
-    with pytest.raises(ValueError, match=re.escape("data.K")):
+    with pytest.raises(ValueError, match=re.escape("data.neighbor_count")):
         getattr(api, boundary_name)(invalid)
 
 
@@ -1035,14 +1035,15 @@ def test_unknown_profile_fails_with_the_profile_name():
 
 SEALED_SYNTHETIC_LINES_IDENTITY = {
     50: {
-        "digest": "8ecba64a6db509fc5cbe71bd7b97ad62e6a014277d32c5cec5575d557f2ea616",
-        "payload_bytes": 5010,
+        "digest": "67d08a43390564516da61c4da077ca4c0cbebb42b993ed017c5550cfabddb36a",
+        "payload_bytes": 5023,
     },
     5: {
-        "digest": "90db8d19797d2f3bd4ef7c4fc751a762512d71d306cb11b30ab0148f910d3974",
-        "payload_bytes": 5009,
+        "digest": "44c89ee6a6d78b3e2b839dc5b2b45f162075198eb6ce73f98f36ebed95423f8b",
+        "payload_bytes": 5022,
     },
 }
+
 @pytest.mark.parametrize("epochs", (50, 5))
 def test_sealed_synthetic_lines_v1_identity_is_unchanged(epochs):
     """Adding another profile must not move the established public recipe."""

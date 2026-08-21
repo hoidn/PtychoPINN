@@ -300,7 +300,7 @@ class TestSubsampling(unittest.TestCase):
         """Test that new config fields work correctly."""
         config = TrainingConfig(
             model=ModelConfig(N=64),
-            sampling=SamplingConfig(n_images=500, n_subsample=200, subsample_seed=42),
+            sampling=SamplingConfig(n_images=500, train_raw_selection=200, subsample_seed=42),
         )
 
         self.assertEqual(config.sampling.train_raw_selection, 200)

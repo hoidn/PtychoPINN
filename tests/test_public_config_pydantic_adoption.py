@@ -494,7 +494,7 @@ def test_f7_post_init_alias_and_default_behavior_is_stable():
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         canonical = resolve_training_config(
-            {"model": {}, "sampling": {"n_groups": 9, "n_images": None}},
+            {"model": {}, "sampling": {"training_groups": 9, "n_images": None}},
             {},
         )
         validate_training_config_structure(canonical)
@@ -518,7 +518,7 @@ def test_f7_post_init_alias_and_default_behavior_is_stable():
                 ModelConfig(),
                 Path("model"),
                 Path("test.npz"),
-                n_groups=7,
+                inference_groups=7,
             ),
             lambda: resolution._INFERENCE_CONFIG_ADAPTER,
         ),

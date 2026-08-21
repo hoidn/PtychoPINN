@@ -85,8 +85,8 @@ The following mappings are normative. Where not listed, identical field names/ty
 
 - Training lifecycle
   - `TrainingConfig.epochs: int` → `TrainingConfig.nepochs: int` (rename)
-  - `DataConfig.K: int` → `TrainingConfig.neighbor_count: int` (identity; the neighbor count is stated once as `K` on the Torch data config)
-  - `DataConfig.nphotons: float` → `TrainingConfig.nphotons: float`
+  - `DataConfig.neighbor_count: int` → `TrainingConfig.sampling.neighbor_count: int` (identity; the neighbor count is stated once as `neighbor_count` on the Torch data config)
+  - `DataConfig.nphotons: float` → `TrainingConfig.data.nphotons: float`
   - `TrainingConfig.output_dir: PathLike` → `TrainingConfig.output_dir: Path` (normalize to `Path`)
   - `TrainingConfig.debug: bool` → used by PyTorch only; optional carry‑over to TF ignored (no TF field).
 
@@ -100,15 +100,17 @@ The following mappings are normative. Where not listed, identical field names/ty
     `InferenceConfig` has no such field) → `InferenceConfig.model_path: Path`
 
 - Grouping / sampling
-  - `TrainingConfig.n_groups: Optional[int]` → `TrainingConfig.n_groups: Optional[int]` (identity)
-  - `TrainingConfig.n_images: Optional[int]` → `TrainingConfig.n_images: Optional[int]` (deprecated; preserved for compatibility)
-  - `n_subsample` override → `TrainingConfig.sampling.n_subsample: Optional[int]`
+  - `TrainingConfig.training_groups: Optional[int]` → `TrainingConfig.sampling.training_groups: Optional[int]` (identity)
+  - `n_images` is no longer a Torch config field; the TensorFlow
+    `SamplingConfig.n_images` deprecated alias is resolved to
+    `training_groups` by the SamplingConfig validator, not by the bridge.
+  - `train_raw_selection` override → `TrainingConfig.sampling.train_raw_selection: Optional[int]`
     - Raw frames selected before grouping reach TensorFlow through the
-      `n_subsample` override key on `to_training_config`; it lands in
-      `TrainingConfig.sampling.n_subsample`. The override key is still spelled
-      `n_subsample` on this branch (Task 6 owns the rename to
-      `n_raw_frames_selected`). The retired `DataConfig.n_subsample` held two
-      meanings: the training meaning is this override; the inference meaning is
+      `train_raw_selection` override key on `to_training_config`; it lands in
+      `TrainingConfig.sampling.train_raw_selection`. The Torch
+      `DataConfig.n_raw_frames_selected` field names the same quantity but is
+      not read directly by `to_training_config`; callers surface it through the
+      `train_raw_selection` override. The inference meaning is
       `groups_per_center` (repeated neighbor groups per valid center), a
       reconstruction-only runtime argument with no TensorFlow `TrainingConfig`
       field.
@@ -216,7 +218,7 @@ from ptycho_torch import config_bridge
 from ptycho.config.config import update_legacy_dict
 import ptycho.params as params
 
-pt_data = DataConfig(N=128, gridsize=2, nphotons=1e9, K=7)
+pt_data = DataConfig(N=128, gridsize=2, nphotons=1e9, neighbor_count=7)
 pt_model = PTModel(mode='Unsupervised', amp_activation='silu')
 pt_train = PTTrain(
     epochs=50,
@@ -228,7 +230,7 @@ pt_train = PTTrain(
 tf_model = config_bridge.to_model_config(pt_data, pt_model)
 tf_train = config_bridge.to_training_config(
     tf_model, pt_data, pt_model, pt_train,
-    overrides=dict(n_groups=512)
+    overrides=dict(training_groups=512)
 )
 update_legacy_dict(params.cfg, tf_train)
 ```
