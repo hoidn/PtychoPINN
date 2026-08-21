@@ -40,3 +40,18 @@ def test_migration_door_lands_v4_from_historical_era(tmp_path, era):
     models, params = load_inference_bundle_torch(out_zip.parent)
     assert set(models) >= {"autoencoder", "diffraction_to_obj"}
     assert params["artifact_schema_version"] == CURRENT_ARTIFACT_SCHEMA_VERSION
+
+
+def test_migration_door_lands_v4_from_sealed_dill_era_in_one_pass(tmp_path):
+    from ptycho_torch.artifact_schema import CURRENT_ARTIFACT_SCHEMA_VERSION
+    from ptycho_torch.migrate_bundle import migrate_bundle
+
+    source = build_bundle(tmp_path / "src", "dill_sealed_v1")
+    out_zip = migrate_bundle(source, tmp_path / "out")
+
+    import json
+    import zipfile
+
+    with zipfile.ZipFile(out_zip, "r") as archive:
+        manifest = json.loads(archive.read("manifest.json"))
+    assert manifest["artifact_schema_version"] == CURRENT_ARTIFACT_SCHEMA_VERSION

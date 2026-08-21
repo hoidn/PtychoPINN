@@ -969,10 +969,10 @@ def main():
         if args.n_test_groups is None:
             args.n_test_groups = args.n_test_images
     
-    if args.train_raw_selection is not None:
+    if args.n_subsample is not None:
         logger.warning("--n-subsample is deprecated. Use --n-test-subsample instead.")
         if args.n_test_subsample is None:
-            args.n_test_subsample = args.train_raw_selection
+            args.n_test_subsample = args.n_subsample
     
     if args.subsample_seed is not None:
         logger.warning("--subsample-seed is deprecated. Use --test-subsample-seed instead.")
@@ -1002,7 +1002,7 @@ def main():
     final_config = TrainingConfig(
         model=ModelConfig(N=test_data_raw.probeGuess.shape[0], gridsize=restored_gridsize),  # Use restored gridsize!
         train_data_file=Path("dummy.npz"),
-        n_groups=n_groups_to_use,  # Use requested test groups for oversampling
+        training_groups=n_groups_to_use,  # Use requested test groups for oversampling
         neighbor_count=7  # Enable K-choose-C oversampling
     )
     logger.info(f"Final configuration: gridsize={restored_gridsize}, N={test_data_raw.probeGuess.shape[0]}, n_images={test_data_raw.diff3d.shape[0]}")

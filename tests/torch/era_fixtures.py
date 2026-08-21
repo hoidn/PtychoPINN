@@ -214,6 +214,25 @@ def build_bundle(tmp_path: Path, era: str) -> Path:
                 archive.writestr(f"{role}/model.pth", weights)
                 archive.writestr(f"{role}/params.dill", dill.dumps(dict(params)))
         return bundle_dir
+    if era == "dill_sealed_v1":
+        # A dill-era bundle that still carries a sealed v1 identity in
+        # torch_scaling_metadata.pt. The legacy migrator preserves that sealed
+        # identity verbatim, so the migration door must re-encode it to v4 in
+        # the same pass.
+        model = _tiny_model()
+        weights = _state_dict_bytes(model)
+        payload = _payload_as_legacy(_identity_payload(model), _V1)
+        metadata_buffer = io.BytesIO()
+        torch.save(payload, metadata_buffer)
+        manifest = {"models": list(_ROLES), "version": _BUNDLE_VERSION}
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as archive:
+            archive.writestr("manifest.dill", dill.dumps(manifest))
+            for role in _ROLES:
+                archive.writestr(f"{role}/model.pth", weights)
+                archive.writestr(f"{role}/params.dill", dill.dumps(dict(params)))
+            archive.writestr(_METADATA_MEMBER, metadata_buffer.getvalue())
+        return bundle_dir
+
 
     model = _tiny_model()
     weights = _state_dict_bytes(model)

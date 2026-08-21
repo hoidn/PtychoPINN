@@ -94,10 +94,10 @@ def parse_arguments() -> argparse.Namespace:
                        help="Number of groups to process.")
     parser.add_argument("--n_groups", type=int, required=False,
                        default=argparse.SUPPRESS,
-                       help="DEPRECATED: Use --inference-groups instead.")
+                       help="DEPRECATED: Use --inference_groups instead.")
     parser.add_argument("--n_images", type=int, required=False,
                        default=argparse.SUPPRESS,
-                       help="DEPRECATED: Use --inference-groups instead. Number of images/groups to process. Interpretation depends on gridsize: "
+                       help="DEPRECATED: Use --inference_groups instead. Number of images/groups to process. Interpretation depends on gridsize: "
                             "gridsize=1 means individual images, gridsize>1 means number of groups")
     parser.add_argument("--inference_raw_selection", type=int, required=False,
                        default=argparse.SUPPRESS,
@@ -105,7 +105,7 @@ def parse_arguments() -> argparse.Namespace:
                             "When provided, controls data selection separately from grouping.")
     parser.add_argument("--n_subsample", type=int, required=False,
                        default=argparse.SUPPRESS,
-                       help="DEPRECATED: Use --inference-raw-selection instead.")
+                       help="DEPRECATED: Use --inference_raw_selection instead.")
     parser.add_argument("--subsample_seed", type=int, required=False,
                        default=argparse.SUPPRESS,
                        help="Random seed for reproducible subsampling")

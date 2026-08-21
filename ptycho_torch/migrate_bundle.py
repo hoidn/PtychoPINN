@@ -4,16 +4,17 @@
 
 - dill-era / unsealed bundles (``manifest.dill`` or a JSON manifest without an
   ``artifact_schema_version``) are delegated to the heavy legacy migrator in
-  ``scripts/migrate_legacy_bundle.py``.
+  ``scripts/migrate_legacy_bundle.py``; when that migrator preserves a
+  historical sealed identity, the produced bundle is re-encoded at the current
+  era in the same pass.
 - versioned ``torch-artifact-portable-v1..v3`` bundles are strict-loaded and
   re-encoded at the current ``torch-artifact-portable-v4`` era through
   ``bundle_io``/``artifact_schema``.
 - an already-current ``torch-artifact-portable-v4`` bundle raises: there is
   nothing to migrate.
 
-This module imports torch-free so ``python -m ptycho_torch.migrate_bundle --help``
-does not pay the torch import cost; the heavy machinery is lazy-imported only
-once an actual migration is dispatched.
+The heavy machinery (torch, the artifact schema, and the legacy migrator) is
+lazy-imported only once an actual migration is dispatched.
 """
 
 from __future__ import annotations
@@ -21,13 +22,8 @@ from __future__ import annotations
 import argparse
 import io
 import json
-import sys
 import zipfile
 from pathlib import Path
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
 
 _DILL_MANIFEST_MEMBER = "manifest.dill"
 _JSON_MANIFEST_MEMBER = "manifest.json"
@@ -49,30 +45,38 @@ def migrate_bundle(source_dir: Path, out_dir: Path) -> Path:
     if not source_zip.is_file():
         raise FileNotFoundError(f"No wts.h5.zip in {source_dir}")
 
+    out_dir = Path(out_dir)
+
     with zipfile.ZipFile(source_zip, "r") as archive:
         names = set(archive.namelist())
-        members = {name: archive.read(name) for name in names}
 
-    if _DILL_MANIFEST_MEMBER in names:
-        return _migrate_legacy(source_dir, out_dir)
+    if _DILL_MANIFEST_MEMBER in names or _JSON_MANIFEST_MEMBER not in names:
+        return _migrate_legacy_then_reencode(source_dir, out_dir)
 
-    if _JSON_MANIFEST_MEMBER not in names:
-        raise ValueError(
-            f"{source_zip} has neither {_JSON_MANIFEST_MEMBER} nor "
-            f"{_DILL_MANIFEST_MEMBER}; not a Torch bundle."
-        )
+    with zipfile.ZipFile(source_zip, "r") as archive:
+        members = {name: archive.read(name) for name in archive.namelist()}
 
     manifest = json.loads(members[_JSON_MANIFEST_MEMBER])
-    era = _era_of(manifest)
-    if era == "legacy":
-        return _migrate_legacy(source_dir, out_dir)
+    if _era_of(manifest) == "legacy":
+        return _migrate_legacy_then_reencode(source_dir, out_dir)
 
+    return _reencode_to_current(source_zip, out_dir)
+
+
+def _reencode_to_current(source_zip: Path, out_dir: Path) -> Path:
+    """Re-encode a versioned v1..v3 bundle at the current v4 era."""
     from ptycho_torch.artifact_schema import (
         CURRENT_ARTIFACT_SCHEMA_VERSION,
         SUPPORTED_ARTIFACT_SCHEMA_VERSIONS,
         decode_artifact_identity,
         encode_artifact_identity,
     )
+
+    with zipfile.ZipFile(source_zip, "r") as archive:
+        members = {name: archive.read(name) for name in archive.namelist()}
+
+    manifest = json.loads(members[_JSON_MANIFEST_MEMBER])
+    era = _era_of(manifest)
 
     if era == CURRENT_ARTIFACT_SCHEMA_VERSION:
         raise ValueError(f"{source_zip} is already at {era}; nothing to migrate.")
@@ -106,7 +110,6 @@ def migrate_bundle(source_dir: Path, out_dir: Path) -> Path:
     buffer = io.BytesIO()
     torch.save(payload, buffer)
 
-    out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     out_zip = out_dir / "wts.h5.zip"
     with zipfile.ZipFile(out_zip, "w", zipfile.ZIP_DEFLATED) as archive:
@@ -119,8 +122,27 @@ def migrate_bundle(source_dir: Path, out_dir: Path) -> Path:
     return out_zip
 
 
+def _migrate_legacy_then_reencode(source_dir: Path, out_dir: Path) -> Path:
+    """Delegate to the legacy migrator, then re-encode any historical era."""
+    out_zip = _migrate_legacy(source_dir, out_dir)
+
+    from ptycho_torch.artifact_schema import CURRENT_ARTIFACT_SCHEMA_VERSION
+
+    with zipfile.ZipFile(out_zip, "r") as archive:
+        manifest = json.loads(archive.read(_JSON_MANIFEST_MEMBER))
+    if _era_of(manifest) == CURRENT_ARTIFACT_SCHEMA_VERSION:
+        return out_zip  # legacy migrator already sealed a current identity
+    return _reencode_to_current(out_zip, out_dir)
+
+
 def _migrate_legacy(source_dir: Path, out_dir: Path) -> Path:
     """Delegate dill-era / unsealed bundles to the heavy legacy migrator."""
+    import sys
+
+    project_root = Path(__file__).resolve().parents[1]
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
+
     from scripts.migrate_legacy_bundle import migrate_bundle as _legacy_migrate
 
     return _legacy_migrate(Path(source_dir), Path(out_dir))
