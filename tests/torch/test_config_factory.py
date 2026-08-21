@@ -14,7 +14,7 @@ Test Coverage:
     2. Config Bridge Integration (TF dataclass translation)
     3. params.cfg Population (CONFIG-001 compliance)
     4. Override Precedence Rules
-    5. Validation Errors (missing n_groups, invalid paths)
+    5. Validation Errors (missing training_groups, invalid paths)
 
 Design Reference:
     plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/factory_design.md §5
@@ -73,7 +73,7 @@ def test_resolved_torch_records_build_exact_training_payload(tmp_path):
         create_training_payload_from_resolved_configs,
     )
 
-    data = PTDataConfig(N=128, gridsize=2, K=7, nphotons=3e7)
+    data = PTDataConfig(N=128, gridsize=2, neighbor_count=7, nphotons=3e7)
     model = PTModelConfig(
         object_big=True,
         rect_s1s2_trainable=True,
@@ -99,7 +99,7 @@ def test_resolved_torch_records_build_exact_training_payload(tmp_path):
         execution,
         train_data_file=tmp_path / "train.npz",
         output_dir=tmp_path / "run",
-        n_groups=23,
+        training_groups=23,
         parity_scale_mode="fixed",
         parity_fixed_delta=0.75,
         parity_init_scheme="tf_glorot",
@@ -112,7 +112,7 @@ def test_resolved_torch_records_build_exact_training_payload(tmp_path):
     assert payload.execution_config is execution
     assert payload.tf_training_config.data.train_data_file == tmp_path / "train.npz"
     assert payload.tf_training_config.output_dir == tmp_path / "run"
-    assert payload.tf_training_config.sampling.n_groups == 23
+    assert payload.tf_training_config.sampling.training_groups == 23
     assert payload.tf_training_config.model.N == 128
     assert payload.tf_training_config.model.gridsize == 2
     assert payload.model_spec.parity_scale_mode == "fixed"
@@ -126,7 +126,7 @@ def test_resolved_torch_records_preserve_use_all_group_semantics(tmp_path):
         create_training_payload_from_resolved_configs,
     )
 
-    training = PTTrainingConfig(n_groups=None)
+    training = PTTrainingConfig(training_groups=None)
     payload = create_training_payload_from_resolved_configs(
         PTDataConfig(),
         PTModelConfig(),
@@ -135,11 +135,11 @@ def test_resolved_torch_records_preserve_use_all_group_semantics(tmp_path):
         PyTorchExecutionConfig(accelerator="cpu", devices=1),
         train_data_file=tmp_path / "train.npz",
         output_dir=tmp_path / "run",
-        n_groups=None,
+        training_groups=None,
     )
 
-    assert training.n_groups is None
-    assert payload.tf_training_config.sampling.n_groups is None
+    assert training.training_groups is None
+    assert payload.tf_training_config.sampling.training_groups is None
 
 
 def test_datagen_config_converts_owned_fields_to_simulation_without_changing_payload_shape():
@@ -377,7 +377,7 @@ class TestTrainingPayloadStructure:
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 512, 'batch_size': 16},
+            overrides={'training_groups': 512, 'batch_size': 16},
         )
         # GREEN phase assertions (will run after implementation):
         assert is_dataclass(payload)
@@ -388,7 +388,7 @@ class TestTrainingPayloadStructure:
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 512},
+            overrides={'training_groups': 512},
         )
         # GREEN phase:
         assert isinstance(payload.tf_training_config, TFTrainingConfig)
@@ -398,7 +398,7 @@ class TestTrainingPayloadStructure:
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 512},
+            overrides={'training_groups': 512},
         )
         # GREEN phase assertions:
         assert isinstance(payload.pt_data_config, PTDataConfig)
@@ -410,11 +410,11 @@ class TestTrainingPayloadStructure:
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 512, 'batch_size': 8},
+            overrides={'training_groups': 512, 'batch_size': 8},
         )
         # GREEN phase assertions:
-        assert 'n_groups' in payload.overrides_applied
-        assert payload.overrides_applied['n_groups'] == 512
+        assert 'training_groups' in payload.overrides_applied
+        assert payload.overrides_applied['training_groups'] == 512
         assert payload.overrides_applied['batch_size'] == 8
 
     def test_gridsize_sets_channel_count(self, mock_train_npz, temp_output_dir):
@@ -434,7 +434,7 @@ class TestTrainingPayloadStructure:
         payload_gs1 = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={'gridsize': 1, 'n_groups': 512},
+            overrides={'gridsize': 1, 'training_groups': 512},
         )
         assert payload_gs1.pt_data_config.gridsize == 1
         assert payload_gs1.overrides_applied["C"] == 1
@@ -443,7 +443,7 @@ class TestTrainingPayloadStructure:
         payload_gs2 = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={'gridsize': 2, 'n_groups': 512},
+            overrides={'gridsize': 2, 'training_groups': 512},
         )
         assert payload_gs2.pt_data_config.gridsize == 2
         assert payload_gs2.overrides_applied["C"] == 4
@@ -452,7 +452,7 @@ class TestTrainingPayloadStructure:
         payload_default = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 512},
+            overrides={'training_groups': 512},
         )
         assert payload_default.pt_data_config.gridsize >= 1
         assert payload_default.overrides_applied["C"] == (
@@ -464,7 +464,7 @@ class TestTrainingPayloadStructure:
         payload = create_training_payload(
             train_data_file=mock_train_npz_128,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 512},
+            overrides={'training_groups': 512},
         )
         assert payload.pt_data_config.N == 128
         assert payload.tf_training_config.model.N == 128
@@ -475,7 +475,7 @@ class TestTrainingPayloadStructure:
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
             overrides={
-                'n_groups': 512,
+                'training_groups': 512,
                 'model_type': 'Supervised',
             },
         )
@@ -492,7 +492,7 @@ class TestInferencePayloadStructure:
             model_path=mock_checkpoint_dir,
             test_data_file=mock_test_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 128},
+            overrides={'inference_groups': 128},
         )
         # GREEN phase:
         assert isinstance(payload, InferencePayload)
@@ -503,7 +503,7 @@ class TestInferencePayloadStructure:
             model_path=mock_checkpoint_dir,
             test_data_file=mock_test_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 128},
+            overrides={'inference_groups': 128},
         )
         # GREEN phase:
         assert isinstance(payload.tf_inference_config, TFInferenceConfig)
@@ -514,7 +514,7 @@ class TestInferencePayloadStructure:
             model_path=mock_checkpoint_dir,
             test_data_file=mock_test_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 128},
+            overrides={'inference_groups': 128},
         )
         # GREEN phase assertions:
         assert isinstance(payload.pt_data_config, PTDataConfig)
@@ -525,7 +525,7 @@ class TestInferencePayloadStructure:
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 128, 'varpro_scaling': False},
+            overrides={'training_groups': 128, 'varpro_scaling': False},
         )
 
         assert payload.pt_inference_config.varpro_scaling is False
@@ -536,7 +536,7 @@ class TestInferencePayloadStructure:
             model_path=mock_checkpoint_dir,
             test_data_file=mock_test_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 128, 'varpro_scaling': False},
+            overrides={'inference_groups': 128, 'varpro_scaling': False},
         )
 
         assert payload.pt_inference_config.varpro_scaling is False
@@ -563,7 +563,7 @@ class TestConfigBridgeTranslation:
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 512, 'gridsize': 2},
+            overrides={'training_groups': 512, 'gridsize': 2},
         )
         assert payload.pt_data_config.gridsize == 2
         assert payload.tf_training_config.model.gridsize == 2
@@ -573,7 +573,7 @@ class TestConfigBridgeTranslation:
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 512, 'max_epochs': 20},
+            overrides={'training_groups': 512, 'max_epochs': 20},
         )
         # GREEN phase assertions:
         assert payload.pt_training_config.epochs == 20  # PyTorch naming
@@ -584,10 +584,10 @@ class TestConfigBridgeTranslation:
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 512, 'neighbor_count': 7},
+            overrides={'training_groups': 512, 'neighbor_count': 7},
         )
         # GREEN phase assertions:
-        assert payload.pt_data_config.K == 7  # PyTorch K
+        assert payload.pt_data_config.neighbor_count == 7  # PyTorch K
         assert payload.tf_training_config.sampling.neighbor_count == 7  # TensorFlow naming
 
 
@@ -612,13 +612,13 @@ class TestLegacyParamsPopulation:
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 512, 'gridsize': 2},
+            overrides={'training_groups': 512, 'gridsize': 2},
         )
 
         # GREEN phase assertions:
         assert ptycho.params.cfg['gridsize'] == 2
         assert ptycho.params.cfg['N'] == 64  # Inferred from NPZ
-        assert ptycho.params.cfg['n_groups'] == 512
+        assert ptycho.params.cfg['training_groups'] == 512
 
     def test_populate_legacy_params_helper(self, mock_train_npz, temp_output_dir):
         """populate_legacy_params() wrapper calls update_legacy_dict."""
@@ -628,7 +628,7 @@ class TestLegacyParamsPopulation:
         tf_config = TrainingConfig(
             model=ModelConfig(N=64, gridsize=2),
             data=DataConfig(train_data_file=mock_train_npz),
-            sampling=SamplingConfig(n_groups=512),
+            sampling=SamplingConfig(training_groups=512),
         )
 
         # Clear params.cfg
@@ -663,7 +663,7 @@ def test_training_model_spec_failure_precedes_legacy_commit(
         factory.create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={"n_groups": 1},
+            overrides={"training_groups": 1},
         )
 
     assert commits == []
@@ -696,7 +696,7 @@ def test_inference_payload_failure_precedes_legacy_commit(
             model_path=mock_checkpoint_dir,
             test_data_file=mock_test_npz,
             output_dir=temp_output_dir,
-            overrides={"n_groups": 1},
+            overrides={"inference_groups": 1},
         )
 
     assert commits == []
@@ -723,10 +723,10 @@ class TestOverridePrecedence:
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 1024, 'batch_size': 16},
+            overrides={'training_groups': 1024, 'batch_size': 16},
         )
         # GREEN phase assertions:
-        assert payload.tf_training_config.sampling.n_groups == 1024  # Override wins
+        assert payload.tf_training_config.sampling.training_groups == 1024  # Override wins
         assert payload.tf_training_config.batch_size == 16
 
     def test_probe_size_override_wins_over_inference(self, mock_train_npz, temp_output_dir):
@@ -735,7 +735,7 @@ class TestOverridePrecedence:
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 512, 'N': 128},
+            overrides={'training_groups': 512, 'N': 128},
         )
         # GREEN phase:
         assert payload.tf_training_config.model.N == 128
@@ -745,7 +745,7 @@ class TestOverridePrecedence:
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 128},
+            overrides={'training_groups': 128},
         )
         assert payload.tf_training_config.data.nphotons == TFTrainingConfig(model=TFModelConfig()).data.nphotons
 
@@ -754,7 +754,7 @@ class TestOverridePrecedence:
         payload = create_training_payload(
             train_data_file=mock_train_npz_with_metadata,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 128},
+            overrides={'training_groups': 128},
         )
         assert payload.tf_training_config.data.nphotons == 5e8
 
@@ -769,19 +769,19 @@ class TestFactoryValidation:
 
     Critical validations:
         - train_data_file / test_data_file path existence
-        - n_groups required in overrides (no default)
+        - training_groups required in overrides (no default)
         - model_path must contain wts.h5.zip
         - NPZ field validation (diffraction, probeGuess present)
     """
 
     def test_missing_n_groups_raises_error(self, mock_train_npz, temp_output_dir):
-        """Factory raises ValueError if n_groups missing from overrides."""
-        # Omit n_groups (required field)
-        with pytest.raises(ValueError, match="n_groups is required"):
+        """Factory raises ValueError if training_groups missing from overrides."""
+        # Omit training_groups (required field)
+        with pytest.raises(ValueError, match="training_groups is required"):
             payload = create_training_payload(
                 train_data_file=mock_train_npz,
                 output_dir=temp_output_dir,
-                overrides={},  # Missing n_groups!
+                overrides={},  # Missing training_groups!
             )
 
     def test_nonexistent_train_data_file_raises_error(self, temp_output_dir):
@@ -790,7 +790,7 @@ class TestFactoryValidation:
             payload = create_training_payload(
                 train_data_file=Path("/nonexistent/train.npz"),
                 output_dir=temp_output_dir,
-                overrides={'n_groups': 512},
+                overrides={'training_groups': 512},
             )
 
     def test_missing_checkpoint_raises_error(self, mock_test_npz, temp_output_dir):
@@ -803,7 +803,7 @@ class TestFactoryValidation:
                 model_path=bad_checkpoint_dir,
                 test_data_file=mock_test_npz,
                 output_dir=temp_output_dir,
-                overrides={'n_groups': 128},
+                overrides={'training_groups': 128},
             )
 
 
@@ -834,7 +834,7 @@ class TestExecutionConfigOverrides:
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 512},
+            overrides={'training_groups': 512},
         )
         # GREEN phase assertion:
         assert payload.execution_config is not None
@@ -848,7 +848,7 @@ class TestExecutionConfigOverrides:
             model_path=mock_checkpoint_dir,
             test_data_file=mock_test_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 128},
+            overrides={'inference_groups': 128},
         )
         # GREEN phase:
         assert payload.execution_config is not None
@@ -862,7 +862,7 @@ class TestExecutionConfigOverrides:
             model_path=mock_checkpoint_dir,
             test_data_file=mock_test_npz,
             output_dir=temp_output_dir,
-            overrides={"n_groups": 128, "object_big": True},
+            overrides={"inference_groups": 128, "object_big": True},
         )
 
         assert payload.tf_inference_config.model.object_big is True
@@ -876,7 +876,7 @@ class TestExecutionConfigOverrides:
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 512},
+            overrides={'training_groups': 512},
         )
         # GREEN phase assertions (verify defaults from PyTorchExecutionConfig):
         exec_cfg = payload.execution_config
@@ -907,7 +907,7 @@ class TestExecutionConfigOverrides:
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 512},
+            overrides={'training_groups': 512},
             execution_config=request,
         )
         # GREEN phase assertions:
@@ -920,7 +920,7 @@ class TestExecutionConfigOverrides:
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 512},
+            overrides={'training_groups': 512},
         )
         # GREEN phase: Verify key execution knobs are accessible
         exec_cfg = payload.execution_config
@@ -949,7 +949,7 @@ class TestExecutionConfigOverrides:
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 512, 'batch_size': 8},
+            overrides={'training_groups': 512, 'batch_size': 8},
             execution_config=request,
         )
         # GREEN phase assertions:
@@ -994,7 +994,7 @@ class TestExecutionConfigOverrides:
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 512},
+            overrides={'training_groups': 512},
             execution_config=request,
         )
 
@@ -1022,7 +1022,7 @@ class TestExecutionConfigOverrides:
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 512},
+            overrides={'training_groups': 512},
         )
 
         # GREEN phase assertions (verify defaults from PyTorchExecutionConfig):
@@ -1040,7 +1040,7 @@ class TestExecutionConfigOverrides:
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 512, 'scheduler': 'Exponential'},
+            overrides={'training_groups': 512, 'scheduler': 'Exponential'},
         )
 
         assert payload.pt_training_config.scheduler == 'Exponential'
@@ -1056,7 +1056,7 @@ class TestExecutionConfigOverrides:
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 512, 'accum_steps': 4},
+            overrides={'training_groups': 512, 'accum_steps': 4},
         )
 
         assert payload.pt_training_config.accum_steps == 4
@@ -1093,7 +1093,7 @@ class TestExecutionConfigOverrides:
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 512},
+            overrides={'training_groups': 512},
             execution_config=request,
         )
 
@@ -1131,7 +1131,7 @@ class TestExecutionConfigOverrides:
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 512},
+            overrides={'training_groups': 512},
             execution_config=request,
         )
 
@@ -1153,7 +1153,7 @@ def test_training_optimizer_inputs_resolve_from_canonical_overrides(
         train_data_file=mock_train_npz,
         output_dir=temp_output_dir,
         overrides={
-            "n_groups": 4,
+            "training_groups": 4,
             "learning_rate": 3e-4,
             "scheduler": "Exponential",
             "gradient_clip_val": 5.0,
@@ -1187,7 +1187,7 @@ def test_runtime_request_does_not_override_training_baseline(
     payload = create_training_payload(
         train_data_file=mock_train_npz,
         output_dir=temp_output_dir,
-        overrides={"n_groups": 4},
+        overrides={"training_groups": 4},
         training_baseline=PTTrainingConfig(learning_rate=4e-4),
         execution_config=request,
     )
@@ -1206,7 +1206,7 @@ def test_factory_rejects_bare_resolved_execution_carrier(
         create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={"n_groups": 4},
+            overrides={"training_groups": 4},
             execution_config=PyTorchExecutionConfig(),
         )
 
@@ -1223,13 +1223,13 @@ def test_execution_ownership_public_scheduler_is_baseline_not_explicit_patch(
     baseline = create_training_payload(
         train_data_file=mock_train_npz,
         output_dir=temp_output_dir,
-        overrides={"n_groups": 4},
+        overrides={"training_groups": 4},
         training_baseline=public,
     )
     canonical = create_training_payload(
         train_data_file=mock_train_npz,
         output_dir=temp_output_dir,
-        overrides={"n_groups": 4, "scheduler": "WarmupCosine"},
+        overrides={"training_groups": 4, "scheduler": "WarmupCosine"},
         training_baseline=public,
     )
 
@@ -1265,7 +1265,7 @@ def test_execution_domain_rejects_invalid_effective_training_owner(
         create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={"n_groups": 4, field_name: invalid},
+            overrides={"training_groups": 4, field_name: invalid},
             execution_config=ExecutionRequest(
                 values={"accelerator": "cpu"},
                 explicit_fields=frozenset({"accelerator"}),
@@ -1292,7 +1292,7 @@ def test_execution_domain_accepts_complete_torch_scheduler_set(
     payload = create_training_payload(
         train_data_file=mock_train_npz,
         output_dir=temp_output_dir,
-        overrides={"n_groups": 4, "scheduler": scheduler},
+        overrides={"training_groups": 4, "scheduler": scheduler},
         execution_config=ExecutionRequest(
             values={"accelerator": "cpu"},
             explicit_fields=frozenset({"accelerator"}),
@@ -1317,7 +1317,7 @@ def test_execution_deferred_invalid_patch_does_not_observe_capabilities(
         create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={"n_groups": 4, "learning_rate": 0.0},
+            overrides={"training_groups": 4, "learning_rate": 0.0},
             execution_config=ExecutionRequest(
                 values={"accelerator": "auto"},
                 explicit_fields=frozenset({"accelerator"}),
@@ -1338,7 +1338,7 @@ def test_execution_deferred_none_does_not_observe_before_scientific_validation(
         lambda: observed.append(True),
     )
 
-    with pytest.raises(ValueError, match="n_groups is required"):
+    with pytest.raises(ValueError, match="training_groups is required"):
         create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
@@ -1356,7 +1356,7 @@ def test_execution_provenance_cuda_auto_resolution_is_audited(
     payload = create_training_payload(
         train_data_file=mock_train_npz,
         output_dir=temp_output_dir,
-        overrides={"n_groups": 4},
+        overrides={"training_groups": 4},
         execution_config=ExecutionRequest(
             values={
                 "accelerator": "auto",
@@ -1424,7 +1424,7 @@ def test_execution_values_excluded_from_identity(
     payload = create_training_payload(
         train_data_file=mock_train_npz,
         output_dir=temp_output_dir,
-        overrides={"n_groups": 4},
+        overrides={"training_groups": 4},
         execution_config=ExecutionRequest(
             values=request_values,
             explicit_fields=frozenset(request_values),
@@ -1522,7 +1522,7 @@ def test_execution_provenance_auto_cpu_fallback_uses_injected_capabilities(
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={"n_groups": 4},
+            overrides={"training_groups": 4},
             execution_config=ExecutionRequest(
                 values={"accelerator": "auto", "devices": "auto"},
                 explicit_fields=frozenset({"accelerator", "devices"}),
@@ -1556,7 +1556,7 @@ def test_execution_deferred_explicit_concrete_runtime_skips_capability_observer(
     payload = create_training_payload(
         train_data_file=mock_train_npz,
         output_dir=temp_output_dir,
-        overrides={"n_groups": 4},
+        overrides={"training_groups": 4},
         execution_config=ExecutionRequest(
             values={"accelerator": accelerator, "devices": 2},
             explicit_fields=frozenset({"accelerator", "devices"}),
@@ -1582,7 +1582,7 @@ def test_execution_deferred_invalid_accelerator_fails_before_observer(
         create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={"n_groups": 4},
+            overrides={"training_groups": 4},
             execution_config=ExecutionRequest(
                 values={"accelerator": "tpu"},
                 explicit_fields=frozenset({"accelerator"}),
@@ -1606,7 +1606,7 @@ def test_execution_deferred_resolved_constructor_does_not_repeat_cuda_lookup(
     payload = create_training_payload(
         train_data_file=mock_train_npz,
         output_dir=temp_output_dir,
-        overrides={"n_groups": 4},
+        overrides={"training_groups": 4},
         execution_config=ExecutionRequest(
             values={"accelerator": "auto", "devices": 2},
             explicit_fields=frozenset({"accelerator", "devices"}),
@@ -1630,7 +1630,7 @@ def test_execution_provenance_cpu_runtime_downgrades_are_deferred_and_audited(
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={"n_groups": 4},
+            overrides={"training_groups": 4},
             execution_config=ExecutionRequest(
                 values={
                     "accelerator": "cpu",
@@ -1673,7 +1673,7 @@ def test_execution_inference_accepts_runtime_request_and_rejects_optimizer(
         model_path=mock_checkpoint_dir,
         test_data_file=mock_test_npz,
         output_dir=temp_output_dir,
-        overrides={"n_groups": 4},
+        overrides={"inference_groups": 4},
         execution_config=ExecutionRequest(
             values={"accelerator": "cpu", "devices": "auto"},
             explicit_fields=frozenset({"accelerator", "devices"}),
@@ -1691,7 +1691,7 @@ def test_execution_inference_accepts_runtime_request_and_rejects_optimizer(
             model_path=mock_checkpoint_dir,
             test_data_file=mock_test_npz,
             output_dir=temp_output_dir,
-            overrides={"n_groups": 4, "learning_rate": 1e-3},
+            overrides={"inference_groups": 4, "learning_rate": 1e-3},
             execution_config=ExecutionRequest(
                 values={"accelerator": "cpu"},
                 explicit_fields=frozenset({"accelerator"}),
@@ -1709,7 +1709,7 @@ def test_execution_inference_rejects_bare_resolved_carrier(
             model_path=mock_checkpoint_dir,
             test_data_file=mock_test_npz,
             output_dir=temp_output_dir,
-            overrides={"n_groups": 4},
+            overrides={"inference_groups": 4},
             execution_config=PyTorchExecutionConfig(),
         )
 
@@ -1726,7 +1726,7 @@ class TestGeneratorOutputModeOverrides:
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
             overrides={
-                'n_groups': 512,
+                'training_groups': 512,
                 'architecture': 'fno',
                 'generator_output_mode': 'amp_phase_logits',
             },
@@ -1752,7 +1752,7 @@ class TestVarProProbeWeightingKnobOverrides:
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 512, 'cnn_output_mode': 'real_imag'},
+            overrides={'training_groups': 512, 'cnn_output_mode': 'real_imag'},
         )
         assert payload.pt_model_config.cnn_output_mode == 'real_imag'
 
@@ -1761,7 +1761,7 @@ class TestVarProProbeWeightingKnobOverrides:
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 512, 'use_shared_decoder': True},
+            overrides={'training_groups': 512, 'use_shared_decoder': True},
         )
         assert payload.pt_model_config.use_shared_decoder is True
 
@@ -1776,7 +1776,7 @@ class TestVarProProbeWeightingKnobOverrides:
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 512, 'training_patch_weighting': 'probe'},
+            overrides={'training_groups': 512, 'training_patch_weighting': 'probe'},
         )
         assert payload.pt_model_config.training_patch_weighting == 'probe'
 
@@ -1785,7 +1785,7 @@ class TestVarProProbeWeightingKnobOverrides:
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 512, 'physics_forward_mode': 'rectangular_scaled'},
+            overrides={'training_groups': 512, 'physics_forward_mode': 'rectangular_scaled'},
         )
         assert payload.pt_model_config.physics_forward_mode == 'rectangular_scaled'
 
@@ -1794,7 +1794,7 @@ class TestVarProProbeWeightingKnobOverrides:
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
-            overrides={'n_groups': 512, 'rect_s1s2_trainable': False},
+            overrides={'training_groups': 512, 'rect_s1s2_trainable': False},
         )
         assert payload.pt_model_config.rect_s1s2_trainable is False
 
@@ -1826,7 +1826,7 @@ class TestTrainWithLightningVarProProbeWeightingForwarding:
         cfg = TFTrainingConfig(
             model=TFModelConfig(N=64, gridsize=1, architecture="fno"),
             data=TFDataConfig2(train_data_file=mock_train_npz),
-            sampling=TFSamplingConfig2(n_groups=4),
+            sampling=TFSamplingConfig2(training_groups=4),
             output_dir=temp_output_dir,
             backend="pytorch",
         )
@@ -1876,7 +1876,7 @@ class TestTrainWithLightningVarProProbeWeightingForwarding:
         cfg = TFTrainingConfig(
             model=TFModelConfig(N=64, gridsize=1, architecture="fno"),
             data=TFDataConfig2(train_data_file=mock_train_npz),
-            sampling=TFSamplingConfig2(n_groups=4),
+            sampling=TFSamplingConfig2(training_groups=4),
             output_dir=temp_output_dir,
             backend="pytorch",
         )

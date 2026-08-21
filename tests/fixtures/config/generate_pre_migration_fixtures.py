@@ -21,6 +21,7 @@ import torch
 from ptycho.config.config import ModelConfig as CanonicalModelConfig
 from ptycho_torch.artifact_schema import (
     ARTIFACT_SCHEMA_V1_VERSION,
+    ARTIFACT_SCHEMA_V3_VERSION,
     PORTABLE_V1_DATA_FIELDS,
     PORTABLE_V1_INFERENCE_FIELDS,
     PORTABLE_V1_TRAINING_FIELDS,
@@ -54,7 +55,7 @@ def _configuration_identity():
         scale_contract_version="legacy_v1",
         measurement_domain="normalized_amplitude",
         N=128,
-        K=9,
+        neighbor_count=9,
         K_quadrant=11,
         n_raw_frames_selected=3,
         subsample_seed=17,
@@ -202,7 +203,7 @@ def _configuration_identity():
         output_dir="outputs/pydantic-wire",
         train_data_file="datasets/train.npz",
         test_data_file="datasets/test.npz",
-        n_groups=13,
+        training_groups=13,
     )
     inference = InferenceConfig(
         middle_trim=24,
@@ -246,11 +247,18 @@ def _project_portable_v1(
     data_config = {
         name: getattr(data, name)
         for name in PORTABLE_V1_DATA_FIELDS
-        if name not in ("C", "grid_size", "n_subsample")
+        if name not in ("C", "grid_size", "n_subsample", "K")
     }
     data_config["C"] = channels
     data_config["grid_size"] = (data.gridsize, data.gridsize)
     data_config["n_subsample"] = data.n_raw_frames_selected
+    data_config["K"] = data.neighbor_count
+    training_config = {
+        name: getattr(training, name)
+        for name in PORTABLE_V1_TRAINING_FIELDS
+        if name != "n_groups"
+    }
+    training_config["n_groups"] = training.training_groups
     return {
         "backend": portable_v2["backend"],
         "schema_version": ARTIFACT_SCHEMA_V1_VERSION,
@@ -262,10 +270,7 @@ def _project_portable_v1(
             "parity_init_scheme": spec.parity_init_scheme,
         },
         "data_config": data_config,
-        "training_config": {
-            name: getattr(training, name)
-            for name in PORTABLE_V1_TRAINING_FIELDS
-        },
+        "training_config": training_config,
         "inference_config": {
             name: getattr(inference, name)
             for name in PORTABLE_V1_INFERENCE_FIELDS
@@ -308,19 +313,34 @@ def _tensor_mask_payload(
     }
 
 
+def _downgrade_to_v3(payload: dict[str, Any]) -> dict[str, Any]:
+    """Project a current (v4) identity payload down to the frozen v3 wire shape."""
+    downgraded = dict(payload)
+    downgraded["schema_version"] = ARTIFACT_SCHEMA_V3_VERSION
+    data = dict(payload["data_config"])
+    data["K"] = data.pop("neighbor_count")
+    downgraded["data_config"] = data
+    training = dict(payload["training_config"])
+    training["n_groups"] = training.pop("training_groups")
+    downgraded["training_config"] = training
+    return downgraded
+
+
 def build_fixture_payloads() -> dict[str, dict[str, Any]]:
     canonical, data, model, training, inference, spec = (
         _configuration_identity()
     )
-    portable_v2 = encode_artifact_identity(
-        spec,
-        data,
-        training,
-        inference,
-        ci_statistics={
-            "rms_input_scale": torch.tensor([0.125, 0.25]),
-            "rms_probe_scale": torch.tensor([2.0]),
-        },
+    portable_v2 = _downgrade_to_v3(
+        encode_artifact_identity(
+            spec,
+            data,
+            training,
+            inference,
+            ci_statistics={
+                "rms_input_scale": torch.tensor([0.125, 0.25]),
+                "rms_probe_scale": torch.tensor([2.0]),
+            },
+        )
     )
     portable_v1 = _project_portable_v1(
         portable_v2,

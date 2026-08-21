@@ -376,7 +376,7 @@ Examples:
 
         # Build overrides dict from CLI arguments
         overrides = {
-            'n_groups': args.n_images,
+            'training_groups': args.n_images,
             'batch_size': args.batch_size,
             'gridsize': args.gridsize,
             'max_epochs': args.max_epochs,

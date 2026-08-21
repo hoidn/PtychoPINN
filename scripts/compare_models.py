@@ -969,10 +969,10 @@ def main():
         if args.n_test_groups is None:
             args.n_test_groups = args.n_test_images
     
-    if args.n_subsample is not None:
+    if args.train_raw_selection is not None:
         logger.warning("--n-subsample is deprecated. Use --n-test-subsample instead.")
         if args.n_test_subsample is None:
-            args.n_test_subsample = args.n_subsample
+            args.n_test_subsample = args.train_raw_selection
     
     if args.subsample_seed is not None:
         logger.warning("--subsample-seed is deprecated. Use --test-subsample-seed instead.")

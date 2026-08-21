@@ -577,7 +577,7 @@ def run_training(
         execution_config,
         train_data_file=train_npz,
         output_dir=run_dir,
-        n_groups=runtime_training_config.n_groups,
+        training_groups=runtime_training_config.training_groups,
         parity_scale_mode=parity_scale_mode,
         parity_fixed_delta=parity_fixed_delta,
         parity_init_scheme=parity_init_scheme,

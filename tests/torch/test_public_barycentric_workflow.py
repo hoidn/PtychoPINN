@@ -66,7 +66,7 @@ def _model_stub(
 ):
     data_config = DataConfig(
         N=N,
-        K=max(C, 4),
+        neighbor_count=max(C, 4),
         gridsize=2,
         n_raw_frames_selected=4096,
         subsample_seed=31415,
@@ -90,7 +90,7 @@ def _model_stub(
         data_config=data_config,
         model_config=model_config,
         training_config=TrainingConfig(
-            device="cpu", num_workers=0, n_groups=training_groups
+            device="cpu", num_workers=0, training_groups=training_groups
         ),
         inference_config=InferenceConfig(
             patch_weighting="probe",
@@ -122,7 +122,7 @@ def _expected_workflow_for_model(
     training_values = {
         name: value
         for name, value in vars(model.training_config).items()
-        if name != "n_groups"
+        if name != "training_groups"
     }
     return _ExpectedWorkflow(
         data=SimpleNamespace(**vars(model.data_config)),
@@ -375,7 +375,7 @@ def test_training_groups_alias_must_match_loaded_training_config(tmp_path, monke
     _, _, _, reconstruct = _install_stubs(monkeypatch, model)
 
     with pytest.raises(
-        ValueError, match=r"training\.training_groups.*training_config\.n_groups"
+        ValueError, match=r"resolved_workflow\.training\.training_groups mismatch"
     ):
         reconstruct_npz_barycentric(
             bundle,

@@ -85,7 +85,7 @@ def _create_legacy_model(gridsize: int, N: int, params_dict: dict):
     data_config = DataConfig(
         N=N,
         gridsize=gridsize,
-        K=params_dict.get("neighbor_count", 6),
+        neighbor_count=params_dict.get("neighbor_count", 6),
         nphotons=params_dict.get("nphotons", 1e5),
         scale_contract_version="legacy_v1",
         measurement_domain="normalized_amplitude",

@@ -47,7 +47,7 @@ POISSON_SEEDS = {"train": 50_017, "test": 50_018}
 
 def extract_unique_scan_positions(npz_path: Path) -> tuple:
     """Recover flat, unique absolute scan positions from a frozen gs2 grouped
-    npz (coords_nominal/coords_offsets, shape (n_groups, 1, 2, gridsize**2)).
+    npz (coords_nominal/coords_offsets, shape (training_groups, 1, 2, gridsize**2)).
     Read-only: does not mutate or resave the source file."""
     with np.load(npz_path, allow_pickle=True) as d:
         coords_nominal = d["coords_nominal"]

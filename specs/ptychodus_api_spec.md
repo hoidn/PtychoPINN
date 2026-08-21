@@ -312,28 +312,36 @@ Archive identification and backend tagging
   and defaults to `'tensorflow'`. Per-model config projections are stored as `params.json` (PyTorch) rather than `params.dill`.
   Pre-JSON PyTorch archives (`manifest.dill` + per-model `params.dill`) are supported exclusively via
   `python scripts/migrate_legacy_bundle.py`, which migrates the manifest, params, and sealed identity together.
+  `python -m ptycho_torch.migrate_bundle SRC OUT` is the single era-detecting recovery door: it routes dill-era /
+  unsealed archives to that legacy migrator, and re-encodes `torch-artifact-portable-v1..v3` archives at the
+  current era without changing model weights.
 - Contents: TensorFlow archives contain Keras/SavedModel payloads and serialized custom objects; PyTorch archives contain Lightning
   `.ckpt` payload(s) and serialized hyperparameters required for state-free reload. The outer archive structure remains identical.
 - PyTorch object-policy identity: newly written PyTorch archives use
-  `artifact_schema_version='torch-artifact-portable-v3'` and a nested
-  `torch-model-spec-portable-v3`. The v3 structural model payload stores
-  `object_layout`, `training_canvas`, and `training_patch_weighting`; it does
-  not treat `object_big` as a second structural owner, and it states channel
-  identity once via `gridsize` (the retired `C`/`grid_size`/`C_model`/
-  `C_forward` fields are derived at consumption, never stored). The outer
+  `artifact_schema_version='torch-artifact-portable-v4'` and a nested
+  `torch-model-spec-portable-v3` (the model-spec wire is unchanged by the v4
+  artifact era; the v4 delta is purely the config-field naming). The v4
+  structural model payload stores `object_layout`, `training_canvas`, and
+  `training_patch_weighting`; it does not treat `object_big` as a second
+  structural owner, and it states channel identity once via `gridsize` (the
+  retired `C`/`grid_size`/`C_model`/`C_forward` fields are derived at
+  consumption, never stored). The v4 config sections use one name per
+  quantity: `neighbor_count` (data), `training_groups` (training), and
+  `inference_groups` (inference); the retired `K`/`n_groups`/`n_subsample`
+  spellings exist only inside the frozen v1/v2/v3 wire literals. The outer
   archive version remains `2.0-pytorch` and the exact model roles remain
   `autoencoder` and `diffraction_to_obj`.
 - Compatibility decoding: `torch-artifact-portable-v1`,
-  `torch-artifact-portable-v2`, `torch-model-spec-portable-v1`, and
-  `torch-model-spec-portable-v2` are immutable historical schemas. New loaders
-  require their frozen exact field sets, reject an internally inconsistent
-  payload (stored `C` disagreeing with the `grid_size` product, or
-  `C_model`/`C_forward` disagreeing with each other), and deterministically
-  upgrade the persisted `object_big` and channel-twin representation to the
-  v3 in-memory identity before model construction or state loading.
-  TensorFlow archive version `1.0` and its flat derived `object.big` value are
-  unchanged. Old installed binaries are not required to read new v3 PyTorch
-  artifacts.
+  `torch-artifact-portable-v2`, and `torch-artifact-portable-v3` are immutable
+  historical schemas (as are `torch-model-spec-portable-v1` and
+  `torch-model-spec-portable-v2`). New loaders require their frozen exact field
+  sets, reject an internally inconsistent payload (stored `C` disagreeing with
+  the `grid_size` product, or `C_model`/`C_forward` disagreeing with each
+  other), and deterministically upgrade the persisted `object_big`,
+  channel-twin, `K`, `n_groups`, and `n_subsample` representations to the v4
+  in-memory identity before model construction or state loading. TensorFlow
+  archive version `1.0` and its flat derived `object.big` value are unchanged.
+  Old installed binaries are not required to read new v4 PyTorch artifacts.
 - Cross-backend loading: Not required. When unsupported, loaders MUST raise a descriptive error stating the archived backend and
   the active loader backend.
 

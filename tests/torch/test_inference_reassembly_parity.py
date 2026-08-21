@@ -52,7 +52,7 @@ def test_inference_helper_uses_reassembly(tmp_path):
     model = StubModel()
 
     # Minimal configs for the helper
-    tf_infer_cfg = SimpleNamespace(n_groups=B, stitch_crop_size=20)  # map to number of patches taken
+    tf_infer_cfg = SimpleNamespace(inference_groups=B, stitch_crop_size=20)  # map to number of patches taken
     exec_cfg = SimpleNamespace(accelerator='cpu')
 
     # Current inference helper output (was averaging pre-fix)
@@ -129,7 +129,7 @@ def test_reassembly_canvas_padding_invariants(monkeypatch):
             return torch.ones((x.shape[0], 1, x.shape[-1], x.shape[-1]), dtype=torch.complex64, device=x.device)
 
     model = StubModel()
-    tf_infer_cfg = SimpleNamespace(n_groups=B, stitch_crop_size=20)
+    tf_infer_cfg = SimpleNamespace(inference_groups=B, stitch_crop_size=20)
     exec_cfg = SimpleNamespace(accelerator='cpu')
 
     captured = {}

@@ -68,11 +68,12 @@ def _v1_data_config_payload(data):
     legacy = {
         name: getattr(data, name)
         for name in PORTABLE_V1_DATA_FIELDS
-        if name not in ("C", "grid_size", "n_subsample")
+        if name not in ("C", "grid_size", "n_subsample", "K")
     }
     legacy["C"] = channels
     legacy["grid_size"] = (data.gridsize, data.gridsize)
     legacy["n_subsample"] = data.n_raw_frames_selected
+    legacy["K"] = data.neighbor_count
     return legacy
 
 
@@ -86,8 +87,8 @@ def test_new_artifact_identity_is_v2_with_nested_model_spec_v2():
     spec, data, training, inference = _identity_sections()
     payload = encode_artifact_identity(spec, data, training, inference)
 
-    assert CURRENT_ARTIFACT_SCHEMA_VERSION == "torch-artifact-portable-v3"
-    assert payload["schema_version"] == "torch-artifact-portable-v3"
+    assert CURRENT_ARTIFACT_SCHEMA_VERSION == "torch-artifact-portable-v4"
+    assert payload["schema_version"] == "torch-artifact-portable-v4"
     assert payload["model_spec"]["schema_version"] == (
         "torch-model-spec-portable-v3"
     )
@@ -107,6 +108,9 @@ def test_outer_artifact_v1_with_nested_model_spec_v1_upgrades_to_v2():
     payload["schema_version"] = ARTIFACT_SCHEMA_V1_VERSION
     payload["model_spec"] = _v1_model_spec_payload(spec)
     payload["data_config"] = _v1_data_config_payload(data)
+    training_config = dict(payload["training_config"])
+    training_config["n_groups"] = training_config.pop("training_groups")
+    payload["training_config"] = training_config
     decoded = decode_artifact_identity(payload)
 
     assert decoded.model_spec.schema_version == "torch-model-spec-portable-v3"

@@ -645,7 +645,7 @@ def test_shared_service_cpu_ddp_spawn_returns_parent_artifacts(tmp_path):
                 output_dir = Path(sys.argv[1])
                 data = DataConfig(
                     N=64,
-                    K=1,
+                    neighbor_count=1,
                     n_raw_frames_selected=1,
                     gridsize=1,
                     scale_contract_version="legacy_v1",
@@ -683,7 +683,7 @@ def test_shared_service_cpu_ddp_spawn_returns_parent_artifacts(tmp_path):
                     execution,
                     train_data_file=output_dir / "train.npz",
                     output_dir=output_dir,
-                    n_groups=8,
+                    training_groups=8,
                 )
                 application_factory.build_ptychopinn_application = TinyModule
 

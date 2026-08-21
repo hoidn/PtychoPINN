@@ -63,7 +63,7 @@ def test_pytorch_workflow_returns_initialization_and_summary_path(
     config = TrainingConfig(
         model=ModelConfig(N=64, gridsize=1),
         data=PublicDataConfig(train_data_file=train_path),
-        sampling=SamplingConfig(n_groups=1),
+        sampling=SamplingConfig(training_groups=1),
         backend="pytorch",
         nepochs=1,
         output_dir=output_dir,

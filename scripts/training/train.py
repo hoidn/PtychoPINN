@@ -39,6 +39,7 @@ from ptycho.config import (
 from ptycho.config.config import TrainingConfig
 from ptycho import model_manager
 import argparse
+import warnings
 
 
 def interpret_n_images_parameter(n_images: int, gridsize: int) -> tuple[int, str]:
@@ -83,9 +84,9 @@ def interpret_sampling_parameters(config: TrainingConfig):
     neighbor_pool_size = sampling.neighbor_pool_size
 
     # Case 1: Independent control with n_subsample
-    if sampling.n_subsample is not None:
-        n_subsample = sampling.n_subsample
-        n_groups = sampling.n_groups
+    if sampling.train_raw_selection is not None:
+        n_subsample = sampling.train_raw_selection
+        n_groups = sampling.training_groups
 
         if gridsize == 1:
             message = (f"Independent sampling control: subsampling {n_subsample} images, "
@@ -104,13 +105,13 @@ def interpret_sampling_parameters(config: TrainingConfig):
     else:
         # For backward compatibility, n_groups controls subsampling
         if gridsize == 1:
-            n_subsample = sampling.n_groups
-            n_groups = sampling.n_groups
+            n_subsample = sampling.training_groups
+            n_groups = sampling.training_groups
             message = f"Legacy mode: using {n_groups} groups (gridsize=1)"
         else:
             # For gridsize > 1, we need to subsample enough to create the groups
-            n_subsample = sampling.n_groups  # This will be interpreted as groups by generate_grouped_data
-            n_groups = sampling.n_groups
+            n_subsample = sampling.training_groups  # This will be interpreted as groups by generate_grouped_data
+            n_groups = sampling.training_groups
             total_patterns = n_groups * gridsize * gridsize
             message = (f"Legacy mode: --n-groups={n_groups} refers to neighbor groups "
                       f"(gridsize={gridsize}, approx {total_patterns} patterns)")
@@ -138,6 +139,18 @@ def parse_arguments():
     # Add logging arguments
     add_logging_arguments(parser)
     add_public_training_config_arguments(parser)
+
+    # Sampling count flags: canonical flat spellings plus deprecated aliases.
+    parser.add_argument("--training_groups", type=int, default=argparse.SUPPRESS,
+                       help="Number of grouped samples to train on (canonical).")
+    parser.add_argument("--train_raw_selection", type=int, default=argparse.SUPPRESS,
+                       help="Number of raw frames to select before grouping (canonical).")
+    parser.add_argument("--n_groups", type=int, default=argparse.SUPPRESS,
+                       help="DEPRECATED: Use --training_groups instead.")
+    parser.add_argument("--n_subsample", type=int, default=argparse.SUPPRESS,
+                       help="DEPRECATED: Use --train_raw_selection instead.")
+    parser.add_argument("--n_images", type=int, default=argparse.SUPPRESS,
+                       help="DEPRECATED: Use --training_groups instead.")
 
     # PyTorch-only runtime and optimizer flags (see docs/workflows/pytorch.md §12)
     parser.add_argument("--torch-accelerator", type=str,
@@ -220,6 +233,52 @@ def _save_tensorflow_model_legacy(config: TrainingConfig) -> None:
             model_manager.save(str(config.output_dir))
 
 
+def _normalize_sampling_aliases(args: argparse.Namespace) -> None:
+    """Resolve deprecated sampling-count spellings onto the canonical dotted keys.
+
+    Mirrors the parse-time alias pattern of ``scripts/inference/inference.py``:
+    ``--training_groups``/``--train_raw_selection`` are canonical;
+    ``--n_groups``/``--n_images``/``--n_subsample`` are deprecated aliases that
+    emit ``DeprecationWarning`` and raise on a conflicting explicit value.
+    """
+    canonical_groups = getattr(args, "training_groups", None)
+    for deprecated, label in (("n_groups", "--n_groups"), ("n_images", "--n_images")):
+        value = getattr(args, deprecated, None)
+        if value is None:
+            continue
+        warnings.warn(
+            f"{label} is deprecated; use --training_groups",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+        if canonical_groups is not None and canonical_groups != value:
+            raise ValueError(
+                f"{label} conflicts with explicit --training_groups "
+                f"({value!r} vs {canonical_groups!r})"
+            )
+        canonical_groups = value
+
+    canonical_raw = getattr(args, "train_raw_selection", None)
+    n_subsample = getattr(args, "n_subsample", None)
+    if n_subsample is not None:
+        warnings.warn(
+            "--n_subsample is deprecated; use --train_raw_selection",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+        if canonical_raw is not None and canonical_raw != n_subsample:
+            raise ValueError(
+                "--n_subsample conflicts with explicit --train_raw_selection "
+                f"({n_subsample!r} vs {canonical_raw!r})"
+            )
+        canonical_raw = n_subsample
+
+    if canonical_groups is not None:
+        setattr(args, "sampling.training_groups", canonical_groups)
+    if canonical_raw is not None:
+        setattr(args, "sampling.train_raw_selection", canonical_raw)
+
+
 def main() -> None:
     """Main function to orchestrate the CDI example script execution."""
     raw_argv = tuple(sys.argv[1:])
@@ -229,6 +288,8 @@ def main() -> None:
     if hasattr(args, 'train_data_file_path'):
         args.train_data_file = args.train_data_file_path
         delattr(args, 'train_data_file_path')
+
+    _normalize_sampling_aliases(args)
 
     config = setup_configuration(args, args.config)
     
@@ -280,7 +341,7 @@ def main() -> None:
     ) = interpret_sampling_parameters(config)
     logger.info(interpretation_message)
 
-    if config.sampling.n_subsample is not None and config.model.gridsize > 1:
+    if config.sampling.train_raw_selection is not None and config.model.gridsize > 1:
         min_required = n_groups * config.model.gridsize * config.model.gridsize
         if n_subsample < min_required:
             logger.warning(

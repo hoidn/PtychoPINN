@@ -34,11 +34,13 @@ TORCH_ARTIFACT_BACKEND = "pytorch"
 ARTIFACT_SCHEMA_V1_VERSION = "torch-artifact-portable-v1"
 ARTIFACT_SCHEMA_V2_VERSION = "torch-artifact-portable-v2"
 ARTIFACT_SCHEMA_V3_VERSION = "torch-artifact-portable-v3"
-CURRENT_ARTIFACT_SCHEMA_VERSION = ARTIFACT_SCHEMA_V3_VERSION
+ARTIFACT_SCHEMA_V4_VERSION = "torch-artifact-portable-v4"
+CURRENT_ARTIFACT_SCHEMA_VERSION = ARTIFACT_SCHEMA_V4_VERSION
 SUPPORTED_ARTIFACT_SCHEMA_VERSIONS = (
     ARTIFACT_SCHEMA_V1_VERSION,
     ARTIFACT_SCHEMA_V2_VERSION,
     ARTIFACT_SCHEMA_V3_VERSION,
+    ARTIFACT_SCHEMA_V4_VERSION,
 )
 TORCH_MANIFEST_JSON_VERSION = "torch-manifest-v1"
 TORCH_MANIFEST_MEMBER = "manifest.json"
@@ -292,26 +294,111 @@ ARTIFACT_V3_INFERENCE_FIELDS = (
     "patch_stats_limit",
 )
 
+# portable-v4: one name per quantity. data renames K -> neighbor_count;
+# training renames n_groups -> training_groups. Inference unchanged from v3.
+ARTIFACT_V4_DATA_FIELDS = (
+    "nphotons",
+    "scale_contract_version",
+    "measurement_domain",
+    "N",
+    "gridsize",
+    "neighbor_count",
+    "K_quadrant",
+    "n_raw_frames_selected",
+    "subsample_seed",
+    "neighbor_function",
+    "min_neighbor_distance",
+    "max_neighbor_distance",
+    "scan_pattern",
+    "normalize",
+    "probe_scale",
+    "probe_normalize",
+    "data_scaling",
+    "phase_subtraction",
+    "x_bounds",
+    "y_bounds",
+)
+ARTIFACT_V4_TRAINING_FIELDS = (
+    "training_directories",
+    "nll",
+    "device",
+    "strategy",
+    "n_devices",
+    "framework",
+    "orchestrator",
+    "learning_rate",
+    "epochs",
+    "batch_size",
+    "epochs_fine_tune",
+    "fine_tune_gamma",
+    "scheduler",
+    "lr_warmup_epochs",
+    "lr_min_ratio",
+    "plateau_factor",
+    "plateau_patience",
+    "plateau_min_lr",
+    "plateau_threshold",
+    "num_workers",
+    "accum_steps",
+    "gradient_clip_val",
+    "gradient_clip_algorithm",
+    "optimizer",
+    "momentum",
+    "weight_decay",
+    "adam_beta1",
+    "adam_beta2",
+    "log_grad_norm",
+    "grad_norm_log_freq",
+    "stage_1_epochs",
+    "stage_2_epochs",
+    "stage_3_epochs",
+    "physics_weight_schedule",
+    "stage_3_lr_factor",
+    "torch_loss_mode",
+    "torch_mae_pred_l2_match_target",
+    "experiment_name",
+    "notes",
+    "model_name",
+    "output_dir",
+    "train_data_file",
+    "test_data_file",
+    "training_groups",
+)
+ARTIFACT_V4_INFERENCE_FIELDS = (
+    "middle_trim",
+    "batch_size",
+    "experiment_number",
+    "pad_eval",
+    "window",
+    "patch_weighting",
+    "varpro_scaling",
+    "log_patch_stats",
+    "patch_stats_limit",
+)
+
 _DATA_FIELDS_BY_ERA = {
     ARTIFACT_SCHEMA_V1_VERSION: PORTABLE_V1_DATA_FIELDS,
     ARTIFACT_SCHEMA_V2_VERSION: ARTIFACT_V2_DATA_FIELDS,
     ARTIFACT_SCHEMA_V3_VERSION: ARTIFACT_V3_DATA_FIELDS,
+    ARTIFACT_SCHEMA_V4_VERSION: ARTIFACT_V4_DATA_FIELDS,
 }
 _TRAINING_FIELDS_BY_ERA = {
     ARTIFACT_SCHEMA_V1_VERSION: PORTABLE_V1_TRAINING_FIELDS,
     ARTIFACT_SCHEMA_V2_VERSION: ARTIFACT_V2_TRAINING_FIELDS,
     ARTIFACT_SCHEMA_V3_VERSION: ARTIFACT_V3_TRAINING_FIELDS,
+    ARTIFACT_SCHEMA_V4_VERSION: ARTIFACT_V4_TRAINING_FIELDS,
 }
 _INFERENCE_FIELDS_BY_ERA = {
     ARTIFACT_SCHEMA_V1_VERSION: PORTABLE_V1_INFERENCE_FIELDS,
     ARTIFACT_SCHEMA_V2_VERSION: ARTIFACT_V2_INFERENCE_FIELDS,
     ARTIFACT_SCHEMA_V3_VERSION: ARTIFACT_V3_INFERENCE_FIELDS,
+    ARTIFACT_SCHEMA_V4_VERSION: ARTIFACT_V4_INFERENCE_FIELDS,
 }
 
 _CONFIG_SCHEMA_FIELDS = {
-    DataConfig: ARTIFACT_V3_DATA_FIELDS,
-    TrainingConfig: ARTIFACT_V3_TRAINING_FIELDS,
-    InferenceConfig: ARTIFACT_V3_INFERENCE_FIELDS,
+    DataConfig: ARTIFACT_V4_DATA_FIELDS,
+    TrainingConfig: ARTIFACT_V4_TRAINING_FIELDS,
+    InferenceConfig: ARTIFACT_V4_INFERENCE_FIELDS,
 }
 for _config_type, _schema_fields in _CONFIG_SCHEMA_FIELDS.items():
     _runtime_fields = tuple(item.name for item in fields(_config_type))
@@ -404,15 +491,16 @@ def _require_legacy_model_data_channel_agreement(
 
 
 def _upgrade_legacy_data_values(era: str, data_values: Mapping[str, Any]) -> dict[str, Any]:
-    """Project a v1/v2/unversioned data section onto the v3 runtime shape."""
+    """Project a v1/v2/unversioned data section onto the v4 runtime shape."""
     gridsize = validate_legacy_channel_faithfulness(era, data_values)
     upgraded = {
         name: value
         for name, value in data_values.items()
-        if name not in ("C", "grid_size", "n_subsample")
+        if name not in ("C", "grid_size", "n_subsample", "K")
     }
     upgraded["gridsize"] = gridsize
     upgraded["n_raw_frames_selected"] = data_values["n_subsample"]
+    upgraded["neighbor_count"] = data_values["K"]
     return upgraded
 
 
@@ -541,16 +629,23 @@ def decode_artifact_identity(payload: Mapping[str, Any]) -> DecodedArtifactIdent
             _legacy_model_stored_c(payload["model_spec"]),
         )
         data_values = _upgrade_legacy_data_values(schema, data_values)
+    elif schema == ARTIFACT_SCHEMA_V3_VERSION:
+        data_values["neighbor_count"] = data_values.pop("K")
     data = DataConfig(**data_values)
-    training = TrainingConfig(
-        **_require_exact_config_payload(
-            payload["training_config"],
-            TrainingConfig,
-            era=schema,
-            section="training_config",
-            expected_fields=_TRAINING_FIELDS_BY_ERA[schema],
-        )
+    training_values = _require_exact_config_payload(
+        payload["training_config"],
+        TrainingConfig,
+        era=schema,
+        section="training_config",
+        expected_fields=_TRAINING_FIELDS_BY_ERA[schema],
     )
+    if schema in (
+        ARTIFACT_SCHEMA_V1_VERSION,
+        ARTIFACT_SCHEMA_V2_VERSION,
+        ARTIFACT_SCHEMA_V3_VERSION,
+    ):
+        training_values["training_groups"] = training_values.pop("n_groups")
+    training = TrainingConfig(**training_values)
     inference = InferenceConfig(
         **_require_exact_config_payload(
             payload["inference_config"],
@@ -600,8 +695,17 @@ def upgrade_unversioned_sections(
             scale_contract_version=LEGACY_SCALE_CONTRACT,
             measurement_domain=NORMALIZED_AMPLITUDE,
         )
-    if set(raw_data) == set(ARTIFACT_V3_DATA_FIELDS):
-        # Dual-written sidecar from current code: already the v3 runtime shape.
+    if set(raw_data) == set(ARTIFACT_V4_DATA_FIELDS):
+        # Dual-written sidecar from current code: already the v4 runtime shape.
+        data_values = _require_exact_config_payload(
+            raw_data,
+            DataConfig,
+            era="unversioned",
+            section="data_config",
+            expected_fields=ARTIFACT_V4_DATA_FIELDS,
+        )
+    elif set(raw_data) == set(ARTIFACT_V3_DATA_FIELDS):
+        # Dual-written sidecar from the v3 era: K -> neighbor_count.
         data_values = _require_exact_config_payload(
             raw_data,
             DataConfig,
@@ -609,6 +713,7 @@ def upgrade_unversioned_sections(
             section="data_config",
             expected_fields=ARTIFACT_V3_DATA_FIELDS,
         )
+        data_values["neighbor_count"] = data_values.pop("K")
     else:
         data_values = _require_exact_config_payload(
             raw_data,
@@ -661,13 +766,25 @@ def upgrade_unversioned_sections(
             f"missing={sorted(closest - received_model_fields)}, "
             f"unknown={sorted(received_model_fields - closest)}"
         )
-    training_values = _require_exact_config_payload(
-        training_config,
-        TrainingConfig,
-        era="unversioned",
-        section="training_config",
-        expected_fields=PORTABLE_V1_TRAINING_FIELDS,
-    )
+    raw_training = copy.deepcopy(dict(training_config))
+    if set(raw_training) == set(ARTIFACT_V4_TRAINING_FIELDS):
+        # Dual-written sidecar from current code: already the v4 runtime shape.
+        training_values = _require_exact_config_payload(
+            raw_training,
+            TrainingConfig,
+            era="unversioned",
+            section="training_config",
+            expected_fields=ARTIFACT_V4_TRAINING_FIELDS,
+        )
+    else:
+        training_values = _require_exact_config_payload(
+            raw_training,
+            TrainingConfig,
+            era="unversioned",
+            section="training_config",
+            expected_fields=PORTABLE_V1_TRAINING_FIELDS,
+        )
+        training_values["training_groups"] = training_values.pop("n_groups")
     inference_values = _require_exact_config_payload(
         inference_config,
         InferenceConfig,

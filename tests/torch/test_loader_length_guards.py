@@ -75,7 +75,7 @@ def test_memory_map_survives_extra_coordinates(tmp_path):
     x, y = _line_scan(25)
     _write_npz(tmp_path / "npz" / "a.npz", 20, x, y)
 
-    data_config = DataConfig(N=N_PIX, gridsize=1, K=4, n_raw_frames_selected=1,
+    data_config = DataConfig(N=N_PIX, gridsize=1, neighbor_count=4, n_raw_frames_selected=1,
                              x_bounds=(0.0, 1.0), y_bounds=(0.0, 1.0))
     model_config = ModelConfig()
     with pytest.warns(RuntimeWarning, match="dropping the trailing 5 positions"):
@@ -93,7 +93,7 @@ def test_dataset_rejects_fewer_positions_with_file_context(tmp_path):
     x, y = _line_scan(15)
     _write_npz(tmp_path / "npz" / "a.npz", 20, x, y)
 
-    data_config = DataConfig(N=N_PIX, gridsize=1, K=4,
+    data_config = DataConfig(N=N_PIX, gridsize=1, neighbor_count=4,
                              n_raw_frames_selected=1, x_bounds=(0.0, 1.0),
                              y_bounds=(0.0, 1.0))
     model_config = ModelConfig(object_big=False)
@@ -111,7 +111,7 @@ def test_dataset_rejects_non_1d_coordinates_before_allocation(tmp_path):
     ycoords = np.ones((20, 2), dtype=np.float64)
     _write_npz(tmp_path / "npz" / "bad_coords.npz", 20, xcoords, ycoords)
 
-    data_config = DataConfig(N=N_PIX, gridsize=1, K=4,
+    data_config = DataConfig(N=N_PIX, gridsize=1, neighbor_count=4,
                              n_raw_frames_selected=1, x_bounds=(0.0, 1.0),
                              y_bounds=(0.0, 1.0))
     model_config = ModelConfig(object_big=False)
@@ -138,7 +138,7 @@ def test_dataset_rejects_non_3d_diffraction_before_allocation(tmp_path):
         objectGuess=np.ones((N_PIX, N_PIX), dtype=np.complex64),
     )
 
-    data_config = DataConfig(N=N_PIX, gridsize=1, K=4,
+    data_config = DataConfig(N=N_PIX, gridsize=1, neighbor_count=4,
                              n_raw_frames_selected=1, x_bounds=(0.0, 1.0),
                              y_bounds=(0.0, 1.0))
     model_config = ModelConfig(object_big=False)
@@ -163,7 +163,7 @@ def test_dataset_rejects_missing_probe_before_allocation(tmp_path):
         objectGuess=np.ones((N_PIX, N_PIX), dtype=np.complex64),
     )
 
-    data_config = DataConfig(N=N_PIX, gridsize=1, K=4,
+    data_config = DataConfig(N=N_PIX, gridsize=1, neighbor_count=4,
                              n_raw_frames_selected=1, x_bounds=(0.0, 1.0),
                              y_bounds=(0.0, 1.0))
     model_config = ModelConfig(object_big=False)
@@ -187,7 +187,7 @@ def test_dataset_rejects_incompatible_probe_shape_before_allocation(tmp_path):
         objectGuess=np.ones((N_PIX, N_PIX), dtype=np.complex64),
     )
 
-    data_config = DataConfig(N=N_PIX, gridsize=1, K=4,
+    data_config = DataConfig(N=N_PIX, gridsize=1, neighbor_count=4,
                              n_raw_frames_selected=1, x_bounds=(0.0, 1.0),
                              y_bounds=(0.0, 1.0))
     model_config = ModelConfig(object_big=False)
@@ -204,7 +204,7 @@ def test_supervised_dataset_rejects_missing_label_before_allocation(tmp_path):
     x, y = _line_scan(20)
     _write_npz(tmp_path / "npz" / "missing_label.npz", 20, x, y)
 
-    data_config = DataConfig(N=N_PIX, gridsize=1, K=4,
+    data_config = DataConfig(N=N_PIX, gridsize=1, neighbor_count=4,
                              n_raw_frames_selected=1, x_bounds=(0.0, 1.0),
                              y_bounds=(0.0, 1.0))
     model_config = ModelConfig(mode="Supervised",
@@ -230,7 +230,7 @@ def test_supervised_dataset_rejects_malformed_label_before_allocation(tmp_path):
         label=np.ones((20, 16, 16), dtype=np.complex64),
     )
 
-    data_config = DataConfig(N=N_PIX, gridsize=1, K=4,
+    data_config = DataConfig(N=N_PIX, gridsize=1, neighbor_count=4,
                              n_raw_frames_selected=1, x_bounds=(0.0, 1.0),
                              y_bounds=(0.0, 1.0))
     model_config = ModelConfig(mode="Supervised",
@@ -257,7 +257,7 @@ def test_dataset_rejects_non_2d_object_guess_before_allocation(tmp_path):
         objectGuess=np.ones((2, N_PIX, N_PIX), dtype=np.complex64),
     )
 
-    data_config = DataConfig(N=N_PIX, gridsize=1, K=4,
+    data_config = DataConfig(N=N_PIX, gridsize=1, neighbor_count=4,
                              n_raw_frames_selected=1, x_bounds=(0.0, 1.0),
                              y_bounds=(0.0, 1.0))
     model_config = ModelConfig(object_big=False)
@@ -277,7 +277,7 @@ def test_dataset_rejects_cross_file_image_shape_mismatch(tmp_path):
     _write_npz(tmp_path / "npz" / "a.npz", 20, x, y)
     _write_npz(tmp_path / "npz" / "b.npz", 20, x, y, pattern_size=16)
 
-    data_config = DataConfig(N=N_PIX, gridsize=1, K=4,
+    data_config = DataConfig(N=N_PIX, gridsize=1, neighbor_count=4,
                              n_raw_frames_selected=1, x_bounds=(0.0, 1.0),
                              y_bounds=(0.0, 1.0))
     model_config = ModelConfig(object_big=False)
@@ -305,7 +305,7 @@ def test_nonzero_rank_rejects_invalid_headers_before_barrier(tmp_path, monkeypat
     )
     monkeypatch.setattr("ptycho_torch.dataloader.dist.barrier", barrier_must_not_run)
 
-    data_config = DataConfig(N=N_PIX, gridsize=1, K=4,
+    data_config = DataConfig(N=N_PIX, gridsize=1, neighbor_count=4,
                              n_raw_frames_selected=1, x_bounds=(0.0, 1.0),
                              y_bounds=(0.0, 1.0))
     model_config = ModelConfig(object_big=False)
@@ -333,7 +333,7 @@ def test_nonzero_rank_rejects_zero_length_before_barrier(tmp_path, monkeypatch):
     )
     monkeypatch.setattr("ptycho_torch.dataloader.dist.barrier", barrier_must_not_run)
 
-    data_config = DataConfig(N=N_PIX, gridsize=1, K=4,
+    data_config = DataConfig(N=N_PIX, gridsize=1, neighbor_count=4,
                              n_raw_frames_selected=1, x_bounds=(0.0, 1.0),
                              y_bounds=(0.0, 1.0))
     model_config = ModelConfig(object_big=False)
@@ -358,7 +358,7 @@ def test_legacy_five_value_length_result_recovers_all_source_scan_ids(
     data_config = DataConfig(
         N=N_PIX,
         gridsize=1,
-        K=4,
+        neighbor_count=4,
         n_raw_frames_selected=1,
         x_bounds=(0.25, 0.75),
         y_bounds=(0.0, 1.0),
@@ -488,7 +488,7 @@ def test_memory_map_loads_legacy_hwn_layout(tmp_path):
     _write_npz(tmp_path / "npz" / "legacy_hwn.npz", 40, x, y,
                pattern_size=32, legacy_hwn=True)
 
-    data_config = DataConfig(N=32, gridsize=1, K=4,
+    data_config = DataConfig(N=32, gridsize=1, neighbor_count=4,
                              n_raw_frames_selected=1, x_bounds=(0.0, 1.0),
                              y_bounds=(0.0, 1.0))
     model_config = ModelConfig(object_big=False)
@@ -505,7 +505,7 @@ def test_memory_map_loads_legacy_hwn_layout_when_n_is_not_largest_axis(tmp_path)
     _write_npz(tmp_path / "npz" / "legacy_hwn.npz", 20, x, y,
                pattern_size=32, legacy_hwn=True)
 
-    data_config = DataConfig(N=32, gridsize=1, K=4,
+    data_config = DataConfig(N=32, gridsize=1, neighbor_count=4,
                              n_raw_frames_selected=1, x_bounds=(0.0, 1.0),
                              y_bounds=(0.0, 1.0))
     model_config = ModelConfig(object_big=False)
@@ -593,7 +593,7 @@ def test_square_plane_transposes_legacy_stack_despite_coordinate_collision(tmp_p
 # ---------------------------------------------------------------------------
 
 def _quadrant_configs():
-    data_config = DataConfig(N=N_PIX, gridsize=2, K=6,
+    data_config = DataConfig(N=N_PIX, gridsize=2, neighbor_count=6,
                              neighbor_function="4_quadrant",
                              scan_pattern="Isotropic",
                              x_bounds=(0.0, 1.0), y_bounds=(0.0, 1.0))
@@ -654,7 +654,7 @@ def test_mmap_grouping_matches_owner_plan_across_object_banks(tmp_path):
     data_config = DataConfig(
         N=N_PIX,
         gridsize=2,
-        K=4,
+        neighbor_count=4,
         n_raw_frames_selected=1,
         subsample_seed=5,
         neighbor_function="Nearest",
@@ -726,7 +726,7 @@ def test_nearest_gs1_length_unchanged(tmp_path):
     x, y = _line_scan(40)
     _write_npz(tmp_path / "npz" / "c.npz", 40, x, y)
 
-    data_config = DataConfig(N=N_PIX, gridsize=1, K=4,
+    data_config = DataConfig(N=N_PIX, gridsize=1, neighbor_count=4,
                              x_bounds=(0.0, 1.0), y_bounds=(0.0, 1.0))
     dataset = _build(tmp_path, data_config, ModelConfig(), groups_per_center=7)
 
@@ -751,7 +751,7 @@ def test_supervised_object_big_sizes_without_subsampling(tmp_path):
              objectGuess=(rng.random((N_PIX, N_PIX)) + 1j * rng.random((N_PIX, N_PIX))),
              label=label)
 
-    data_config = DataConfig(N=N_PIX, gridsize=1, K=4, n_raw_frames_selected=7,
+    data_config = DataConfig(N=N_PIX, gridsize=1, neighbor_count=4, n_raw_frames_selected=7,
                              x_bounds=(0.0, 1.0), y_bounds=(0.0, 1.0))
     model_config = ModelConfig(mode='Supervised')
     dataset = _build(tmp_path, data_config, model_config)
@@ -777,7 +777,7 @@ def test_group_coords_uses_dataconfig_seed_without_ambient_numpy_state():
     valid = np.arange(len(xcoords), dtype=np.int64)
     config = DataConfig(
         N=N_PIX,
-        K=8,
+        neighbor_count=8,
         n_raw_frames_selected=3,
         subsample_seed=1447,
         gridsize=2,
@@ -825,7 +825,7 @@ def test_group_coords_matches_scan_centered_owner_with_object_identity(policy):
     valid = np.arange(len(xcoords), dtype=np.int64)
     config = DataConfig(
         N=N_PIX,
-        K=8,
+        neighbor_count=8,
         K_quadrant=20,
         subsample_seed=23,
         gridsize=2,
@@ -887,7 +887,7 @@ def test_nearest_group_coords_can_repair_complete_participant_coverage():
     valid = np.arange(len(xcoords), dtype=np.int64)
     config = DataConfig(
         N=N_PIX,
-        K=4,
+        neighbor_count=4,
         n_raw_frames_selected=1,
         subsample_seed=523213049,
         gridsize=2,
@@ -948,14 +948,14 @@ def test_nearest_group_coords_can_repair_complete_participant_coverage():
 
 
 def test_complete_coverage_accepts_boolean_mask_and_small_k_equals_c():
-    """Boolean masks and K=C=N must not create -1/sentinel participants."""
+    """Boolean masks and neighbor_count=C=N must not create -1/sentinel participants."""
     from ptycho_torch.patch_generator import get_neighbor_indices, group_coords
 
     xcoords, ycoords = _raster(2, spacing=1.0)
     valid_mask = np.ones(len(xcoords), dtype=np.bool_)
     config = DataConfig(
         N=N_PIX,
-        K=4,
+        neighbor_count=4,
         n_raw_frames_selected=1,
         subsample_seed=9,
         gridsize=2,
@@ -995,7 +995,7 @@ def test_real_mmap_persists_and_identifies_complete_group_coverage(tmp_path):
     )
     data_config = DataConfig(
         N=N_PIX,
-        K=4,
+        neighbor_count=4,
         n_raw_frames_selected=1,
         subsample_seed=523213049,
         gridsize=2,
@@ -1103,7 +1103,7 @@ def test_quadrant_grouping_uses_global_center_identity_and_local_rng(monkeypatch
     valid = np.array([18, 19, 20, 26, 27, 28, 34, 35, 36], dtype=np.int64)
     config = DataConfig(
         N=N_PIX,
-        K=8,
+        neighbor_count=8,
         K_quadrant=30,
         n_raw_frames_selected=2,
         subsample_seed=909,

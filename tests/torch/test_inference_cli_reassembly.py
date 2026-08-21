@@ -58,7 +58,7 @@ def _cli_stub_stack():
     """Standard mock set so cli_main runs to the routing decision without IO."""
     mock_factory = MagicMock()
     mock_factory.return_value = MagicMock(
-        tf_inference_config=MagicMock(n_groups=32),
+        tf_inference_config=MagicMock(inference_groups=32),
         pt_data_config=MagicMock(),
         pt_inference_config=MagicMock(log_patch_stats=False, patch_stats_limit=None),
         execution_config=MagicMock(accelerator="cpu", num_workers=0,
@@ -295,7 +295,7 @@ class TestUniformPathUnchanged:
             test_data_file=Path("test.npz"),
             backend="pytorch",
             output_dir=Path("outputs/inference"),
-            n_groups=4,
+            inference_groups=4,
         )
         execution_config = PyTorchExecutionConfig(
             accelerator="cpu", num_workers=0, inference_batch_size=None

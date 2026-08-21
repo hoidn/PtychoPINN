@@ -57,7 +57,7 @@ class TestConfigPlumbing:
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=tmp_path / "out",
-            overrides={"n_groups": 8, "amplitude_physics_gain": 16.0},
+            overrides={"training_groups": 8, "amplitude_physics_gain": 16.0},
         )
         assert payload.pt_model_config.amplitude_physics_gain == 16.0
         assert payload.overrides_applied["amplitude_physics_gain"] == 16.0
@@ -68,7 +68,7 @@ class TestConfigPlumbing:
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=tmp_path / "out",
-            overrides={"n_groups": 8},
+            overrides={"training_groups": 8},
         )
         assert payload.pt_model_config.amplitude_physics_gain == 1.0
         assert payload.overrides_applied["amplitude_physics_gain"] == 1.0
@@ -309,12 +309,12 @@ class TestDerivedAmplitudePhysicsGain:
         derived_payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=tmp_path / "derived",
-            overrides={"n_groups": 8, **record.factory_overrides()},
+            overrides={"training_groups": 8, **record.factory_overrides()},
         )
         unit_payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=tmp_path / "unit",
-            overrides={"n_groups": 8, "amplitude_physics_gain": 1.0},
+            overrides={"training_groups": 8, "amplitude_physics_gain": 1.0},
         )
 
         assert derived_payload.pt_model_config.amplitude_physics_gain == record.value
@@ -580,7 +580,7 @@ class TestAmplitudePhysicsGainBundleRecord:
         return create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=output_dir,
-            overrides={"n_groups": 8, "amplitude_physics_gain": gain},
+            overrides={"training_groups": 8, "amplitude_physics_gain": gain},
         )
 
     @staticmethod

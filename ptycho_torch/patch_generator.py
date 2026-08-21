@@ -57,7 +57,7 @@ def group_coords(
         experiment_id=experiment_id,
         policy=data_config.neighbor_function,
         group_size=group_size,
-        neighbor_count=data_config.K,
+        neighbor_count=data_config.neighbor_count,
         repeats=groups_per_center,
         min_neighbor_distance=data_config.min_neighbor_distance,
         max_neighbor_distance=data_config.max_neighbor_distance,

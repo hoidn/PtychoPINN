@@ -135,20 +135,21 @@ def _resolve_group_alias(
     values: Mapping[str, Any],
     *,
     source: str,
+    canonical_name: str,
 ) -> tuple[dict[str, Any], bool]:
-    """Handle n_images→n_groups alias for flat (InferenceConfig) dicts."""
+    """Handle n_images→{canonical_name} alias for flat (InferenceConfig) dicts."""
     resolved = dict(values)
     if "n_images" not in resolved:
         return resolved, False
 
     legacy = resolved["n_images"]
-    canonical = resolved.get("n_groups")
+    canonical = resolved.get(canonical_name)
     if canonical is not None and legacy is not None and canonical != legacy:
         raise ValueError(
-            f"{source} field 'n_images' conflicts with canonical 'n_groups'"
+            f"{source} field 'n_images' conflicts with canonical '{canonical_name}'"
         )
     if canonical is None:
-        resolved["n_groups"] = legacy
+        resolved[canonical_name] = legacy
     resolved["n_images"] = None
     return resolved, legacy is not None
 
@@ -213,10 +214,12 @@ def resolve_inference_config(
     file_inference, file_used_alias = _resolve_group_alias(
         file_inference,
         source="file",
+        canonical_name="inference_groups",
     )
     cli_inference, cli_used_alias = _resolve_group_alias(
         cli_inference,
         source="explicit CLI",
+        canonical_name="inference_groups",
     )
 
     inference_values = dict(file_inference)
@@ -253,7 +256,7 @@ def resolve_inference_config(
     if file_used_alias or cli_used_alias:
         warnings.warn(
             "Parameter 'n_images' is deprecated and will be removed in a future "
-            "version. Use 'n_groups' instead, which always means the number of "
+            "version. Use 'inference_groups' instead, which always means the number of "
             "groups regardless of gridsize.",
             DeprecationWarning,
             stacklevel=3,
@@ -375,14 +378,14 @@ def validate_runnable_training_config(config: TrainingConfig) -> None:
         raise ValueError(
             f"nphotons must be positive, got {config.data.nphotons!r}"
         )
-    if config.sampling.n_groups is None or config.sampling.n_groups <= 0:
+    if config.sampling.training_groups is None or config.sampling.training_groups <= 0:
         raise ValueError(
-            f"n_groups must be positive, got {config.sampling.n_groups!r}"
+            f"training_groups must be positive, got {config.sampling.training_groups!r}"
         )
-    if config.sampling.n_subsample is not None and config.sampling.n_subsample <= 0:
+    if config.sampling.train_raw_selection is not None and config.sampling.train_raw_selection <= 0:
         raise ValueError(
-            f"n_subsample must be positive when set, "
-            f"got {config.sampling.n_subsample!r}"
+            f"train_raw_selection must be positive when set, "
+            f"got {config.sampling.train_raw_selection!r}"
         )
 
 

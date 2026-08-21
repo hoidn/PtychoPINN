@@ -34,12 +34,13 @@ def _identity_parts(*, tensor_mask=False):
 
 
 def _legacy_data_payload(data) -> dict:
-    """Project a live (v3) DataConfig onto the historical unversioned wire shape."""
+    """Project a live (v4) DataConfig onto the historical unversioned wire shape."""
     payload = asdict(data)
     gridsize = payload.pop("gridsize")
     payload["C"] = gridsize * gridsize
     payload["grid_size"] = (gridsize, gridsize)
     payload["n_subsample"] = payload.pop("n_raw_frames_selected")
+    payload["K"] = payload.pop("neighbor_count")
     return payload
 
 

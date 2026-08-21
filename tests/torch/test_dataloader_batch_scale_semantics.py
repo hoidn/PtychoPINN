@@ -46,7 +46,7 @@ def _build_dataset(tmp_path):
     ptycho_dir.mkdir()
     _write_synthetic_npz(ptycho_dir / "fixture.npz", n_images=40, N=32)
 
-    data_config = DataConfig(N=32, gridsize=1, K=4)
+    data_config = DataConfig(N=32, gridsize=1, neighbor_count=4)
     model_config = ModelConfig()
     training_config = TrainingConfig(batch_size=8)
 

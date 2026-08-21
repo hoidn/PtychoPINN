@@ -164,7 +164,7 @@ class TestPatchStatsCLI:
             train_data_file=train_file,
             output_dir=tmp_path / "outputs",
             overrides={
-                'n_groups': 8,
+                'training_groups': 8,
                 'log_patch_stats': True,
                 'patch_stats_limit': 2,
             }
@@ -202,7 +202,7 @@ class TestPatchStatsCLI:
         payload = create_training_payload(
             train_data_file=train_file,
             output_dir=tmp_path / "outputs",
-            overrides={'n_groups': 8}
+            overrides={'training_groups': 8}
         )
 
         # Assert pt_inference_config has defaults

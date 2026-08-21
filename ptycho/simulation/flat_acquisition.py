@@ -376,7 +376,7 @@ def _simulate_split(
             nphotons=simulation.detector.photons_per_pattern,
         ),
         sampling=SamplingConfig(
-            n_groups=simulation.object.diffractions_per_object,
+            training_groups=simulation.object.diffractions_per_object,
         ),
     )
     raw_data, _ = _generate_simulated_data_legacy(

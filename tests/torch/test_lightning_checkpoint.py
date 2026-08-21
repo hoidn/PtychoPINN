@@ -97,7 +97,7 @@ class TestLightningCheckpointSerialization:
         tf_train_cfg = TFTrainingConfig(
             model=tf_model_cfg,
             data=TFDataConfig(train_data_file=Path('dummy_train.npz'), test_data_file=None, nphotons=1e6),
-            sampling=TFSamplingConfig(n_groups=16, neighbor_count=4),
+            sampling=TFSamplingConfig(training_groups=16, neighbor_count=4),
             batch_size=16,
             nepochs=0,
             output_dir=tmp_path,
@@ -394,7 +394,7 @@ class TestLightningCheckpointSerialization:
         tf_train_cfg = TFTrainingConfig(
             model=tf_model_cfg,
             data=TFDataConfig(train_data_file=Path('dummy_train.npz'), test_data_file=None, nphotons=1e6),
-            sampling=TFSamplingConfig(n_groups=2, neighbor_count=4),
+            sampling=TFSamplingConfig(training_groups=2, neighbor_count=4),
             loss=TFLossConfig(torch_loss_mode="mae" if mode == "Supervised" else "poisson"),
             batch_size=2,
             nepochs=0,

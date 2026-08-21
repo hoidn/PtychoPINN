@@ -421,7 +421,7 @@ class TestTrainingCliBackendDispatch:
             data=DataConfig(train_data_file=train_path),
             backend="pytorch",
             output_dir=tmp_path / "out",
-            sampling=SamplingConfig(n_groups=1),
+            sampling=SamplingConfig(training_groups=1),
         )
         args = argparse.Namespace(
             config=None,
@@ -613,7 +613,7 @@ class TestTrainingCliBackendDispatch:
             model=model_config,
             data=DataConfig(train_data_file=Path('datasets/train.npz')),
             output_dir=Path('outputs/test_supervised'),
-            sampling=SamplingConfig(n_groups=128),
+            sampling=SamplingConfig(training_groups=128),
             nepochs=1,
             backend='pytorch',
         )
@@ -621,7 +621,7 @@ class TestTrainingCliBackendDispatch:
         # Simulate factory payload creation (as _train_with_lightning does)
         mode_map = {'pinn': 'Unsupervised', 'supervised': 'Supervised'}
         factory_overrides = {
-            'n_groups': config.sampling.n_groups,
+            'n_groups': config.sampling.training_groups,
             'gridsize': config.model.gridsize,
             'model_type': mode_map.get(config.model.model_type, 'Unsupervised'),
             'amp_activation': config.model.amp_activation,
@@ -738,7 +738,7 @@ class TestTrainingCliBackendDispatch:
             model=model_config,
             data=DataConfig(train_data_file=Path('datasets/train.npz')),
             output_dir=Path('outputs/test_accum'),
-            sampling=SamplingConfig(n_groups=128),
+            sampling=SamplingConfig(training_groups=128),
             nepochs=1,
             backend='pytorch',
         )

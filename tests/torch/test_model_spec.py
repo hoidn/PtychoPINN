@@ -208,7 +208,7 @@ def test_training_payload_carries_current_model_spec(tmp_path):
     payload = create_training_payload(
         train_data_file=data_path,
         output_dir=tmp_path / "out",
-        overrides={"n_groups": 1, "gridsize": 1},
+        overrides={"training_groups": 1, "gridsize": 1},
     )
 
     assert payload.model_spec.to_model_config() == payload.pt_model_config
@@ -230,7 +230,7 @@ def test_ci_training_payload_and_model_spec_carry_dose_closure(tmp_path):
     payload = create_training_payload(
         train_data_file=data_path,
         output_dir=tmp_path / "out",
-        overrides={"n_groups": 1, "gridsize": 1},
+        overrides={"training_groups": 1, "gridsize": 1},
         profile="ci",
     )
 

@@ -13,7 +13,7 @@ draws) as the TF side of the behavioral-equivalence gate against the torch
 reference-parity preset.
 
 Recipe defaults mirror the E4 driver (`.superpowers/sdd/ext/etiology-e4-report.md`):
-`--N 128 --gridsize 1 --nphotons 1768920 --batch_size 8 --n_groups 512`.
+`--N 128 --gridsize 1 --nphotons 1768920 --batch_size 8 --training_groups 512`.
 `nphotons=1768920` is the measured photons/img of the frozen `lines_N128`
 dataset at 108 counts/px -- the count-Poisson recipe this campaign compares
 against.
@@ -58,7 +58,7 @@ def parse_args():
     ap.add_argument("--gridsize", type=int, default=1)
     ap.add_argument("--nepochs", type=int, default=25)
     ap.add_argument("--batch_size", type=int, default=8)
-    ap.add_argument("--n_groups", type=int, default=512)
+    ap.add_argument("--training_groups", type=int, default=512)
     ap.add_argument("--nphotons", type=float, default=1768920.0)
     ap.add_argument("--intensity_scale_trainable", type=int, choices=[0, 1], default=1)
     ap.add_argument("--output_dir", required=True)
@@ -157,7 +157,7 @@ def main():
         gridsize=cli.gridsize,
         nepochs=cli.nepochs,
         batch_size=cli.batch_size,
-        n_groups=cli.n_groups,
+        training_groups=cli.training_groups,
         nphotons=cli.nphotons,
         output_dir=str(output_dir),
         backend="tensorflow",
@@ -172,19 +172,19 @@ def main():
         "cli_args": vars(cli),
     }, indent=2, default=str))
 
-    n_groups = config.n_groups
-    n_subsample = config.n_groups
+    training_groups = config.training_groups
+    train_raw_selection = config.training_groups
 
     train_data = load_data(
         str(config.train_data_file),
-        n_images=n_groups,
-        n_subsample=n_subsample,
+        n_images=training_groups,
+        train_raw_selection=train_raw_selection,
         subsample_seed=config.subsample_seed,
     )
     test_data = load_data(str(config.test_data_file))
 
     logger.info(f"Starting TF training: N={config.model.N} gridsize={config.model.gridsize} "
-                f"nepochs={config.nepochs} batch_size={config.batch_size} n_groups={n_groups} "
+                f"nepochs={config.nepochs} batch_size={config.batch_size} training_groups={training_groups} "
                 f"nphotons={config.nphotons} trainable={want_trainable}")
 
     recon_amp, recon_phase, results, leaf_diagnostics = (

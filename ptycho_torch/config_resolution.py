@@ -314,7 +314,7 @@ _TRAINING_INPUTS_BY_OWNER: tuple[
             "scale_contract_version",
             "measurement_domain",
             "N",
-            "K",
+            "neighbor_count",
             "K_quadrant",
             "n_raw_frames_selected",
             "subsample_seed",
@@ -432,7 +432,7 @@ _TRAINING_INPUTS_BY_OWNER: tuple[
             "notes",
             "model_name",
             "test_data_file",
-            "n_groups",
+            "training_groups",
         ),
     ),
     (
@@ -475,7 +475,7 @@ _INFERENCE_INPUTS_BY_OWNER: tuple[
         "data",
         (
             "N",
-            "K",
+            "neighbor_count",
             "gridsize",
             "probe_scale",
             "subsample_seed",
@@ -515,7 +515,7 @@ _INFERENCE_INPUTS_BY_OWNER: tuple[
     (
         "bridge",
         (
-            "n_groups",
+            "inference_groups",
             "n_raw_frames_selected",
         ),
     ),
@@ -531,14 +531,18 @@ _INFERENCE_INPUTS_BY_OWNER: tuple[
 
 _TRAINING_ALIASES = MappingProxyType(
     {
-        "neighbor_count": "K",
         "model_type": "mode",
         "max_epochs": "epochs",
     }
 )
 _INFERENCE_ALIASES = MappingProxyType(
     {
-        "neighbor_count": "K",
+        # Documented external-contract fence (not a fallback): the legacy
+        # inference-group-count spelling "training_groups" is permanently
+        # accepted; specs/ptychodus_api_spec.md and config_factory docstrings
+        # historically named this key for the inference patch. Normalization
+        # maps it to the canonical "inference_groups".
+        "training_groups": "inference_groups",
         "model_type": "mode",
     }
 )
@@ -822,7 +826,7 @@ def inference_factory_baseline() -> TorchConfigBaseline:
     data = DataConfig(
         N=64,
         gridsize=1,
-        K=4,
+        neighbor_count=4,
         scale_contract_version="ci_intensity_v2",
         measurement_domain="count_intensity",
     )
@@ -1006,12 +1010,12 @@ def _validate_training_bridge_domains(
     enable_oversampling = bridge_values.get("enable_oversampling", False)
     if enable_oversampling and data.gridsize != 1:
         effective_pool_size = (
-            data.K if neighbor_pool_size is None else neighbor_pool_size
+            data.neighbor_count if neighbor_pool_size is None else neighbor_pool_size
         )
         derived_channels = data.gridsize * data.gridsize
         if effective_pool_size < derived_channels:
             raise ValueError(
-                "enable_oversampling requires neighbor_pool_size or K >= "
+                "enable_oversampling requires neighbor_pool_size or neighbor_count >= "
                 f"derived C={derived_channels} for gridsize={data.gridsize}, "
                 f"got {effective_pool_size}"
             )
@@ -1156,13 +1160,15 @@ def _validate_data_and_model(
 def _required_group_count(
     normalized: NormalizedPatch,
     baseline_value: int | None,
+    *,
+    canonical_name: str,
 ) -> int:
-    value = normalized.values.get("n_groups", baseline_value)
+    value = normalized.values.get(canonical_name, baseline_value)
     if value is None:
         raise ValueError(
-            "n_groups is required in the phase patch (no default)"
+            f"{canonical_name} is required in the phase patch (no default)"
         )
-    return _require_positive_integer(value, "n_groups")
+    return _require_positive_integer(value, canonical_name)
 
 
 def _resolve_training_owner_precedence(
@@ -1280,14 +1286,15 @@ def resolve_training_bundle(
         )
     )
 
-    n_groups = _required_group_count(
+    training_groups = _required_group_count(
         normalized,
-        baseline.training.n_groups,
+        baseline.training.training_groups,
+        canonical_name="training_groups",
     )
     candidate_training = _fresh_config(
         candidate_training,
         {
-            "n_groups": n_groups,
+            "training_groups": training_groups,
             "train_data_file": str(observations.train_data_file),
             "output_dir": str(observations.output_dir),
             "test_data_file": (
@@ -1329,13 +1336,13 @@ def resolve_training_bundle(
     bridge: dict[str, object] = {
         "train_data_file": observations.train_data_file,
         "output_dir": observations.output_dir,
-        "n_groups": n_groups,
+        "training_groups": training_groups,
         "nphotons": data.nphotons,
     }
     if candidate_training.test_data_file is not None:
         bridge["test_data_file"] = candidate_training.test_data_file
     if "n_raw_frames_selected" in normalized.values:
-        bridge["n_subsample"] = data.n_raw_frames_selected
+        bridge["train_raw_selection"] = data.n_raw_frames_selected
     if "subsample_seed" in normalized.values:
         bridge["subsample_seed"] = data.subsample_seed
     bridge_values = {
@@ -1466,15 +1473,19 @@ def resolve_inference_bundle(
     _validate_inference_domains(inference)
 
     baseline_group_count = None
-    n_groups = _required_group_count(normalized, baseline_group_count)
+    inference_groups = _required_group_count(
+        normalized,
+        baseline_group_count,
+        canonical_name="inference_groups",
+    )
     bridge: dict[str, object] = {
         "model_path": observations.model_path,
         "test_data_file": observations.test_data_file,
         "output_dir": observations.output_dir,
-        "n_groups": n_groups,
+        "inference_groups": inference_groups,
     }
     if "n_raw_frames_selected" in normalized.values:
-        bridge["n_subsample"] = normalized.values["n_raw_frames_selected"]
+        bridge["inference_raw_selection"] = normalized.values["n_raw_frames_selected"]
     if "subsample_seed" in normalized.values:
         bridge["subsample_seed"] = data.subsample_seed
 

@@ -69,7 +69,7 @@ def _write_npz(path, diff3d, xcoords, ycoords, probe, obj):
 
 
 def _configs(**data_overrides):
-    data_config = DataConfig(N=N_PIX, gridsize=1, K=4, **data_overrides)
+    data_config = DataConfig(N=N_PIX, gridsize=1, neighbor_count=4, **data_overrides)
     model_config = ModelConfig()
     training_config = TrainingConfig(batch_size=8)
     return data_config, model_config, training_config
@@ -77,7 +77,7 @@ def _configs(**data_overrides):
 
 def _group_configs(normalize='Group', data_scaling='Parseval'):
     data_config = DataConfig(
-        N=N_PIX, gridsize=2, K=6, n_raw_frames_selected=1,
+        N=N_PIX, gridsize=2, neighbor_count=6, n_raw_frames_selected=1,
         neighbor_function='4_quadrant', scan_pattern='Isotropic',
         x_bounds=(0.0, 1.0), y_bounds=(0.0, 1.0), normalize=normalize,
         data_scaling=data_scaling)

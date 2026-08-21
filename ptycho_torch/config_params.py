@@ -30,7 +30,7 @@ class DataConfig:
     #General sizing parameters
     N: int = 64  # Size of the diffraction patterns/object patch
     gridsize: int = 2  # Square group side length; C = gridsize**2 derived at consumption
-    K: int = 6    # Number of nearest neighbors for lookup
+    neighbor_count: int = 6    # Number of nearest neighbors for lookup
     #Grid parameters specifically for overlap constraint
     K_quadrant: int = 30 # Number of nearest neighbors for quadrant lookup
     n_raw_frames_selected: int = 7 # Training: raw frames selected before grouping
@@ -282,7 +282,7 @@ class TrainingConfig:
     train_data_file: Optional[str] = None # Path to training NPZ dataset
     test_data_file: Optional[str] = None # Path to test NPZ dataset
     output_dir: str = "training_outputs" # Output directory for checkpoints/logs
-    n_groups: Optional[int] = None # Number of grouped samples
+    training_groups: Optional[int] = None # Number of grouped samples
 
 @dataclass
 class InferenceConfig:

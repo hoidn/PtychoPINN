@@ -160,7 +160,7 @@ def test_nested_construction_emits_no_deprecation_warning():
         warnings.simplefilter("error", DeprecationWarning)
         config = TrainingConfig(
             data=DataConfig(nphotons=1e6),
-            sampling=SamplingConfig(n_groups=32),
+            sampling=SamplingConfig(training_groups=32),
         )
 
     assert config.data.nphotons == 1e6

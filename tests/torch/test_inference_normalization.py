@@ -46,7 +46,7 @@ def test_inference_uses_training_normalization_scale(monkeypatch):
 
     monkeypatch.setattr(hh, "reassemble_patches_position_real", fake_reassemble)
 
-    config = SimpleNamespace(n_groups=2)
+    config = SimpleNamespace(inference_groups=2)
     inference._run_inference_and_reconstruct(
         DummyModel(),
         raw_data,
@@ -93,7 +93,7 @@ def test_simplified_ci_inference_fails_before_computing_output_scale(monkeypatch
         inference._run_inference_and_reconstruct(
             CIModel(),
             raw_data,
-            SimpleNamespace(n_groups=2),
+            SimpleNamespace(inference_groups=2),
             execution_config=None,
             device=torch.device("cpu"),
             quiet=True,
@@ -144,7 +144,7 @@ def test_explicit_legacy_simplified_inference_remains_available(monkeypatch):
     amplitude, phase = inference._run_inference_and_reconstruct(
         LegacyModel(),
         raw_data,
-        SimpleNamespace(n_groups=2),
+        SimpleNamespace(inference_groups=2),
         execution_config=None,
         device=torch.device("cpu"),
         quiet=True,

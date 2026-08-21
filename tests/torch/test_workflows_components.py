@@ -105,14 +105,14 @@ def test_train_with_lightning_accepts_selected_datamodule_unchanged(
         model=PublicModelConfig(N=64),
         train_data_file=train_npz,
         output_dir=tmp_path,
-        n_groups=10,
+        training_groups=10,
         nphotons=1e9,
         nepochs=1,
     )
     payload = resolve_training_payload(
         train_data_file=train_npz,
         output_dir=tmp_path,
-        overrides={"n_groups": 10, "nphotons": 1e9},
+        overrides={"training_groups": 10, "nphotons": 1e9},
         execution_config=_execution_request(
             accelerator="cpu",
             devices=2,
@@ -292,7 +292,7 @@ class TestWorkflowsComponentsScaffold:
                 test_data_file=Path("/tmp/dummy_test.npz"),
                 nphotons=1e9,
             ),
-            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
+            sampling=SamplingConfig(training_groups=10, neighbor_count=4),
         )
 
         return training_config
@@ -410,7 +410,7 @@ class TestWorkflowsComponentsTraining:
                 test_data_file=Path("/tmp/dummy_test.npz"),
                 nphotons=1e9,
             ),
-            sampling=SamplingConfig(n_groups=10, neighbor_count=1),  # No neighbors
+            sampling=SamplingConfig(training_groups=10, neighbor_count=1),  # No neighbors
             nepochs=2,  # Small number for testing
         )
 
@@ -489,7 +489,7 @@ class TestWorkflowsComponentsTraining:
                 test_data_file=Path("/tmp/dummy_test.npz"),
                 nphotons=1e9,
             ),
-            sampling=SamplingConfig(n_groups=10, neighbor_count=1),
+            sampling=SamplingConfig(training_groups=10, neighbor_count=1),
             nepochs=1,
         )
 
@@ -584,7 +584,7 @@ class TestWorkflowsComponentsTraining:
             train_data_file=train_file,
             output_dir=tmp_path / "out",
             overrides={
-                "n_groups": 1,
+                "training_groups": 1,
                 "gridsize": 1,
                 "max_epochs": 1,
                 "accum_steps": 4,
@@ -892,7 +892,7 @@ class TestWorkflowsComponentsTraining:
                 test_data_file=dataset_path,
                 nphotons=1e9,
             ),
-            sampling=SamplingConfig(n_groups=2, neighbor_count=1),
+            sampling=SamplingConfig(training_groups=2, neighbor_count=1),
             output_dir=tmp_path / "out",
             nepochs=1,
         )
@@ -1456,7 +1456,7 @@ class TestWorkflowsComponentsTraining:
                 test_data_file=dummy_npz,   # Reuse for test data
                 nphotons=1e9,
             ),
-            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
+            sampling=SamplingConfig(training_groups=10, neighbor_count=4),
             nepochs=2,
         )
 
@@ -1544,7 +1544,7 @@ class TestWorkflowsComponentsTraining:
                 train_data_file=Path("/tmp/dummy_train.npz"),
                 nphotons=1e9,
             ),
-            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
+            sampling=SamplingConfig(training_groups=10, neighbor_count=4),
             nepochs=2,
             batch_size=16,  # Explicit batch size for shape check
         )
@@ -1622,7 +1622,7 @@ class TestWorkflowsComponentsRun:
                 test_data_file=Path("/tmp/dummy_test.npz"),
                 nphotons=1e9,
             ),
-            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
+            sampling=SamplingConfig(training_groups=10, neighbor_count=4),
             nepochs=2,
         )
 
@@ -1795,7 +1795,7 @@ class TestWorkflowsComponentsRun:
                 test_data_file=Path("/tmp/dummy_test.npz"),
                 nphotons=1e9,
             ),
-            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
+            sampling=SamplingConfig(training_groups=10, neighbor_count=4),
             output_dir=tmp_path,  # Enable persistence
         )
 
@@ -1837,9 +1837,9 @@ class TestWorkflowsComponentsRun:
             "models": ["autoencoder", "diffraction_to_obj"],
             "version": "2.0-pytorch",
             "backend": "pytorch",
-            "artifact_schema_version": "torch-artifact-portable-v3",
+            "artifact_schema_version": "torch-artifact-portable-v4",
         }
-        metadata = {"schema_version": "torch-artifact-portable-v3"}
+        metadata = {"schema_version": "torch-artifact-portable-v4"}
         monkeypatch.setattr(
             "ptycho_torch.workflows.bundle_io._read_torch_bundle_manifest_and_params",
             lambda _base_path: (manifest, archived),
@@ -1993,7 +1993,7 @@ class TestTrainWithLightningRed:
                 test_data_file=test_data_file,
                 nphotons=1e9,
             ),
-            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
+            sampling=SamplingConfig(training_groups=10, neighbor_count=4),
             nepochs=2,
         )
 
@@ -2435,7 +2435,7 @@ class TestReassembleCdiImageTorchGreen:
                 test_data_file=Path("dummy_test.npz"),
                 nphotons=1e9,
             ),
-            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
+            sampling=SamplingConfig(training_groups=10, neighbor_count=4),
             batch_size=2,
             nepochs=1,
             output_dir=tmp_path,
@@ -2939,7 +2939,7 @@ class TestReassembleCdiImageTorchFloat32:
                 test_data_file=Path("/tmp/dummy_test.npz"),
                 nphotons=1e9,
             ),
-            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
+            sampling=SamplingConfig(training_groups=10, neighbor_count=4),
             batch_size=16,
         )
 
@@ -3360,7 +3360,7 @@ class TestTrainWithLightningGreen:
                 test_data_file=test_data_file,
                 nphotons=1e9,
             ),
-            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
+            sampling=SamplingConfig(training_groups=10, neighbor_count=4),
             nepochs=2,
         )
 
@@ -3614,7 +3614,7 @@ class TestInferenceExecutionConfig:
                 test_data_file=Path("/tmp/dummy_test.npz"),
                 nphotons=1e9,
             ),
-            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
+            sampling=SamplingConfig(training_groups=10, neighbor_count=4),
             batch_size=16,
         )
 
@@ -3721,7 +3721,7 @@ class TestLightningCheckpointCallbacks:
                 train_data_file=Path("/tmp/dummy_train.npz"),
                 nphotons=1e9,
             ),
-            sampling=SamplingConfig(n_groups=10, neighbor_count=1),
+            sampling=SamplingConfig(training_groups=10, neighbor_count=1),
             batch_size=16,
             nepochs=2,
         )
@@ -4023,7 +4023,7 @@ class TestLightningExecutionConfig:
                 train_data_file=train_file,
                 test_data_file=test_file,  # Validation data present
             ),
-            sampling=SamplingConfig(n_groups=64),
+            sampling=SamplingConfig(training_groups=64),
             batch_size=16,
             nepochs=2,
             output_dir=tmp_path / "outputs",

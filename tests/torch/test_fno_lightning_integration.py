@@ -123,7 +123,7 @@ def test_train_history_collects_epochs(synthetic_ptycho_npz, tmp_path):
     cfg = TrainingConfig(
         model=ModelConfig(N=64, gridsize=1, architecture="cnn"),
         data=DataConfig(train_data_file=train_npz, test_data_file=None),
-        sampling=SamplingConfig(n_groups=4),  # Small number for fast tests
+        sampling=SamplingConfig(training_groups=4),  # Small number for fast tests
         nepochs=2,
         batch_size=2,
         backend="pytorch",
@@ -161,7 +161,7 @@ def test_train_history_collects_epochs_for_fno(synthetic_ptycho_npz, tmp_path, a
     cfg = TrainingConfig(
         model=ModelConfig(N=64, gridsize=1, architecture=arch),
         data=DataConfig(train_data_file=train_npz, test_data_file=None),
-        sampling=SamplingConfig(n_groups=4),
+        sampling=SamplingConfig(training_groups=4),
         nepochs=1,
         batch_size=2,
         backend="pytorch",
@@ -196,7 +196,7 @@ def test_reassemble_cdi_image_torch_handles_real_imag_outputs(synthetic_ptycho_n
     cfg = TrainingConfig(
         model=ModelConfig(N=64, gridsize=1, architecture="fno"),
         data=DataConfig(train_data_file=train_npz, test_data_file=test_npz),
-        sampling=SamplingConfig(n_groups=4),
+        sampling=SamplingConfig(training_groups=4),
         nepochs=1,
         batch_size=2,
         backend="pytorch",

@@ -61,8 +61,8 @@ def measure_arm(arm_name: str, ckpt: Path) -> dict:
     model = model.cpu().eval()
     with torch.no_grad():
         patches = model.forward_predict(td["images"], td["coords_relative"], b[1], td["rms_scaling_constant"])
-    # (n_groups, C, H, W) with C=gridsize**2; flatten groups+channels so gs1 (C=1)
-    # and gs2 (C=4) are handled uniformly. coords_global is (n_groups, C, 1, 2).
+    # (inference_groups, C, H, W) with C=gridsize**2; flatten groups+channels so gs1 (C=1)
+    # and gs2 (C=4) are handled uniformly. coords_global is (inference_groups, C, 1, 2).
     patches = trim(patches).numpy().reshape(-1, MIDDLE, MIDDLE)
     gc2 = td["coords_global"].squeeze(2).numpy().reshape(-1, 2)  # col0=x, col1=y
     assert patches.shape[0] == gc2.shape[0], f"patch/coord count mismatch {patches.shape[0]} vs {gc2.shape[0]}"

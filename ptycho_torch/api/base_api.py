@@ -639,7 +639,7 @@ class PtychoModel:
         bridge_values = {
             "train_data_file": self.training_config.train_data_file,
             "output_dir": self.training_config.output_dir,
-            "n_groups": self.training_config.n_groups,
+            "training_groups": self.training_config.training_groups,
             "nphotons": self.data_config.nphotons,
         }
         if self.training_config.test_data_file is not None:

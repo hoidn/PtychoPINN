@@ -328,7 +328,7 @@ class TestIntegrationWithWorkflow(unittest.TestCase):
         self.assertTrue(config.sampling.sequential_sampling)
         # n_images is cleared to None by the SamplingConfig validator; n_groups receives the value
         self.assertIsNone(config.sampling.n_images)
-        self.assertEqual(config.sampling.n_groups, 100)
+        self.assertEqual(config.sampling.training_groups, 100)
 
 
 if __name__ == '__main__':

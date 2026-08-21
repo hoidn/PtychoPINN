@@ -36,7 +36,7 @@ def _build_stub_module(
         epochs=1,
         batch_size=2,
         n_devices=1,
-        n_groups=2,
+        training_groups=2,
         torch_loss_mode=torch_loss_mode,
         torch_mae_pred_l2_match_target=torch_mae_pred_l2_match_target,
     )
@@ -123,7 +123,7 @@ def test_supervised_compute_loss_accepts_experiment_ids():
         epochs=1,
         batch_size=1,
         n_devices=1,
-        n_groups=1,
+        training_groups=1,
         torch_loss_mode='mae',
     )
     infer_cfg = InferenceConfig()

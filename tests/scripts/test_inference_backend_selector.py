@@ -367,7 +367,7 @@ class TestInferenceCliBackendDispatch:
 
         assert config.model_path == tmp_path / 'model.zip'
         assert config.test_data_file == tmp_path / 'test.npz'
-        assert config.n_groups == 6
+        assert config.training_groups == 6
         assert config.neighbor_count == 7
         assert config.subsample_seed == 123
         assert config.debug is True

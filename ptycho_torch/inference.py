@@ -382,13 +382,13 @@ def _validate_loaded_reconstruction_identity(
     expected_training_groups = expected_workflow.training.training_groups
     if not _values_agree(
         expected_training_groups,
-        model.training_config.n_groups,
+        model.training_config.training_groups,
     ):
         raise ValueError(
             "resolved_workflow.training.training_groups mismatch with "
-            "loaded training_config.n_groups: expected "
+            "loaded training_config.training_groups: expected "
             f"{expected_training_groups!r}, loaded "
-            f"{model.training_config.n_groups!r}"
+            f"{model.training_config.training_groups!r}"
         )
     inference_names = tuple(
         item.name
@@ -1001,7 +1001,7 @@ def _run_inference_and_reconstruct(model, raw_data, config, execution_config, de
     Args:
         model: Loaded Lightning module (should be in eval mode)
         raw_data: RawData instance with test data
-        config: TFInferenceConfig with n_groups, etc.
+        config: TFInferenceConfig with inference_groups, etc.
         execution_config: PyTorchExecutionConfig with device, batch size, etc.
         device: Torch device string ('cpu', 'cuda', 'mps')
         quiet: Suppress progress output (default: False)
@@ -1050,8 +1050,8 @@ def _run_inference_and_reconstruct(model, raw_data, config, execution_config, de
     debug_parity.log_array_stats("torch.diffraction_raw", raw_data.diff3d)
     debug_parity.log_array_stats("torch.probe_raw", raw_data.probeGuess)
 
-    # Limit to n_groups
-    diffraction = diffraction[:config.n_groups]
+    # Limit to inference_groups
+    diffraction = diffraction[:config.inference_groups]
 
     # Add channel dimension if needed: (n, H, W) -> (n, 1, H, W)
     if diffraction.ndim == 3:
@@ -1448,7 +1448,7 @@ Examples:
 
     # Build overrides dict for factory
     overrides = {
-        'n_groups': n_images,  # Map CLI arg to config field
+        'inference_groups': n_images,  # Map CLI arg to config field
         'probe_mask': args.probe_mask,
         'probe_mask_sigma': args.probe_mask_sigma,
         'probe_mask_diameter': args.probe_mask_diameter,
@@ -1482,7 +1482,7 @@ Examples:
             print("Loaded configuration from model checkpoint")
             print(f"Test data: {test_data_path}")
             print(f"Output directory: {output_dir}")
-            print(f"N groups: {tf_inference_config.n_groups}")
+            print(f"N groups: {tf_inference_config.inference_groups}")
             print(f"Execution config: accelerator={execution_config.accelerator}, "
                   f"num_workers={execution_config.num_workers}")
 

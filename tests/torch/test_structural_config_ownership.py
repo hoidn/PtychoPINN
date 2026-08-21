@@ -43,7 +43,7 @@ def test_each_public_topology_field_enters_through_canonical_model_patch(
     payload = create_training_payload(
         train_data_file=training_npz,
         output_dir=tmp_path,
-        overrides={"n_groups": 4, "gridsize": 1, field_name: value},
+        overrides={"training_groups": 4, "gridsize": 1, field_name: value},
         execution_config=ExecutionRequest(
             values={"accelerator": "cpu"},
             explicit_fields=frozenset({"accelerator"}),
@@ -69,7 +69,7 @@ def test_training_factory_rejects_unknown_structural_override(
             train_data_file=training_npz,
             output_dir=tmp_path,
             overrides={
-                "n_groups": 4,
+                "training_groups": 4,
                 "spectral_bottleneck_modse": 10,
             },
         )

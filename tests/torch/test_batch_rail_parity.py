@@ -31,7 +31,7 @@ def _configs(grid_size=1, *, ci=False, batch_size=4, num_workers=0, strategy="au
     data = DataConfig(
         N=N,
         gridsize=grid_size,
-        K=1 if grid_size == 1 else 6,
+        neighbor_count=1 if grid_size == 1 else 6,
         K_quadrant=8,
         n_raw_frames_selected=1,
 
@@ -390,7 +390,7 @@ def test_real_lightning_cpu_ddp_shards_train_and_uses_explicit_validation_map(
 
             def configs():
                 data = DataConfig(
-                    N=N, K=1, n_raw_frames_selected=1, gridsize=1,
+                    N=N, neighbor_count=1, n_raw_frames_selected=1, gridsize=1,
                     x_bounds=(0.0, 1.0), y_bounds=(0.0, 1.0),
                     scale_contract_version="legacy_v1",
                     measurement_domain="normalized_amplitude",

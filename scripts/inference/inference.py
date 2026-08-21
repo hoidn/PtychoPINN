@@ -33,6 +33,7 @@ import time
 import math
 import json
 import signal
+import warnings
 from pathlib import Path
 import numpy as np
 import tensorflow as tf
@@ -88,17 +89,23 @@ def parse_arguments() -> argparse.Namespace:
                        help="Enable debug mode")
     parser.add_argument("--comparison_plot", action="store_true",
                        help="Generate original comparison plot (only if ground truth is available)")
-    parser.add_argument("--n_groups", type=int, required=False,
+    parser.add_argument("--inference_groups", type=int, required=False,
                        default=argparse.SUPPRESS,
                        help="Number of groups to process.")
+    parser.add_argument("--n_groups", type=int, required=False,
+                       default=argparse.SUPPRESS,
+                       help="DEPRECATED: Use --inference-groups instead.")
     parser.add_argument("--n_images", type=int, required=False,
                        default=argparse.SUPPRESS,
-                       help="Number of images/groups to process. Interpretation depends on gridsize: "
+                       help="DEPRECATED: Use --inference-groups instead. Number of images/groups to process. Interpretation depends on gridsize: "
                             "gridsize=1 means individual images, gridsize>1 means number of groups")
-    parser.add_argument("--n_subsample", type=int, required=False,
+    parser.add_argument("--inference_raw_selection", type=int, required=False,
                        default=argparse.SUPPRESS,
                        help="Number of images to subsample from test data (independent control). "
                             "When provided, controls data selection separately from grouping.")
+    parser.add_argument("--n_subsample", type=int, required=False,
+                       default=argparse.SUPPRESS,
+                       help="DEPRECATED: Use --inference-raw-selection instead.")
     parser.add_argument("--subsample_seed", type=int, required=False,
                        default=argparse.SUPPRESS,
                        help="Random seed for reproducible subsampling")
@@ -181,10 +188,10 @@ def interpret_sampling_parameters(
             f"archive gridsize must be a positive integer, got {gridsize!r}"
         )
     
-    # Case 1: Independent control with n_subsample
-    if config.n_subsample is not None:
-        n_subsample = config.n_subsample
-        n_groups = config.n_groups
+    # Case 1: Independent control with inference_raw_selection
+    if config.inference_raw_selection is not None:
+        n_subsample = config.inference_raw_selection
+        n_groups = config.inference_groups
         
         if gridsize == 1:
             if n_groups is None:
@@ -209,14 +216,14 @@ def interpret_sampling_parameters(
     
     # Case 2: Canonical grouping controls both
     else:
-        if config.n_groups is not None:
+        if config.inference_groups is not None:
             if gridsize == 1:
-                n_subsample = config.n_groups
-                n_groups = config.n_groups
+                n_subsample = config.inference_groups
+                n_groups = config.inference_groups
                 message = f"Using {n_groups} individual images (gridsize=1)"
             else:
                 n_subsample = None  # Use full dataset for subsampling
-                n_groups = config.n_groups
+                n_groups = config.inference_groups
                 total_patterns = n_groups * gridsize * gridsize
                 message = (f"Using {n_groups} groups "
                            f"(gridsize={gridsize}, approx {total_patterns} patterns)")
@@ -239,8 +246,9 @@ def setup_inference_configuration(args: argparse.Namespace, yaml_path: Optional[
         "test_data": "test_data_file",
         "output_dir": "output_dir",
         "debug": "debug",
+        "inference_groups": "inference_groups",
         "n_images": "n_images",
-        "n_subsample": "n_subsample",
+        "inference_raw_selection": "inference_raw_selection",
         "subsample_seed": "subsample_seed",
         "backend": "backend",
     }
@@ -249,8 +257,35 @@ def setup_inference_configuration(args: argparse.Namespace, yaml_path: Optional[
         for argument_name, config_name in cli_destinations.items()
         if hasattr(args, argument_name)
     }
-    inference_config = resolve_inference_config(yaml_data, cli_patch)
+    if getattr(args, "n_groups", None) is not None:
+        warnings.warn(
+            "--n_groups is deprecated; use --inference_groups",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        if "inference_groups" in cli_patch and cli_patch["inference_groups"] != args.training_groups:
+            raise ValueError(
+                f"--n_groups conflicts with explicit --inference_groups "
+                f"({args.training_groups!r} vs {cli_patch['inference_groups']!r})"
+            )
+        cli_patch["inference_groups"] = args.training_groups
+    if getattr(args, "n_subsample", None) is not None:
+        warnings.warn(
+            "--n_subsample is deprecated; use --inference_raw_selection",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        if (
+            "inference_raw_selection" in cli_patch
+            and cli_patch["inference_raw_selection"] != args.train_raw_selection
+        ):
+            raise ValueError(
+                f"--n_subsample conflicts with explicit --inference_raw_selection "
+                f"({args.train_raw_selection!r} vs {cli_patch['inference_raw_selection']!r})"
+            )
+        cli_patch["inference_raw_selection"] = args.train_raw_selection
 
+    inference_config = resolve_inference_config(yaml_data, cli_patch)
     print(f"Final inference config - gridsize: {inference_config.model.gridsize}")
     return inference_config
 
@@ -806,7 +841,7 @@ def main():
         print(interpretation_message)
 
         if (
-            config.n_subsample is not None
+            config.inference_raw_selection is not None
             and archive_gridsize > 1
             and n_groups is not None
         ):

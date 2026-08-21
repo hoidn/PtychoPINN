@@ -14,13 +14,13 @@ import make_synthetic_truth_datasets as M  # noqa: E402
 def _write_fake_gs2_npz(path: Path, centers, member_pitch=4.0):
     """Tiny synthetic gs2-grouped npz: coords_nominal (relative, +-member_pitch/2
     pattern) and coords_offsets (absolute group centers), matching the frozen
-    gate file's grouped format (n_groups, 1, 2, 4)."""
-    n_groups = len(centers)
+    gate file's grouped format (training_groups, 1, 2, 4)."""
+    training_groups = len(centers)
     half = member_pitch / 2.0
-    coords_nominal = np.zeros((n_groups, 1, 2, 4), dtype=np.float32)
+    coords_nominal = np.zeros((training_groups, 1, 2, 4), dtype=np.float32)
     coords_nominal[:, 0, 0, :] = [half, -half, half, -half]
     coords_nominal[:, 0, 1, :] = [half, half, -half, -half]
-    coords_offsets = np.zeros((n_groups, 1, 2, 4), dtype=np.float32)
+    coords_offsets = np.zeros((training_groups, 1, 2, 4), dtype=np.float32)
     for i, (cx, cy) in enumerate(centers):
         coords_offsets[i, 0, 0, :] = cx
         coords_offsets[i, 0, 1, :] = cy

@@ -44,7 +44,7 @@ def test_parse_args_accepts_documented_flags(monkeypatch):
             "--gridsize": 1,
             "--nepochs": 25,
             "--batch_size": 8,
-            "--n_groups": 512,
+            "--training_groups": 512,
             "--nphotons": 1768920.0,
             "--intensity_scale_trainable": 1,
         }
@@ -58,7 +58,7 @@ def test_parse_args_accepts_documented_flags(monkeypatch):
     assert cli.gridsize == 1
     assert cli.nepochs == 25
     assert cli.batch_size == 8
-    assert cli.n_groups == 512
+    assert cli.training_groups == 512
     assert cli.nphotons == 1768920.0
     assert cli.intensity_scale_trainable == 1
     assert cli.output_dir == "dummy_out"
@@ -72,7 +72,7 @@ def test_parse_args_defaults_match_e4_recipe(monkeypatch):
     assert cli.gridsize == 1
     assert cli.nepochs == 25
     assert cli.batch_size == 8
-    assert cli.n_groups == 512
+    assert cli.training_groups == 512
     assert cli.nphotons == 1768920.0
     assert cli.intensity_scale_trainable == 1
 
@@ -130,7 +130,7 @@ def test_tensorflow_reference_leaf_projects_owner_and_restores_ambient_state(
             "N": 128,
             "gridsize": 1,
             "batch_size": 8,
-            "n_groups": 16,
+            "training_groups": 16,
             "nphotons": 1234.0,
             "intensity_scale_trainable": False,
             "train_data_file": "train.npz",
@@ -212,7 +212,7 @@ def test_tensorflow_reference_leaf_restores_ambient_state_on_failure(
             "N": 128,
             "gridsize": 1,
             "batch_size": 8,
-            "n_groups": 16,
+            "training_groups": 16,
             "train_data_file": "train.npz",
             "test_data_file": "test.npz",
         },

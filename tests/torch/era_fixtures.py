@@ -40,6 +40,7 @@ _METADATA_MEMBER = "torch_scaling_metadata.pt"
 _V1 = "torch-artifact-portable-v1"
 _V2 = "torch-artifact-portable-v2"
 _V3 = "torch-artifact-portable-v3"
+_V4 = "torch-artifact-portable-v4"
 
 
 def _tiny_model():
@@ -113,18 +114,18 @@ def _state_dict_bytes(model) -> bytes:
     torch.save(model.state_dict(), buffer)
     return buffer.getvalue()
 
-
 def _downgrade_data_section(section: dict) -> dict:
-    """Project a live (v3) data section onto the frozen legacy wire shape."""
+    """Project a live (v4) data section onto the frozen legacy wire shape."""
     gridsize = section["gridsize"]
     legacy = {
         name: value
         for name, value in section.items()
-        if name not in ("gridsize", "n_raw_frames_selected")
+        if name not in ("gridsize", "n_raw_frames_selected", "neighbor_count")
     }
     legacy["C"] = gridsize * gridsize
     legacy["grid_size"] = (gridsize, gridsize)
     legacy["n_subsample"] = section["n_raw_frames_selected"]
+    legacy["K"] = section["neighbor_count"]
     return legacy
 
 
@@ -150,6 +151,9 @@ def _payload_as_legacy(payload: dict, era: str) -> dict:
     downgraded = dict(payload)
     downgraded["schema_version"] = era
     downgraded["data_config"] = _downgrade_data_section(payload["data_config"])
+    training = dict(payload["training_config"])
+    training["n_groups"] = training.pop("training_groups")
+    downgraded["training_config"] = training
     downgraded["model_spec"] = _downgrade_spec_payload(
         payload["model_spec"],
         to_version=(
@@ -159,6 +163,19 @@ def _payload_as_legacy(payload: dict, era: str) -> dict:
         ),
         channels=channels,
     )
+    return downgraded
+
+
+def _downgrade_to_v3(payload: dict) -> dict:
+    """Project a live (v4) identity payload down to the frozen v3 wire shape."""
+    downgraded = dict(payload)
+    downgraded["schema_version"] = _V3
+    data = dict(payload["data_config"])
+    data["K"] = data.pop("neighbor_count")
+    training = dict(payload["training_config"])
+    training["n_groups"] = training.pop("training_groups")
+    downgraded["data_config"] = data
+    downgraded["training_config"] = training
     return downgraded
 
 
@@ -201,13 +218,20 @@ def build_bundle(tmp_path: Path, era: str) -> Path:
     model = _tiny_model()
     weights = _state_dict_bytes(model)
 
-    if era not in {"portable_v1", "portable_v2_json", "portable_v3"}:
+    if era not in {"portable_v1", "portable_v2_json", "portable_v3", "portable_v4"}:
         raise ValueError(f"unknown bundle era {era!r}")
 
-    schema = {"portable_v1": _V1, "portable_v2_json": _V2, "portable_v3": _V3}[era]
+    schema = {
+        "portable_v1": _V1,
+        "portable_v2_json": _V2,
+        "portable_v3": _V3,
+        "portable_v4": _V4,
+    }[era]
     payload = _identity_payload(model)
     if era in ("portable_v1", "portable_v2_json"):
         payload = _payload_as_legacy(payload, schema)
+    elif era == "portable_v3":
+        payload = _downgrade_to_v3(payload)
     metadata_buffer = io.BytesIO()
     torch.save(payload, metadata_buffer)
 

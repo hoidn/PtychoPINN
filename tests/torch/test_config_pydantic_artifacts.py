@@ -271,9 +271,9 @@ def test_portable_v1_is_an_exact_explicit_projection_and_historical_data_is_reje
         decode_artifact_identity(from_json_payload(raw))
 
 
-def test_portable_v3_is_current_structurally_and_historical_data_is_rejected():
+def test_portable_v3_is_a_frozen_historical_era_and_historical_data_is_rejected():
     from ptycho_torch.artifact_schema import (
-        CURRENT_ARTIFACT_SCHEMA_VERSION,
+        ARTIFACT_SCHEMA_V3_VERSION,
         decode_artifact_identity,
         from_json_payload,
     )
@@ -285,7 +285,7 @@ def test_portable_v3_is_current_structurally_and_historical_data_is_rejected():
     raw_v1 = _read_payload("pydantic_pre_migration_portable_v1.json")
     raw_v3 = _read_payload("pydantic_pre_migration_portable_v2.json")
 
-    assert raw_v3["schema_version"] == CURRENT_ARTIFACT_SCHEMA_VERSION
+    assert raw_v3["schema_version"] == ARTIFACT_SCHEMA_V3_VERSION
     assert raw_v3["model_spec"]["schema_version"] == CURRENT_MODEL_SPEC_VERSION
     assert set(raw_v3["model_spec"]["model_config"]) == set(
         MODEL_SPEC_V3_MODEL_FIELDS
