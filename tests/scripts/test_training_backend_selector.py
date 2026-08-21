@@ -36,8 +36,8 @@ def test_interpret_sampling_parameters_reads_nested_sampling_config():
         model=ModelConfig(gridsize=2),
         data=DataConfig(train_data_file=Path("train.npz")),
         sampling=SamplingConfig(
-            n_groups=7,
-            n_subsample=32,
+            training_groups=7,
+            train_raw_selection=32,
             neighbor_count=4,
             enable_oversampling=True,
             neighbor_pool_size=8,
@@ -59,8 +59,8 @@ def test_shared_training_workflow_reads_nested_sampling_config():
         model=ModelConfig(gridsize=2),
         data=DataConfig(train_data_file=Path("train.npz")),
         sampling=SamplingConfig(
-            n_groups=7,
-            n_subsample=32,
+            training_groups=7,
+            train_raw_selection=32,
             neighbor_count=4,
             enable_oversampling=True,
             neighbor_pool_size=8,
@@ -97,8 +97,8 @@ def test_public_factory_override_map_reads_nested_training_config():
             nphotons=2.5e7,
         ),
         sampling=SamplingConfig(
-            n_groups=7,
-            n_subsample=32,
+            training_groups=7,
+            train_raw_selection=32,
             subsample_seed=11,
             neighbor_count=5,
             enable_oversampling=True,
@@ -125,7 +125,7 @@ def test_public_factory_override_map_reads_nested_training_config():
 
     overrides = build_training_factory_overrides(config)
 
-    assert overrides["n_groups"] == 7
+    assert overrides["training_groups"] == 7
     assert overrides["n_raw_frames_selected"] == 32
     assert overrides["nphotons"] == 2.5e7
     assert overrides["neighbor_count"] == 5
@@ -621,7 +621,7 @@ class TestTrainingCliBackendDispatch:
         # Simulate factory payload creation (as _train_with_lightning does)
         mode_map = {'pinn': 'Unsupervised', 'supervised': 'Supervised'}
         factory_overrides = {
-            'n_groups': config.sampling.training_groups,
+            'training_groups': config.sampling.training_groups,
             'gridsize': config.model.gridsize,
             'model_type': mode_map.get(config.model.model_type, 'Unsupervised'),
             'amp_activation': config.model.amp_activation,

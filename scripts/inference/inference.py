@@ -263,12 +263,12 @@ def setup_inference_configuration(args: argparse.Namespace, yaml_path: Optional[
             DeprecationWarning,
             stacklevel=2,
         )
-        if "inference_groups" in cli_patch and cli_patch["inference_groups"] != args.training_groups:
+        if "inference_groups" in cli_patch and cli_patch["inference_groups"] != args.n_groups:
             raise ValueError(
                 f"--n_groups conflicts with explicit --inference_groups "
-                f"({args.training_groups!r} vs {cli_patch['inference_groups']!r})"
+                f"({args.n_groups!r} vs {cli_patch['inference_groups']!r})"
             )
-        cli_patch["inference_groups"] = args.training_groups
+        cli_patch["inference_groups"] = args.n_groups
     if getattr(args, "n_subsample", None) is not None:
         warnings.warn(
             "--n_subsample is deprecated; use --inference_raw_selection",
@@ -277,13 +277,13 @@ def setup_inference_configuration(args: argparse.Namespace, yaml_path: Optional[
         )
         if (
             "inference_raw_selection" in cli_patch
-            and cli_patch["inference_raw_selection"] != args.train_raw_selection
+            and cli_patch["inference_raw_selection"] != args.n_subsample
         ):
             raise ValueError(
                 f"--n_subsample conflicts with explicit --inference_raw_selection "
-                f"({args.train_raw_selection!r} vs {cli_patch['inference_raw_selection']!r})"
+                f"({args.n_subsample!r} vs {cli_patch['inference_raw_selection']!r})"
             )
-        cli_patch["inference_raw_selection"] = args.train_raw_selection
+        cli_patch["inference_raw_selection"] = args.n_subsample
 
     inference_config = resolve_inference_config(yaml_data, cli_patch)
     print(f"Final inference config - gridsize: {inference_config.model.gridsize}")

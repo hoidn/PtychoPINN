@@ -457,6 +457,9 @@ def _validate_training_execution_input(
     normalize_execution_input(execution_config, mode="training")
 
 
+_OMIT_FIELD = object()
+
+
 @dataclasses.dataclass(frozen=True)
 class _TrainerAssembly:
     """Frozen Trainer construction record (typed seam; mutation raises)."""
@@ -475,13 +478,18 @@ class _TrainerAssembly:
     log_every_n_steps: Any
     default_root_dir: Any
     logger: Any
-    gradient_clip_algorithm: Any = None
+    gradient_clip_algorithm: Any = _OMIT_FIELD
 
 def _trainer_kwargs_as_dict(record: "_TrainerAssembly") -> dict:
-    """Shallow field projection; never deepcopies callbacks/strategy objects."""
+    """Shallow field projection; never deepcopies callbacks/strategy objects.
+
+    Fields set to _OMIT_FIELD are excluded entirely, preserving the historical
+    kwargs contract (gradient_clip_algorithm present iff automatic optimization).
+    """
     return {
         field.name: getattr(record, field.name)
         for field in dataclasses.fields(record)
+        if getattr(record, field.name) is not _OMIT_FIELD
     }
 
 
@@ -927,7 +935,7 @@ def _train_with_lightning(
         default_root_dir=str(output_dir),
         logger=lightning_logger,  # Phase EB3.B: Use configured logger (False if disabled)
         gradient_clip_algorithm=(
-            effective_clip_algorithm if automatic_optimization else None
+            effective_clip_algorithm if automatic_optimization else _OMIT_FIELD
         ),
     )
     trainer = L.Trainer(**_trainer_kwargs_as_dict(trainer_kwargs))
