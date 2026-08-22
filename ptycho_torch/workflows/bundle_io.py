@@ -39,6 +39,7 @@ def _persist_bundle_scaling_metadata(
     amplitude_physics_gain_record: Optional[
         AmplitudePhysicsGainRecord
     ] = None,
+    checkpoint_selection: Optional[Dict[str, Any]] = None,
 ) -> None:
     """Append the torch config and frozen CI statistics needed for strict reload."""
     statistics = model.get_ci_statistics()
@@ -116,6 +117,8 @@ def _persist_bundle_scaling_metadata(
         backend=TORCH_ARTIFACT_BACKEND,
         artifact_schema_version=CURRENT_ARTIFACT_SCHEMA_VERSION,
     )
+    if checkpoint_selection is not None:
+        manifest["checkpoint_selection"] = dict(checkpoint_selection)
     handle, temporary_name = tempfile.mkstemp(
         prefix=archive_path.name,
         suffix=".tmp",
