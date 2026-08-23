@@ -77,7 +77,8 @@ DEFAULT_GRAFT_LIST = HERE / "main_overlay_graft.txt"
 
 # The family fingerprint. Case-insensitive, matches the plan's audit sweep.
 FAMILY_PATTERN = re.compile(
-    r"hybrid_resnet|srunet|spectral_resnet|resnet_components|hybres",
+    r"hybrid_resnet|srunet|spectral_resnet|spectral_bottleneck|"
+    r"convnext_bottleneck|resnet_components|hybres",
     re.IGNORECASE,
 )
 

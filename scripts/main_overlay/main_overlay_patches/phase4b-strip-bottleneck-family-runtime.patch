@@ -1,0 +1,107 @@
+diff --git a/ptycho_torch/config_resolution.py b/ptycho_torch/config_resolution.py
+--- a/ptycho_torch/config_resolution.py
++++ b/ptycho_torch/config_resolution.py
+@@ -339,14 +339,6 @@
+             "ffno_encoder_gate_init",
+             "ffno_encoder_norm",
+             "ffno_encoder_mlp_ratio",
+-            "spectral_bottleneck_blocks",
+-            "spectral_bottleneck_modes",
+-            "spectral_bottleneck_share_weights",
+-            "spectral_bottleneck_gate_init",
+-            "spectral_bottleneck_gate_mode",
+-            "convnext_bottleneck_layerscale_init",
+-            "convnext_bottleneck_mlp_ratio",
+-            "convnext_bottleneck_kernel_size",
+             "generator_output_mode",
+             "cnn_output_mode",
+             "use_shared_decoder",
+diff --git a/ptycho_torch/model_spec.py b/ptycho_torch/model_spec.py
+--- a/ptycho_torch/model_spec.py
++++ b/ptycho_torch/model_spec.py
+@@ -55,11 +55,6 @@
+     "ffno_encoder_blocks", "ffno_encoder_modes",
+     "ffno_encoder_share_weights", "ffno_encoder_gate_init",
+     "ffno_encoder_norm", "ffno_encoder_mlp_ratio",
+-    "spectral_bottleneck_blocks", "spectral_bottleneck_modes",
+-    "spectral_bottleneck_share_weights", "spectral_bottleneck_gate_init",
+-    "spectral_bottleneck_gate_mode",
+-    "convnext_bottleneck_layerscale_init",
+-    "convnext_bottleneck_mlp_ratio", "convnext_bottleneck_kernel_size",
+     "generator_output_mode", "cnn_output_mode", "use_shared_decoder",
+     "intensity_scale_trainable", "intensity_scale",
+     "max_position_jitter", "num_datasets", "C_model", "n_filters_scale",
+@@ -125,14 +120,6 @@
+         "ffno_encoder_gate_init",
+         "ffno_encoder_norm",
+         "ffno_encoder_mlp_ratio",
+-        "spectral_bottleneck_blocks",
+-        "spectral_bottleneck_modes",
+-        "spectral_bottleneck_share_weights",
+-        "spectral_bottleneck_gate_init",
+-        "spectral_bottleneck_gate_mode",
+-        "convnext_bottleneck_layerscale_init",
+-        "convnext_bottleneck_mlp_ratio",
+-        "convnext_bottleneck_kernel_size",
+         "cnn_output_mode",
+         "use_shared_decoder",
+         "intensity_scale_trainable",
+@@ -183,10 +170,6 @@
+     "ffno_encoder_blocks", "ffno_encoder_modes",
+     "ffno_encoder_share_weights", "ffno_encoder_gate_init",
+     "ffno_encoder_norm", "ffno_encoder_mlp_ratio",
+-    "spectral_bottleneck_blocks", "spectral_bottleneck_modes",
+-    "spectral_bottleneck_share_weights", "spectral_bottleneck_gate_init",
+-    "spectral_bottleneck_gate_mode", "convnext_bottleneck_layerscale_init",
+-    "convnext_bottleneck_mlp_ratio", "convnext_bottleneck_kernel_size",
+     "generator_output_mode", "cnn_output_mode", "use_shared_decoder",
+     "intensity_scale_trainable", "intensity_scale", "max_position_jitter",
+     "num_datasets", "C_model", "n_filters_scale", "amp_activation",
+@@ -219,10 +202,6 @@
+     "ffno_encoder_blocks", "ffno_encoder_modes",
+     "ffno_encoder_share_weights", "ffno_encoder_gate_init",
+     "ffno_encoder_norm", "ffno_encoder_mlp_ratio",
+-    "spectral_bottleneck_blocks", "spectral_bottleneck_modes",
+-    "spectral_bottleneck_share_weights", "spectral_bottleneck_gate_init",
+-    "spectral_bottleneck_gate_mode", "convnext_bottleneck_layerscale_init",
+-    "convnext_bottleneck_mlp_ratio", "convnext_bottleneck_kernel_size",
+     "generator_output_mode", "cnn_output_mode", "use_shared_decoder",
+     "intensity_scale_trainable", "intensity_scale", "max_position_jitter",
+     "num_datasets", "n_filters_scale", "amp_activation",
+diff --git a/scripts/studies/ablation/configuration.py b/scripts/studies/ablation/configuration.py
+--- a/scripts/studies/ablation/configuration.py
++++ b/scripts/studies/ablation/configuration.py
+@@ -1057,8 +1057,6 @@
+         "learned_input_channels",
+         "hybrid_encoder_conv_hidden_scale",
+         "hybrid_encoder_spectral_hidden_scale",
+-        "spectral_bottleneck_blocks",
+-        "spectral_bottleneck_modes",
+         "n_filters_scale",
+         "probe_mask_sigma",
+     )
+diff --git a/scripts/studies/ablation/manifest.py b/scripts/studies/ablation/manifest.py
+--- a/scripts/studies/ablation/manifest.py
++++ b/scripts/studies/ablation/manifest.py
+@@ -547,11 +547,6 @@
+     "hybrid_encoder_conv_hidden_channels",
+     "hybrid_encoder_spectral_hidden_channels",
+     "hybrid_skip_style",
+-    "spectral_bottleneck_blocks",
+-    "spectral_bottleneck_modes",
+-    "spectral_bottleneck_share_weights",
+-    "spectral_bottleneck_gate_init",
+-    "spectral_bottleneck_gate_mode",
+ )
+ _PROTOCOL_V3_MOVED_HYBRID_FIELDS = (
+     "hybrid_encoder_fusion_mode",
+@@ -569,9 +564,6 @@
+ )
+ _PROTOCOL_V3_DEFAULT_ONLY_MODEL_FIELDS = MappingProxyType(
+     {
+-        "convnext_bottleneck_layerscale_init": 0.1,
+-        "convnext_bottleneck_mlp_ratio": 4.0,
+-        "convnext_bottleneck_kernel_size": 7,
+         "rect_s1s2_init": "ones",
+     }
+ )

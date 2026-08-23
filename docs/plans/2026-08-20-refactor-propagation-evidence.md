@@ -46,3 +46,71 @@ changed the archive contract without the same-commit spec amendment that
 Decision 1 requires. Back-fix belongs on `fno-stable` (its canonical
 `docs/findings.md`); out of scope for this propagation, which fixes the pattern
 on `refactor` rather than inheriting it.
+
+## C4 quality-gate propagation (2026-08-21)
+
+### Applicability
+
+- Reviewed all 15 C4 commits from `927f9a662` through `3f4a6d9bb`, inclusive.
+  Its Hybrid ResNet runtime, fixtures, quality helpers, contract test, and
+  source-tree module-size gate are source-only under propagation rule 3.
+- The destination overlay excludes those surfaces explicitly. The retained
+  `tests/torch/test_synthetic_cnn_c4_ci_quality_integration.py` remains the
+  branch-native CNN C4 smoke; the public FFNO selector remains the destination
+  quality gate. No Hybrid ResNet substitute or mixed-family harness was added.
+- The source changes that are architecture-independent were propagated:
+  serving-checkpoint identity is now persisted in `manifest.json`, training
+  and validation loss are read from that same selected checkpoint, and raw
+  reconstruction metrics are recomputed before accepting the quality result.
+- Overlay proof against source tip `3f4a6d9bb`: 104 paths excluded, 19 patches
+  applied, grep/dangling-import/import/closure gates all passed, emitted tree
+  `9ef2fddbdded131c5f70036e3c2e6a57c794c523`. Transform tests: 23 passed.
+
+### FFNO calibration and holdout
+
+- RED before the producer fix:
+  `test_public_synthetic_ffno_gs1_ci_five_epoch_quality` failed after the full
+  run because the bundle manifest lacked `checkpoint_selection`
+  (`1 failed in 207.99s`).
+- Frozen producer commit:
+  `90f0825c186d2c40cc7ee192aac1df9b044b1475`.
+- Two independent fresh-process fit runs used empty roots and identical locked
+  CLI arguments:
+  `/tmp/refactor-ffno-serving-run02-v274ufXz/.../ffno-gs1-ci-5ep` and
+  `/tmp/refactor-ffno-calibration-run02-EzKWCSac/.../ffno-gs1-ci-5ep`.
+  Their dataset manifests, train/test NPZ array SHA-256 maps, seed lineage,
+  root-normalized resolved workflows, runtime fingerprints, and deterministic
+  execution records were all exactly equal.
+- Locked environment: NVIDIA GeForce RTX 3090, compute capability 8.6, driver
+  580.173.02, CUDA 12.8, cuDNN 91002, Torch 2.9.1+cu128, Lightning 2.5.5,
+  Python 3.11.13, NumPy 1.26.4, precision `32-true`,
+  `CUBLAS_WORKSPACE_CONFIG=:4096:8`, deterministic algorithms enabled.
+- Both fit runs produced exactly:
+  amplitude SSIM `0.5976732191880556`, phase SSIM
+  `0.878507971092135`, absolute amplitude MAE
+  `0.22102645985677952`, wrapped phase MAE
+  `0.23077204823493958`, final train loss `175.2398681640625`, and
+  final validation loss `148.75523376464844`. The selected serving checkpoint
+  was epoch 4/global step 1405 with score `148.75523376464844`; the bundled
+  weights source was `checkpoint`.
+- The frozen envelope is the documented fit-only formula:
+  quality minima minus `0.015`, error maxima plus `0.015`/`0.025`, and loss
+  maxima times `1.10` plus `1e-6`. Resulting ceilings/floors are recorded in
+  `tests/fixtures/synthetic_ffno_gs1_ci_5ep_metrics.json`; its SHA-256 after
+  fit and after holdout was
+  `0af6f4ae7ff2615fd585b4c0fe5736a89a6a1fcc40c35e17f27852ed954fe521`.
+- Raw metrics recomputed from each `reconstruction.npz` were exactly equal to
+  the recorded metrics. All four fit/holdout/sealed images were byte-identical:
+  SHA-256 `5cbdfd7fa6bdb9711e7defa7a8bce6a5f26e6cec767b2e468552c975382cb249`,
+  1,685,403 bytes, 2100x1350. Manual review passed line morphology and rejected
+  flatness, collapse, checkerboarding, mirroring/transposition, saturation,
+  seams/holes, and crop errors.
+- Untouched holdout Run 03 used
+  `/tmp/refactor-ffno-calibration-run03-UXTlCwUl/.../ffno-gs1-ci-5ep` and passed
+  all six frozen thresholds with the exact fit metrics and losses. The fixture
+  hash remained unchanged.
+- The committed fixture is `8476470333243a2eb4c544a54690f96215ac3d76`.
+  Sealed Run 04 used
+  `/tmp/refactor-ffno-calibration-run04-zgy9SnU1/.../ffno-gs1-ci-5ep`;
+  the public selector passed in 229.08s, raw metrics matched, all thresholds
+  passed, and the rendered artifact matched the fit and holdout byte for byte.

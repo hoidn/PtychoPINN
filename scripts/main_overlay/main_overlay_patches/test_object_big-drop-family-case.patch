@@ -2,11 +2,7 @@ diff --git a/tests/torch/test_object_big_generator_contract.py b/tests/torch/tes
 index c7c006d..ef3d85c 100644
 --- a/tests/torch/test_object_big_generator_contract.py
 +++ b/tests/torch/test_object_big_generator_contract.py
-@@ -405,42 +405,3 @@ def test_oracle_generator_realimag_reproduces_reference_diffraction():
-         "shifted oracle loss was not strictly larger than the aligned oracle loss "
-         f"({loss_shifted:.3e} vs {loss_true:.3e})"
-     )
--
+@@ -472,38 +472,0 @@ def test_oracle_generator_realimag_reproduces_reference_diffraction():
 -
 -def test_hybrid_resnet_c4_real_imag_shape_and_grad_contract():
 -    """hybrid_resnet already satisfies the C=4 real_imag generator contract.
@@ -22,7 +18,7 @@ index c7c006d..ef3d85c 100644
 -    """
 -    from ptycho_torch.model import _build_generator_module_from_config
 -
--    data_cfg = DataConfig(N=64, C=4, grid_size=(2, 2))
+-    data_cfg = DataConfig(N=64, gridsize=2)
 -    model_cfg = ModelConfig(architecture="hybrid_resnet")
 -    module = _build_generator_module_from_config(
 -        model_cfg, data_cfg, generator_output="real_imag"

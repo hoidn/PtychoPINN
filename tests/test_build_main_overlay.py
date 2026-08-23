@@ -28,6 +28,14 @@ _spec.loader.exec_module(bmo)
 PATTERN = re.compile(r"FORBIDDEN", re.IGNORECASE)
 
 
+@pytest.mark.parametrize(
+    "reference",
+    ["hybrid_resnet", "spectral_bottleneck_blocks", "convnext_bottleneck_kernel_size"],
+)
+def test_default_family_pattern_catches_runtime_family_knobs(reference):
+    assert bmo.FAMILY_PATTERN.search(reference)
+
+
 def _git(repo: Path, *args: str) -> str:
     out = subprocess.run(
         ["git", *args], cwd=str(repo), capture_output=True, text=True,

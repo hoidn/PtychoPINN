@@ -842,7 +842,7 @@ index d7857e9fa..89b1ef942 100644
 -        assert model.hybrid_downsample_steps == 2
 -
 -
-@@ -1095,39 +256,0 @@ class TestGeneratorRegistry:
+@@ -1095,37 +256,0 @@ class TestGeneratorRegistry:
 -    def test_hybrid_resnet_generator_builds_fixed_residual_from_model_config(self):
 -        """Hybrid ResNet fixed residual control is structural model state."""
 -        from ptycho.config.config import PyTorchExecutionConfig
@@ -861,13 +861,11 @@ index d7857e9fa..89b1ef942 100644
 -        gen = HybridResnetGenerator(config)
 -        pt_model_config = PTModelConfig(
 -            architecture="hybrid_resnet",
--            C_model=1,
--            C_forward=1,
 -            hybrid_resnet_bottleneck_layerscale_mode="fixed",
 -            hybrid_resnet_bottleneck_layerscale_value=1.0,
 -        )
 -        pt_configs = {
--            "data_config": DataConfig(N=64, C=1),
+-            "data_config": DataConfig(N=64, gridsize=1),
 -            "model_config": pt_model_config,
 -            "training_config": PTTrainingConfig(),
 -            "inference_config": PTInferenceConfig(),
@@ -878,11 +876,11 @@ index d7857e9fa..89b1ef942 100644
 -
 -        assert isinstance(model, PtychoPINN_Lightning)
 -        assert model.model.generator.resnet.layerscale.requires_grad is False
--        assert model.hparams["model_config"]["hybrid_resnet_bottleneck_layerscale_mode"] == "fixed"
--        assert model.hparams["model_config"]["hybrid_resnet_bottleneck_layerscale_value"] == 1.0
--        assert model.hparams["model_spec"]["model_config"]["hybrid_resnet_bottleneck_layerscale_mode"] == "fixed"
--        assert model.hparams["model_spec"]["model_config"]["hybrid_resnet_bottleneck_layerscale_value"] == 1.0
-@@ -1215,242 +337,0 @@ class TestStableHybridUNOGenerator:
+-        assert model.model_config.hybrid_resnet_bottleneck_layerscale_mode == "fixed"  # v3 single-write: identity lives on the module, not duplicated hparams
+-        assert model.model_config.hybrid_resnet_bottleneck_layerscale_value == 1.0
+-        assert model.hparams["artifact_identity"]["model_spec"]["model_config"]["hybrid_resnet_bottleneck_layerscale_mode"] == "fixed"
+-        assert model.hparams["artifact_identity"]["model_spec"]["model_config"]["hybrid_resnet_bottleneck_layerscale_value"] == 1.0
+@@ -1213,239 +337,0 @@ class TestStableHybridUNOGenerator:
 -class TestConvNextBottleneck:
 -    """Tests for the ConvNeXt-style bottleneck added for the SRU-Net ConvNeXt
 -    bottleneck ablation (architecture id ``hybrid_resnet_convnext_bottleneck``).
@@ -1057,13 +1055,11 @@ index d7857e9fa..89b1ef942 100644
 -        gen = HybridResnetConvNextBottleneckGenerator(config)
 -        model_config = PTModelConfig(
 -            architecture="hybrid_resnet_convnext_bottleneck",
--            C_model=1,
--            C_forward=1,
 -            hybrid_resnet_bottleneck_layerscale_mode="fixed",
 -            hybrid_resnet_bottleneck_layerscale_value=1.0,
 -        )
 -        pt_configs = {
--            "data_config": DataConfig(N=64, C=1),
+-            "data_config": DataConfig(N=64, gridsize=1),
 -            "model_config": model_config,
 -            "training_config": PTTrainingConfig(),
 -            "inference_config": PTInferenceConfig(),
@@ -1085,8 +1081,7 @@ index d7857e9fa..89b1ef942 100644
 -            "convnext_bottleneck_kernel_size": 7,
 -        }
 -        for field, value in expected.items():
--            assert model.hparams["model_config"][field] == value
--            assert model.hparams["model_spec"]["model_config"][field] == value
+-            assert model.hparams["artifact_identity"]["model_spec"]["model_config"][field] == value
 -        # The fixed-residual flag must be honored end-to-end on the new path too.
 -        assert model.model.generator.resnet.layerscale.requires_grad is False
 -
@@ -1103,7 +1098,7 @@ index d7857e9fa..89b1ef942 100644
 -        from ptycho_torch.model import _build_generator_module_from_config
 -
 -        model_config = PTModelConfig(architecture="hybrid_resnet_convnext_bottleneck")
--        data_config = PTDataConfig(N=64, C=1)
+-        data_config = PTDataConfig(N=64, gridsize=1)
 -        overrides = {
 -            "hybrid_resnet_bottleneck_layerscale_mode": "fixed",
 -            "hybrid_resnet_bottleneck_layerscale_value": 1.0,

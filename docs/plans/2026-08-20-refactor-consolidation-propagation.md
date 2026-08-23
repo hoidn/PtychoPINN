@@ -60,6 +60,7 @@ Copied verbatim from the governing documents. Every task's requirements implicit
 | `studies/` beyond `refactor`'s 5 files | 10 files | study history — excluded |
 | `.superpowers/sdd/` ledgers, `docs/plans/2026-08-2*-quality-closeout-*.md` | source-only process artifacts | not a destination deliverable |
 | `torch-artifact-v1..v4` identifiers | source era lineage | Decision 6 — `refactor` keeps `portable-*` |
+| Hybrid ResNet/ResNet-family C4 quality harness and `tests/torch/test_module_size_gates.py` | source-only family/runtime and source-tree line-count contracts | rule 3 — retain `refactor`'s CNN C4 smoke and FFNO quality gate; do not recreate the removed family |
 
 **Do NOT copy this source-branch defect.** `fno-stable`'s `specs/ptychodus_api_spec.md` §4.6 still declares `artifact_schema_version='torch-artifact-v2'` while `ptycho_torch/artifact_schema.py:40` stamps `torch-artifact-v4`. The external-contract spec was never amended for Phase 4 or the closeout rename — a live violation of Decision 1 and CLAUDE.md Fundamental Directive 2. On `refactor`, every era bump amends `specs/ptychodus_api_spec.md` **in the same commit**. See Task 7 for the recommended back-fix on `fno-stable`.
 
