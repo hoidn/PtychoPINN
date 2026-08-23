@@ -47,8 +47,8 @@ data:
   test_data_file: datasets/test.npz
 
 sampling:
-  n_groups: 512
-  n_subsample: 2000
+  training_groups: 512
+  train_raw_selection: 2000
   subsample_seed: 42
 
 optimizer:
@@ -80,7 +80,7 @@ ptycho_train --config configs/my_config.yaml \
 
 Use `ptycho_train --help` for the generated public flags. Unknown or misplaced
 fields fail validation. `sampling.n_images` remains a deprecated alias for
-`sampling.n_groups`; new configurations should use the canonical field.
+`sampling.training_groups`; new configurations should use the canonical field.
 
 Current `refactor` limitation: the generated parser does not yet decode
 numeric or Boolean CLI values before strict validation. Put those types in
@@ -89,8 +89,8 @@ fixed.
 
 ## Sampling
 
-- `sampling.n_subsample` selects raw rows before grouping.
-- `sampling.n_groups` selects grouped model samples.
+- `sampling.train_raw_selection` selects raw rows before grouping.
+- `sampling.training_groups` selects grouped model samples.
 - `sampling.subsample_seed` makes raw-row selection reproducible.
 - `sampling.sequential_sampling=true` uses the first grouping anchors within
   the already selected raw-row pool; it does not replace random raw-row

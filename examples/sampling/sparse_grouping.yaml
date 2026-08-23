@@ -1,8 +1,8 @@
 model:
   gridsize: 2
 sampling:
-  n_subsample: 5000
-  n_groups: 100
+  train_raw_selection: 5000
+  training_groups: 100
   neighbor_count: 4
   subsample_seed: 42
 nepochs: 5

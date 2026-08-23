@@ -84,7 +84,7 @@ K choose C oversampling is required but not enabled.
 ```
 
 **Root Cause:**
-The K-choose-C branch is entered only when `n_groups > n_points` and
+The K-choose-C branch is entered only when `training_groups > n_points` and
 `gridsize > 1`, where `n_points` is the selected raw-row count. That branch
 requires explicit `enable_oversampling: true` and `K >= C`, with
 `C = gridsize²` and K taken from `neighbor_pool_size` (or `neighbor_count`
@@ -95,7 +95,7 @@ when the pool size is omitted).
 # These conditions must be met for the oversampling branch:
 C = gridsize ** 2  # e.g., 4 for gridsize=2
 K = neighbor_pool_size or neighbor_count  # e.g., 7
-needs_oversampling = n_groups > n_points and C > 1
+needs_oversampling = training_groups > n_points and C > 1
 assert needs_oversampling, "Oversampling is triggered only above the selected-row count"
 assert enable_oversampling, "Oversampling requires explicit opt-in"
 assert C > 1, "Need gridsize > 1 for oversampling"
@@ -109,7 +109,7 @@ print(f"At most {candidate_upper_bound} per-anchor combinations before overlap")
 If the requested group count exceeds the generated unique combination pool,
 the current sampler logs a warning and samples combinations with replacement.
 The value above therefore describes potential unique diversity, not a maximum
-allowed `n_groups`.
+allowed `training_groups`.
 
 **Solution:**
 ```yaml
@@ -120,8 +120,8 @@ sampling:
   neighbor_count: 7           # Neighbor query size
   enable_oversampling: true   # Explicit opt-in
   neighbor_pool_size: 7       # K=7, C(7,4)=35 combinations
-  n_subsample: 128            # Raw images selected
-  n_groups: 1024              # Grouped samples requested
+  train_raw_selection: 128     # Raw images selected
+  training_groups: 1024        # Grouped samples requested
 ```
 
 ---

@@ -134,12 +134,12 @@ dose-closure sampling and failure behavior.
 
 The unified training CLI mirrors the nested public configuration:
 
-- `--sampling.n_subsample` selects raw rows before grouping.
-- `--sampling.n_groups` selects the number of grouped samples, independent of
+- `--sampling.train_raw_selection` selects raw rows before grouping.
+- `--sampling.training_groups` selects the number of grouped samples, independent of
   grid size.
 - `--sampling.subsample_seed` makes raw-row selection reproducible.
 - `--sampling.n_images` is a deprecated alias for
-  `--sampling.n_groups`; conflicting alias/canonical values fail validation.
+  `--sampling.training_groups`; conflicting alias/canonical values fail validation.
 
 Model fields belong under `model` in YAML. For example:
 
@@ -147,13 +147,13 @@ Model fields belong under `model` in YAML. For example:
 model:
   gridsize: 2
 sampling:
-  n_subsample: 10000
-  n_groups: 500
+  train_raw_selection: 10000
+  training_groups: 500
   subsample_seed: 3
 ```
 
 With `gridsize=1`, each group contains one image. With `gridsize>1`, each
-group contains `gridsize²` neighboring images. `n_groups` always counts groups;
+group contains `gridsize²` neighboring images. `training_groups` always counts groups;
 it never changes meaning based on grid size.
 
 ---
@@ -165,13 +165,13 @@ it never changes meaning based on grid size.
 ptycho_inference --model_path trained_model/ --test_data test.npz --output_dir inference_out
 
 # With specific number of test groups
-ptycho_inference --model_path trained_model/ --test_data test.npz --n_groups 500 --output_dir inference_out
+ptycho_inference --model_path trained_model/ --test_data test.npz --inference_groups 500 --output_dir inference_out
 
 # Independent sampling control (NEW)
-ptycho_inference --model_path trained_model/ --test_data test.npz --n_subsample 2000 --n_groups 500 --output_dir inference_out
+ptycho_inference --model_path trained_model/ --test_data test.npz --inference_raw_selection 2000 --inference_groups 500 --output_dir inference_out
 
 # GridSize is restored from the saved model; the test data must match it
-ptycho_inference --model_path gs2_model/ --test_data test.npz --n_groups 125 --output_dir gs2_inference
+ptycho_inference --model_path gs2_model/ --test_data test.npz --inference_groups 125 --output_dir gs2_inference
 ```
 
 ---

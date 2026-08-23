@@ -21,7 +21,7 @@ intensity_scale_trainable: true  # Allow learning intensity scale
 
 # Sampling sub-config
 sampling:
-  n_groups: 512          # Number of grouped samples
+  training_groups: 512     # Number of grouped samples
 
 # Physics & data sub-config
 data:

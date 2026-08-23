@@ -1,8 +1,8 @@
 model:
   gridsize: 2
 sampling:
-  n_subsample: 512
-  n_groups: 2048
+  train_raw_selection: 512
+  training_groups: 2048
   neighbor_count: 7
   enable_oversampling: true
   neighbor_pool_size: 7

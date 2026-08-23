@@ -161,7 +161,7 @@ data:
   train_data_file: datasets/fly64/fly64_sequential_train_800.npz
   test_data_file: datasets/fly64/fly64_sequential_test_200.npz
 sampling:
-  n_groups: 200
+  training_groups: 200
 nepochs: 10
 output_dir: gs2_validation
 ```
@@ -191,7 +191,7 @@ data:
   train_data_file: datasets/fly64/fly64_random_train_800.npz
   test_data_file: datasets/fly64/fly64_random_test_200.npz
 sampling:
-  n_groups: 800
+  training_groups: 800
 nepochs: 10
 output_dir: gs1_validation
 ```
