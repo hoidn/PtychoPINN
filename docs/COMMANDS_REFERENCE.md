@@ -95,15 +95,14 @@ DIR/
 # Basic training with type defaults
 ptycho_train --data.train_data_file dataset.npz --output_dir my_run
 
-# Numeric, Boolean, model, and sampling values belong in nested YAML
+# Full model and sampling configuration can use nested YAML
 ptycho_train --config configs/my_config.yaml
 ```
 
-On the current `refactor` tip, generated numeric and Boolean CLI values are not
-decoded before strict Pydantic validation. Use YAML for those types until the
-CLI decoder is fixed. The nested dotted spellings below are the registered
-public field names, but they are not currently reliable runnable overrides for
-numeric/Boolean values.
+Generated dotted numeric and Boolean overrides are decoded before strict
+Pydantic validation. `ModelConfig` is exposed as the `--model` JSON argument
+rather than per-field dotted flags; use nested YAML for multi-field model
+configuration.
 
 ### Native Torch count-intensity profile
 

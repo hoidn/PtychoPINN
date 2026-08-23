@@ -59,9 +59,9 @@ on `refactor` rather than inheriting it.
   branch-native CNN C4 smoke; the public FFNO selector remains the destination
   quality gate. No Hybrid ResNet substitute or mixed-family harness was added.
 - The source changes that are architecture-independent were propagated:
-  serving-checkpoint identity is now persisted in `manifest.json`, training
-  and validation loss are read from that same selected checkpoint, and raw
-  reconstruction metrics are recomputed before accepting the quality result.
+  serving-checkpoint identity is now persisted in `manifest.json`; the
+  validation score is read from the selected checkpoint, final-epoch train loss
+  remains a health check, and raw reconstruction metrics are recomputed.
 - Overlay proof against source tip `3f4a6d9bb`: 104 paths excluded, 19 patches
   applied, grep/dangling-import/import/closure gates all passed, emitted tree
   `9ef2fddbdded131c5f70036e3c2e6a57c794c523`. Transform tests: 23 passed.
@@ -94,7 +94,7 @@ on `refactor` rather than inheriting it.
   was epoch 4/global step 1405 with score `148.75523376464844`; the bundled
   weights source was `checkpoint`.
 - The frozen envelope is the documented fit-only formula:
-  quality minima minus `0.015`, error maxima plus `0.015`/`0.025`, and loss
+  amplitude/phase SSIM minima minus `0.035`/`0.015`, error maxima plus
   maxima times `1.10` plus `1e-6`. Resulting ceilings/floors are recorded in
   `tests/fixtures/synthetic_ffno_gs1_ci_5ep_metrics.json`; its SHA-256 after
   fit and after holdout was

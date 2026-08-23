@@ -153,7 +153,9 @@ def _load_baseline_dataset(config: TrainingConfig):
     logger.info("Loading from .npz files: %s", config.data.train_data_file)
     train_data_raw = load_data(
         str(config.data.train_data_file),
-        n_images=config.sampling.n_images,
+        n_images=config.sampling.training_groups,
+        n_subsample=config.sampling.train_raw_selection,
+        subsample_seed=config.sampling.subsample_seed,
     )
     test_data_raw = load_data(str(config.data.test_data_file))
     train_container = create_ptycho_data_container(train_data_raw, config)

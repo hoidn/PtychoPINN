@@ -214,7 +214,7 @@ mkdir -p "$BASELINE_DIR"
 CONFIG_FILE="configs/comparison_config.yaml"
 
 # Extract gridsize from config file for baseline training
-GRIDSIZE_OVERRIDE=$(python -c "import yaml; print(yaml.safe_load(open('$CONFIG_FILE'))['gridsize'])")
+GRIDSIZE_OVERRIDE=$(python -c "import yaml; print(yaml.safe_load(open('$CONFIG_FILE'))['model']['gridsize'])")
 
 # Extract stitch_crop_size from config file for comparison
 M_STITCH_SIZE=$(python -c "import yaml; print(yaml.safe_load(open('$CONFIG_FILE')).get('stitch_crop_size', 20))")
@@ -271,11 +271,11 @@ else
     echo "----------------------------------------"
 
     # Build PtychoPINN training command
-    PINN_CMD="python scripts/training/train.py \\
-        --config \"$CONFIG_FILE\" \\
-        --data.train_data_file \"$TRAIN_DATA\" \\
-        --data.test_data_file \"$TEST_DATA\" \\
-        --output_dir \"$PINN_DIR\" \\
+    PINN_CMD="python scripts/training/train.py \
+        --config \"$CONFIG_FILE\" \
+        --data.train_data_file \"$TRAIN_DATA\" \
+        --data.test_data_file \"$TEST_DATA\" \
+        --output_dir \"$PINN_DIR\" \
         --model '{\"model_type\":\"pinn\"}'"
 
     # Add training sampling parameters
@@ -301,11 +301,11 @@ else
     echo "------------------------------------"
 
     # Build baseline training command
-    BASELINE_CMD="python scripts/run_baseline.py \\
-        --config \"$CONFIG_FILE\" \\
-        --data.train_data_file \"$TRAIN_DATA\" \\
-        --data.test_data_file \"$TEST_DATA\" \\
-        --output_dir \"$BASELINE_DIR\" \\
+    BASELINE_CMD="python scripts/run_baseline.py \
+        --config \"$CONFIG_FILE\" \
+        --data.train_data_file \"$TRAIN_DATA\" \
+        --data.test_data_file \"$TEST_DATA\" \
+        --output_dir \"$BASELINE_DIR\" \
         --model '{\"gridsize\": $GRIDSIZE_OVERRIDE}'"
 
     # Add training sampling parameters for baseline

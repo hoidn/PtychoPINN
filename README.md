@@ -67,9 +67,8 @@ training-only `ci` profile is documented in the
 ### Training
 `ptycho_train --data.train_data_file <train_path.npz> --data.test_data_file <test_path.npz> --output_dir <my_run>`
 
-Use a nested YAML file for numeric and Boolean training settings on the current
-`refactor` tip. The generated dotted flags are registered, but their numeric
-and Boolean values are not yet decoded before strict Pydantic validation.
+Generated dotted CLI flags decode numeric and Boolean values before strict
+Pydantic validation. Nested YAML remains useful for multi-field configuration.
 
 ### Evaluation
 Use the comparison and study scripts described in

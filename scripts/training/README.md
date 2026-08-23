@@ -82,10 +82,8 @@ Use `ptycho_train --help` for the generated public flags. Unknown or misplaced
 fields fail validation. `sampling.n_images` remains a deprecated alias for
 `sampling.training_groups`; new configurations should use the canonical field.
 
-Current `refactor` limitation: the generated parser does not yet decode
-numeric or Boolean CLI values before strict validation. Put those types in
-YAML; use CLI overrides for paths and literal strings until the decoder is
-fixed.
+Generated dotted CLI values are decoded before strict Pydantic validation.
+Nested YAML remains useful for multi-field configuration.
 
 ## Sampling
 
