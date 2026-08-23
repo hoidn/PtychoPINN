@@ -30,13 +30,14 @@
     "ssim_phase": 0.015,
     "mae_amp": 0.015,
     "mae_phase": 0.025,
-    "train_loss": 5.0,
-    "validation_loss": 10.0
+    "train_loss_multiplier": 1.1,
+    "validation_loss_multiplier": 1.1,
+    "loss_epsilon": 1e-06
   },
   "provenance": {
     "established_command": "python -m scripts.simulation.synthetic_pipeline --profile synthetic-lines --output-root .artifacts/integration/synthetic_ffno_gs1_ci_5ep --architecture ffno --N 128 --gridsize 1 --epochs 5 --batch-size 16 --seed 3 --probe-source custom --probe-path datasets/Run1084_recon3_postPC_shrunk_3.npz --probe-transform 'pad_extrapolate:128|smooth:0.5' --scale-contract-version ci_intensity_v2 --measurement-domain count_intensity --physics-forward-mode rectangular_scaled --generator-output-mode real_imag --torch-loss-mode poisson --rect-s1s2-init dose_closure --gradient-clip-val 1.0 --train-patterns 4489 --test-patterns 729 --train-raw-selection 4489 --training-groups 4489 --validation-groups 729 --neighbor-count 1 --neighbor-pool-size 1 --groups-per-center 1 --accelerator cuda --devices 1 --precision 32-true --workers 0 --logger csv --deterministic",
-    "commit": "b2d1b8f30088b9ad031def550febc1957c46a0c9",
-    "date": "2026-08-13",
-    "note": "Any future re-baseline must be established by a fresh five-epoch run of scripts/simulation/synthetic_pipeline.py on this exact path; do not reuse baselines from other architectures or the retired grid_lines_torch_runner."
+    "commit": "90f0825c186d2c40cc7ee192aac1df9b044b1475",
+    "date": "2026-08-21",
+    "note": "Recalibrated from two fresh, visually reviewed five-epoch runs after validation loss was bound to the bundled serving checkpoint. Any future re-baseline must use scripts/simulation/synthetic_pipeline.py on this exact path and the documented two-fit/one-holdout protocol; do not reuse baselines from another architecture or the retired grid_lines_torch_runner."
   }
 }

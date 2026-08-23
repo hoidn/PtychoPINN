@@ -279,8 +279,14 @@ def test_public_synthetic_ffno_gs1_ci_five_epoch_quality(tmp_path: Path) -> None
         root / "training",
         epochs=baseline["contract"]["epochs"],
     )
-    assert train_loss <= baseline["loss"]["train"] + tolerances["train_loss"]
-    assert val_loss <= baseline["loss"]["validation"] + tolerances["validation_loss"]
+    assert train_loss <= (
+        baseline["loss"]["train"] * tolerances["train_loss_multiplier"]
+        + tolerances["loss_epsilon"]
+    )
+    assert val_loss <= (
+        baseline["loss"]["validation"] * tolerances["validation_loss_multiplier"]
+        + tolerances["loss_epsilon"]
+    )
 
     # Quality metrics: SSIMs are floors, MAEs are ceilings.
     metrics = _load_json(_nonempty(root / "reconstruction/metrics.json"))
