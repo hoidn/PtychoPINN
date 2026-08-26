@@ -40,15 +40,15 @@ if [ "$#" -lt 3 ]; then
     echo "  --n-train-subsample N Number of images to subsample for training"
     echo "  --n-test-groups N    Number of test groups to generate for evaluation"
     echo "  --n-test-subsample N  Number of images to subsample for testing"
-    echo "  --neighbor-count K   Number of nearest neighbors for K choose C oversampling"
+    echo "  --neighbor-count K   Nearest non-center candidate count (must be at least C-1)"
     echo "  --skip-training      Skip training and use existing models"
     echo "  --pinn-model PATH    Path to existing PtychoPINN model (with --skip-training)"
     echo "  --baseline-model PATH Path to existing baseline model (with --skip-training)"
     echo ""
     echo "Examples:"
     echo "  $0 datasets/fly/fly001_transposed.npz datasets/fly/fly001_transposed.npz comparison_results"
-    echo "  $0 datasets/fly/fly001_transposed.npz datasets/fly/fly001_transposed.npz comparison_results --n-train-images 512"
-    echo "  $0 datasets/fly/fly001_transposed.npz datasets/fly/fly001_transposed.npz comparison_results -3.14159 3.14159 -3.14159 3.14159 --n-train-images 1024 --n-test-images 500"
+    echo "  $0 datasets/fly/fly001_transposed.npz datasets/fly/fly001_transposed.npz comparison_results --n-train-groups 512"
+    echo "  $0 datasets/fly/fly001_transposed.npz datasets/fly/fly001_transposed.npz comparison_results -3.14159 3.14159 -3.14159 3.14159 --n-train-groups 1024 --n-test-groups 500"
     exit 1
 fi
 

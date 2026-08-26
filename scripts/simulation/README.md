@@ -77,7 +77,6 @@ ptycho_synthetic \
   --training-groups 4096 \
   --validation-groups 1024 \
   --neighbor-count 4 \
-  --neighbor-pool-size 4 \
   --groups-per-center 1
 ```
 
@@ -110,7 +109,6 @@ training:
   training_groups: 4096
   validation_groups: 1024
   neighbor_count: 4
-  neighbor_pool_size: 4
   epochs: 5
 
 inference:
@@ -163,7 +161,7 @@ table highlights the user-facing defaults:
 | Object | Shared 392×392 registered object producer; default `lines` / `lines-object-v1`, `set_phi=true` |
 | Probe | Ideal source, scale 0.7, `smooth:0.5|pad_preserve:128`; simulation mask off |
 | Raw frames | 4,096 train, 1,024 test; normalized-amplitude `legacy_v1` |
-| Sampling | `dictionary_parity` adapter; 4,096 selected train frames; 1,024 train groups; 1,024 validation groups; neighbor/pool size 4; oversampling off |
+| Sampling | `dictionary_parity` adapter; 4,096 selected train frames as the candidate pool; 1,024 train groups (1,024 unique centers); 1,024 validation groups; neighbor count K=4 per group; no oversampling |
 | Model | Unsupervised `cnn`, real/imaginary output, model mask off, geometry-derived layout, derived amplitude physics gain |
 | Training | 50 epochs, batch 16, Adam `2e-4`, plateau scheduler, MAE with prediction-L2 matching |
 | Inference | Batch 16, probe-weighted barycentric assembly, VarPro on, `groups_per_center=1` |
@@ -294,8 +292,7 @@ The sampling flags name separate lifecycle decisions:
 | `--train-raw-selection` | Train frames selected before grouping |
 | `--training-groups` | Exact grouped samples built for training |
 | `--validation-groups` | Exact grouped samples independently built from the complete test acquisition |
-| `--neighbor-count` | Neighbor candidates queried for ordinary grouping |
-| `--neighbor-pool-size` | Candidate pool for explicit oversampling |
+| `--neighbor-count` | K, nearest non-center candidates queried per group (K ≥ C−1) |
 | `--groups-per-center` | Reconstruction-only repeated groups per eligible center |
 
 Structured configuration also accepts `simulation.train_objects` and

@@ -432,7 +432,6 @@ ptycho_synthetic \
   --training-groups 4489 \
   --validation-groups 729 \
   --neighbor-count 1 \
-  --neighbor-pool-size 1 \
   --groups-per-center 1 \
   --accelerator cuda \
   --devices 1 \
@@ -465,7 +464,6 @@ training:
   training_groups: 4489
   validation_groups: 729
   neighbor_count: 1
-  neighbor_pool_size: 1
 inference:
   groups_per_center: 1
 workflow:
@@ -605,7 +603,7 @@ Flags (`python -m ptycho_torch.train --help` is authoritative):
 
 | Group | Flags |
 |---|---|
-| Data/model | `--train_data_file`, `--test_data_file`, `--output_dir`, `--n_images` (number of groups), `--gridsize`, `--batch_size`, `--max_epochs` |
+| Data/model | `--train_data_file`, `--test_data_file`, `--output_dir`, `--n_images` (native-door spelling mapped once to canonical `training_groups`), `--gridsize`, `--batch_size`, `--max_epochs` |
 | CI initialization | `--profile ci`, `--rect-s1s2-init {ones,dose_closure}` |
 | Execution | `--accelerator {auto,cuda,cpu,tpu,mps}`, `--deterministic/--no-deterministic`, `--num-workers`, `--quiet` |
 | Optimization | `--learning-rate`, `--scheduler {Default,Exponential,MultiStage,Adaptive}`, `--accumulate-grad-batches` |
@@ -718,8 +716,12 @@ CUDA_VISIBLE_DEVICES="0" python -m ptycho_torch.inference \
   --model_path outputs/my_run \
   --test_data datasets/my_test.npz \
   --output_dir outputs/inference_results \
-  --n_images 64 --accelerator cuda --quiet
+  --accelerator cuda --quiet
 ```
+
+Native inference reconstructs every bounded center on the barycentric path; it
+does not expose a group-count flag. Use the installed `ptycho_inference`
+dispatcher when `--inference_groups` is required.
 
 Additional flags: `--num-workers`, `--inference-batch-size` (default: reuse training
 batch size), probe-mask flags, `--log-patch-stats`. A legacy MLflow-run mode

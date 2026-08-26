@@ -9,16 +9,16 @@ echo "Goal: Train effectively with limited memory"
 echo "=================================================="
 
 # Scenario: Large dataset but limited memory
-# Strategy: Load minimal data, use all of it efficiently
+# Strategy: Load a minimal candidate pool, use all of it efficiently
 
 # Example 1: Minimal memory footprint
 echo ""
 echo "Example 1: Minimal memory usage (gridsize=1)"
-echo "Loading only 256 images for very limited memory"
+echo "Loading only 256 candidate rows, using all 256 as centers"
 ptycho_train \
     --train_data_file datasets/fly/fly001_transposed.npz \
-    --n_subsample 256 \
-    --n_images 256 \
+    --train_raw_selection 256 \
+    --training_groups 256 \
     --gridsize 1 \
     --batch_size 8 \
     --subsample_seed 42 \
@@ -28,12 +28,13 @@ ptycho_train \
 # Example 2: Balanced memory usage with grouping
 echo ""
 echo "Example 2: Efficient grouping for moderate memory"
-echo "Loading 512 images, creating 128 groups with gridsize=2"
+echo "Loading 512 candidate rows, creating 128 groups (128 unique centers) with gridsize=2"
 ptycho_train \
     --train_data_file datasets/fly/fly001_transposed.npz \
-    --n_subsample 512 \
-    --n_images 128 \
+    --train_raw_selection 512 \
+    --training_groups 128 \
     --gridsize 2 \
+    --neighbor_count 7 \
     --batch_size 16 \
     --subsample_seed 42 \
     --output_dir memory_balanced_example \
@@ -42,15 +43,16 @@ ptycho_train \
 # Example 3: Progressive loading strategy
 echo ""
 echo "Example 3: Progressive training with different seeds"
-echo "Train multiple times with different subsamples"
+echo "Train multiple times with different candidate pools"
 
 for seed in 42 123 456; do
     echo "Training with seed $seed..."
     ptycho_train \
         --train_data_file datasets/fly/fly001_transposed.npz \
-        --n_subsample 1000 \
-        --n_images 250 \
+        --train_raw_selection 1000 \
+        --training_groups 250 \
         --gridsize 2 \
+        --neighbor_count 7 \
         --batch_size 8 \
         --subsample_seed $seed \
         --output_dir memory_progressive_seed${seed} \
@@ -60,7 +62,7 @@ done
 echo ""
 echo "=================================================="
 echo "Memory-Saving Strategies:"
-echo "1. Use smaller n_subsample to load less data"
+echo "1. Use smaller train_raw_selection to load fewer candidate rows"
 echo "2. Reduce batch_size for training"
 echo "3. Train multiple times with different seeds for diversity"
 echo "4. Consider gridsize=1 for maximum memory efficiency"

@@ -161,7 +161,7 @@ def _format_table(entries: Iterable[TestEntry]) -> str:
                 notes=_normalize_doc_text(entry.notes),
             )
         )
-    return "\n".join([header] + rows)
+    return header + "\n".join(rows)
 
 
 def build_index() -> str:

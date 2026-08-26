@@ -56,8 +56,8 @@ def create_ptycho_data_container(data: Union[RawData, PtychoDataContainer], conf
     if isinstance(data, PtychoDataContainer):
         return data
     elif isinstance(data, RawData):
-        # Grouping semantics (seed/oversampling/pool/count) live once in
-        # ptycho.grouping.group_from_config; both mirrors delegate here.
+        # Grouping semantics (seed, exact centers, and neighbor candidates)
+        # live once in group_from_config; both mirrors delegate here.
         dataset = group_from_config(
             data,
             config,

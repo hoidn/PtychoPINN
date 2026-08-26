@@ -11,11 +11,16 @@ def params_snapshot():
 
     snapshot = dict(params.cfg)
     try:
-        params.cfg.setdefault("intensity_scale", 1.0)
-        params.cfg.setdefault("n_filters_scale", 2)
-        params.cfg.setdefault("offset", 4)
-        params.cfg.setdefault("probe.big", True)
-        params.cfg.setdefault("pad_object", True)
+        params.cfg.update(
+            {
+                "intensity_scale": 1.0,
+                "n_filters_scale": 2,
+                "offset": 4,
+                "probe.big": True,
+                "pad_object": True,
+                "amp_activation": "sigmoid",
+            }
+        )
         yield params
     finally:
         params.cfg.clear()

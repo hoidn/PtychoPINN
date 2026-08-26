@@ -48,7 +48,7 @@ DEFAULT_TEST_SUBSAMPLE="4096"
 DEFAULT_OUTPUT_DIR="complete_generalization_study_$(date +%Y%m%d_%H%M%S)"
 DEFAULT_PARALLEL_JOBS=1
 DEFAULT_NUM_TRIALS=5
-DEFAULT_NEIGHBOR_COUNT=7  # Good default for oversampling with gridsize=2 (C=4)
+DEFAULT_NEIGHBOR_COUNT=7  # Nearest non-center candidate count; C=4 requires at least 3
 SKIP_DATA_PREP=false
 SKIP_TRAINING=false
 SKIP_COMPARISON=false

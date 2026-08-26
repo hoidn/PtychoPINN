@@ -24,7 +24,7 @@ class GenerateTestIndexTests(unittest.TestCase):
         from scripts.tools.generate_test_index import get_module_docstring
 
         doc = get_module_docstring(module)
-        self.assertIn("efficient coordinate grouping", doc)
+        self.assertIn("public RawData grouping contract", doc)
 
     def test_get_test_functions_lists_key_tests(self):
         """Key tests should be enumerated from the module AST."""

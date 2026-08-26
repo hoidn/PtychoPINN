@@ -4,6 +4,7 @@ CPU-only: does not train (no TF/CDI run is exercised). Mirrors the CLI-parse
 test style used for scripts/studies/varpro_probe_ablation_runner.py in
 tests/torch/test_varpro_probe_ablation_runner.py.
 """
+
 import sys
 from pathlib import Path
 
@@ -12,7 +13,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts" / "studies"))
 import tf_reference_cnn_runner as runner  # noqa: E402
-from ptycho import params
+from ptycho import model as ptycho_model, params
 from ptycho.config import resolve_training_config
 
 
@@ -129,12 +130,10 @@ def test_tensorflow_reference_leaf_projects_owner_and_restores_ambient_state(
         {
             "model": {"N": 128, "gridsize": 1},
             "batch_size": 8,
-            "sampling": {"training_groups": 16},
-            "data": {
-                "nphotons": 1234.0,
-                "train_data_file": "train.npz",
-                "test_data_file": "test.npz",
-            },
+            "training_groups": 16,
+            "nphotons": 1234.0,
+            "train_data_file": "train.npz",
+            "test_data_file": "test.npz",
             "intensity_scale_trainable": False,
         },
     )
@@ -158,6 +157,7 @@ def test_tensorflow_reference_leaf_projects_owner_and_restores_ambient_state(
 
     monkeypatch.setattr(runner, "run_cdi_example_with_backend", fake_run)
     monkeypatch.setattr(runner, "save_trained_model", fake_save)
+    monkeypatch.setattr(ptycho_model, "_lazy_cache", {})
 
     before = {
         "sentinel": object(),
@@ -172,13 +172,11 @@ def test_tensorflow_reference_leaf_projects_owner_and_restores_ambient_state(
         params.cfg.update(before)
         params.seal()
 
-        amp, phase, actual_results, diagnostics = (
-            runner.run_tensorflow_reference_leaf(
-                object(),
-                object(),
-                config,
-                tmp_path,
-            )
+        amp, phase, actual_results, diagnostics = runner.run_tensorflow_reference_leaf(
+            object(),
+            object(),
+            config,
+            tmp_path,
         )
 
         assert (amp, phase, actual_results) == ("amp", "phase", results)
@@ -212,11 +210,9 @@ def test_tensorflow_reference_leaf_restores_ambient_state_on_failure(
         {
             "model": {"N": 128, "gridsize": 1},
             "batch_size": 8,
-            "sampling": {"training_groups": 16},
-            "data": {
-                "train_data_file": "train.npz",
-                "test_data_file": "test.npz",
-            },
+            "training_groups": 16,
+            "train_data_file": "train.npz",
+            "test_data_file": "test.npz",
         },
     )
     monkeypatch.setattr(

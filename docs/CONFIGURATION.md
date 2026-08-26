@@ -272,7 +272,6 @@ training:
   training_groups: 4096
   validation_groups: 1024
   neighbor_count: 4
-  neighbor_pool_size: 4
   epochs: 5
 
 inference:
@@ -408,11 +407,11 @@ public names:
 |---|---|
 | `train_patterns` / `test_patterns` | Flat raw frames physically generated in each NPZ |
 | `train_objects` / `test_objects` | Independent object canvases per split; each pattern total is divided evenly across them |
-| `train_raw_selection` | Train frames selected before grouping; persisted as training `DataConfig.n_subsample` |
-| `training_groups` | Exact grouped samples built for the train container |
+| `train_raw_selection` | Train frames selected before grouping; persisted as Torch `DataConfig.n_raw_frames_selected` |
+| `training_groups` | Exact train groups and unique designated centers; cannot exceed the selected candidate-row count |
 | `validation_groups` | Exact grouped samples independently built from the complete test NPZ |
-| `neighbor_count` | Candidate neighbors used to construct each grouped sample |
-| `groups_per_center` | Reconstruction-only repeats per eligible center in an evaluation copy of `DataConfig`; it does not overwrite persisted training identity |
+| `neighbor_count` | K nearest non-center candidates considered per group; must be at least `gridsize² - 1` |
+| `groups_per_center` | Reconstruction-only repeats per bounded inference center; passed directly to the mmap dataset and never persisted |
 
 Synthetic inference has four coupled controls:
 
@@ -875,10 +874,10 @@ These parameters control the training loop, data handling, and loss functions.
 | `realspace_mae_weight` | `float` | `0.0` | Weight for the MAE loss in the object domain. |
 | `realspace_weight` | `float` | `0.0` | General weight for all real-space losses. |
 | `nphotons` | `float` | `1e9` | Legacy/runtime compatibility value used by existing training physics. It does not define generated dose; new datasets take photon count from `SimulationConfig.detector.photons_per_pattern`. |
-| `training_groups` | `Optional[int]` | `None` (`512` after `TrainingConfig.__post_init__` when unset) | Number of groups to use from the dataset. Each group contains 1 image for gridsize=1, or gridsize² images for gridsize>1. **Replaces deprecated `n_images` parameter.** |
-| `n_images` | `Optional[int]` | `None` | **[DEPRECATED]** Legacy parameter name for `training_groups`. Still supported for backward compatibility but will show deprecation warnings. New code should use `training_groups`. |
-| `train_raw_selection` | `Optional[int]` | `None` | Number of images to subsample from the dataset before grouping (independent control). When provided, controls data selection separately from grouping. |
-| `subsample_seed` | `Optional[int]` | `None` | Random seed for reproducible subsampling. Ensures consistent data selection across runs. |
+| `training_groups` | `Optional[int]` | `None` (`512` after `TrainingConfig.__post_init__` when unset) | Exact number of groups and unique designated centers. Each group contains `C = gridsize²` distinct same-object rows, including the center in column zero. Cannot exceed the selected candidate-row count. **Replaces deprecated `n_images`.** |
+| `n_images` | `Optional[int]` | `None` | **[DEPRECATED]** Legacy alias for `training_groups`. |
+| `train_raw_selection` | `Optional[int]` | `None` | Candidate rows selected from the dataset before grouping. |
+| `subsample_seed` | `Optional[int]` | `None` | Seed for reproducible candidate-row selection. |
 | `sequential_sampling` | `bool` | `False` | If `False`, training uses a dedicated seeded, epoch-varying shuffle and validation remains sequential. If `True`, both selection and training order are sequential. Configure it as `training.sequential_sampling` for structured workflows; `ptycho_synthetic` exposes `--sequential-sampling` / `--no-sequential-sampling`, while `ptycho_train` exposes `--sequential_sampling` / `--no-sequential_sampling`. |
 | `positions_provided` | `bool` | `True` | If True, use the provided scan positions. |
 | `probe_trainable` | `bool` | `False` | If True, allows the model to learn and update the probe function during training. |
@@ -905,46 +904,50 @@ These parameters control inference and evaluation workflows.
 | `model_path` | `Path` | **Required** | Path to the trained model directory containing `wts.h5.zip`. |
 | `test_data_file` | `Path` | **Required** | Path to the test dataset (.npz file) for inference. |
 | `output_dir` | `Path` | `"inference_outputs"` | Directory where inference results will be saved. |
-| `inference_groups` | `Optional[int]` | `None` | Number of groups to use for inference. If None, uses all available. Each group contains 1 image for gridsize=1, or gridsize² images for gridsize>1. **Replaces deprecated `n_images` parameter.** |
-| `n_images` | `Optional[int]` | `None` | **[DEPRECATED]** Legacy parameter name for `inference_groups`. Still supported for backward compatibility but will show deprecation warnings. New code should use `inference_groups`. |
-| `inference_raw_selection` | `Optional[int]` | `None` | Number of images to subsample from test data (independent control). When provided, controls data selection separately from grouping. |
-| `subsample_seed` | `Optional[int]` | `None` | Random seed for reproducible subsampling during inference. |
+| `inference_groups` | `Optional[int]` | `None` | Number of bounded centers to reconstruct. Each group contains `C = gridsize²` distinct same-object rows, including the center in column zero. If unset, uses every eligible bounded center. **Replaces deprecated `n_images`.** |
+| `n_images` | `Optional[int]` | `None` | **[DEPRECATED]** Legacy alias for `inference_groups`. |
+| `inference_raw_selection` | `Optional[int]` | `None` | Candidate rows selected from test data before grouping. |
+| `subsample_seed` | `Optional[int]` | `None` | Seed for reproducible candidate-row selection. |
 | `debug` | `bool` | `False` | Enable debug mode for additional logging. |
 
 ## Understanding Sampling Parameters
 
-The project supports two modes for controlling data sampling:
+Candidate-pool selection and exact group count are independent:
 
-### Legacy Mode (Backward Compatible)
-When only the deprecated `n_images` parameter is used, it behaves as `training_groups` (training) or `inference_groups` (inference):
-- **gridsize=1**: `n_images` specifies how many groups of 1 image each to use
-- **gridsize>1**: `n_images` specifies how many neighbor groups to create (total patterns = n_images × gridsize²)
+- **`train_raw_selection` / `inference_raw_selection`** selects candidate rows.
+- **`training_groups`** selects that many unique designated train centers.
+- **`inference_groups`** bounds how many eligible centers are reconstructed.
+- **`neighbor_count`** is the K nearest non-center candidate pool for each
+  center and must be at least `gridsize² - 1`.
+- **`subsample_seed`** makes candidate-row selection reproducible.
 
-**Note**: New code should use `training_groups` / `inference_groups` instead of the deprecated `n_images` parameter.
+Every group has `C = gridsize²` distinct same-object members, with its
+designated center in column zero. Neighbor rows may be shared across groups,
+so `groups × C` is not a distinct-row count. Training group count cannot
+exceed the selected candidate-row count.
 
-### Independent Control Mode (New)
-When `train_raw_selection` / `inference_raw_selection` is provided, you get independent control:
-- **`train_raw_selection` / `inference_raw_selection`**: Controls how many images to randomly select from the dataset
-- **`training_groups` / `inference_groups`**: Controls how many groups to use for training/inference
-- **`subsample_seed`**: Ensures reproducible random selection
+The deprecated `n_images` input still aliases `training_groups` or
+`inference_groups`, according to the workflow, and emits a warning.
 
-**Note**: The deprecated `n_images` parameter can still be used in place of the group-count fields but will show warnings.
+#### Example Scenarios
 
-#### Example Scenarios:
 ```yaml
-# Dense grouping: Use almost all subsampled data in groups
-n_subsample: 1200
-n_groups: 1000  # Creates 1000 groups of 4 images each (gridsize=2)
+# Dense grouping: every selected candidate row is a designated center
+train_raw_selection: 1200
+training_groups: 1200
+neighbor_count: 7
 gridsize: 2
 
-# Sparse grouping: Subsample large dataset, use subset for groups  
-n_subsample: 10000
-n_groups: 500   # Creates 500 groups of 4 images each (gridsize=2)
+# Sparse grouping: use fewer centers than selected candidates
+train_raw_selection: 10000
+training_groups: 500
+neighbor_count: 7
 gridsize: 2
 
-# Memory-constrained: Limit data loading
-n_subsample: 5000
-n_groups: 2000  # Creates 2000 groups of 1 image each (gridsize=1)
+# Memory-constrained GS1 grouping
+train_raw_selection: 5000
+training_groups: 2000
+neighbor_count: 1
 gridsize: 1
 ```
 
@@ -972,7 +975,7 @@ test_data_file: 'datasets/fly/fly001_prepared_test.npz'
 output_dir: 'results/my_experiment_run_1'
 nepochs: 100
 batch_size: 32
-n_groups: 4096  # Use 4096 groups for this training run
+training_groups: 4096  # Exact group count and unique-center count
 
 # Loss Function Weights
 nll_weight: 1.0
@@ -1003,7 +1006,7 @@ ptycho_train --config configs/my_experiment_config.yaml --nepochs 10
    [docs/model_baselines.md](model_baselines.md); this catalog defines fields and
    raw defaults, not the best combination for a run.
 2. **Use YAML files** for reproducible experiments and parameter sets you want to reuse.
-3. **Use `n_groups` instead of deprecated `n_images`** in new configurations.
+3. **Use `training_groups` / `inference_groups`;** reserve deprecated `n_images` for migration tests.
 4. **Use `object_layout`, `training_canvas`, and `training_patch_weighting`**
    instead of deprecated `object_big`.
 5. **Override sparingly** from the command line - use it mainly for quick parameter tweaks.
@@ -1020,7 +1023,7 @@ For migrating existing configurations:
 n_images: 1000
 
 # New (recommended)
-n_groups: 1000  # Always means "number of groups" regardless of gridsize
+training_groups: 1000  # Exact group count and unique-center count
 ```
 
 ```yaml

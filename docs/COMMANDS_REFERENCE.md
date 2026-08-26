@@ -121,7 +121,6 @@ ptycho_synthetic \
   --training-groups 4489 \
   --validation-groups 729 \
   --neighbor-count 1 \
-  --neighbor-pool-size 1 \
   --groups-per-center 1 \
   --accelerator cuda \
   --devices 1 \
@@ -156,7 +155,6 @@ training:
   training_groups: 4489
   validation_groups: 729
   neighbor_count: 1
-  neighbor_pool_size: 1
 inference:
   groups_per_center: 1
 workflow:
@@ -244,23 +242,22 @@ node is `test_synthetic_hybrid_resnet_c4_ci_five_epoch_quality`.
 
 ```bash
 # Basic training
-ptycho_train --train_data_file dataset.npz --n_groups 2000 --nepochs 50 --output_dir my_run
+ptycho_train --train_data_file dataset.npz --training_groups 2000 --nepochs 50 --output_dir my_run
 
 # With configuration file (recommended)
 ptycho_train --config configs/my_config.yaml
 
 # Independent sampling control
-ptycho_train --train_data_file dataset.npz --n_subsample 5000 --n_groups 1000 --nepochs 50 --output_dir my_run
+ptycho_train --train_data_file dataset.npz --train_raw_selection 5000 --training_groups 1000 --nepochs 50 --output_dir my_run
 
 # Reproducible sampling
-ptycho_train --train_data_file dataset.npz --n_subsample 3000 --n_groups 500 --subsample_seed 42 --output_dir my_run
+ptycho_train --train_data_file dataset.npz --train_raw_selection 3000 --training_groups 500 --subsample_seed 42 --output_dir my_run
 
-# K choose C oversampling with explicit opt-in
+# Centered-nearest grouping: 2000 candidate rows, 500 exact groups
 ptycho_train --train_data_file dataset.npz \
-    --n_subsample 500 --n_groups 2000 \
+    --train_raw_selection 2000 --training_groups 500 \
     --gridsize 2 --neighbor_count 7 \
-    --enable_oversampling --neighbor_pool_size 7 \
-    --output_dir oversampled_run
+    --subsample_seed 42 --output_dir centered_run
 ```
 
 The native Torch entry point owns the training-only CI profile and rectangular
@@ -288,75 +285,72 @@ separate unified/legacy entry point and does accept its YAML `--config`.
 
 ### 📊 Independent Sampling Control
 
-The project now supports **independent control** of data subsampling and neighbor grouping:
+The project supports **independent control** of the candidate pool and the exact group count:
 
-- **`--n_subsample`**: Controls how many images to randomly select from the dataset
-- **`--n_groups`**: Controls how many groups to use for training/inference (regardless of gridsize)
+- **`--train_raw_selection`**: How many scan rows are loaded from the dataset as the candidate pool
+- **`--training_groups`**: The exact number of groups to train on. Each group has one designated center drawn from the pool (first member, column zero), so this is also the number of unique centers and can never exceed the pool size
+- **`--neighbor_count`**: K, the nearest non-center candidates considered per group; must be at least `C - 1` where `C = gridsize²`
 - **`--subsample_seed`**: Ensures reproducible random selection
 
-**Note**: `--n_images` is deprecated but still supported for backward compatibility.
+**Note:** `--n_images` / `--n_groups` (map to `--training_groups`) and `--n_subsample` (maps to `--train_raw_selection`) are deprecated aliases that still parse.
 
 **Example Use Cases:**
 ```bash
-# Dense grouping: Use most subsampled data
-ptycho_train --n_subsample 1200 --n_groups 1000 --gridsize 2 ...
+# Dense grouping: every candidate row becomes a group center
+ptycho_train --train_raw_selection 1200 --training_groups 1200 --gridsize 2 ...
 
-# Sparse grouping: Large subsample, fewer groups
-ptycho_train --n_subsample 10000 --n_groups 500 --gridsize 2 ...
+# Sparse grouping: large candidate pool, fewer exact groups
+ptycho_train --train_raw_selection 10000 --training_groups 500 --gridsize 2 ...
 
-# Memory-constrained: Limit data loading
-ptycho_train --n_subsample 5000 --n_groups 2000 --gridsize 1 ...
+# Memory-constrained: bound the loaded pool
+ptycho_train --train_raw_selection 5000 --training_groups 2000 --gridsize 1 ...
 ```
 
-### ⚠️ CRITICAL: Understanding `gridsize` and `--n_groups`
+### ⚠️ CRITICAL: Understanding `gridsize` and `--training_groups`
 
-The `--n_groups` parameter **always** refers to the number of groups to use, regardless of the `gridsize` parameter. This provides consistent behavior and eliminates confusion.
+The `--training_groups` parameter **always** refers to the number of groups (and therefore the number of unique centers), regardless of the `gridsize` parameter. This provides consistent behavior and eliminates confusion.
 
-| GridSize | `--n_groups` Refers To... | Total Patterns Used | Subsampling Method |
+| GridSize | `--training_groups` Refers To... | Group-member slots / distinct rows | Grouping |
 |----------|---------------------------|---------------------|--------------------|
-| 1        | **Groups (each with 1 image)**    | `n_groups` × 1      | **Unified Random Sampling.** Each group contains 1 image. |
-| > 1      | **Groups (neighbor groups)**       | `n_groups` × `gridsize`² | **Unified Random Sampling.** Each group contains gridsize² images. |
+| 1 | **Groups (each with 1 row)** | Exactly `training_groups` slots and distinct rows | Each group is its center alone. |
+| > 1 | **Groups (neighbor groups)** | Exactly `training_groups × gridsize²` slots; at most the candidate-pool size in distinct rows | Each group is its designated center plus `gridsize² - 1` non-center rows selected from its K nearest candidates; groups may overlap. |
 
-**Key Insight**: With `--n_groups`, the parameter always means "number of groups" regardless of gridsize. For gridsize=1, each group contains 1 image. For gridsize>1, each group contains multiple neighboring images.
+**Key Insight**: With `--training_groups`, the parameter always means "number of groups" regardless of gridsize. Training counts unique centers, not `groups × C` distinct images.
 
 **Log Message Examples to Watch For:**
 ```
-# GridSize=1 (Unified group interpretation)
-INFO - Parameter interpretation: --n_groups=1000 refers to 1000 groups of 1 image each (gridsize=1)
+# GridSize=1 (independent control)
+INFO - Independent sampling control: subsampling 2000 images, using 500 groups for training
 
-# GridSize=2 (Unified group interpretation)
-INFO - Parameter interpretation: --n_groups=250 refers to 250 groups of 4 images each (gridsize=2, total patterns=1000)
-INFO - Using grouping-aware subsampling strategy for gridsize=2
+# GridSize=2 (independent control)
+INFO - Independent sampling control: subsampling 2000 images, creating 500 groups (approx 2000 patterns from groups)
 ```
 
-**Backward Compatibility**: The deprecated `--n_images` parameter still works but will show a deprecation warning.
+**Backward Compatibility**: The deprecated `--n_images` / `--n_groups` / `--n_subsample` parameters still work but emit deprecation warnings.
 
-### 🔄 K Choose C Oversampling
+### 🎯 Centered-Nearest Grouping (Exact Centers, No Oversampling)
 
-**Use case:** When you want to create more training groups than available seed points by sampling multiple combinations from each seed's neighbors.
+The grouping policy is the shared backend-neutral centered-nearest planner (`centered-nearest-v1`): every group contains its designated center in column zero, K is the nearest non-center candidate pool (K ≥ C − 1), groups are object-partitioned, and the group count is the exact number of unique centers drawn from the candidate pool.
 
-**Prerequisites (OVERSAMPLING-001):**
-- `gridsize > 1` (so C = gridsize² > 1)
-- `--enable_oversampling` flag (explicit opt-in)
-- `--neighbor_pool_size >= C` (pool size must be at least gridsize²)
+**Use case:** `training_groups` can never exceed the candidate pool size — more groups require a larger pool, not oversampling.
 
 **Example:**
 ```bash
-# Create 2000 groups from only 500 seed points
+# 500 candidate rows -> exactly 500 groups max; use 400 groups here
 ptycho_train --train_data_file dataset.npz \
-    --n_subsample 500 \
-    --n_groups 2000 \
+    --train_raw_selection 500 \
+    --training_groups 400 \
     --gridsize 2 \
     --neighbor_count 7 \
-    --enable_oversampling \
-    --neighbor_pool_size 7 \
-    --output_dir oversampled_run
+    --subsample_seed 42 \
+    --output_dir centered_run
 ```
 
 **Important Notes:**
-- **Overfitting risk:** Oversampling reuses local neighborhoods; monitor using spatial validation splits
-- **Debug logs:** Look for `[OVERSAMPLING DEBUG]` messages showing which branch was taken
-- **Error handling:** Clear error messages guide you if prerequisites aren't met; see OVERSAMPLING-001 in `docs/findings.md`.
+- Requesting more groups than candidate rows fails with a clear error (`requested N unique centers from only M candidates`)
+- `group_padding_step` sizes only the Torch canvas — it does not change grouping membership
+- Inference repeats are contiguous per bounded center; see the [grouping guide](GRIDSIZE_N_GROUPS_GUIDE.md)
+- The retired K-choose-C oversampling policy (`--enable_oversampling`, `--neighbor_pool_size`) is removed; migration diagnostics name the retired fields
 
 ---
 
@@ -367,13 +361,13 @@ ptycho_train --train_data_file dataset.npz \
 ptycho_inference --model_path trained_model/ --test_data test.npz --output_dir inference_out
 
 # With specific number of test groups
-ptycho_inference --model_path trained_model/ --test_data test.npz --n_groups 500 --output_dir inference_out
+ptycho_inference --model_path trained_model/ --test_data test.npz --inference_groups 500 --output_dir inference_out
 
 # Independent sampling control
-ptycho_inference --model_path trained_model/ --test_data test.npz --n_subsample 2000 --n_groups 500 --output_dir inference_out
+ptycho_inference --model_path trained_model/ --test_data test.npz --inference_raw_selection 2000 --inference_groups 500 --output_dir inference_out
 
 # Inference for a model trained with GridSize=2
-ptycho_inference --model_path gs2_model/ --test_data test.npz --n_groups 125 --output_dir gs2_inference
+ptycho_inference --model_path gs2_model/ --test_data test.npz --inference_groups 125 --output_dir gs2_inference
 ```
 
 ---
@@ -424,7 +418,7 @@ ptycho_inference --model_path trained_model/ --test_data test.npz --output_dir i
 
 # Inference with sampling control
 ptycho_inference --model_path trained_model/ --test_data test.npz \
-    --n_subsample 2000 --n_groups 500 --output_dir infer_results
+    --inference_raw_selection 2000 --inference_groups 500 --output_dir infer_results
 
 # Include comparison plot when ground truth is available
 ptycho_inference --model_path model/ --test_data test.npz \
@@ -440,7 +434,7 @@ ptycho_inference --model_path model/ --test_data test.npz \
 - **Reconstruction Outputs**: Generates amplitude/phase reconstructions and debug artifacts
 - **Optional GT Plotting**: `--comparison_plot` renders ground-truth comparisons when available
 - **Backend Selection**: Supports TensorFlow and PyTorch backends from the same entrypoint
-- **Independent Sampling**: Control test data subsampling with `--n_subsample` and `--n_groups`
+- **Independent Sampling**: Select candidate test rows with `--inference_raw_selection` and bound reconstructed centers with `--inference_groups`
 
 ### 📋 When to Use Inference vs Comparison
 

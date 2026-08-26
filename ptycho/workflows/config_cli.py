@@ -202,13 +202,12 @@ def _literal_argument_type(choices):
 def _public_training_argument_help(name: str, *, model_field: bool) -> str:
     if name == "training_groups":
         return (
-            "Number of groups to generate. Always means groups regardless "
-            "of gridsize. Can exceed dataset size when using higher "
-            "--neighbor_count values."
+            "Exact number of groups to generate; also the number of unique "
+            "centers. Cannot exceed the selected candidate-row count."
         )
     if name == "n_images":
         return (
-            "DEPRECATED: Use --training-groups instead. Number of groups to use "
+            "DEPRECATED: Use --training_groups instead. Number of groups to use "
             "from the dataset."
         )
     if name == "train_raw_selection":
@@ -224,9 +223,8 @@ def _public_training_argument_help(name: str, *, model_field: bool) -> str:
         )
     if name == "neighbor_count":
         return (
-            "Number of nearest neighbors (K) for grouping. Use higher "
-            "values (e.g., 7) to enable more combinations when requesting "
-            "more groups than available points."
+            "Nearest non-center candidate count K for each group; must be at "
+            "least gridsize² - 1."
         )
     if name == "backend":
         return (
@@ -289,7 +287,7 @@ def add_public_training_config_arguments(
             type=int,
             default=argparse.SUPPRESS,
             help=(
-                f"DEPRECATED: Use --{target.replace('_', '-')} instead. "
+                f"DEPRECATED: Use --{target} instead. "
                 f"Legacy alias for the {target} field."
             ),
         )
