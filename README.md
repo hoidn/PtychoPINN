@@ -41,105 +41,63 @@ pip install .
 
 ## Usage
 
-### Synthetic PyTorch workflow
+The [Run1084 FFNO notebook](./examples/Run1084_ffno.ipynb) demonstrates the
+programmatic PyTorch workflow on `datasets/Run1084_recon3_postPC_shrunk_3.npz`.
 
-For new synthetic PyTorch work, use the installed generic runner. With no
-scientific overrides it resolves the legacy normalized-amplitude
-`hybrid-resnet-lines` profile and runs simulation, training, strict
-reload/reconstruction, and evaluation. Select
-`--profile hybrid-resnet-lines-ci` for the coherent count-intensity Poisson
-Hybrid ResNet workflow.
+### Train
 
-```bash
-ptycho_synthetic --output-root outputs/synthetic-hybrid-resnet
+```python
+from ptycho_torch.train import train
+
+data = "datasets/Run1084_recon3_postPC_shrunk_3.npz"
+model = train(data, "outputs/run1084_ffno", {
+    "architecture": "ffno",
+    "fno_modes": 12,
+    "fno_width": 32,
+    "fno_blocks": 4,
+    "training_groups": 512,
+    "nphotons": 1e9,
+    "epochs": 50,
+})
 ```
 
-The default is a full 50-epoch run. A grid-size-2 custom-probe run can select
-the simulation and grouping controls explicitly:
+### Reconstruct
 
-```bash
-ptycho_synthetic \
-  --output-root outputs/synthetic-hybrid-resnet-gs2 \
-  --gridsize 2 \
-  --probe-source custom \
-  --probe-path datasets/custom_probe.npz \
-  --probe-transform 'pad_extrapolate:128|smooth:0.5' \
-  --train-patterns 4096 \
-  --test-patterns 1024 \
-  --train-raw-selection 4096 \
-  --training-groups 4096 \
-  --validation-groups 1024
+```python
+from ptycho_torch.inference import reconstruct
+
+result = reconstruct(model, data, device="cuda")
 ```
 
-See the [simulation workflow guide](./scripts/simulation/README.md) for profile
-semantics and defaults, structured `--config` files, partial-stage replay,
-output artifacts, and the distinction between flat raw acquisitions and grouped
-model samples. For existing count-intensity NPZs, the separate Torch
-training-only `ci` profile is documented in the
-[configuration guide](./docs/CONFIGURATION.md#torch-training-only-ci-profile).
+### Plot
 
-### Training
-`ptycho_train --train_data_file <train_path.npz> --test_data_file <test_path.npz> --output_dir <my_run>`
+```python
+import matplotlib.pyplot as plt
 
-### Inference
-`ptycho_inference --model_path <my_run> --test_data <test_path.npz> --output_dir <inference_out>`
+figure, axes = plt.subplots(1, 2)
 
-### Evaluation & model comparison
-Compare a trained PINN against the supervised baseline with
-`python scripts/compare_models.py` or the end-to-end wrapper
-`./scripts/run_comparison.sh train.npz test.npz output_dir`.
-See the [Commands Reference](./docs/COMMANDS_REFERENCE.md) for full recipes.
+im0 = axes[0].imshow(result.amplitude, cmap="gray", vmin=0.015)
+figure.colorbar(im0, ax=axes[0], fraction=0.046, pad=0.04)
 
-### Data
-Input datasets are NPZ files following the format defined in
-[docs/specs/spec-ptycho-core.md](./docs/specs/spec-ptycho-core.md). If you don't have
-data in that format, you can simulate it — see the
-[Data Generation Guide](./docs/DATA_GENERATION_GUIDE.md).
+im1 = axes[1].imshow(result.phase, cmap="twilight")
+figure.colorbar(im1, ax=axes[1], fraction=0.046, pad=0.04)
 
-### Workflow Status
-
-#### Use These by Default
-- Generate synthetic data and run the complete PyTorch workflow with
-  `ptycho_synthetic`.
-- Train with `scripts/training/train.py` (or `ptycho_train`).
-- Run inference with `scripts/inference/inference.py` (or `ptycho_inference`) —
-  TensorFlow-only. For PyTorch inference, use `python -m ptycho_torch.inference`.
-- Pick the training backend with `--backend tensorflow` or `--backend pytorch`.
-- Use `--training_groups` for the group count (training) / `--inference_groups` (inference). Add `--train_raw_selection` only when you want separate raw-frame selection. The older `--n_groups` / `--n_subsample` flags still parse as deprecated aliases.
-- For PyTorch execution flags:
-  - Unified scripts: use `--torch-accelerator` and `--torch-logger`
-  - PyTorch-native CLIs: use `--accelerator` and `--logger`
-
-#### Multi-Run Studies
-
-- Compose parameterized study arms with `ptycho_study`; each arm delegates to
-  the same public training service used by `ptycho_synthetic` and `ptycho_train`.
-- Keep historical result tables and completed plans as provenance, not as
-  executable runner APIs.
-
-#### Older Flags and Modes
-- `--n_images` in training is older; use `--training_groups` (deprecated `--n_groups` also parses).
-- PyTorch `--device` and `--disable_mlflow` are older; use `--accelerator` and `--logger none`.
-
-See examples and READMEs under `scripts/`.
-
-### Notebooks
-For interactive (Jupyter) usage, see `notebooks/nongrid_simulations.ipynb` (simulating
-data) and `notebooks/non_grid_CDI_example.ipynb` (reconstruction on a dataset provided
-with the repo).
-
-### Model Evaluation & Generalization Studies
-
-Run generalization studies:
-```bash
-# Multi-trial study with uncertainty quantification
-./scripts/studies/run_complete_generalization_study.sh \
-    --train-sizes "512 1024 2048" \
-    --num-trials 3 \
-    --output-dir robust_study
+plt.show()
 ```
 
-See `scripts/studies/README.md` for detailed usage and options.
+### Inspect the saved configuration
+
+```python
+from dataclasses import asdict
+from pprint import pprint
+from ptycho_torch.workflows.components import load_inference_bundle_torch
+
+models, loaded_config = load_inference_bundle_torch(model.parent)
+trained_model = models["diffraction_to_obj"]
+
+pprint(asdict(trained_model.model_config))
+pprint(asdict(trained_model.inference_config))
+```
 
 ## Citation
 
