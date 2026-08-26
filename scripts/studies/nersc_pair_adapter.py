@@ -10,7 +10,8 @@ from typing import Any
 import h5py
 import numpy as np
 
-PROBE_MODE_POLICY_CHOICES = ("incoherent_aggregate", "first_mode")
+PROBE_MODE_POLICY_CHOICES = ("incoherent_aggregate", "first_mode", "all_modes")
+MEASUREMENT_DOMAIN_CHOICES = ("normalized_amplitude", "count_intensity")
 
 
 def _select_object_guess(obj: np.ndarray) -> np.ndarray:
@@ -51,6 +52,8 @@ def _collapse_probe_guess(
 
     if probe_mode_policy == "first_mode":
         collapsed = probe_modes[0]
+    elif probe_mode_policy == "all_modes":
+        collapsed = probe_modes
     else:
         incoherent_amp = np.sqrt(np.sum(np.abs(probe_modes) ** 2, axis=0, dtype=np.float64))
         phase_mode0 = np.angle(probe_modes[0])
@@ -128,6 +131,7 @@ def pair_to_external_npz(
     out_npz: Path,
     *,
     probe_mode_policy: str = "incoherent_aggregate",
+    measurement_domain: str = "normalized_amplitude",
     metadata_out: dict[str, Any] | None = None,
 ) -> Path:
     """Convert paired HDF5 inputs into canonical external-raw NPZ keys."""
@@ -145,7 +149,17 @@ def pair_to_external_npz(
         dp = np.squeeze(dp, axis=-1)
     if dp.ndim != 3:
         raise ValueError(f"Expected dp rank-3 [N,H,W], got {dp.shape}")
-    diff3d = np.sqrt(np.clip(dp, a_min=0.0, a_max=None)).astype(np.float32)
+    if measurement_domain not in MEASUREMENT_DOMAIN_CHOICES:
+        raise ValueError(
+            f"Unsupported measurement_domain={measurement_domain!r}, "
+            f"expected one of {MEASUREMENT_DOMAIN_CHOICES}."
+        )
+    clipped = np.clip(dp, a_min=0.0, a_max=None)
+    diff3d = (
+        np.sqrt(clipped).astype(np.float32)
+        if measurement_domain == "normalized_amplitude"
+        else clipped.astype(np.float32)
+    )
 
     with h5py.File(para_h5, "r") as para_file:
         object_guess = _select_object_guess(np.asarray(para_file["object"]))
@@ -158,6 +172,7 @@ def pair_to_external_npz(
         pixel_w, pixel_h = _resolve_pixel_size_from_object(para_file)
         center_x_m, center_y_m = _resolve_object_center_from_object(para_file)
 
+    probe_meta["measurement_domain"] = measurement_domain
     if metadata_out is not None:
         metadata_out.update(probe_meta)
 

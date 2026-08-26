@@ -49,7 +49,7 @@ class PtychoDataContainerTorch:
                 - 'coords_offsets': (nsamples, 1, 2, 1) float64 — global offsets
                 - 'nn_indices': (nsamples, gridsize²) int32 — neighbor indices
                 - Additional optional keys
-            probe: Probe function, shape (N, N), dtype complex64
+            probe: Probe function, shape (N, N) or (P, N, N), dtype complex64
 
         Raises:
             ValueError: If Y patches are not complex64 (DATA-001 violation)

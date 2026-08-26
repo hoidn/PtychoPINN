@@ -212,7 +212,14 @@ class _PtychoContainerDataset(Dataset):
 
     _ptycho_vectorized_batch = True
 
-    def __init__(self, container, *, model_config=None, ci_active=False):
+    def __init__(
+        self,
+        container,
+        *,
+        model_config=None,
+        data_config=None,
+        ci_active=False,
+    ):
         self.container = container
         self.model_config = model_config
         self.ci_active = bool(ci_active)
@@ -320,6 +327,22 @@ class _PtychoContainerDataset(Dataset):
             scaling = get("probe_normalization")
         if scaling is None:
             scaling = get("scaling_constant")
+        if (
+            scaling is None
+            and not self.ci_active
+            and bool(getattr(data_config, "probe_normalize", False))
+        ):
+            normalized, scaling = hh.normalize_probe_like_tf(
+                self.probes.detach().cpu().numpy(),
+                probe_scale=data_config.probe_scale,
+                probe_mask=getattr(model_config, "probe_mask", False),
+                probe_mask_tensor=getattr(model_config, "probe_mask_tensor", None),
+                probe_mask_sigma=getattr(model_config, "probe_mask_sigma", 1.0),
+                probe_mask_diameter=getattr(
+                    model_config, "probe_mask_diameter", None
+                ),
+            )
+            self.probes = torch.from_numpy(normalized).to(torch.complex64)
         probe_count = int(_canonical_probe_bank(self.probes).shape[0])
         self.probe_scaling = _canonical_bank_scalars(
             scaling, probe_count, name="probe_scaling"

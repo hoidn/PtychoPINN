@@ -677,9 +677,9 @@ class ProbeLayoutError(ValueError):
 
     Raised by ``ProbeIllumination.forward``'s precondition. Sub-rank-5 probes
     (in particular the legacy flat ``(B, H, W)`` dictionary-flow emission)
-    right-align-broadcast into the mode axis, turning ``pad_and_diffract``'s
-    coherent mode sum into a silent batch-size-dependent amplitude gain and,
-    for per-sample-distinct probes, cross-sample field mixing.
+    right-align-broadcast into the mode axis, turning the intended probe axis
+    into a silent batch-size-dependent intensity contribution and, for
+    per-sample-distinct probes, cross-sample intensity mixing.
 
     Contract: docs/specs/spec-ptycho-torch-probe-layout.md; mechanism and
     history (82da77960 / 8b3d7a011): docs/findings.md PROBE-RANK-001; design:
@@ -765,7 +765,7 @@ class ProbeIllumination(nn.Module):
             raise ProbeLayoutError(
                 f"probe has rank {probe.ndim} shape {tuple(probe.shape)}; "
                 "sub-rank-5 probes (e.g. the legacy flat (B, H, W) layout) "
-                "broadcast into the mode axis and coherently sum across it "
+                "broadcast into the mode axis and mix samples as probe modes "
                 f"— a silent batch-size physics gain. {contract}"
             )
         if probe.shape[-2:] != (self.N, self.N):

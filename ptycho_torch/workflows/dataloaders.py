@@ -205,12 +205,14 @@ def _build_lightning_dataloaders(
         train_dataset = _PtychoContainerDataset(
             train_container,
             model_config=model_config,
+            data_config=data_config,
             ci_active=ci_active,
         )
         validation_dataset = (
             _PtychoContainerDataset(
                 test_container,
                 model_config=model_config,
+                data_config=data_config,
                 ci_active=ci_active,
             )
             if test_container is not None

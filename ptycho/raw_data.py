@@ -150,8 +150,24 @@ class RawData:
             print(f"diff3d shape: {diff3d.shape}")
             assert diff3d.shape[1] == diff3d.shape[2]
         if probeGuess is not None:
-            assert len(probeGuess.shape) == 2, f"Expected probeGuess to be 2D, got shape {probeGuess.shape}"
-            print(f"probeGuess shape: {probeGuess.shape}")
+            probe_shape = tuple(probeGuess.shape)
+            assert (
+                len(probe_shape) == 2
+                or (
+                    len(probe_shape) == 3
+                    and probe_shape[0] > 0
+                    and probe_shape[1] == probe_shape[2]
+                )
+            ), (
+                "Expected probeGuess to have shape (N, N) or (P, N, N), "
+                f"got shape {probe_shape}"
+            )
+            if diff3d is not None:
+                assert probe_shape[-2:] == tuple(diff3d.shape[1:]), (
+                    "probeGuess spatial shape must match diff3d; "
+                    f"got {probe_shape[-2:]} and {tuple(diff3d.shape[1:])}"
+                )
+            print(f"probeGuess shape: {probe_shape}")
         scan_index = canonicalize_identity_index(
             scan_index,
             name="scan_index",

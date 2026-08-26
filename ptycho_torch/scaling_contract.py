@@ -303,20 +303,38 @@ def derive_legacy_amplitude_physics_gain(
         np.asarray(normalized_probe, dtype=np.complex128)
         * np.asarray(resolved_mask, dtype=np.float64)[None, ...]
     ) / probe_scale
-    coherent_field = np.fft.fft2(
-        truth[:, None, ...] * effective_probe[None, ...], axes=(-2, -1)
-    ).sum(axis=1)
-    forward_amplitude = np.fft.fftshift(
-        np.abs(coherent_field), axes=(-2, -1)
-    ) / float(N)
+    if effective_probe.shape[0] == 1:
+        # P=1: retain the historical computation path bit-for-bit so frozen
+        # single-mode gain values and digests stay unchanged (design §3.2).
+        mode_fields = np.fft.fft2(
+            truth[:, None, ...] * effective_probe[None, ...], axes=(-2, -1)
+        )
+        forward_amplitude = np.fft.fftshift(
+            np.abs(mode_fields.sum(axis=1)), axes=(-2, -1)
+        ) / float(N)
+        forward_energy = float(
+            np.square(forward_amplitude, dtype=np.float64).sum(dtype=np.float64)
+        )
+    else:
+        # Parseval reduces the required incoherent detector-energy sum without
+        # materializing the O(samples × modes × N²) complex field tensor.
+        object_intensity = np.einsum(
+            "sij,sij->ij", truth.real, truth.real, optimize=True
+        )
+        object_intensity += np.einsum(
+            "sij,sij->ij", truth.imag, truth.imag, optimize=True
+        )
+        probe_intensity = np.square(
+            np.abs(effective_probe), dtype=np.float64
+        ).sum(axis=0, dtype=np.float64)
+        forward_energy = float(
+            np.sum(object_intensity * probe_intensity, dtype=np.float64)
+        )
 
     measured_squared = np.square(measured, dtype=np.float64)
     measured_energy = float(measured_squared.sum(dtype=np.float64))
     mean_sample_energy = float(
         measured_squared.sum(axis=(-2, -1), dtype=np.float64).mean()
-    )
-    forward_energy = float(
-        np.square(forward_amplitude, dtype=np.float64).sum(dtype=np.float64)
     )
     if not math.isfinite(mean_sample_energy) or mean_sample_energy <= 0:
         raise ValueError("measured_amplitude has degenerate sample energy")

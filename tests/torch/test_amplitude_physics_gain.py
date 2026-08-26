@@ -230,6 +230,22 @@ class TestDerivedAmplitudePhysicsGain:
             "amplitude_physics_gain": record.value
         }
 
+    def test_single_mode_gain_value_is_frozen_precutover(self):
+        """Design 2026-08-23 §3.2 + verification 4: the P=1 derivation retains
+        its historical computation path bit-for-bit, so the documented fixture
+        value is unchanged by the incoherent P>1 cutover."""
+        from ptycho_torch.scaling_contract import (
+            derive_legacy_amplitude_physics_gain,
+        )
+
+        measured, objects, probe = self._inputs()
+        record = derive_legacy_amplitude_physics_gain(
+            measured, objects, probe, probe_scale=4.0
+        )
+        # Frozen pre-cutover value (captured from the coherent single-mode
+        # derivation before the cutover; identical under the new formula).
+        assert record.value == pytest.approx(20.951978713337347, rel=1e-12)
+
     def test_gain_record_serialization_is_plain_and_digest_free(self):
         import json
 
@@ -411,14 +427,16 @@ class TestDerivedAmplitudePhysicsGain:
         effective_probe = (
             normalized_probe.astype(np.complex128) * mask[None, ...]
         ) / 4.0
+        # Incoherent multimode amplitude oracle (design 2026-08-23 §3.2):
+        # A = (1/N) * sqrt(sum_p |FFT(O * P_p)|^2) -- the former coherent
+        # field-sum oracle was retired with the coherent P>1 behavior.
+        mode_fields = np.fft.fft2(
+            objects.astype(np.complex128)[:, None, ...]
+            * effective_probe[None, ...],
+            axes=(-2, -1),
+        )
         forward = np.fft.fftshift(
-            np.abs(
-                np.fft.fft2(
-                    objects.astype(np.complex128)[:, None, ...]
-                    * effective_probe[None, ...],
-                    axes=(-2, -1),
-                ).sum(axis=1)
-            ),
+            np.sqrt(np.sum(np.abs(mode_fields) ** 2, axis=1)),
             axes=(-2, -1),
         ) / 4.0
         measured_squared = np.square(measured, dtype=np.float64)
@@ -430,6 +448,81 @@ class TestDerivedAmplitudePhysicsGain:
             / np.sum(np.square(forward, dtype=np.float64))
         )
         assert flat.value == pytest.approx(expected, rel=1e-12)
+
+    def test_multimode_gain_uses_incoherent_intensity_oracle(self):
+        """Design 2026-08-23 §3.2 + verification 5: a P>1 gain derivation must
+        match an independent per-mode intensity oracle. The probe modes are
+        exact negatives, so their fields cancel coherently (the retired oracle
+        would degenerate); only the incoherent intensity sum keeps the forward
+        energy positive."""
+        from ptycho_torch.helper import normalize_probe_like_tf
+        from ptycho_torch.scaling_contract import (
+            derive_legacy_amplitude_physics_gain,
+        )
+
+        rng = np.random.default_rng(23)
+        measured = rng.uniform(0.1, 2.0, size=(3, 4, 4)).astype(np.float32)
+        objects = (
+            rng.uniform(0.2, 1.0, size=(3, 4, 4))
+            * np.exp(1j * rng.uniform(-1.0, 1.0, size=(3, 4, 4)))
+        ).astype(np.complex64)
+        base = (
+            rng.uniform(0.25, 1.0, size=(1, 4, 4))
+            * np.exp(1j * rng.uniform(-0.5, 0.5, size=(1, 4, 4)))
+        ).astype(np.complex64)
+        probe = np.concatenate([base, -base], axis=0)  # (2, 4, 4) phase-cancelling
+
+        record = derive_legacy_amplitude_physics_gain(
+            measured, objects, probe, probe_scale=3.0
+        )
+        assert record.input_statistics["probe_mode_count"] == 2
+
+        normalized_probe, _ = normalize_probe_like_tf(probe, 3.0)
+        effective_probe = normalized_probe.astype(np.complex128) / 3.0
+        mode_fields = np.fft.fft2(
+            objects.astype(np.complex128)[:, None, ...]
+            * effective_probe[None, ...],
+            axes=(-2, -1),
+        )  # (S, P, N, N)
+        forward = np.fft.fftshift(
+            np.sqrt(np.sum(np.abs(mode_fields) ** 2, axis=1)),
+            axes=(-2, -1),
+        ) / 4.0
+        measured_squared = np.square(measured, dtype=np.float64)
+        r = np.sqrt(16.0 / np.mean(np.sum(measured_squared, axis=(-2, -1))))
+        expected = r * np.sqrt(
+            np.sum(measured_squared) / np.sum(np.square(forward, dtype=np.float64))
+        )
+        assert record.value == pytest.approx(expected, rel=1e-12)
+        assert np.isfinite(record.value) and record.value > 0
+
+    def test_multimode_gain_does_not_materialize_all_sample_mode_fields(
+        self, monkeypatch
+    ):
+        from ptycho_torch.scaling_contract import (
+            derive_legacy_amplitude_physics_gain,
+        )
+
+        rng = np.random.default_rng(29)
+        measured = rng.uniform(0.1, 2.0, size=(9, 4, 4)).astype(np.float32)
+        objects = (
+            rng.uniform(0.2, 1.0, size=(9, 4, 4))
+            * np.exp(1j * rng.uniform(-1.0, 1.0, size=(9, 4, 4)))
+        ).astype(np.complex64)
+        probe = np.ones((2, 4, 4), dtype=np.complex64)
+        fft2 = np.fft.fft2
+
+        def reject_sample_mode_materialization(values, *args, **kwargs):
+            assert values.shape[:2] != (len(measured), len(probe))
+            return fft2(values, *args, **kwargs)
+
+        monkeypatch.setattr(np.fft, "fft2", reject_sample_mode_materialization)
+        record = derive_legacy_amplitude_physics_gain(
+            measured, objects, probe, probe_scale=3.0
+        )
+
+        assert record.input_statistics["sample_count"] == len(measured)
+        assert record.input_statistics["probe_mode_count"] == len(probe)
 
     def test_gain_record_metadata_is_a_detached_plain_copy(self):
         from ptycho_torch.scaling_contract import derive_legacy_amplitude_physics_gain
@@ -1113,3 +1206,74 @@ class TestForwardApplication:
             pred_1 = build(1.0).forward_predict(x, positions, probe, ones)
             pred_16 = build(16.0).forward_predict(x, positions, probe, ones)
         assert torch.equal(pred_1, pred_16)
+
+
+@pytest.mark.torch
+class TestIncoherentMultimodeAmplitudeForward:
+    """Design 2026-08-23 §3.1 + verification 1-3: ``pad_and_diffract`` computes
+    ``sqrt(fftshift(sum_p real(conj(z_p)*z_p) / (H*W)))`` with the mode axis
+    retained until the real intensity sum. P=1 is bit-identical to the frozen
+    pre-cutover coherent formula; P>1 sums per-mode intensity (phase-cancelling
+    modes distinguish the formulas) and backpropagates finitely."""
+
+    SIZE = 8
+
+    @staticmethod
+    def _x(batch=2, channels=1, modes=1):
+        torch.manual_seed(0)
+        shape = (batch, channels, modes, TestIncoherentMultimodeAmplitudeForward.SIZE,
+                 TestIncoherentMultimodeAmplitudeForward.SIZE)
+        return (
+            torch.randn(shape) + 1j * torch.randn(shape)
+        ).to(torch.complex64)
+
+    def test_p1_matches_frozen_precutover_formula_bit_exactly(self):
+        from ptycho_torch.helper import pad_and_diffract
+
+        x = self._x()
+        h, w = x.shape[-2], x.shape[-1]
+        # Frozen pre-cutover formula (design §1 A_old): coherent field sum,
+        # then real intensity, fftshift, sqrt.
+        z = torch.fft.fft2(x.to(torch.complex64))
+        ref = torch.sqrt(
+            torch.fft.fftshift(
+                torch.real(torch.conj(z.sum(dim=2)) * z.sum(dim=2)) / (h * w),
+                dim=(-2, -1),
+            )
+        )
+        out, _ = pad_and_diffract(x, pad=False)
+        assert out.shape == (2, 1, self.SIZE, self.SIZE)
+        assert torch.equal(out, ref)
+
+    def test_multimode_sums_per_mode_intensity_not_field(self):
+        from ptycho_torch.helper import pad_and_diffract
+
+        base = self._x(modes=1)
+        # Second mode is the exact negative of the first: the coherent field
+        # sum vanishes, but the incoherent intensity sum doubles and stays
+        # positive -- the two formulas disagree everywhere.
+        x = torch.cat([base, -base], dim=2)  # (2, 1, 2, H, W)
+        h, w = x.shape[-2], x.shape[-1]
+        z = torch.fft.fft2(x.to(torch.complex64))
+        # Manual per-mode intensity sum: real(conj(z)*z)/(H*W) per mode, sum
+        # over the mode axis, then fftshift + sqrt (design §3.1 order).
+        ref = torch.sqrt(
+            torch.fft.fftshift(
+                (torch.real(torch.conj(z) * z) / (h * w)).sum(dim=2),
+                dim=(-2, -1),
+            )
+        )
+        out, _ = pad_and_diffract(x, pad=False)
+        assert out.shape == (2, 1, self.SIZE, self.SIZE)
+        assert torch.equal(out, ref)
+        assert torch.isfinite(out).all()
+        assert torch.all(out > 0)
+
+    def test_multimode_forward_backprop_is_finite(self):
+        from ptycho_torch.helper import pad_and_diffract
+
+        x = self._x(modes=3).requires_grad_(True)
+        out, _ = pad_and_diffract(x, pad=False)
+        out.square().mean().backward()
+        assert x.grad is not None
+        assert torch.isfinite(x.grad).all()

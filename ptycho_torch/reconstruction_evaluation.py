@@ -351,6 +351,19 @@ def centered_square_bounds(rectangle: Bounds) -> Bounds:
     )
 
 
+def _truth_origin_slice_fits(
+    origin: tuple[int, int],
+    canvas_shape: tuple[int, int],
+    truth_shape: tuple[int, int],
+) -> bool:
+    """Whether the exact canvas-sized truth slice at ``origin`` stays in bounds."""
+    origin_x, origin_y = origin
+    return (
+        origin_y + canvas_shape[0] <= truth_shape[0]
+        and origin_x + canvas_shape[1] <= truth_shape[1]
+    )
+
+
 def prepare_anchor_aligned(
     reconstruction: Any,
     canvas_weights: Any,
@@ -359,7 +372,16 @@ def prepare_anchor_aligned(
     *,
     metric_crop_border: int = 0,
 ) -> PreparedComparison:
-    """Align truth to a reconstruction and apply the declared metric border."""
+    """Align truth to a reconstruction and apply the declared metric border.
+
+    ``truth_origin`` in the anchor names the source-origin of object
+    coordinates in the truth array. When the exact canvas-sized truth slice at
+    that origin fits, it is used directly (``truth_origin_slice_v1``); when the
+    canvas extends beyond the truth from that origin, the object-centered
+    bilinear mapping (canvas pixels at ``scan_com``, offset by ``truth_origin``)
+    is used instead (``truth_origin_object_centered_v1``). Without
+    ``truth_origin`` the truth is sampled array-relative to ``scan_com``.
+    """
     recon = _complex_2d(reconstruction, name="reconstruction")
     target_source = _complex_2d(truth, name="truth")
     weights = np.asarray(canvas_weights)
@@ -377,14 +399,21 @@ def prepare_anchor_aligned(
         sampled, valid_truth = _bilinear_sample(target_source, y, x)
     else:
         origin_x, origin_y = truth_origin
-        bottom = origin_y + recon.shape[0]
-        right = origin_x + recon.shape[1]
-        if bottom > target_source.shape[0] or right > target_source.shape[1]:
-            raise AlignmentError("anchor truth_origin slice exceeds truth bounds")
-        sampled = np.asarray(
-            target_source[origin_y:bottom, origin_x:right]
-        )
-        valid_truth = np.ones(recon.shape, dtype=bool)
+        if _truth_origin_slice_fits(
+            truth_origin, recon.shape, target_source.shape
+        ):
+            sampled = np.asarray(
+                target_source[
+                    origin_y : origin_y + recon.shape[0],
+                    origin_x : origin_x + recon.shape[1],
+                ]
+            )
+            valid_truth = np.ones(recon.shape, dtype=bool)
+        else:
+            rows, cols = np.indices(recon.shape, dtype=np.float64)
+            x = cols - math.floor(recon.shape[1] / 2) + scan_x + origin_x
+            y = rows - math.floor(recon.shape[0] / 2) + scan_y + origin_y
+            sampled, valid_truth = _bilinear_sample(target_source, y, x)
     common = (weights > 0) & valid_truth
     if (
         isinstance(metric_crop_border, (bool, np.bool_))
@@ -1366,12 +1395,16 @@ def evaluate_reconstruction_quality(
     )
     valid_pixel_count = int(np.count_nonzero(prepared.common_mask))
     truth_origin = _truth_origin_values(canvas_anchor)
+    if truth_origin is None:
+        alignment_method = "scan_com_bilinear_complex_v1"
+    elif _truth_origin_slice_fits(
+        truth_origin, prepared.reconstruction.shape, target.shape
+    ):
+        alignment_method = "truth_origin_slice_v1"
+    else:
+        alignment_method = "truth_origin_object_centered_v1"
     alignment = {
-        "method": (
-            "truth_origin_slice_v1"
-            if truth_origin is not None
-            else "scan_com_bilinear_complex_v1"
-        ),
+        "method": alignment_method,
         "translation_registration": "none",
         "object_center_crop": False,
         "valid_mask_policy": (

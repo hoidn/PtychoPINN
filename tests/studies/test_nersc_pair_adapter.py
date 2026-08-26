@@ -158,6 +158,42 @@ def test_pair_to_npz_supports_first_mode_policy_override(tmp_path):
         assert np.allclose(data["probeGuess"], probe_modes[0, 0].astype(np.complex64))
 
 
+def test_pair_to_npz_preserves_modes_and_counts_for_ci(tmp_path):
+    from scripts.studies.nersc_pair_adapter import pair_to_external_npz
+
+    src_dp = tmp_path / "scan_dp.hdf5"
+    src_para = tmp_path / "scan_para.hdf5"
+    probe_modes = np.zeros((1, 3, 2, 2), dtype=np.complex64)
+    probe_modes[0, 0, :, :] = 1.0 + 0.5j
+    probe_modes[0, 1, :, :] = 5.0 + 2.0j
+    probe_modes[0, 2, :, :] = -3.0 + 1.0j
+    _write_pair(
+        src_dp,
+        src_para,
+        include_probe_attrs=True,
+        probe_guess=probe_modes,
+    )
+    metadata = {}
+
+    out_npz = pair_to_external_npz(
+        src_dp,
+        src_para,
+        tmp_path / "converted.npz",
+        probe_mode_policy="all_modes",
+        measurement_domain="count_intensity",
+        metadata_out=metadata,
+    )
+
+    with np.load(out_npz, allow_pickle=False) as data:
+        np.testing.assert_array_equal(data["probeGuess"], probe_modes[0])
+        np.testing.assert_array_equal(
+            data["diff3d"][0],
+            np.array([[4.0, 9.0], [16.0, 0.0]], dtype=np.float32),
+        )
+    assert metadata["probe_mode_policy"] == "all_modes"
+    assert metadata["measurement_domain"] == "count_intensity"
+
+
 def test_pair_to_npz_legacy_call_still_returns_path(tmp_path):
     from scripts.studies.nersc_pair_adapter import pair_to_external_npz
 

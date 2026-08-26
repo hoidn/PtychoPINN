@@ -679,8 +679,12 @@ def pad_and_diffract(input: torch.Tensor, pad: bool = True) -> Tuple[torch.Tenso
     padded = input
 
     input = torch.fft.fft2(input.to(torch.complex64))
+    # Incoherent multimode amplitude (design 2026-08-23 §3.1): keep the mode
+    # axis through the FFT and sum per-mode detector INTENSITY
+    # real(conj(z)*z)/(h*w), then fftshift + sqrt. The P=1 case is bit-identical
+    # to the former coherent path (a singleton mode sum is exact).
+    input = torch.real(torch.conj(input) * input) / (h * w)  # (N, C, P, H, W)
     input = torch.sum(input, dim = 2) # (N, C, P, H, W) -> (N, C, H, W)
-    input = torch.real(torch.conj(input) * input) / (h * w)
     input = torch.sqrt(torch.fft.fftshift(input, dim=(-2, -1)))
 
     return input, padded
@@ -933,18 +937,21 @@ def get_rms_scaling_factor(X: torch.Tensor,
 
     if data_config.data_scaling == 'Parseval':
         #Parseval Scaling
+        # Canonical RawData target energy: the amplitude is scaled so the
+        # (N/2)^2 energy of the zero-padded diffraction array is preserved.
+        target_energy = (N / 2) ** 2
         if data_config.normalize == 'Batch':
             #Sum intensities across H,W dimensions, then take the mean of all images
-            scaling_factor = torch.sqrt((N*N) / (torch.mean(torch.sum(X**2, dim = (-2, -1)))))
+            scaling_factor = torch.sqrt(target_energy / (torch.mean(torch.sum(X**2, dim = (-2, -1)))))
             scaling_factor = scaling_factor.view(-1,1,1,1) #Reshape to (1,1,1,1)
         elif data_config.normalize == 'Group' and len(X.shape) == 4:
             #(B,C,H,W) -> (B.)
-            scaling_factor= torch.sqrt((N*N) / torch.mean(torch.sum(X**2, dim = (-2, -1)),dim = 1))# Sum over last two dims
+            scaling_factor= torch.sqrt(target_energy / torch.mean(torch.sum(X**2, dim = (-2, -1)),dim = 1))# Sum over last two dims
 
             scaling_factor = scaling_factor.view(-1,1,1,1) #To (B,1,1,1)
         elif data_config.normalize == 'Each' and len(X.shape) == 4:
             #(B,C,H,W) -> (B.C)
-            scaling_factor= torch.sqrt((N * N) / torch.sum(X**2, dim = (-2, -1))) # Sum over last two dims
+            scaling_factor= torch.sqrt(target_energy / torch.sum(X**2, dim = (-2, -1))) # Sum over last two dims
                 
             scaling_factor = scaling_factor.view(-1,-1,1,1)#To (B,C,1,1)
             

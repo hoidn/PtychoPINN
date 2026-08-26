@@ -3,9 +3,10 @@
 ``ProbeIllumination.forward`` computes ``x.unsqueeze(2) * probe``; any probe
 below rank 5 right-align-broadcasts so its leading axis lands in the MODE
 slot. A legacy flat ``(B, H, W)`` probe therefore becomes ``(1, 1, B, H, W)``
--> illuminated ``(B, C, P=B, H, W)`` and ``pad_and_diffract``'s coherent mode
-sum multiplies the predicted field by B (silent batch-size-dependent physics
-gain), and, for per-sample-distinct probes, MIXES different samples' fields.
+-> illuminated ``(B, C, P=B, H, W)`` and ``pad_and_diffract``'s incoherent
+mode-intensity sum folds batch-size-dependent physics into the predicted
+amplitude, and, for per-sample-distinct probes, MIXES different samples'
+detector intensities.
 
 Contract under test (design 2026-07-12 "probe-rank physics contract fix",
 docs/specs/spec-ptycho-torch-probe-layout.md, docs/findings.md
@@ -77,11 +78,11 @@ class TestProbeLayoutErrorMatrix:
             _layer()(_x(), _probe(4, 1, N, N))
 
     def test_multi_probe_flat_batch_raises(self):
-        """Design case 5a: per-sample-DISTINCT probes under the flat layout
-        would coherently mix different samples' fields (the 2a9ee2ad9 review
-        demonstrated sample 0's output changes when sample 3's probe is
-        perturbed). The contract must ban the layout, not tolerate it where
-        it happens to be a pure gain."""
+        """Design case 5a: per-sample-distinct probes under the flat layout
+        would mix different samples' detector intensities. The historical
+        2a9ee2ad9 review showed sample 0 changing when sample 3's probe changed.
+        The contract must ban the layout, not tolerate it where it happens to
+        be a pure gain."""
         from ptycho_torch.model import ProbeLayoutError
 
         distinct = torch.stack(

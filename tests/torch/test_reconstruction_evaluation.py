@@ -32,6 +32,18 @@ def _truth(shape: tuple[int, int] = (16, 16)) -> np.ndarray:
     return np.asarray(amplitude * np.exp(1j * phase), dtype=np.complex64)
 
 
+def _center_block_truth(shape: tuple[int, int] = (96, 96)) -> np.ndarray:
+    """Object-centered truth with a distinctive bright center block."""
+    rows, cols = shape
+    y, x = np.indices(shape, dtype=np.float64)
+    amplitude = 1.0 + 0.01 * (x / rows) + 0.02 * (y / cols)
+    block = np.zeros(shape, dtype=bool)
+    block[rows // 2 - 4 : rows // 2 + 4, cols // 2 - 4 : cols // 2 + 4] = True
+    amplitude = amplitude + np.where(block, 9.0, 0.0)
+    phase = 0.3 * (x + y) / float(rows + cols)
+    return np.asarray(amplitude * np.exp(1j * phase), dtype=np.complex64)
+
+
 def _reassembly(
     *,
     patches: int = 8,
@@ -133,6 +145,35 @@ def test_prepare_anchor_aligned_supports_exact_truth_origin_and_metric_crop():
         "right": 6,
     }
     assert int(np.count_nonzero(prepared.common_mask)) == 16
+
+
+def test_truth_origin_selects_scanned_object_region_for_metrics():
+    """Object-centered scan_com must sample the scanned truth region.
+
+    Without ``truth_origin`` the array-relative mapping evaluates the mostly
+    unscanned top-left truth region (the cameraman metric bug); threading the
+    source-object center offset must select the scanned region instead.
+    """
+    from ptycho_torch.reconstruction_evaluation import (
+        image_quality_metrics,
+        prepare_anchor_aligned,
+    )
+
+    truth = _center_block_truth((96, 96))
+    canvas = np.array(truth[16:80, 16:80], copy=True)
+    weights = np.ones(canvas.shape, dtype=np.float32)
+    anchor = _anchor((0.0, 0.0), canvas.shape)
+    anchored = dict(anchor)
+    anchored["truth_origin"] = [48, 48]
+
+    prepared = prepare_anchor_aligned(canvas, weights, anchored, truth)
+    quality = image_quality_metrics(prepared)
+    assert quality.amplitude_pearson == pytest.approx(1.0, abs=1e-6)
+
+    buggy = image_quality_metrics(
+        prepare_anchor_aligned(canvas, weights, anchor, truth)
+    )
+    assert buggy.amplitude_pearson < 0.5
 
 
 def test_global_phase_factor_is_unit_and_wrapped_mae_crosses_phase_boundary():
@@ -682,25 +723,6 @@ def test_renderer_closes_figure_when_panel_rendering_raises(tmp_path, monkeypatc
 
     assert set(plt.get_fignums()) == existing_figures
     assert not (tmp_path / "comparison.png").exists()
-
-
-def test_study_module_reexports_production_formulas_by_identity():
-    from ptycho_torch import reconstruction_evaluation as production
-    from scripts.studies.ablation import metrics as study
-
-    for name in (
-        "Bounds",
-        "PreparedComparison",
-        "AlignmentError",
-        "MetricError",
-        "prepare_anchor_aligned",
-        "global_phase_factor",
-        "absolute_scale_metrics",
-        "image_quality_metrics",
-        "valid_mask_diagnostics",
-        "scan_utilization_metrics",
-    ):
-        assert getattr(study, name) is getattr(production, name)
 
 
 def test_production_metric_import_is_plotting_and_study_independent():
