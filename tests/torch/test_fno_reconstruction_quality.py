@@ -1,5 +1,5 @@
 # tests/torch/test_fno_reconstruction_quality.py
-"""Quality comparison tests for FNO/Hybrid vs CNN generators."""
+"""Quality comparison tests for FNO vs CNN generators."""
 import pytest
 import torch
 import numpy as np
@@ -67,48 +67,6 @@ def test_fno_quality_comparable_to_random_baseline():
 
 
 @pytest.mark.slow
-def test_hybrid_produces_different_output_than_fno():
-    """Hybrid and FNO architectures should produce different outputs."""
-    from ptycho_torch.generators.fno import CascadedFNOGenerator, HybridUNOGenerator
-
-    # Same config for fair comparison
-    config = dict(
-        in_channels=1,
-        out_channels=2,
-        hidden_channels=16,
-        modes=8,
-        C=1,
-    )
-
-    fno_model = CascadedFNOGenerator(
-        fno_blocks=2,
-        cnn_blocks=1,
-        **config,
-    )
-
-    hybrid_model = HybridUNOGenerator(
-        n_blocks=2,
-        **config,
-    )
-
-    # Same input for both
-    torch.manual_seed(42)
-    x = torch.randn(2, 1, 32, 32)
-
-    with torch.no_grad():
-        fno_output = fno_model(x)
-        hybrid_output = hybrid_model(x)
-
-    # Outputs should be different (different architectures)
-    # But both should be valid
-    assert fno_output.shape == hybrid_output.shape
-
-    # Check outputs are not identical (architectures are different)
-    diff = (fno_output - hybrid_output).abs().mean()
-    assert diff > 1e-6, "FNO and Hybrid outputs are identical - unexpected"
-
-
-@pytest.mark.slow
 def test_generator_output_improves_with_training():
     """Verify generator output becomes more consistent after training."""
     from ptycho_torch.generators.fno import CascadedFNOGenerator
@@ -153,7 +111,7 @@ def test_generator_output_improves_with_training():
 @pytest.mark.slow
 def test_generators_handle_different_input_sizes():
     """Verify generators work with different spatial dimensions."""
-    from ptycho_torch.generators.fno import CascadedFNOGenerator, HybridUNOGenerator
+    from ptycho_torch.generators.fno import CascadedFNOGenerator
 
     for N in [32, 64]:
         fno = CascadedFNOGenerator(
@@ -166,20 +124,9 @@ def test_generators_handle_different_input_sizes():
             C=1,
         )
 
-        hybrid = HybridUNOGenerator(
-            in_channels=1,
-            out_channels=2,
-            hidden_channels=8,
-            n_blocks=2,
-            modes=min(8, N // 4),
-            C=1,
-        )
-
         x = torch.randn(2, 1, N, N)
 
         with torch.no_grad():
             fno_out = fno(x)
-            hybrid_out = hybrid(x)
 
         assert fno_out.shape == (2, N, N, 1, 2), f"FNO wrong shape for N={N}"
-        assert hybrid_out.shape == (2, N, N, 1, 2), f"Hybrid wrong shape for N={N}"

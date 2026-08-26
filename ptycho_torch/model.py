@@ -72,7 +72,7 @@ def _build_optimizer(parameters, *, lr, optimizer='adam', momentum=0.9,
 def _real_imag_to_complex_channel_first(real_imag: torch.Tensor) -> torch.Tensor:
     """Convert real/imag tensor from (B, H, W, C, 2) to complex (B, C, H, W).
 
-    This adapter function converts FNO/Hybrid generator outputs (which produce
+    This adapter function converts non-CNN generator outputs (which produce
     real and imaginary parts in the last dimension) to the complex channel-first
     format expected by PtychoPINN's physics pipeline.
 
@@ -132,7 +132,7 @@ def _predict_complex_patches(
             _require_matching_component_shapes(real, imag, generator_output)
             x_complex = torch.complex(real, imag)
         else:
-            # FNO/Hybrid tensor path (B, H, W, C, 2) -- byte-identical, untouched.
+            # Non-CNN tensor path (B, H, W, C, 2) -- byte-identical, untouched.
             x_complex = _real_imag_to_complex_channel_first(patches)
         amp = torch.abs(x_complex)
         phase = torch.angle(x_complex)
@@ -245,24 +245,6 @@ def _build_generator_module_from_config(
             cnn_blocks=getattr(model_config, "fno_cnn_blocks", 2),
         )
 
-    if architecture == "hybrid":
-        from ptycho_torch.generators.fno import HybridUNOGenerator
-
-        return HybridUNOGenerator(
-            **common_kwargs,
-            n_blocks=getattr(model_config, "fno_blocks", 4),
-            max_hidden_channels=getattr(model_config, "max_hidden_channels", None),
-        )
-
-    if architecture == "stable_hybrid":
-        from ptycho_torch.generators.fno import StableHybridUNOGenerator
-
-        return StableHybridUNOGenerator(
-            **common_kwargs,
-            n_blocks=getattr(model_config, "fno_blocks", 4),
-            max_hidden_channels=getattr(model_config, "max_hidden_channels", None),
-        )
-
     if architecture == "fno_vanilla":
         from ptycho_torch.generators.fno_vanilla import FnoVanillaGeneratorModule
 
@@ -322,5 +304,4 @@ def _resolve_generator_from_config(
             generator_overrides=generator_overrides,
         )
     return generator, resolved_output
-
 

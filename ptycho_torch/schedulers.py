@@ -1,6 +1,6 @@
 """Learning rate scheduler utilities for PyTorch Lightning training.
 
-Provides deterministic warmup+cosine annealing schedule for stable_hybrid
+Provides deterministic warmup+cosine annealing schedule for FNO-family
 architecture training dynamics (Phase 6 of FNO-STABILITY-OVERHAUL-001).
 """
 

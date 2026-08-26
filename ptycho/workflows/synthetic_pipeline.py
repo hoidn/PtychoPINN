@@ -143,7 +143,7 @@ def _thaw(value: Any) -> Any:
 class SyntheticPipelineRequest:
     """Raw canonical inputs needed to resolve and reproduce one pipeline run."""
 
-    profile: str = "hybrid-resnet-lines"
+    profile: str = "synthetic-lines"
     file_values: Mapping[str, Any] | None = None
     cli_values: Mapping[str, Any] | None = None
     raw_argv: tuple[str, ...] = ()

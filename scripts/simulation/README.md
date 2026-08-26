@@ -10,17 +10,17 @@ when only a prepared dataset is needed.
 ### Default full workflow
 
 The shortest complete invocation resolves the coherent
-`hybrid-resnet-lines` profile and runs all four stages:
+`synthetic-lines` profile and runs all four stages:
 
 ```bash
-ptycho_synthetic --output-root outputs/synthetic-hybrid-resnet
+ptycho_synthetic --output-root outputs/synthetic-lines
 ```
 
 The equivalent source-tree entry point is:
 
 ```bash
 python -m scripts.simulation.synthetic_pipeline \
-  --output-root outputs/synthetic-hybrid-resnet
+  --output-root outputs/synthetic-lines
 ```
 
 The default is a real 50-epoch run, not a smoke test.
@@ -36,10 +36,10 @@ The runner registers two profiles:
 
 | Profile | Recipe | Purpose |
 |---|---|---|
-| `hybrid-resnet-lines` | `hybrid-resnet-lines-v2` | Default legacy normalized-amplitude Hybrid ResNet lines workflow |
-| `hybrid-resnet-lines-ci` | `hybrid-resnet-lines-ci-v2` | Count-intensity Poisson Hybrid ResNet lines workflow with dose-closure startup |
+| `synthetic-lines` | `synthetic-lines-v2` | Default legacy normalized-amplitude CNN lines workflow |
+| `cnn-lines-ci` | `cnn-lines-ci-v2` | Count-intensity Poisson CNN lines workflow with dose-closure startup |
 
-With no selection, the runner uses `hybrid-resnet-lines`. A YAML, TOML, or JSON
+With no selection, the runner uses `synthetic-lines`. A YAML, TOML, or JSON
 workflow may select either profile with the root `profile` field; explicit
 `--profile` wins. Value precedence is:
 
@@ -60,12 +60,12 @@ YAML, TOML, or JSON. This is different from the simulation-only
 This ordinary five-epoch example selects grid size 2 (`C=4`), the established
 legacy custom-probe transform, all 4,096 train frames, and independent train
 and validation group counts. It is not one of the sealed quality gates; those
-are Hybrid ResNet GS1/C1, GS2/C4, and C4-CI (count-intensity), documented in
+are CNN GS1/C1, GS2/C4, and C4-CI (count-intensity), documented in
 `docs/TESTING_GUIDE.md`.
 
 ```bash
 ptycho_synthetic \
-  --output-root outputs/synthetic-hybrid-resnet-gs2 \
+  --output-root outputs/synthetic-lines-gs2 \
   --gridsize 2 \
   --epochs 5 \
   --probe-source custom \
@@ -93,7 +93,7 @@ The same recipe can be authored as a structured workflow document:
 
 ```yaml
 # configs/synthetic-gs2.yaml
-profile: hybrid-resnet-lines
+profile: synthetic-lines
 
 simulation:
   N: 128
@@ -117,7 +117,7 @@ inference:
   groups_per_center: 1
 
 workflow:
-  output_root: outputs/synthetic-hybrid-resnet-gs2
+  output_root: outputs/synthetic-lines-gs2
   accelerator: auto
   devices: 1
 ```
@@ -149,9 +149,9 @@ not selected in the current command.
 This section is the operational profile summary. The
 [configuration guide](../../docs/CONFIGURATION.md#profiles-and-presets) owns the
 profile-versus-preset semantics. The default named profile is
-`hybrid-resnet-lines`, recipe
-`hybrid-resnet-lines-v2`. A second profile, `hybrid-resnet-lines-ci`
-(recipe `hybrid-resnet-lines-ci-v2`), selects the count-intensity Poisson
+`synthetic-lines`, recipe
+`synthetic-lines-v2`. A second profile, `cnn-lines-ci`
+(recipe `cnn-lines-ci-v2`), selects the count-intensity Poisson
 contract and `model.rect_s1s2_init=dose_closure`. The amplitude profile keeps
 `rect_s1s2_init=ones`. Every resolved field is written to
 `resolved_workflow.json`; this
@@ -195,7 +195,7 @@ realized per-axis pitch under `scan_geometry`.
 
 ```bash
 ptycho_synthetic \
-  --profile hybrid-resnet-lines-ci \
+  --profile cnn-lines-ci \
   --scan-position-layout raster \
   --train-patterns 4489 --test-patterns 729 \
   --output-root outputs/raster-ci
@@ -212,7 +212,7 @@ distinct from the TensorFlow grid simulation pipeline described in
 contract. The units triple is inseparable: `ci_intensity_v2` +
 `count_intensity` + `rectangular_scaled` must be selected together with
 Poisson loss, and any partial combination is rejected naming the offending
-field. `--profile hybrid-resnet-lines-ci` selects the whole coherent set.
+field. `--profile cnn-lines-ci` selects the whole coherent set.
 
 ### CI rectangular gauge initialization
 
@@ -221,7 +221,7 @@ representative sample of exactly 256 logical detector slots before fitting:
 
 ```bash
 ptycho_synthetic \
-  --profile hybrid-resnet-lines-ci \
+  --profile cnn-lines-ci \
   --rect-s1s2-init dose_closure \
   --output-root outputs/ci-dose-closure
 ```
@@ -536,7 +536,7 @@ Registered recipes are:
 workflow may state both fields explicitly:
 
 ```yaml
-profile: hybrid-resnet-lines
+profile: synthetic-lines
 
 simulation:
   object_recipe: dead-leaves-object-v2

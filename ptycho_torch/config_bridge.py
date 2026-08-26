@@ -236,7 +236,7 @@ def to_model_config(
         # From ModelConfig
         'n_filters_scale': model.n_filters_scale,
         'model_type': model_type,
-        'architecture': model.architecture,  # Generator architecture (cnn, fno, hybrid)
+        'architecture': model.architecture,  # Generator architecture (cnn, fno, ffno, ...)
         'fno_modes': model.fno_modes,
         'fno_width': model.fno_width,
         'fno_blocks': model.fno_blocks,

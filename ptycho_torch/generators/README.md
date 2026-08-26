@@ -4,12 +4,18 @@ This module provides a central registry for generator architectures used in PyTo
 
 ## Overview
 
-The generator registry enables architecture selection via the `config.model.architecture` field. The registry (`ptycho_torch.generators.registry._REGISTRY`, 14 entries) and its authoritative enumeration in `docs/specs/spec-ptycho-config-bridge.md` §3 are the source of truth for the full architecture list; the table below is illustrative only.
+The generator registry enables architecture selection via the
+`config.model.architecture` field. The registry, both public and Torch
+`ModelConfig` architecture literals, and public validation must enumerate the
+same set. The current registered architectures are:
 
 | Architecture | Description | Status |
 |--------------|-------------|--------|
 | `cnn` (default) | U-Net based CNN generator | ✅ Integrated |
+| `ffno` | Constant-resolution factorized Fourier operator | ✅ Integrated |
 | `fno` | Cascaded FNO + CNN refiner (Arch A) | ✅ Integrated |
+| `fno_vanilla` | Constant-resolution FNO baseline | ✅ Integrated |
+| `neuralop_uno` | Locked Lines128 adapter for `neuraloperator` U-NO | ✅ Integrated |
 
 All registered generator architectures in this package train through `PtychoPINN_Lightning` with the same physics loss and stitching behavior. Study-specific supervised adapters that reuse generator components live outside this registry and define their own `model(x) -> y` channel contract.
 
@@ -21,9 +27,9 @@ The default CNN architecture uses a U-Net encoder-decoder with physics-informed 
 **Output mode (`ModelConfig.cnn_output_mode`, Task 2.3 / backlog B1):** `Literal['amp_phase', 'real_imag'] = 'amp_phase'`.
 
 - `'amp_phase'` (default, unchanged): separate amplitude head (`Amplitude_activation`) and phase head (`pi*tanh`), combined as `amp * exp(1j*phase)`. No representability ceiling.
-- `'real_imag'` (opt-in, **Unsupervised-only** — resolution is centralized in `_effective_cnn_output_mode()`; Supervised mode always resolves to `'amp_phase'` regardless of this knob, so the supervised path and its tests are unaffected): the Autoencoder emits a `(real, imag)` tuple, each `(B, C, H, W)`, combined via `torch.complex(real, imag)` in `_predict_complex_patches()`. This is a **different adapter branch** from the FNO/Hybrid `real_imag` tensor path below (tuple vs. single tensor) — see "Integration Contract". The heads carry main's hardwired `ScaledTanh` box in `ptycho_torch.model.ScaledTanh`: real via `tanh + 0.2` (range `(-0.8, 1.2)`), imag via `1.2 * tanh` (range `(-1.2, 1.2)`). This is a **hard representability constraint**: a unit-amplitude object at `|phase| -> pi` maps to `real ~ -1`, below the `-0.8` floor, so it cannot be represented. Use `'amp_phase'` for high-phase-contrast objects.
+- `'real_imag'` (opt-in, **Unsupervised-only** — resolution is centralized in `_effective_cnn_output_mode()`; Supervised mode always resolves to `'amp_phase'` regardless of this knob, so the supervised path and its tests are unaffected): the Autoencoder emits a `(real, imag)` tuple, each `(B, C, H, W)`, combined via `torch.complex(real, imag)` in `_predict_complex_patches()`. This is a **different adapter branch** from the FNO `real_imag` tensor path below (tuple vs. single tensor) — see "Integration Contract". The heads carry main's hardwired `ScaledTanh` box in `ptycho_torch.model.ScaledTanh`: real via `tanh + 0.2` (range `(-0.8, 1.2)`), imag via `1.2 * tanh` (range `(-1.2, 1.2)`). This is a **hard representability constraint**: a unit-amplitude object at `|phase| -> pi` maps to `real ~ -1`, below the `-0.8` floor, so it cannot be represented. Use `'amp_phase'` for high-phase-contrast objects.
 
-**Why real/imag only, not amp/phase, for the rectangular scaling mode:** `s1`/`s2` (see `ModelConfig.physics_forward_mode='rectangular_scaled'`, `RectangularScaledDiffraction`) are a representation-space scaling — two independent scalars on the separable real and imaginary channels. The polar analogue of that scaling is a single amplitude scale; amp/phase-parameterized outputs have no two-degree-of-freedom decomposition to apply it to. `'real_imag'` output is therefore a prerequisite for `physics_forward_mode='rectangular_scaled'`, not an arbitrary pairing — see `docs/findings.md#RECTANGULAR-SCALED-001`.
+**Why real/imag only, not amp/phase, for the rectangular scaling mode:** `s1`/`s2` (see `ModelConfig.physics_forward_mode='rectangular_scaled'`, `RectangularScaledDiffraction`) are a representation-space scaling — two independent scalars on the separable real and imaginary channels. The polar analogue of that scaling is a single amplitude scale; amp/phase-parameterized outputs have no two-degree-of-freedom decomposition to apply it to. `'real_imag'` output is therefore a prerequisite for `physics_forward_mode='rectangular_scaled'`, not an arbitrary pairing.
 
 ### FNO (Cascaded FNO)
 The FNO architecture (`architecture='fno'`) uses a cascaded design:
@@ -35,20 +41,7 @@ The FNO architecture (`architecture='fno'`) uses a cascaded design:
 **Key parameters:**
 - `fno_blocks`: Number of FNO blocks (default: 4)
 - `fno_cnn_blocks`: Number of CNN refiner blocks (default: 2)
-- `fno_modes`: Spectral modes (default: 12)
-
-### Hybrid (U-NO)
-The Hybrid architecture (`architecture='hybrid'`) combines U-Net with FNO:
-1. Encoder path with downsampling + FNO blocks
-2. Bottleneck with spectral convolution
-3. Decoder path with upsampling + skip connections
-
-**Key parameters:**
-- `fno_blocks`: Number of FNO blocks per level (default: 4)
-- `fno_modes`: Spectral modes (default: 12)
-
-### Stable Hybrid (U-NO)
-The Stable Hybrid architecture (`architecture='stable_hybrid'`) swaps the residual block for a Norm‑Last + LayerScale‑gated `StablePtychoBlock` (InstanceNorm affine weights, per-channel LayerScale init ~1e-3). It is registered for study use, but Stage A/Phase 7/Phase 8 experiments found the block collapses to a constant-amplitude reconstruction (amp_ssim ≈ 0.277); the stability benefit was not realized — see `docs/findings.md` STABLE-LS-001.
+- `fno_modes`: Spectral modes (default: min(12, N//4))
 
 ### FNO Vanilla (constant-resolution)
 The FNO Vanilla architecture (`architecture='fno_vanilla'`) removes down/upsampling entirely:
@@ -78,11 +71,11 @@ The FFNO architecture (`architecture='ffno'`) keeps the constant-resolution CDI 
   (default: 2). Set `0` for paper-facing pure FFNO comparisons. Positive
   values define an FFNO-local-refiner proxy, not the canonical no-refiner FFNO
   row.
-- `fno_modes`: Spectral modes per axis (default: 12)
+- `fno_modes`: Spectral modes per axis (default: min(12, N//4))
 
 ## Integration Contract
 
-All FNO/Hybrid generators integrate with `PtychoPINN_Lightning` via:
+The registered non-CNN generators integrate with `PtychoPINN_Lightning` via:
 
 1. **Output format**: Generators output `(B, H, W, C, 2)` real/imag tensor
 2. **Adapter function**: `_real_imag_to_complex_channel_first()` converts to `(B, C, H, W)` complex
@@ -92,7 +85,7 @@ All FNO/Hybrid generators integrate with `PtychoPINN_Lightning` via:
 The CNN generator's opt-in `cnn_output_mode='real_imag'` path (see "CNN (default)" above)
 uses the **same** `generator_output="real_imag"` contract name inside
 `_predict_complex_patches()`, but a **different input shape**: a `(real, imag)` tuple of
-`(B, C, H, W)` tensors, not the FNO/Hybrid `(B, H, W, C, 2)` single tensor. Both branches
+`(B, C, H, W)` tensors, not the non-CNN `(B, H, W, C, 2)` single tensor. Both branches
 combine to `torch.complex` and share everything downstream (physics pipeline, stitching);
 only the adapter's tuple-vs-tensor dispatch differs (`ptycho_torch.model._predict_complex_patches`).
 
@@ -124,7 +117,7 @@ Generators can use these output formats:
 | Format | Shape | Description |
 |--------|-------|-------------|
 | `amp_phase` | Two tensors: `(B, C, H, W)` each | Amplitude and phase channels (CNN default; also the only Supervised-mode contract) |
-| `real_imag` (tensor) | Single tensor: `(B, H, W, C, 2)` | Real and imaginary parts in last dimension (FNO/Hybrid) |
+| `real_imag` (tensor) | Single tensor: `(B, H, W, C, 2)` | Real and imaginary parts in the last dimension (non-CNN path) |
 | `real_imag` (tuple) | Two tensors: `(B, C, H, W)` each, `(real, imag)` | CNN opt-in (`cnn_output_mode='real_imag'`, Unsupervised-only, Task 2.3 / backlog B1) |
 
 The `generator_output` parameter in `PtychoPINN_Lightning` controls which adapter path is
@@ -144,7 +137,6 @@ based on the generator's actual return type (`isinstance(patches, (tuple, list))
 - `ptycho_torch/application_factory.py`: single application-construction boundary
 - `ptycho_torch/workflows/components.py`: training, persistence, and reconstruction workflow
 - `ptycho_torch/model.py`: PtychoPINN_Lightning implementation
-- `ptycho_torch/generators/fno.py`: FNO and Hybrid implementations
+- `ptycho_torch/generators/fno.py`: FNO implementation
 - `docs/workflows/custom_torch_architecture.md`: end-to-end custom architecture guide
 - `docs/workflows/pytorch.md`: PyTorch workflow documentation
-- `docs/backlog/paused/FNO_HYBRID_FULL_INTEGRATION.md`: historical FNO/Hybrid integration record (completed 2026-01-27; parked under `paused/`)

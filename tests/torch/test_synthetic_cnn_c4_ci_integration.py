@@ -62,7 +62,7 @@ def test_public_synthetic_c4_ci_one_epoch_smoke(
             "-m",
             "scripts.simulation.synthetic_pipeline",
             "--profile",
-            "hybrid-resnet-lines-ci",
+            "cnn-lines-ci",
             "--output-root",
             str(root),
             "--architecture",
@@ -114,7 +114,7 @@ def test_public_synthetic_c4_ci_one_epoch_smoke(
     )
 
     resolved = _load_json(_nonempty(root / "resolved_workflow.json"))
-    assert resolved["profile"] == "hybrid-resnet-lines-ci"
+    assert resolved["profile"] == "cnn-lines-ci"
     assert resolved["data"]["gridsize"] == 2
     assert resolved["data"]["scale_contract_version"] == "ci_intensity_v2"
     assert resolved["data"]["measurement_domain"] == "count_intensity"

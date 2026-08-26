@@ -1,8 +1,7 @@
 """
-FNO/Hybrid generators for PyTorch PINN architecture.
+FNO generators for PyTorch PINN architecture.
 
 Implements:
-- Arch B (Hybrid U-NO, architecture='hybrid'): Spectral encoder + CNN decoder
 - Arch A (Cascaded FNO → CNN, architecture='fno'): FNO coarse + CNN refiner
 
 Design decisions per docs/plans/2026-01-27-modular-generator-implementation.md:
@@ -65,7 +64,7 @@ class SpatialLifter(nn.Module):
 
 
 class InputTransform(nn.Module):
-    """Optional input dynamic-range transform for FNO/Hybrid lifters."""
+    """Optional input dynamic-range transform for FNO lifters."""
 
     def __init__(self, mode: str = "none", channels: int = 1):
         super().__init__()
@@ -214,119 +213,6 @@ class _FallbackSpectralConv2d(nn.Module):
         return torch.fft.irfft2(out_ft, s=(H, W))
 
 
-class HybridUNOGenerator(nn.Module):
-    """Hybrid U-NO generator (Arch B).
-
-    Architecture:
-        - SpatialLifter: 2×3x3 convs with GELU
-        - Encoder: PtychoBlocks with downsampling
-        - Bottleneck: PtychoBlock
-        - Decoder: CNN blocks with skip connections and upsampling
-        - Output: Real/imag patches (B, N, N, C, 2)
-    """
-
-    def __init__(
-        self,
-        in_channels: int = 1,
-        out_channels: int = 2,  # real/imag
-        hidden_channels: int = 32,
-        n_blocks: int = 4,
-        modes: int = 12,
-        C: int = 4,  # gridsize^2 channels
-        input_transform: str = "none",
-        output_mode: str = "real_imag",
-        block_cls=None,
-        max_hidden_channels: Optional[int] = None,
-    ):
-        super().__init__()
-        self.C = C
-        self.output_mode = output_mode
-        if block_cls is None:
-            block_cls = PtychoBlock
-
-        # Lifter
-        self.lifter = SpatialLifter(
-            in_channels * C,
-            hidden_channels,
-            input_transform=input_transform,
-        )
-
-        # Encoder (spectral blocks with downsampling)
-        self.encoder_blocks = nn.ModuleList()
-        self.downsample = nn.ModuleList()
-        ch = hidden_channels
-        self._encoder_channels = [ch]
-        for i in range(n_blocks):
-            self.encoder_blocks.append(block_cls(ch, modes=modes))
-            if i < n_blocks - 1:
-                next_ch = ch * 2
-                if max_hidden_channels is not None:
-                    next_ch = min(next_ch, max_hidden_channels)
-                self.downsample.append(nn.Conv2d(ch, next_ch, kernel_size=2, stride=2))
-                ch = next_ch
-                self._encoder_channels.append(ch)
-
-        # Bottleneck
-        self.bottleneck = block_cls(ch, modes=modes // 2)
-
-        # Decoder (CNN blocks with upsampling and skip connections)
-        self.decoder_blocks = nn.ModuleList()
-        self.upsample = nn.ModuleList()
-        for i in range(n_blocks - 1):
-            dec_ch = self._encoder_channels[-(i + 2)]
-            self.upsample.append(nn.ConvTranspose2d(ch, dec_ch, kernel_size=2, stride=2))
-            self.decoder_blocks.append(nn.Sequential(
-                nn.Conv2d(dec_ch * 2, dec_ch, kernel_size=3, padding=1),
-                nn.GELU(),
-                nn.Conv2d(dec_ch, dec_ch, kernel_size=3, padding=1),
-            ))
-            ch = dec_ch
-
-        # Output projection
-        if self.output_mode == "amp_phase":
-            self.output_amp = nn.Conv2d(hidden_channels, C, kernel_size=1)
-            self.output_phase = nn.Conv2d(hidden_channels, C, kernel_size=1)
-        else:
-            self.output_proj = nn.Conv2d(hidden_channels, out_channels * C, kernel_size=1)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # x: (B, C, N, N) where C = gridsize^2
-        B, C, H, W = x.shape
-
-        # Lift
-        x = self.lifter(x)
-
-        # Encoder with skip connections
-        skips = []
-        for i, block in enumerate(self.encoder_blocks):
-            x = block(x)
-            if i < len(self.downsample):
-                skips.append(x)
-                x = self.downsample[i](x)
-
-        # Bottleneck
-        x = self.bottleneck(x)
-
-        # Decoder with skip connections
-        for i, (up, block) in enumerate(zip(self.upsample, self.decoder_blocks)):
-            x = up(x)
-            skip = skips[-(i + 1)]
-            x = torch.cat([x, skip], dim=1)
-            x = block(x)
-
-        # Output
-        if self.output_mode == "amp_phase":
-            amp = torch.sigmoid(self.output_amp(x))
-            phase = math.pi * torch.tanh(self.output_phase(x))
-            return amp, phase
-
-        x = self.output_proj(x)
-        # Reshape to (B, N, N, C, 2)
-        x = x.view(B, 2, self.C, H, W)
-        x = x.permute(0, 3, 4, 2, 1)  # (B, H, W, C, 2)
-        return x
-
-
 class CascadedFNOGenerator(nn.Module):
     """Cascaded FNO → CNN generator (Arch A).
 
@@ -334,7 +220,7 @@ class CascadedFNOGenerator(nn.Module):
         - FNO stage: Produces coarse patch
         - CNN refiner: Produces final patch
 
-    Same output contract as HybridUNO: (B, N, N, C, 2)
+    Output: Real/imag patches (B, N, N, C, 2)
     """
 
     def __init__(
@@ -413,61 +299,6 @@ class CascadedFNOGenerator(nn.Module):
         x = x.permute(0, 3, 4, 2, 1)
         return x
 
-
-class StableHybridUNOGenerator(HybridUNOGenerator):
-    """Hybrid U-NO generator with StablePtychoBlock for training stability.
-
-    Uses InstanceNorm-stabilized residual blocks (zero-init gamma/beta)
-    so the network starts as identity before training begins.
-
-    See also:
-        - docs/strategy/mainstrategy.md §1.A (Norm-Last residual)
-        - docs/findings.md (see git history for the originating plan) Task 2.2
-    """
-
-    def __init__(self, **kwargs):
-        super().__init__(block_cls=StablePtychoBlock, **kwargs)
-
-
-class HybridGenerator:
-    """Generator class for Hybrid U-NO architecture (Arch B).
-
-    Implements the generator interface expected by the registry.
-    """
-    name = 'hybrid'
-
-    def __init__(self, config):
-        """Initialize the Hybrid generator.
-
-        Args:
-            config: TrainingConfig or InferenceConfig with model settings
-        """
-        self.config = config
-
-    def build_model(self, pt_configs: Dict[str, Any]) -> 'nn.Module':
-        from ptycho_torch.application_factory import build_ptychopinn_from_configs
-
-        return build_ptychopinn_from_configs(pt_configs)
-
-class StableHybridGenerator:
-    """Generator class for Stable Hybrid U-NO architecture.
-
-    Uses StablePtychoBlock (InstanceNorm-stabilized residual) for
-    training stability. Registered under 'stable_hybrid'.
-
-    See also:
-        - docs/strategy/mainstrategy.md §1.A
-        - docs/findings.md (see git history for the originating plan) Task 2.2
-    """
-    name = 'stable_hybrid'
-
-    def __init__(self, config):
-        self.config = config
-
-    def build_model(self, pt_configs: Dict[str, Any]) -> 'nn.Module':
-        from ptycho_torch.application_factory import build_ptychopinn_from_configs
-
-        return build_ptychopinn_from_configs(pt_configs)
 
 class FnoGenerator:
     """Generator class for Cascaded FNO architecture (Arch A).

@@ -51,7 +51,6 @@ def test_execution_request_accepts_only_runtime_carrier_fields() -> None:
         "gradient_clip_val",
         "gradient_clip_algorithm",
         "accum_steps",
-        "hybrid_skip_style",
         "ffno_encoder_modes",
     ):
         with pytest.raises(

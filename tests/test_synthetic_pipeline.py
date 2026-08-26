@@ -30,7 +30,7 @@ def _request(
     root: Path,
     stages: tuple[str, ...],
     *,
-    profile: str = "hybrid-resnet-lines",
+    profile: str = "synthetic-lines",
     extra_file_values: dict[str, object] | None = None,
 ) -> SyntheticPipelineRequest:
     file_values: dict[str, object] = {
@@ -263,7 +263,7 @@ def test_invocation_and_resolution_exist_before_first_expensive_stage(tmp_path):
             resolved_path = request.output_root / "resolved_workflow.json"
             assert resolved_path.is_file()
             persisted = json.loads(resolved_path.read_text(encoding="utf-8"))
-            assert persisted["profile"] == "hybrid-resnet-lines"
+            assert persisted["profile"] == "synthetic-lines"
             assert not (request.output_root / "stage_manifest.json").exists()
             return super().simulate(request)
 
@@ -429,7 +429,7 @@ def test_fresh_training_rejects_backend_and_persisted_record_mismatch(tmp_path):
         _request(
             tmp_path,
             ("simulate",),
-            profile="hybrid-resnet-lines-ci",
+            profile="cnn-lines-ci",
         ),
         _Executors(),
     )
@@ -456,7 +456,7 @@ def test_fresh_training_rejects_backend_and_persisted_record_mismatch(tmp_path):
             _request(
                 tmp_path,
                 ("train",),
-                profile="hybrid-resnet-lines-ci",
+                profile="cnn-lines-ci",
             ),
             Mismatched(),
         )
@@ -956,7 +956,7 @@ def test_default_simulation_adapter_launches_only_the_cuda_hidden_worker(
         file_values={"workflow": {"output_root": tmp_path}}
     )
     request = synthetic_pipeline.SimulationStageRequest(
-        profile="hybrid-resnet-lines",
+        profile="synthetic-lines",
         file_values={"workflow": {"output_root": tmp_path}},
         cli_values=None,
         resolved_workflow=resolved,
@@ -993,7 +993,7 @@ def test_default_simulation_adapter_bounds_failed_subprocess_log(tmp_path, monke
         file_values={"workflow": {"output_root": tmp_path}}
     )
     request = synthetic_pipeline.SimulationStageRequest(
-        profile="hybrid-resnet-lines",
+        profile="synthetic-lines",
         file_values={"workflow": {"output_root": tmp_path}},
         cli_values=None,
         resolved_workflow=resolved,

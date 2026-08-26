@@ -22,7 +22,7 @@ from ptycho.workflows.synthetic_config import resolve_synthetic_workflow
 
 def _small_request(seed: int) -> dict[str, object]:
     return {
-        "profile": "hybrid-resnet-lines",
+        "profile": "synthetic-lines",
         "file_values": {
             "simulation": {
                 "N": 64,
@@ -282,7 +282,7 @@ def test_frozen_object_bank_generation_records_and_revalidates_external_source(
     source = tmp_path / "objects.npz"
     train, test = _write_frozen_object_bank(source)
     resolved = resolve_synthetic_workflow(
-        profile="hybrid-resnet-lines",
+        profile="synthetic-lines",
         file_values={
             "simulation": {
                 "N": 64,
@@ -1497,7 +1497,7 @@ def _small_dead_leaves_raster_workflow(
     object_recipe: str = "dead-leaves-object-v2",
 ):
     return _small_resolved(
-        "hybrid-resnet-lines-ci",
+        "cnn-lines-ci",
         simulation={
             "object": {"kind": "dead_leaves"},
             "object_recipe": object_recipe,
@@ -1529,8 +1529,8 @@ def test_amplitude_contract_arrays_are_unchanged_by_the_count_branch(tmp_path: P
     # arrays it consumes, never a regeneration. Diffraction bytes are
     # device-dependent, so they are compared relatively in-run rather than
     # pinned absolutely (see the AMPLITUDE_BASELINE provenance note above).
-    amplitude = _generate(_small_resolved("hybrid-resnet-lines"), tmp_path / "amp")
-    counts = _generate(_small_resolved("hybrid-resnet-lines-ci"), tmp_path / "ci")
+    amplitude = _generate(_small_resolved("synthetic-lines"), tmp_path / "amp")
+    counts = _generate(_small_resolved("cnn-lines-ci"), tmp_path / "ci")
 
     amp_train = _load_arrays(amplitude.train_path)
     amp_test = _load_arrays(amplitude.test_path)
@@ -1575,7 +1575,7 @@ def test_legacy_simulation_probe_is_distinct_from_persisted_training_probe(
     from ptycho.simulation.identity import array_sha256
 
     resolved = _small_resolved(
-        "hybrid-resnet-lines",
+        "synthetic-lines",
         simulation={
             "probe": {"simulation_normalization_scale": 4.0},
         },
@@ -1747,7 +1747,7 @@ def test_training_preflight_recomputes_truth_forward_closure_and_rejects_tamperi
 ):
     from ptycho.workflows import synthetic_pipeline
 
-    resolved = _small_resolved("hybrid-resnet-lines", seed=7)
+    resolved = _small_resolved("synthetic-lines", seed=7)
     result = _generate(resolved, tmp_path / "closure")
 
     synthetic_pipeline._verify_truth_forward_closure(
@@ -1774,7 +1774,7 @@ def test_truth_forward_closure_replay_uses_generation_cpu_device(
     import tensorflow as tf
     from ptycho.workflows import synthetic_pipeline
 
-    resolved = _small_resolved("hybrid-resnet-lines", seed=7)
+    resolved = _small_resolved("synthetic-lines", seed=7)
     result = _generate(resolved, tmp_path / "closure-device")
     selected_devices = []
     real_device = tf.device
@@ -1799,7 +1799,7 @@ def test_truth_forward_closure_is_dose_aware_without_fitting_probe_gain(
     tmp_path: Path,
 ):
     resolved = _small_resolved(
-        "hybrid-resnet-lines",
+        "synthetic-lines",
         simulation={"detector": {"photons_per_pattern": 1.0e6}},
     )
 
@@ -1839,7 +1839,7 @@ def test_truth_forward_closure_binds_frame_truth_to_source_object_bank(
 ):
     from ptycho.workflows import synthetic_pipeline
 
-    resolved = _small_resolved("hybrid-resnet-lines", seed=13)
+    resolved = _small_resolved("synthetic-lines", seed=13)
     result = _generate(resolved, tmp_path / "truth-bank-closure")
     source = _load_arrays(result.source_path)
     source["trainObjectGuess"] = source["trainObjectGuess"] * np.complex64(1.1)
@@ -1855,7 +1855,7 @@ def test_truth_forward_closure_binds_frame_truth_to_source_object_bank(
 
 
 def test_count_contract_emits_count_intensity_at_the_requested_dose(tmp_path: Path):
-    resolved = _small_resolved("hybrid-resnet-lines-ci")
+    resolved = _small_resolved("cnn-lines-ci")
     nphotons = resolved.simulation.train.detector.photons_per_pattern
 
     result = _generate(resolved, tmp_path / "ci")
@@ -1871,7 +1871,7 @@ def test_count_contract_emits_count_intensity_at_the_requested_dose(tmp_path: Pa
 
 
 def test_count_contract_records_measurement_identity_in_the_manifest(tmp_path: Path):
-    result = _generate(_small_resolved("hybrid-resnet-lines-ci"), tmp_path / "ci")
+    result = _generate(_small_resolved("cnn-lines-ci"), tmp_path / "ci")
 
     assert result.manifest["measurement_identity"] == {
         "measurement_domain": "count_intensity",
@@ -1888,7 +1888,7 @@ def test_count_contract_stores_the_physical_probe_under_a_separate_digest(
 ):
     from ptycho.simulation.identity import array_sha256
 
-    result = _generate(_small_resolved("hybrid-resnet-lines-ci"), tmp_path / "ci")
+    result = _generate(_small_resolved("cnn-lines-ci"), tmp_path / "ci")
 
     probe_record = result.manifest["probe"]
     scale = probe_record["count_amplitude_scale"]["value"]
@@ -1909,7 +1909,7 @@ def test_count_contract_stores_the_physical_probe_under_a_separate_digest(
 def test_count_contract_shares_one_train_derived_scale_across_both_splits(
     tmp_path: Path,
 ):
-    result = _generate(_small_resolved("hybrid-resnet-lines-ci"), tmp_path / "ci")
+    result = _generate(_small_resolved("cnn-lines-ci"), tmp_path / "ci")
 
     train = _load_arrays(result.train_path)
     test = _load_arrays(result.test_path)
@@ -1926,7 +1926,7 @@ def test_count_contract_generation_is_deterministic(tmp_path: Path):
     digests = []
     for attempt in ("first", "second"):
         result = _generate(
-            _small_resolved("hybrid-resnet-lines-ci"), tmp_path / attempt
+            _small_resolved("cnn-lines-ci"), tmp_path / attempt
         )
         arrays = _load_arrays(result.train_path)
         digests.append(
@@ -1958,7 +1958,7 @@ def test_count_contract_datasets_pass_pipeline_manifest_verification(tmp_path: P
 
     from ptycho.workflows import synthetic_pipeline as pipeline
 
-    resolved = _small_resolved("hybrid-resnet-lines-ci")
+    resolved = _small_resolved("cnn-lines-ci")
     result = _generate(resolved, tmp_path / "ci")
 
     manifest = pipeline._load_matching_dataset_manifest(
@@ -2120,7 +2120,7 @@ def test_manifest_v2_remains_readable_for_legacy_object_recipes(
         resolved = _small_dead_leaves_raster_workflow(object_recipe=object_recipe)
     else:
         resolved = _small_resolved(
-            "hybrid-resnet-lines-ci",
+            "cnn-lines-ci",
             simulation={
                 "object": {"kind": object_kind},
                 "object_recipe": object_recipe,
@@ -2259,7 +2259,7 @@ def test_split_verification_binds_npz_object_scale_to_manifest(tmp_path: Path):
 def test_amplitude_datasets_still_pass_pipeline_manifest_verification(tmp_path: Path):
     from ptycho.workflows import synthetic_pipeline as pipeline
 
-    resolved = _small_resolved("hybrid-resnet-lines")
+    resolved = _small_resolved("synthetic-lines")
     result = _generate(resolved, tmp_path / "amp")
 
     manifest = pipeline._load_matching_dataset_manifest(
@@ -2288,7 +2288,7 @@ def test_count_dataset_feeds_the_reconstruct_stage_ci_loader(tmp_path: Path):
     from ptycho_torch.config_params import ModelConfig as TorchModelConfig
     from ptycho_torch.dataloader import PtychoDataset
 
-    resolved = _small_resolved("hybrid-resnet-lines-ci")
+    resolved = _small_resolved("cnn-lines-ci")
     result = _generate(resolved, tmp_path / "ci")
 
     data_config = materialize_data_config(resolved)
@@ -2587,7 +2587,7 @@ def test_nongrid_public_adapter_forwards_coordinates(monkeypatch):
     assert captured["coordinates"] is coordinates
 
 
-def _raster_resolved(profile="hybrid-resnet-lines", patterns=9, test_patterns=4):
+def _raster_resolved(profile="synthetic-lines", patterns=9, test_patterns=4):
     return resolve_synthetic_workflow(
         profile=profile,
         file_values={
@@ -2640,7 +2640,7 @@ def test_raster_manifest_records_layout_and_realized_pitch(tmp_path: Path):
 
 
 def test_uniform_random_manifest_records_the_default_layout(tmp_path: Path):
-    result = _generate(_small_resolved("hybrid-resnet-lines"), tmp_path / "amp")
+    result = _generate(_small_resolved("synthetic-lines"), tmp_path / "amp")
 
     assert result.manifest["scan_geometry"] == {
         "position_layout": "uniform_random"
@@ -2650,7 +2650,7 @@ def test_uniform_random_manifest_records_the_default_layout(tmp_path: Path):
 def test_pre_frame_order_default_dataset_manifest_remains_reusable(tmp_path: Path):
     from ptycho.workflows import synthetic_pipeline
 
-    resolved = _small_resolved("hybrid-resnet-lines")
+    resolved = _small_resolved("synthetic-lines")
     result = _generate(resolved, tmp_path / "amp")
     historical = json.loads(result.manifest_path.read_text(encoding="utf-8"))
     historical["simulation"].pop("frame_order_recipe")
@@ -2677,7 +2677,7 @@ def test_raster_and_uniform_random_datasets_have_distinct_identities(
 ):
     raster = _generate(_raster_resolved(), tmp_path / "raster")
     uniform = _generate(
-        _small_resolved("hybrid-resnet-lines", seed=5), tmp_path / "uniform"
+        _small_resolved("synthetic-lines", seed=5), tmp_path / "uniform"
     )
 
     assert (
@@ -2710,7 +2710,7 @@ def test_coordinate_major_frame_recipe_requires_a_raster_layout():
     )
 
     resolved = resolve_synthetic_workflow(
-        profile="hybrid-resnet-lines-ci",
+        profile="cnn-lines-ci",
         file_values={
             "simulation": {
                 "frame_order_recipe": "coordinate-major-interleaved-v1",

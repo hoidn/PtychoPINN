@@ -15,11 +15,10 @@ Usage:
 Supported architectures:
     - 'cnn': CNN-based U-Net generator (default)
     - 'fno': Cascaded FNO → CNN generator (Arch A)
-    - 'hybrid': Hybrid U-NO generator (Arch B)
 """
 from ptycho_torch.generators.cnn import CnnGenerator
 from ptycho_torch.generators.ffno import FfnoGenerator
-from ptycho_torch.generators.fno import FnoGenerator, HybridGenerator, StableHybridGenerator
+from ptycho_torch.generators.fno import FnoGenerator
 from ptycho_torch.generators.fno_vanilla import FnoVanillaGenerator
 from ptycho_torch.generators.neuralop_uno import NeuralopUnoGenerator
 
@@ -27,8 +26,6 @@ _REGISTRY = {
     'cnn': CnnGenerator,
     'ffno': FfnoGenerator,
     'fno': FnoGenerator,
-    'hybrid': HybridGenerator,
-    'stable_hybrid': StableHybridGenerator,
     'fno_vanilla': FnoVanillaGenerator,
     'neuralop_uno': NeuralopUnoGenerator,
 }

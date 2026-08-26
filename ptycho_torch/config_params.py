@@ -65,7 +65,7 @@ class ModelConfig:
     #Mode Category
     mode: Literal['Supervised', 'Unsupervised'] = 'Unsupervised' # Training mode, affects all aspects of model
     architecture: Literal[
-        'cnn', 'ffno', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'neuralop_uno'
+        'cnn', 'ffno', 'fno', 'fno_vanilla', 'neuralop_uno'
     ] = 'cnn'  # Generator architecture selection
     fno_modes: int = 12
     fno_width: int = 32
@@ -75,28 +75,6 @@ class ModelConfig:
     fno_input_transform: Literal['none', 'sqrt', 'log1p', 'instancenorm'] = 'none'
     max_hidden_channels: Optional[int] = None
     resnet_width: Optional[int] = None
-    hybrid_skip_connections: bool = False
-    hybrid_downsample_steps: int = 2
-    hybrid_downsample_op: Literal['stride_conv', 'avgpool_conv', 'blurpool_conv'] = 'stride_conv'
-    hybrid_encoder_conv_hidden_scale: float = 1.0
-    hybrid_encoder_spectral_hidden_scale: float = 1.0
-    # Legacy absolute-width aliases retained for backwards compatibility.
-    hybrid_encoder_conv_hidden_channels: Optional[int] = None
-    hybrid_encoder_spectral_hidden_channels: Optional[int] = None
-    hybrid_skip_style: Literal['add', 'concat', 'gated_add'] = 'add'
-    hybrid_encoder_fusion_mode: Literal[
-        'baseline',
-        'layerscale',
-        'branch_gated',
-        'branch_gated_layerscale',
-    ] = 'baseline'
-    hybrid_encoder_layerscale_init: float = 0.1
-    hybrid_encoder_branch_gate_init: float = 0.1
-    hybrid_encoder_branch_select: Literal[
-        'both',
-        'conv_only',
-        'spectral_only',
-    ] = 'both'
     ffno_encoder_blocks: int = 24
     ffno_encoder_modes: Optional[int] = None
     ffno_encoder_share_weights: bool = True
@@ -105,7 +83,7 @@ class ModelConfig:
     ffno_encoder_mlp_ratio: float = 2.0
     generator_output_mode: Literal['real_imag', 'amp_phase_logits', 'amp_phase'] = 'real_imag'
     # CNN decoder output parameterization (Task 2.3 / backlog B1). Distinct from
-    # ``generator_output_mode`` (that knob targets FNO/Hybrid cores and defaults to
+    # ``generator_output_mode`` (that knob targets FNO cores and defaults to
     # 'real_imag'; reusing it here would silently flip the CNN default). Contract in
     # ptycho_torch.model._effective_cnn_output_mode / _predict_complex_patches.
     #
@@ -232,49 +210,11 @@ class ModelConfig:
     phase_loss_coeff: float = 1.0
 
     def __post_init__(self):
-        """Validate fields that determine the Torch generator structure."""
-        if self.hybrid_downsample_steps not in {1, 2}:
-            raise ValueError("hybrid_downsample_steps must be 1 or 2")
-        if self.hybrid_downsample_op not in {
-            'stride_conv',
-            'avgpool_conv',
-            'blurpool_conv',
-        }:
-            raise ValueError("invalid hybrid_downsample_op")
-        if self.hybrid_skip_style not in {'add', 'concat', 'gated_add'}:
-            raise ValueError("invalid hybrid_skip_style")
-
-        for name in (
-            'hybrid_encoder_conv_hidden_scale',
-            'hybrid_encoder_spectral_hidden_scale',
-            'hybrid_encoder_layerscale_init',
-            'hybrid_encoder_branch_gate_init',
-            'ffno_encoder_gate_init',
-            'ffno_encoder_mlp_ratio',
-        ):
+        """Validate fields that determine the retained Torch generators."""
+        for name in ('ffno_encoder_gate_init', 'ffno_encoder_mlp_ratio'):
             value = float(getattr(self, name))
             if not math.isfinite(value) or value <= 0.0:
                 raise ValueError(f"{name} must be finite and > 0")
-
-        width_pairs = (
-            (
-                'hybrid_encoder_conv_hidden_scale',
-                'hybrid_encoder_conv_hidden_channels',
-            ),
-            (
-                'hybrid_encoder_spectral_hidden_scale',
-                'hybrid_encoder_spectral_hidden_channels',
-            ),
-        )
-        for scale_name, width_name in width_pairs:
-            width = getattr(self, width_name)
-            if width is not None and width <= 0:
-                raise ValueError(f"{width_name} must be positive when set")
-            if width is not None and getattr(self, scale_name) != 1.0:
-                raise ValueError(
-                    f"{scale_name} and legacy alias {width_name} cannot both "
-                    "be set"
-                )
 
         for name in (
             'ffno_encoder_blocks',
@@ -283,19 +223,6 @@ class ModelConfig:
                 raise ValueError(f"{name} must be positive")
         if self.ffno_encoder_modes is not None and self.ffno_encoder_modes <= 0:
             raise ValueError("ffno_encoder_modes must be positive when set")
-        if self.hybrid_encoder_fusion_mode not in {
-            'baseline',
-            'layerscale',
-            'branch_gated',
-            'branch_gated_layerscale',
-        }:
-            raise ValueError("invalid hybrid_encoder_fusion_mode")
-        if self.hybrid_encoder_branch_select not in {
-            'both',
-            'conv_only',
-            'spectral_only',
-        }:
-            raise ValueError("invalid hybrid_encoder_branch_select")
         if not isinstance(self.ffno_encoder_norm, str) or not self.ffno_encoder_norm:
             raise ValueError("ffno_encoder_norm must be a non-empty string")
         validate_rect_s1s2_initialization_mode(self.rect_s1s2_init)

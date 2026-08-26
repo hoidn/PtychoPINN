@@ -38,8 +38,6 @@ if TORCH_AVAILABLE:
 GENERATOR_CLASS_BY_ARCHITECTURE = {
     "ffno": "FfnoGeneratorModule",
     "fno": "CascadedFNOGenerator",
-    "hybrid": "HybridUNOGenerator",
-    "stable_hybrid": "StableHybridUNOGenerator",
     "fno_vanilla": "FnoVanillaGeneratorModule",
     "neuralop_uno": "NeuralopUnoGeneratorModule",
 }
@@ -285,8 +283,6 @@ class TestLightningCheckpointSerialization:
         [
             "ffno",
             "fno",
-            "hybrid",
-            "stable_hybrid",
             "fno_vanilla",
             "neuralop_uno",
         ],

@@ -9,7 +9,7 @@ import torch
 
 from ptycho.log_config import setup_logging
 from ptycho_torch.generators.fno import (
-    CascadedFNOGenerator, HybridUNOGenerator, StableHybridUNOGenerator,
+    CascadedFNOGenerator,
     PtychoBlock, StablePtychoBlock, SpatialLifter,
 )
 
@@ -97,7 +97,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Capture FNO activation statistics")
     parser.add_argument("--input", required=True, help="Path to train.npz")
     parser.add_argument("--output", required=True, help="Output directory")
-    parser.add_argument("--architecture", default="fno", choices=["fno", "hybrid", "stable_hybrid"])
+    parser.add_argument("--architecture", default="fno", choices=["fno"])
     parser.add_argument("--checkpoint", default=None, help="Path to saved model.pt checkpoint")
     parser.add_argument("--output-json-name", default="activation_report.json",
                         help="Output JSON filename (default: activation_report.json)")
@@ -121,24 +121,6 @@ def _load_diffraction(path: Path) -> np.ndarray:
 
 def _build_model(architecture: str, n: int, channels: int) -> torch.nn.Module:
     modes = min(12, max(1, n // 4))
-    if architecture == "stable_hybrid":
-        return StableHybridUNOGenerator(
-            in_channels=1,
-            out_channels=2,
-            hidden_channels=32,
-            n_blocks=4,
-            modes=modes,
-            C=channels,
-        )
-    if architecture == "hybrid":
-        return HybridUNOGenerator(
-            in_channels=1,
-            out_channels=2,
-            hidden_channels=32,
-            n_blocks=4,
-            modes=modes,
-            C=channels,
-        )
     return CascadedFNOGenerator(
         in_channels=1,
         out_channels=2,

@@ -23,7 +23,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from ptycho.simulation import object_producers as _object_producers  # noqa: E402
 
-_PROFILE = "hybrid-resnet-lines"
+_PROFILE = "synthetic-lines"
 _STAGE_ORDER = ("simulate", "train", "reconstruct", "evaluate")
 
 
@@ -132,16 +132,6 @@ def build_parser() -> argparse.ArgumentParser:
     model.add_argument("--fno-width", type=int)
     model.add_argument("--fno-blocks", type=int)
     model.add_argument("--fno-cnn-blocks", type=int)
-    model.add_argument(
-        "--hybrid-skip-connections",
-        action=argparse.BooleanOptionalAction,
-    )
-    model.add_argument("--hybrid-downsample-steps", type=int)
-    model.add_argument("--hybrid-downsample-op")
-    model.add_argument("--hybrid-resnet-blocks", type=int)
-    model.add_argument("--hybrid-skip-style")
-    model.add_argument("--hybrid-encoder-fusion-mode")
-    model.add_argument("--hybrid-encoder-branch-select")
     model.add_argument("--generator-output-mode")
     model.add_argument(
         "--physics-forward-mode",
@@ -343,12 +333,6 @@ _ARG_PATHS: dict[str, tuple[str, ...]] = {
     "fno_width": ("model", "fno_width"),
     "fno_blocks": ("model", "fno_blocks"),
     "fno_cnn_blocks": ("model", "fno_cnn_blocks"),
-    "hybrid_skip_connections": ("model", "hybrid_skip_connections"),
-    "hybrid_downsample_steps": ("model", "hybrid_downsample_steps"),
-    "hybrid_downsample_op": ("model", "hybrid_downsample_op"),
-    "hybrid_skip_style": ("model", "hybrid_skip_style"),
-    "hybrid_encoder_fusion_mode": ("model", "hybrid_encoder_fusion_mode"),
-    "hybrid_encoder_branch_select": ("model", "hybrid_encoder_branch_select"),
     "generator_output_mode": ("model", "generator_output_mode"),
     "physics_forward_mode": ("model", "physics_forward_mode"),
     "cnn_output_mode": ("model", "cnn_output_mode"),

@@ -77,10 +77,10 @@ __all__ = [
 ]
 
 
-_PROFILE_NAME = "hybrid-resnet-lines"
-_CI_PROFILE_NAME = "hybrid-resnet-lines-ci"
-_RECIPE_VERSION = "hybrid-resnet-lines-v2"
-_CI_RECIPE_VERSION = "hybrid-resnet-lines-ci-v2"
+_PROFILE_NAME = "synthetic-lines"
+_CI_PROFILE_NAME = "cnn-lines-ci"
+_RECIPE_VERSION = "synthetic-lines-v2"
+_CI_RECIPE_VERSION = "cnn-lines-ci-v2"
 _SCHEMA_VERSION = "synthetic-workflow-v2"
 
 
@@ -418,11 +418,6 @@ _MODEL_VALIDATION_TYPES.update(
         "learned_input_channels": _StrictPositiveInt,
         "max_hidden_channels": _StrictPositiveInt | None,
         "resnet_width": _StrictPositiveInt | None,
-        "hybrid_skip_connections": _StrictBool,
-        "hybrid_encoder_conv_hidden_scale": _StrictFinitePositiveNumber,
-        "hybrid_encoder_spectral_hidden_scale": _StrictFinitePositiveNumber,
-        "hybrid_encoder_layerscale_init": _StrictFinitePositiveNumber,
-        "hybrid_encoder_branch_gate_init": _StrictFinitePositiveNumber,
         "object_big": _StrictBool | None,
         "probe_big": _StrictBool,
         "probe_mask": _StrictBool,
@@ -537,16 +532,6 @@ _PROFILE_VALUES: dict[str, dict[str, Any]] = {
         "fno_input_transform": "none",
         "max_hidden_channels": None,
         "resnet_width": None,
-        "hybrid_skip_connections": False,
-        "hybrid_downsample_steps": 2,
-        "hybrid_downsample_op": "stride_conv",
-        "hybrid_encoder_conv_hidden_scale": 2.0,
-        "hybrid_encoder_spectral_hidden_scale": 1.0,
-        "hybrid_skip_style": "add",
-        "hybrid_encoder_fusion_mode": "baseline",
-        "hybrid_encoder_layerscale_init": 0.1,
-        "hybrid_encoder_branch_gate_init": 0.1,
-        "hybrid_encoder_branch_select": "both",
         "generator_output_mode": "real_imag",
         "object_big": None,
         "object_layout": None,

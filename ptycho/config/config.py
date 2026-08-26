@@ -556,9 +556,7 @@ class ModelConfig:
     n_filters_scale: _StrictPositiveInt = 2
     model_type: Annotated[Literal['pinn', 'supervised'], BeforeValidator(_require_exact_str)] = 'pinn'
     architecture: Annotated[
-        Literal[
-            'cnn', 'ffno', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'neuralop_uno'
-        ],
+        Literal['cnn', 'ffno', 'fno', 'fno_vanilla', 'neuralop_uno'],
         BeforeValidator(_require_exact_str),
     ] = 'cnn'
     fno_modes: _StrictPositiveInt = 12
@@ -913,8 +911,6 @@ def validate_model_config(config: ModelConfig) -> None:
         'cnn',
         'ffno',
         'fno',
-        'hybrid',
-        'stable_hybrid',
         'fno_vanilla',
         'neuralop_uno',
     }
