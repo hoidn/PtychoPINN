@@ -130,6 +130,7 @@ class TestRawDataGrouping(unittest.TestCase):
         groups = raw._generate_groups_efficiently(
             nsamples=18,
             K=4,
+            C=4,
             seed=17,
         )
 
@@ -162,6 +163,7 @@ class TestRawDataGrouping(unittest.TestCase):
             raw._generate_groups_efficiently(
                 nsamples=18,
                 K=4,
+                C=4,
                 seed=17,
             )
 
@@ -285,6 +287,7 @@ class TestRawDataGrouping(unittest.TestCase):
         groups = raw._generate_groups_efficiently(
             nsamples=4,
             K=4,
+            C=4,
             seed=17,
         )
 
@@ -308,7 +311,7 @@ class TestRawDataGrouping(unittest.TestCase):
         """Test that K < C raises appropriate error."""
         with self.assertRaises(ValueError) as context:
             self.raw_data._generate_groups_efficiently(
-                nsamples=10, K=3, seed=42
+                nsamples=10, K=3, C=5, seed=42
             )
         
         self.assertIn("must be >=", str(context.exception),
@@ -338,13 +341,13 @@ class TestRawDataGrouping(unittest.TestCase):
             
             # Should work with C <= 5
             groups = small_data._generate_groups_efficiently(
-                nsamples=3, K=4, seed=42
+                nsamples=3, K=4, C=3, seed=42
             )
             self.assertEqual(groups.shape, (3, 3))
             
             # Should work even when requesting more samples
             groups = small_data._generate_groups_efficiently(
-                nsamples=10, K=4, seed=42
+                nsamples=10, K=4, C=2, seed=42
             )
             self.assertEqual(groups.shape[0], 5)  # Only 5 points available
             
@@ -403,16 +406,19 @@ class TestRawDataGrouping(unittest.TestCase):
         groups1 = self.raw_data._generate_groups_efficiently(
             nsamples=64,
             K=7,
+            C=4,
             rng=np.random.default_rng(29),
         )
         groups2 = self.raw_data._generate_groups_efficiently(
             nsamples=64,
             K=7,
+            C=4,
             rng=np.random.default_rng(29),
         )
         groups3 = self.raw_data._generate_groups_efficiently(
             nsamples=64,
             K=7,
+            C=4,
             rng=np.random.default_rng(30),
         )
 
@@ -427,11 +433,13 @@ class TestRawDataGrouping(unittest.TestCase):
         groups1 = self.raw_data._generate_groups_with_oversampling(
             nsamples=self.n_points + 32,
             K=7,
+            C=4,
             rng=np.random.default_rng(37),
         )
         groups2 = self.raw_data._generate_groups_with_oversampling(
             nsamples=self.n_points + 32,
             K=7,
+            C=4,
             rng=np.random.default_rng(37),
         )
 
@@ -549,7 +557,7 @@ class TestRawDataGrouping(unittest.TestCase):
             # Time the new efficient method
             start_time = time.time()
             groups_efficient = large_data._generate_groups_efficiently(
-                nsamples=512, K=8, seed=42
+                nsamples=512, K=8, C=4, seed=42
             )
             efficient_time = time.time() - start_time
             
@@ -602,7 +610,7 @@ class TestRawDataGrouping(unittest.TestCase):
             snapshot_before = tracemalloc.take_snapshot()
             
             groups = mod_data._generate_groups_efficiently(
-                nsamples=256, K=8, seed=42
+                nsamples=256, K=8, C=4, seed=42
             )
             
             snapshot_after = tracemalloc.take_snapshot()

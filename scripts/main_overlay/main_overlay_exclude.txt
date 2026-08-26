@@ -122,7 +122,18 @@ tests/studies/test_render_study_comparison.py
 # Direct family architecture integration/structure coverage.
 tests/fixtures/generic_runner_hybrid_resnet_gs2_5ep_metrics.json
 tests/torch/test_structural_config_ownership.py
+tests/torch/test_module_size_gates.py
 tests/torch/test_synthetic_hybrid_resnet_gs2_integration.py
+tests/fixtures/generic_runner_hybrid_resnet_c4_ci_5ep_metrics.json
+tests/torch/synthetic_quality_contracts.py
+tests/torch/synthetic_quality_evaluation.py
+tests/torch/synthetic_quality_identity.py
+tests/torch/synthetic_quality_profiles.py
+tests/torch/synthetic_quality_runtime.py
+tests/torch/test_synthetic_quality_c4_ci_contract.py
+
+# Source-only Hybrid ResNet quality-gate design/process record.
+docs/plans/2026-08-21-hybrid-resnet-c4-ci-quality-gate-design.md
 
 # Mixed family-era fixtures/tests are removed as coherent units instead of
 # carrying brittle test-only rewrite patches on the public overlay.

@@ -79,14 +79,6 @@ diff --git a/ptycho_torch/config_resolution.py b/ptycho_torch/config_resolution.
 index b3676b6cc..1c37a7a6e 100644
 --- a/ptycho_torch/config_resolution.py
 +++ b/ptycho_torch/config_resolution.py
-@@ -81,7 +80,0 @@ SUPPORTED_TORCH_ARCHITECTURES = frozenset(
--        "hybrid_resnet",
--        "hybrid_resnet_ffno_ptychoblock_encoder",
--        "hybrid_resnet_ptychoblock_ffno_encoder",
--        "spectral_resnet_bottleneck_net",
--        "spectral_resnet_bottleneck_linear_decoder",
--        "hybrid_resnet_ffno_bottleneck",
--        "hybrid_resnet_convnext_bottleneck",
 @@ -330 +322,0 @@ _TRAINING_INPUTS_BY_OWNER: tuple[
 -            "hybrid_resnet_blocks",
 @@ -332,2 +323,0 @@ _TRAINING_INPUTS_BY_OWNER: tuple[
@@ -97,6 +89,21 @@ index cdb27ce2a..c8198ba8c 100644
 --- a/ptycho_torch/model_spec.py
 +++ b/ptycho_torch/model_spec.py
 @@ -39,3 +39 @@ MODEL_SPEC_V1_MODEL_FIELDS = (
+-    "hybrid_encoder_spectral_hidden_channels", "hybrid_resnet_blocks",
+-    "hybrid_skip_style", "hybrid_resnet_bottleneck_layerscale_mode",
+-    "hybrid_resnet_bottleneck_layerscale_value",
++    "hybrid_encoder_spectral_hidden_channels", "hybrid_skip_style",
+@@ -119 +117,0 @@ TORCH_EXTENSION_FIELDS = frozenset(
+-        "hybrid_resnet_blocks",
+@@ -121,2 +118,0 @@ TORCH_EXTENSION_FIELDS = frozenset(
+-        "hybrid_resnet_bottleneck_layerscale_mode",
+-        "hybrid_resnet_bottleneck_layerscale_value",
+@@ -185,3 +180 @@ MODEL_SPEC_V2_MODEL_FIELDS = (
+-    "hybrid_encoder_spectral_hidden_channels", "hybrid_resnet_blocks",
+-    "hybrid_skip_style", "hybrid_resnet_bottleneck_layerscale_mode",
+-    "hybrid_resnet_bottleneck_layerscale_value",
++    "hybrid_encoder_spectral_hidden_channels", "hybrid_skip_style",
+@@ -223,3 +216 @@ MODEL_SPEC_V3_MODEL_FIELDS = (
 -    "hybrid_encoder_spectral_hidden_channels", "hybrid_resnet_blocks",
 -    "hybrid_skip_style", "hybrid_resnet_bottleneck_layerscale_mode",
 -    "hybrid_resnet_bottleneck_layerscale_value",

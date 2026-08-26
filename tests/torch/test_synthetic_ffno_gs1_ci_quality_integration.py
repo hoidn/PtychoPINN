@@ -9,11 +9,13 @@ frozen metric baseline, visual artifact — on the modern
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 from pathlib import Path
 import subprocess
 import sys
+import zipfile
 
 import numpy as np
 import pytest
@@ -75,20 +77,72 @@ def _load_baseline() -> dict:
     return baseline
 
 
-def _final_epoch_losses(training_root: Path) -> tuple[float, float]:
-    """Read final train/val losses from the Lightning CSV history artifact."""
+def _serving_checkpoint_losses(
+    training_root: Path,
+    *,
+    epochs: int,
+) -> tuple[float, float]:
+    """Read final train health and the validation score of bundled weights."""
     from ptycho_torch.training_history import read_metrics_series
 
     csv_candidates = sorted(training_root.glob("lightning_logs/version_*/metrics.csv"))
-    assert csv_candidates, f"no Lightning metrics.csv under {training_root}"
-    series = read_metrics_series(csv_candidates[-1])
+    assert len(csv_candidates) == 1, csv_candidates
+    series = read_metrics_series(csv_candidates[0])
+    values = {}
+    for name in ("poisson_train_loss_epoch", "poisson_val_loss"):
+        metric = series[name]
+        assert metric["epoch"] == list(range(epochs)), metric["epoch"]
+        assert all(
+            math.isfinite(value) and value >= 0.0
+            for value in metric["value"]
+        )
+        values[name] = metric["value"]
 
-    train = series["poisson_train_loss_epoch"]["value"]
-    val = series["poisson_val_loss"]["value"]
-    assert len(train) == 5, train
-    assert len(val) >= 5, val
-    assert all(math.isfinite(value) for value in train + val)
-    return float(train[-1]), float(val[-1])
+    bundle_path = _nonempty(training_root / "wts.h5.zip")
+    with zipfile.ZipFile(bundle_path) as archive:
+        manifest = json.loads(archive.read("manifest.json"))
+    selection = manifest.get("checkpoint_selection")
+    assert isinstance(selection, dict), "bundle manifest checkpoint_selection is missing"
+
+    root_record = _load_json(
+        _nonempty(training_root / "checkpoint_selection.json")
+    )
+    root_record.pop("selection_token", None)
+    assert root_record == selection
+    assert selection["schema_version"] == "serving-checkpoint-selection-v1"
+    assert selection["policy"] == "best"
+    assert selection["weights_source"] == "checkpoint"
+    assert selection["monitor"] == "poisson_val_loss"
+    assert selection["mode"] == "min"
+
+    selected_epoch = selection["selected_epoch"]
+    assert (
+        not isinstance(selected_epoch, bool)
+        and isinstance(selected_epoch, int)
+        and 0 <= selected_epoch < epochs
+    )
+    selected_score = selection["selected_score"]
+    assert (
+        not isinstance(selected_score, bool)
+        and isinstance(selected_score, (int, float))
+        and math.isfinite(selected_score)
+        and selected_score >= 0.0
+    )
+    validation_values = values["poisson_val_loss"]
+    assert selected_score == validation_values[selected_epoch]
+    assert selected_score == min(validation_values)
+
+    selected_path = selection["selected_path"]
+    selected_sha256 = selection["selected_sha256"]
+    assert isinstance(selected_path, str)
+    assert isinstance(selected_sha256, str)
+    checkpoint_path = (training_root / selected_path).resolve()
+    assert (training_root / "checkpoints").resolve() in checkpoint_path.parents
+    assert checkpoint_path.is_file() and checkpoint_path.stat().st_size > 0
+    with checkpoint_path.open("rb") as stream:
+        assert hashlib.file_digest(stream, "sha256").hexdigest() == selected_sha256
+
+    return values["poisson_train_loss_epoch"][-1], float(selected_score)
 
 
 def test_public_synthetic_ffno_gs1_ci_five_epoch_quality(tmp_path: Path) -> None:
@@ -221,9 +275,18 @@ def test_public_synthetic_ffno_gs1_ci_five_epoch_quality(tmp_path: Path) -> None
 
     # Loss ceilings against the frozen baseline.
     tolerances = baseline["tolerances"]
-    train_loss, val_loss = _final_epoch_losses(root / "training")
-    assert train_loss <= baseline["loss"]["train"] + tolerances["train_loss"]
-    assert val_loss <= baseline["loss"]["validation"] + tolerances["validation_loss"]
+    train_loss, val_loss = _serving_checkpoint_losses(
+        root / "training",
+        epochs=baseline["contract"]["epochs"],
+    )
+    assert train_loss <= (
+        baseline["loss"]["train"] * tolerances["train_loss_multiplier"]
+        + tolerances["loss_epsilon"]
+    )
+    assert val_loss <= (
+        baseline["loss"]["validation"] * tolerances["validation_loss_multiplier"]
+        + tolerances["loss_epsilon"]
+    )
 
     # Quality metrics: SSIMs are floors, MAEs are ceilings.
     metrics = _load_json(_nonempty(root / "reconstruction/metrics.json"))

@@ -327,6 +327,16 @@ Archive identification and backend tagging
   unsealed archives to that legacy migrator, then re-encodes any historical sealed identity in the same pass so
   the output lands at the current era; versioned `torch-artifact-portable-v1..v3` archives are re-encoded directly,
   all without changing model weights.
+- Serving-checkpoint provenance: Newly written PyTorch archives produced by
+  checkpoint-enabled training SHALL include a `checkpoint_selection` object in
+  `manifest.json`. It uses schema `serving-checkpoint-selection-v1`, excludes
+  the transport-only `selection_token`, and records the policy, weights source,
+  monitor/mode, selected and recovery paths, selected epoch/global step/score,
+  and selected-checkpoint SHA-256. Selected-checkpoint fields are populated for
+  `policy='best'` / `weights_source='checkpoint'` and null for
+  `policy='final'` / `weights_source='in_memory'`. The record MUST describe the
+  weights serialized in the archive. This additive outer-manifest metadata does
+  not change the sealed `torch-artifact-portable-v4` identity payload.
 - Contents: TensorFlow archives contain Keras/SavedModel payloads and serialized custom objects; PyTorch archives contain Lightning
   `.ckpt` payload(s) and serialized hyperparameters required for state-free reload. The outer archive structure remains identical.
 - PyTorch object-policy identity: newly written PyTorch archives use

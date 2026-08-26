@@ -145,17 +145,19 @@ def _load_baseline_dataset(config: TrainingConfig):
         from ptycho import probe as probe_module
 
         probe_module.set_default_probe()
-        if not (config.train_data_file and config.test_data_file):
+        if not (config.data.train_data_file and config.data.test_data_file):
             from ptycho import generate_data
 
             return generate_data.ptycho_dataset, generate_data.YY_ground_truth
 
-    logger.info("Loading from .npz files: %s", config.train_data_file)
+    logger.info("Loading from .npz files: %s", config.data.train_data_file)
     train_data_raw = load_data(
-        str(config.train_data_file),
-        n_images=config.n_images,
+        str(config.data.train_data_file),
+        n_images=config.sampling.training_groups,
+        n_subsample=config.sampling.train_raw_selection,
+        subsample_seed=config.sampling.subsample_seed,
     )
-    test_data_raw = load_data(str(config.test_data_file))
+    test_data_raw = load_data(str(config.data.test_data_file))
     train_container = create_ptycho_data_container(train_data_raw, config)
     test_container = create_ptycho_data_container(test_data_raw, config)
     dataset = PtychoDataset(train_container, test_container)
@@ -401,9 +403,8 @@ def main():
     """Resolve CLI configuration and execute the supervised baseline."""
     args = parse_arguments()
     config = setup_configuration(args, args.config)
-    config = replace(
-        config,
-        model=replace(config.model, model_type="supervised"),
+    config = config.model_copy(
+        update={"model": replace(config.model, model_type="supervised")},
     )
     return run_baseline(config)
 

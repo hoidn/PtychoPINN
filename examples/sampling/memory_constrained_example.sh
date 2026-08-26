@@ -13,4 +13,4 @@ ptycho_train \
     --data.train_data_file datasets/fly/fly001_transposed.npz \
     --output_dir memory_balanced_example
 
-echo "Reduce n_subsample, n_groups, or batch_size if the corresponding stage is too large."
+echo "Reduce train_raw_selection, training_groups, or batch_size if the corresponding stage is too large."

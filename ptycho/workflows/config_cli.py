@@ -4,9 +4,11 @@ Owns the public-training argument parser, YAML/config resolution, the notebook
 ``update_config_from_dict`` bridge, and the NPZ ``load_data`` entry.
 """
 import argparse
+import dataclasses
+import json
 import logging
+from pathlib import Path
 from typing import Any, Dict, Optional
-
 import numpy as np
 import yaml
 
@@ -20,6 +22,7 @@ from ptycho.acquisition import (
     select_acquisition,
     transform_coordinates,
 )
+from pydantic import TypeAdapter, ValidationError
 from pydantic_settings.sources.providers.cli import CliSettingsSource
 
 # Preserves pre-split log provenance.
@@ -160,27 +163,58 @@ def load_yaml_config(file_path: str) -> Dict[str, Any]:
         raise
 
 
-def _namespace_to_training_patch(args: argparse.Namespace) -> dict[str, Any]:
-    """Convert a parsed argparse Namespace to a nested TrainingConfig dict.
+def _get_field_annotation(cls: Any, name: str) -> Any:
+    if hasattr(cls, "model_fields") and name in cls.model_fields:
+        return cls.model_fields[name].annotation
+    if dataclasses.is_dataclass(cls):
+        for field in dataclasses.fields(cls):
+            if field.name == name:
+                return field.type
+    return None
 
-    CliSettingsSource registers dotted argument names (e.g. --sampling.training_groups),
-    so vars(args) contains keys like 'sampling.training_groups'. This function rebuilds
-    the nested dict that resolve_training_config expects.
-    """
-    training_fields = frozenset(TrainingConfig.model_fields)
-    result: dict[str, Any] = {}
-    for dest, value in vars(args).items():
-        if '.' in dest:
-            top, rest = dest.split('.', 1)
-            if top in training_fields:
-                node = result.setdefault(top, {})
-                parts = rest.split('.')
-                for part in parts[:-1]:
-                    node = node.setdefault(part, {})
-                node[parts[-1]] = value
-        elif dest in training_fields:
-            result[dest] = value
-    return result
+
+def _resolve_training_field_annotation(path: list[str]) -> Any:
+    annotation: Any = TrainingConfig
+    for part in path:
+        annotation = _get_field_annotation(annotation, part)
+        if annotation is None:
+            break
+    return annotation
+
+
+def _convert_cli_value(value: Any, path: list[str]) -> Any:
+    """Decode a CLI scalar only when it satisfies the destination annotation."""
+    if not isinstance(value, str):
+        return value
+    if value.lower() in {"true", "false"}:
+        decoded = value.lower() == "true"
+    else:
+        try:
+            decoded = json.loads(value)
+        except json.JSONDecodeError:
+            return value
+    try:
+        return TypeAdapter(
+            _resolve_training_field_annotation(path)
+        ).validate_python(decoded)
+    except ValidationError:
+        return value
+
+
+def _convert_cli_patch(node: Any, path: list[str]) -> Any:
+    if isinstance(node, dict):
+        return {
+            key: _convert_cli_patch(value, [*path, key])
+            for key, value in node.items()
+        }
+    return _convert_cli_value(node, path)
+
+
+def _namespace_to_training_patch(args: argparse.Namespace) -> dict[str, Any]:
+    """Extract a nested, typed TrainingConfig patch from parsed CLI arguments."""
+    source = CliSettingsSource(TrainingConfig, cli_parse_args=False)
+    source(parsed_args=args)
+    return _convert_cli_patch(source(), [])
 
 
 def setup_configuration(args: argparse.Namespace, yaml_path: Optional[str]) -> TrainingConfig:

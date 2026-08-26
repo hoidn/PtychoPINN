@@ -67,9 +67,8 @@ training-only `ci` profile is documented in the
 ### Training
 `ptycho_train --data.train_data_file <train_path.npz> --data.test_data_file <test_path.npz> --output_dir <my_run>`
 
-Use a nested YAML file for numeric and Boolean training settings on the current
-`refactor` tip. The generated dotted flags are registered, but their numeric
-and Boolean values are not yet decoded before strict Pydantic validation.
+Generated dotted CLI flags decode numeric and Boolean values before strict
+Pydantic validation. Nested YAML remains useful for multi-field configuration.
 
 ### Evaluation
 Use the comparison and study scripts described in
@@ -87,9 +86,9 @@ Use the comparison and study scripts described in
 - Train with `scripts/training/train.py` (or `ptycho_train`).
 - Run inference with `scripts/inference/inference.py` (or `ptycho_inference`).
 - Pick backend with `--backend tensorflow` or `--backend pytorch`.
-- In unified training configuration, use `sampling.n_groups` for sample count
-  and `sampling.n_subsample` for separate raw-row subsampling. Author numeric
-  values in YAML for now. Native Torch CLIs retain their own flat flags.
+- In unified training configuration, use `sampling.training_groups` for sample
+  count and `sampling.train_raw_selection` for separate raw-row subsampling.
+  Author numeric values in YAML for now. Native Torch CLIs retain their own flat flags.
 - For PyTorch execution flags:
   - Unified scripts: use `--torch-accelerator` and `--torch-logger`
   - PyTorch-native CLIs: use `--accelerator` and `--logger`
@@ -103,7 +102,7 @@ Use the comparison and study scripts described in
 
 #### Older Flags and Modes
 - Unified training's `sampling.n_images` field is deprecated; use
-  `sampling.n_groups`.
+  `sampling.training_groups`.
 - PyTorch `--device` and `--disable_mlflow` are older; use `--accelerator` and `--logger none`.
 - MLflow-only inference mode in `ptycho_torch/inference.py` (`--run_id`, `--infer_dir`) is still available, but not the default path.
 

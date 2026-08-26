@@ -64,7 +64,7 @@ class TestFullWorkflow(unittest.TestCase):
                         "train_data_file": str(self.data_file),
                         "test_data_file": str(self.data_file),
                     },
-                    "sampling": {"n_groups": 64},
+                    "sampling": {"training_groups": 64},
                     "output_dir": str(training_output_dir),
                     "nepochs": 2,
                 }

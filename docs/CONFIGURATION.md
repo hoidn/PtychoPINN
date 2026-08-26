@@ -438,7 +438,7 @@ merged result for validation.
 
 One enumerated exception exists for backward compatibility: the historical
 flat root spellings of `data`, `tf_loss`, and `sampling` fields (for example
-`train_data_file`, `nll_weight`, `n_groups`) are accepted during
+`train_data_file`, `nll_weight`, `training_groups`) are accepted during
 `TrainingConfig` validation and lifted into their nested sections with a
 `DeprecationWarning`. An equal flat/nested duplicate is accepted once; an
 unequal duplicate fails with both spellings identified. This applies wherever
@@ -448,32 +448,28 @@ mappings). New configurations should use the nested spellings
 
 On the unified CLI, direct training fields retain plain flags such as
 `--nepochs`, `--batch_size`, `--output_dir`, and `--backend`; nested fields use
-dotted flags such as `--data.train_data_file`, `--sampling.n_groups`,
-`--optimizer.algorithm`, and `--scheduler.kind`. The native
+dotted flags such as `--data.train_data_file`, `--sampling.training_groups`,
+`--optimizer.algorithm`, and `--scheduler.kind`. CLI-origin numeric, Boolean,
+JSON sub-config, and `null` values are decoded before strict validation; file
+and direct Python mappings remain strict. The native
 `python -m ptycho_torch.train` CLI is a separate interface and retains its
 documented flat flags.
 
-Current `refactor` limitation: the generated parser leaves numeric and Boolean
-CLI values as strings, which the strict Pydantic validators reject during
-`setup_configuration()`. Author those values in the nested YAML file until the
-CLI decoder is corrected. Path and literal-string overrides remain usable; the
-dotted names above describe the intended public surface rather than a claim
-that every generated value type currently completes resolution.
-
-Within `SamplingConfig`, `n_groups` is canonical and `n_images` remains a
-deprecated alias. An alias-only value becomes `n_groups`; equal alias and
-canonical values are accepted; unequal values fail. Because source mappings
-are deep-merged before Pydantic validation, conflicting alias/canonical values
-across file and CLI sources also fail rather than using one spelling to
-silently override the other. Successful validation clears `n_images`; omitted
-`n_groups` materializes the default of `512`.
+Within `SamplingConfig`, `training_groups` is canonical and `n_images` remains
+a deprecated alias. An alias-only value becomes `training_groups`; equal alias
+and canonical values are accepted; unequal values fail. Because source
+mappings are deep-merged before Pydantic validation, conflicting
+alias/canonical values across file and CLI sources also fail rather than using
+one spelling to silently override the other. Successful validation clears
+`n_images`; omitted `training_groups` materializes the default of `512`.
 
 Inference authoring remains flat except for `model`. Within each inference
 source, model fields may be written either at the root or under `model`. An
 equal flat/nested duplicate is accepted once; an unequal duplicate fails with
 both locations identified. Across sources, normal precedence applies even when
 one source uses the flat form and the other uses the nested form. Inference
-resolves its `n_images` alias per source before applying CLI precedence.
+resolves its `n_images` alias to `inference_groups` per source before applying
+CLI precedence.
 
 Validation is deliberately layered:
 
@@ -624,7 +620,7 @@ payload = resolve_training_payload(
     overrides={
         "gridsize": 1,
         "N": 128,
-        "n_groups": 4489,
+        "training_groups": 4489,
         "batch_size": 16,
     },
 )
@@ -636,7 +632,7 @@ The non-obvious pieces:
 |---|---|
 | `profile="ci"` | Locks `ci_intensity_v2` + `count_intensity` + `rectangular_scaled` + Poisson as an inseparable set; contradicting any locked field fails closed. |
 | `rect_s1s2_init="dose_closure"` | Before fitting, one shared `s1=s2` startup gauge is solved from the actual forward with a unit object. Exactly 256 logical `(row, channel)` detector slots are selected uniformly without replacement across the complete resolved training dataset using fixed seed `20260806` and policy `splitmix64_rejection_v1`. It fixes startup conditioning when the stored probe's global scalar does not match the recorded counts; it does not calibrate the probe or identify physical object units. |
-| `n_groups` / `gridsize` | Required grouping identity: number of sampled groups and frames per group axis. `gridsize=1` degenerates grouping to single-frame groups. |
+| `training_groups` / `gridsize` | Required grouping identity: number of sampled groups and frames per group axis. `gridsize=1` degenerates grouping to single-frame groups. |
 | Startup record | Fresh training persists a strict `rect-s1s2-initialization-v2` record (`solved_gauge`, `method`, `mode`, `sampled_patterns`) in `training_summary.json`; the dose method is `dose_closure_seeded_uniform_unit_object`. Readers accept valid historical v1 prefix-era records without rewriting them. A solved gauge far from 1 signals that the data's probe/object decomposition convention disagrees with the forward model. |
 
 The name *dose closure* refers to closing the aggregate count budget on the
@@ -874,9 +870,9 @@ spellings become an explicit factory patch, and the resolved Torch
 | `tf_loss.realspace_weight` | `float` | `0.0` | TensorFlow general real-space loss weight. |
 | `loss.torch_loss_mode` | `Literal['poisson','mae']` | `'poisson'` | Primary Torch loss family. |
 | `data.nphotons` | `float` | `1e9` | Legacy/runtime compatibility value. Generated dose belongs to `SimulationConfig.detector.photons_per_pattern`. |
-| `sampling.n_groups` | `Optional[int]` | `512` after validation | Number of grouped samples used for training. |
-| `sampling.n_images` | `Optional[int]` | `None` | **Deprecated** alias for `sampling.n_groups`; cleared after successful validation. |
-| `sampling.n_subsample` | `Optional[int]` | `None` | Number of raw images selected before grouping. |
+| `sampling.training_groups` | `Optional[int]` | `512` after validation | Number of grouped samples used for training. |
+| `sampling.n_images` | `Optional[int]` | `None` | **Deprecated** alias for `sampling.training_groups`; cleared after successful validation. |
+| `sampling.train_raw_selection` | `Optional[int]` | `None` | Number of raw images selected before grouping. |
 | `sampling.subsample_seed` | `Optional[int]` | `None` | Reproducible subsampling seed. |
 | `positions_provided` | `bool` | `True` | Use provided scan positions. |
 | `probe_trainable` | `bool` | `False` | Optimize the probe jointly with the object model. |
@@ -895,23 +891,24 @@ spellings become an explicit factory patch, and the resolved Torch
 | `model_path` | `Path` | Required | Trained model/checkpoint location. |
 | `test_data_file` | `Path` | Required | Inference dataset path. |
 | `output_dir` | `Path` | `inference_outputs` | Reconstruction output directory. |
-| `n_groups` | `Optional[int]` | `None` | Number of groups to reconstruct; `None` uses all available groups. |
-| `n_images` | `Optional[int]` | `None` | **Deprecated** alias for `n_groups`. |
-| `n_subsample` | `Optional[int]` | `None` | Number of raw test images selected before grouping. |
+| `inference_groups` | `Optional[int]` | `None` | Number of groups to reconstruct; `None` uses all available groups. |
+| `n_images` | `Optional[int]` | `None` | **Deprecated** alias for `inference_groups`. |
+| `inference_raw_selection` | `Optional[int]` | `None` | Number of raw test images selected before grouping. |
 | `subsample_seed` | `Optional[int]` | `None` | Reproducible inference subsampling seed. |
 | `debug` | `bool` | `False` | Enable additional diagnostic output. |
 
 ## Understanding Sampling Parameters
 
-When only deprecated `n_images` is supplied, it behaves as `n_groups`:
+When only deprecated `sampling.n_images` is supplied, it behaves as
+`sampling.training_groups`:
 
 - `gridsize=1`: each group contains one image.
 - `gridsize>1`: each group contains `gridsize²` neighboring images.
 
-When `n_subsample` is supplied, the controls are independent:
+When `sampling.train_raw_selection` is supplied, the controls are independent:
 
-- `n_subsample` selects raw images from the dataset.
-- `n_groups` controls how many grouped samples are used.
+- `sampling.train_raw_selection` selects raw images from the dataset.
+- `sampling.training_groups` controls how many grouped samples are used.
 - `subsample_seed` makes raw-image selection reproducible.
 
 ```yaml
@@ -919,8 +916,8 @@ When `n_subsample` is supplied, the controls are independent:
 model:
   gridsize: 2
 sampling:
-  n_subsample: 10000
-  n_groups: 500
+  train_raw_selection: 10000
+  training_groups: 500
   subsample_seed: 3
 ```
 
@@ -950,7 +947,7 @@ batch_size: 32
 probe_trainable: true
 
 sampling:
-  n_groups: 4096
+  training_groups: 4096
 
 tf_loss:
   nll_weight: 1.0

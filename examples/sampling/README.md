@@ -17,7 +17,7 @@ Demonstrates the exact oversampling boundary with a 512-row selected pool:
 - K=7 oversampling: 1024 groups
 - K=7 oversampling: 2048 groups
 
-Oversampling is entered only when `n_groups` is greater than the selected
+Oversampling is entered only when `training_groups` is greater than the selected
 raw-row count. It also requires `sampling.enable_oversampling=true`, grid size
 greater than one, and a candidate pool at least as large as the channel count.
 
@@ -32,8 +32,8 @@ grouping anchors. Neighbor membership can still overlap.
 
 ### 4. `memory_constrained_example.sh` - Limited Memory Strategies
 Uses bounded raw-row selection, group count, and batch size. Raw storage grows
-with `n_subsample`; grouped arrays grow approximately with
-`n_groups * gridsize²`.
+with `train_raw_selection`; grouped arrays grow approximately with
+`training_groups * gridsize²`.
 
 ### 5. `migration_from_legacy.sh` - Converting Old Scripts
 Prints the flat-to-nested configuration mapping and a runnable YAML shape.
@@ -54,8 +54,8 @@ This trains three models from the same 512-row selected pool:
 ## Understanding the Parameters
 
 ### Core Parameters
-- **`sampling.n_groups`**: Number of groups to generate
-- **`sampling.n_subsample`**: Number of raw rows to select
+- **`sampling.training_groups`**: Number of groups to generate
+- **`sampling.train_raw_selection`**: Number of raw rows to select
 - **`sampling.neighbor_count`**: Neighbor-query count
 - **`sampling.enable_oversampling`**: Explicit oversampling opt-in
 - **`sampling.neighbor_pool_size`**: K value used for combinations
@@ -63,7 +63,7 @@ This trains three models from the same 512-row selected pool:
 
 ### Explicit oversampling
 
-When `sampling.n_groups > sampling.n_subsample` and `gridsize > 1`, explicit
+When `sampling.training_groups > sampling.train_raw_selection` and `gridsize > 1`, explicit
 oversampling constructs multiple `C`-member combinations from K-neighbor
 candidate pools. The per-anchor combination capacity is `binomial(K, C)`,
 where `C = gridsize²`. Invalid pool sizes and requests without explicit opt-in
@@ -71,22 +71,22 @@ fail instead of silently changing the policy.
 
 ## Memory vs Augmentation Trade-off
 
-`n_subsample` bounds the selected raw pool. `n_groups` controls both training
-compute and the materialized grouped arrays, whose leading payload is roughly
-`n_groups * gridsize²`. Oversampling can increase diversity from a fixed raw
+`train_raw_selection` bounds the selected raw pool. `training_groups` controls
+both training compute and the materialized grouped arrays, whose leading payload
+is roughly `training_groups * gridsize²`. Oversampling can increase diversity from a fixed raw
 pool, but it does not have constant memory cost as group count grows.
 
 ## Tips
 
 1. More groups increase both training compute and grouped-array memory;
-   `n_subsample` separately controls the raw selected pool.
+   `train_raw_selection` separately controls the raw selected pool.
 2. Set `sampling.subsample_seed` in YAML for reproducible selection.
 3. Increase group count gradually and measure the quality/compute trade-off.
 
 ## Backward Compatibility
 
 The nested YAML alias `sampling.n_images` remains loadable but emits a
-deprecation warning. Update it to `sampling.n_groups`:
+deprecation warning. Update it to `sampling.training_groups`:
 
 ```yaml
 # Old
@@ -95,5 +95,5 @@ sampling:
 
 # New
 sampling:
-  n_groups: 500
+  training_groups: 500
 ```

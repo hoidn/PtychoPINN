@@ -1091,6 +1091,7 @@ def _train_with_lightning(
                 bundle_path,
                 model,
                 amplitude_physics_gain_record=amplitude_physics_gain_record,
+                checkpoint_selection=checkpoint_selection,
             )
         elif amplitude_physics_gain_record is not None:
             raise RuntimeError(

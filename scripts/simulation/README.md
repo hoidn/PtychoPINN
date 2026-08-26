@@ -251,11 +251,10 @@ The sampling flags name separate lifecycle decisions:
 | `--neighbor-pool-size` | Candidate pool for explicit oversampling |
 | `--groups-per-center` | Reconstruction-only repeated groups per eligible center |
 
-The persisted training `DataConfig.n_subsample` records
-`train_raw_selection` (4,096 in the profile). Reconstruction creates an
-evaluation-only copy whose `n_subsample=groups_per_center` (default 1). That
-runtime copy is neither serialized back into the model bundle nor interpreted
-as raw train selection.
+The persisted training `DataConfig.n_raw_frames_selected` records
+`train_raw_selection` (4,096 in the profile). Reconstruction receives
+`groups_per_center` (default 1) as an explicit runtime argument; it is neither
+persisted back into the model bundle nor interpreted as raw train selection.
 
 ### Stage identity and reuse
 

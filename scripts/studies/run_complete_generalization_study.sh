@@ -87,10 +87,6 @@ OPTIONS:
     --train-data PATH         Path to training dataset (default: auto-generated)
     --test-data PATH          Path to test dataset (default: auto-generated)
     --n-test-images N         Number of test images to use for evaluation (overridden by --test-sizes if provided)
-                              # TODO: Future enhancement - support both n_images (deprecated) and n_groups parameters
-                              # --n-groups N        Number of groups to generate (new parameter)
-                              # --n-subsample N     Number of images to subsample before grouping
-                              # --neighbor-count K  Number of nearest neighbors for K choose C oversampling
     --add-tike-arm            Add Tike iterative reconstruction as third comparison arm (enables 3-way comparison mode)
     --tike-iterations N       Number of Tike reconstruction iterations (default: 1000)
     --add-ptychi-arm          Add Pty-chi iterative reconstruction as third comparison arm (enables 3-way comparison mode)
@@ -578,10 +574,10 @@ train_models() {
             pinn_cmd="$pinn_cmd --config '$CONFIG_FILE'"
         fi
         pinn_cmd="$pinn_cmd \\
-            --train_data_file '$train_data_path' \\
-            --test_data_file '$TEST_DATA' \\
-            --n_groups $train_groups --n_subsample $train_subsample \\
-            --neighbor_count $NEIGHBOR_COUNT \\
+            --data.train_data_file '$train_data_path' \\
+            --data.test_data_file '$TEST_DATA' \\
+            --sampling.training_groups $train_groups --sampling.train_raw_selection $train_subsample \\
+            --sampling.neighbor_count $NEIGHBOR_COUNT \\
             --output_dir '$trial_output_dir/pinn_run'"
             
         run_cmd "$pinn_cmd" "PtychoPINN training (subsample=$train_subsample, groups=$train_groups, trial=$trial)"
@@ -592,10 +588,10 @@ train_models() {
             baseline_cmd="$baseline_cmd --config '$CONFIG_FILE'"
         fi
         baseline_cmd="$baseline_cmd \\
-            --train_data_file '$train_data_path' \\
-            --test_data '$TEST_DATA' \\
-            --n_groups $train_groups --n_subsample $train_subsample \\
-            --neighbor_count $NEIGHBOR_COUNT \\
+            --data.train_data_file '$train_data_path' \\
+            --data.test_data_file '$TEST_DATA' \\
+            --sampling.training_groups $train_groups --sampling.train_raw_selection $train_subsample \\
+            --sampling.neighbor_count $NEIGHBOR_COUNT \\
             --output_dir '$trial_output_dir/baseline_run'"
             
         run_cmd "$baseline_cmd" "Baseline training (subsample=$train_subsample, groups=$train_groups, trial=$trial)"

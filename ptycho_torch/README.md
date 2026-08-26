@@ -32,8 +32,8 @@ from training.
 
 - **CONFIG-001**: Use the factory or CLI. Direct instantiation can silently mis-sync
   gridsize and channel count.
-- **n_groups is required**: The factory rejects missing `n_groups`. Use test sample
-  count as a safe default.
+- **training_groups is required**: The factory rejects missing `training_groups`.
+  Use the test sample count as a safe default.
 - **Output mode matters**: `generator_output_mode="amp_phase"` applies sigmoid/tanh
   inside the generator. Downstream consumers expect physical values.
 - **Bundle mismatches**: strict loading rejects architecture or scaling identity

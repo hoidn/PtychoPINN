@@ -127,14 +127,15 @@ def test_tensorflow_reference_leaf_projects_owner_and_restores_ambient_state(
     config = resolve_training_config(
         None,
         {
-            "N": 128,
-            "gridsize": 1,
+            "model": {"N": 128, "gridsize": 1},
             "batch_size": 8,
-            "training_groups": 16,
-            "nphotons": 1234.0,
+            "sampling": {"training_groups": 16},
+            "data": {
+                "nphotons": 1234.0,
+                "train_data_file": "train.npz",
+                "test_data_file": "test.npz",
+            },
             "intensity_scale_trainable": False,
-            "train_data_file": "train.npz",
-            "test_data_file": "test.npz",
         },
     )
     results = {"reconstructed_obj": object(), "test_container": object()}
@@ -209,12 +210,13 @@ def test_tensorflow_reference_leaf_restores_ambient_state_on_failure(
     config = resolve_training_config(
         None,
         {
-            "N": 128,
-            "gridsize": 1,
+            "model": {"N": 128, "gridsize": 1},
             "batch_size": 8,
-            "training_groups": 16,
-            "train_data_file": "train.npz",
-            "test_data_file": "test.npz",
+            "sampling": {"training_groups": 16},
+            "data": {
+                "train_data_file": "train.npz",
+                "test_data_file": "test.npz",
+            },
         },
     )
     monkeypatch.setattr(

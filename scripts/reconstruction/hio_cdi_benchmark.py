@@ -2205,7 +2205,7 @@ def _resolve_pinn_training_config(cfg: Any) -> Any:
 
 def _pinn_intensity_scale(resolved_config: Any) -> float:
     """Evaluate the legacy training normalization from explicit config owners."""
-    nphotons = float(resolved_config.nphotons)
+    nphotons = float(resolved_config.data.nphotons)
     N = int(resolved_config.model.N)
     if not math.isfinite(nphotons) or nphotons <= 0:
         raise ValueError("PtychoPINN comparator nphotons must be finite and positive")
