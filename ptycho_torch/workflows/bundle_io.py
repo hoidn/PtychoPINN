@@ -13,8 +13,6 @@ from pathlib import Path
 import zipfile
 from typing import Any, Dict, Optional, Tuple, Union
 
-from ptycho import params
-from ptycho.config.legacy_state import transactional_legacy_params
 from ptycho_torch.scaling_contract import (
     AmplitudePhysicsGainRecord,
     CI_SCALE_CONTRACT,
@@ -40,6 +38,7 @@ def _persist_bundle_scaling_metadata(
     ] = None,
     checkpoint_selection: Optional[Dict[str, Any]] = None,
     training_sampling: Optional[Dict[str, Any]] = None,
+    rescaled_source_sha256: Optional[str] = None,
 ) -> None:
     """Append the torch config and frozen CI statistics needed for strict reload."""
     statistics = model.get_ci_statistics()
@@ -118,6 +117,9 @@ def _persist_bundle_scaling_metadata(
         manifest["checkpoint_selection"] = dict(checkpoint_selection)
     if training_sampling is not None:
         manifest["training_sampling"] = dict(training_sampling)
+    if rescaled_source_sha256 is not None:
+        manifest["rescaled_source_sha256"] = rescaled_source_sha256
+    validate_torch_bundle_manifest(manifest)
     handle, temporary_name = tempfile.mkstemp(
         prefix=archive_path.name,
         suffix=".tmp",
@@ -337,6 +339,11 @@ def _decode_pinned_inference_bundle(
         str(archive_path)
     )
     manifest_era = validate_torch_bundle_manifest(manifest)
+    if "rescaled_source_sha256" in manifest:
+        params_dict = dict(params_dict)
+        params_dict["rescaled_source_sha256"] = manifest[
+            "rescaled_source_sha256"
+        ]
     metadata = _read_bundle_scaling_metadata(zip_path)
     amplitude_physics_gain_record = (
         _read_bundle_amplitude_physics_gain_record(zip_path)
@@ -389,7 +396,6 @@ def _decode_pinned_inference_bundle(
     return models_dict, params_dict, amplitude_physics_gain_record
 
 
-@transactional_legacy_params
 def load_inference_bundle_torch(
     bundle_dir: Union[str, Path],
     model_name: str = 'diffraction_to_obj',
@@ -438,44 +444,48 @@ def load_inference_bundle_torch(
     -> _decode_pinned_inference_bundle -> _reconstruct_inference_bundle_explicit
     -> _strictly_reconstruct_bundle_model (kernel), 4 hops.
     """
-    # Normalize bundle_dir to string for Path compatibility
-    bundle_dir_str = str(bundle_dir)
+    from ptycho import params
+    from ptycho.config.legacy_state import archived_params_scope
 
-    # Build archive path following TensorFlow convention (wts.h5.zip in bundle_dir)
-    # TensorFlow baseline: load_inference_bundle expects model_dir containing wts.h5.zip
-    # PyTorch mirrors this: bundle_dir/wts.h5.zip.
-    archive_path = Path(bundle_dir_str) / "wts.h5"
-    zip_path = archive_path.with_suffix(".h5.zip")
+    with archived_params_scope({}):
+        # Normalize bundle_dir to string for Path compatibility
+        bundle_dir_str = str(bundle_dir)
 
-    logger.info(f"Loading PyTorch inference bundle from {archive_path}.zip")
+        # Build archive path following TensorFlow convention (wts.h5.zip in bundle_dir)
+        # TensorFlow baseline: load_inference_bundle expects model_dir containing wts.h5.zip
+        # PyTorch mirrors this: bundle_dir/wts.h5.zip.
+        archive_path = Path(bundle_dir_str) / "wts.h5"
+        zip_path = archive_path.with_suffix(".h5.zip")
 
-    from ptycho_torch.config_factory import resolve_profile_overrides
-    explicit_profile = resolve_profile_overrides({
-        "scale_contract_version": scale_contract_version,
-        "measurement_domain": measurement_domain,
-    })
-    with _pinned_bundle_snapshot(zip_path) as (
-        pinned_archive_path,
-        pinned_zip_path,
-    ):
-        models_dict, params_dict, amplitude_physics_gain_record = (
-            _decode_pinned_inference_bundle(
-                pinned_archive_path,
-                pinned_zip_path,
-                model_name=model_name,
-                explicit_profile=explicit_profile,
+        logger.info(f"Loading PyTorch inference bundle from {archive_path}.zip")
+
+        from ptycho_torch.config_factory import resolve_profile_overrides
+        explicit_profile = resolve_profile_overrides({
+            "scale_contract_version": scale_contract_version,
+            "measurement_domain": measurement_domain,
+        })
+        with _pinned_bundle_snapshot(zip_path) as (
+            pinned_archive_path,
+            pinned_zip_path,
+        ):
+            models_dict, params_dict, amplitude_physics_gain_record = (
+                _decode_pinned_inference_bundle(
+                    pinned_archive_path,
+                    pinned_zip_path,
+                    model_name=model_name,
+                    explicit_profile=explicit_profile,
+                )
             )
-        )
-    params.cfg.update(params_dict)
+        params.cfg.update(params_dict)
 
-    returned_params = dict(params_dict)
-    if amplitude_physics_gain_record is not None:
-        returned_params["amplitude_physics_gain_record"] = (
-            amplitude_physics_gain_record
-        )
+        returned_params = dict(params_dict)
+        if amplitude_physics_gain_record is not None:
+            returned_params["amplitude_physics_gain_record"] = (
+                amplitude_physics_gain_record
+            )
 
-    logger.info(f"Inference bundle loaded successfully. Models: {list(models_dict.keys())}, Params keys: {list(params_dict.keys())[:5]}...")
+        logger.info(f"Inference bundle loaded successfully. Models: {list(models_dict.keys())}, Params keys: {list(params_dict.keys())[:5]}...")
 
-    # Return (models_dict, params_dict) matching TensorFlow baseline signature
-    # models_dict already contains both models per implementation
-    return models_dict, returned_params
+        # Return (models_dict, params_dict) matching TensorFlow baseline signature
+        # models_dict already contains both models per implementation
+        return models_dict, returned_params

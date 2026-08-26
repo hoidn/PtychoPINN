@@ -414,6 +414,7 @@ def train_cdi_model_torch(
     amplitude_physics_gain_record: Optional[
         AmplitudePhysicsGainRecord
     ] = None,
+    rescaled_source_sha256: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Train the CDI model using PyTorch Lightning backend.
@@ -492,6 +493,8 @@ def train_cdi_model_torch(
         lightning_kwargs["amplitude_physics_gain_record"] = (
             amplitude_physics_gain_record
         )
+    if rescaled_source_sha256 is not None:
+        lightning_kwargs["rescaled_source_sha256"] = rescaled_source_sha256
     intensity_scale = None
     if hasattr(train_container, 'physics_scaling_constant'):
         import torch
@@ -510,5 +513,4 @@ def train_cdi_model_torch(
         results['intensity_scale'] = intensity_scale
 
     return results
-
 

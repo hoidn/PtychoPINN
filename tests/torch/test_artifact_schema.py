@@ -160,6 +160,63 @@ def test_bundle_manifest_is_checked_before_construction():
         validate_torch_bundle_manifest({**valid, "models": ["autoencoder"]})
 
 
+def test_current_artifact_schema_is_exactly_v5():
+    from ptycho_torch.artifact_schema import CURRENT_ARTIFACT_SCHEMA_VERSION
+
+    assert CURRENT_ARTIFACT_SCHEMA_VERSION == "torch-artifact-v5"
+
+
+def test_current_artifact_manifest_may_omit_rescaled_source_sha256():
+    from ptycho_torch.artifact_schema import validate_torch_bundle_manifest
+
+    manifest = {
+        "models": ["autoencoder", "diffraction_to_obj"],
+        "version": "2.0-pytorch",
+        "backend": "pytorch",
+        "artifact_schema_version": "torch-artifact-v5",
+    }
+
+    assert validate_torch_bundle_manifest(manifest) == "torch-artifact-v5"
+
+
+@pytest.mark.parametrize(
+    "digest",
+    [
+        "a" * 63,
+        "a" * 65,
+        "A" * 64,
+        "g" * 64,
+        123,
+    ],
+)
+def test_current_artifact_manifest_rejects_invalid_rescaled_source_sha256(digest):
+    from ptycho_torch.artifact_schema import validate_torch_bundle_manifest
+
+    manifest = {
+        "models": ["autoencoder", "diffraction_to_obj"],
+        "version": "2.0-pytorch",
+        "backend": "pytorch",
+        "artifact_schema_version": "torch-artifact-v5",
+        "rescaled_source_sha256": digest,
+    }
+
+    with pytest.raises(ValueError, match=r"rescaled_source_sha256.*lowercase.*64"):
+        validate_torch_bundle_manifest(manifest)
+
+
+def test_metadata_free_legacy_manifest_rejects_invalid_rescaled_source_sha256():
+    from ptycho_torch.artifact_schema import validate_torch_bundle_manifest
+
+    manifest = {
+        "models": ["autoencoder", "diffraction_to_obj"],
+        "version": "2.0-pytorch",
+        "rescaled_source_sha256": "A" * 64,
+    }
+
+    with pytest.raises(ValueError, match=r"rescaled_source_sha256.*lowercase.*64"):
+        validate_torch_bundle_manifest(manifest)
+
+
 def test_current_application_checkpoint_dual_writes_identity_and_reloads(tmp_path):
     from lightning.pytorch import Trainer
 

@@ -71,6 +71,249 @@ def _build_training_payload(config, overrides=None, **execution_values):
     )
 
 
+def _contains_mapping_key(value, key):
+    if isinstance(value, dict):
+        return key in value or any(
+            _contains_mapping_key(item, key) for item in value.values()
+        )
+    if isinstance(value, (list, tuple)):
+        return any(_contains_mapping_key(item, key) for item in value)
+    return False
+
+
+def test_bundle_io_import_boundary_excludes_legacy_params():
+    import subprocess
+    import sys
+
+    script = """
+import importlib
+from pathlib import Path
+import sys
+import types
+
+import ptycho_torch
+
+workflows = types.ModuleType("ptycho_torch.workflows")
+workflows.__path__ = [str(Path.cwd() / "ptycho_torch" / "workflows")]
+sys.modules["ptycho_torch.workflows"] = workflows
+importlib.import_module("ptycho_torch.workflows.bundle_io")
+assert "ptycho.params" not in sys.modules
+assert "ptycho.config.legacy_state" not in sys.modules
+"""
+
+    subprocess.run([sys.executable, "-c", script], check=True)
+
+
+def test_rescaled_source_sha256_threads_through_training_services(
+    tmp_path,
+    monkeypatch,
+):
+    from ptycho_torch.workflows import legacy, lightning_service
+
+    digest = "a" * 64
+    real_train_with_lightning = lightning_service._train_with_lightning
+    payload = SimpleNamespace(tf_training_config=object())
+    train_container = object()
+    lightning_call = {}
+    monkeypatch.setattr(
+        legacy.containers,
+        "create_torch_data_container",
+        lambda *_args, **_kwargs: train_container,
+    )
+    monkeypatch.setattr(
+        "ptycho_torch.config_factory.resolve_training_payload",
+        lambda **_kwargs: payload,
+    )
+
+    def fake_train(*args, **kwargs):
+        lightning_call.update(args=args, kwargs=kwargs)
+        return {}
+
+    monkeypatch.setattr(lightning_service, "_train_with_lightning", fake_train)
+    legacy.train_cdi_model_torch(
+        object(),
+        None,
+        SimpleNamespace(train_data_file=tmp_path / "train.npz", output_dir=tmp_path),
+        resolved_payload=payload,
+        rescaled_source_sha256=digest,
+    )
+    assert lightning_call["kwargs"]["rescaled_source_sha256"] == digest
+    monkeypatch.setattr(
+        lightning_service,
+        "_train_with_lightning",
+        real_train_with_lightning,
+    )
+
+    prepared = SimpleNamespace(
+        resolved_scale_contract=None,
+        execution_config=object(),
+        pt_configs=object(),
+    )
+    model = object()
+    state = SimpleNamespace(
+        rect_s1s2_initialization=None,
+        training_summary_path=None,
+        output_dir=tmp_path,
+    )
+    fit = SimpleNamespace(
+        history={},
+        training_history={},
+        effective_runtime={},
+        checkpoint_selection={},
+        training_sampling={},
+        selected_checkpoint=None,
+        milestone_checkpoints={},
+    )
+    monkeypatch.setattr(lightning_service, "_prepare_training_data", lambda *_args: prepared)
+    monkeypatch.setattr(lightning_service, "_construct_application", lambda *_args: model)
+    monkeypatch.setattr(lightning_service, "_assemble_trainer", lambda *_args: state)
+    monkeypatch.setattr(lightning_service, "_fit_and_collect", lambda *_args: fit)
+    persist_call = {}
+
+    def fake_persist(*args, **kwargs):
+        persist_call.update(args=args, kwargs=kwargs)
+        return SimpleNamespace(bundle_path=None, should_persist=False)
+
+    monkeypatch.setattr(lightning_service, "_persist_bundle", fake_persist)
+    lightning_service._train_with_lightning(
+        payload,
+        train_container,
+        rescaled_source_sha256=digest,
+    )
+    assert persist_call["kwargs"]["rescaled_source_sha256"] == digest
+
+
+def test_rescaled_source_sha256_threads_from_bundle_service_to_manifest_writer(
+    tmp_path,
+    monkeypatch,
+):
+    from ptycho_torch.workflows import lightning_service
+
+    digest = "b" * 64
+    state = SimpleNamespace(
+        output_dir=tmp_path,
+        trainer=SimpleNamespace(is_global_zero=True),
+    )
+    fit = SimpleNamespace(checkpoint_selection={}, training_sampling={})
+    model = SimpleNamespace(_trainer=object())
+
+    def fake_save(**kwargs):
+        Path(f"{kwargs['base_path']}.zip").touch()
+
+    monkeypatch.setattr(lightning_service.model_manager, "save_torch_bundle", fake_save)
+    metadata_call = {}
+    monkeypatch.setattr(
+        lightning_service.bundle_io,
+        "_persist_bundle_scaling_metadata",
+        lambda *args, **kwargs: metadata_call.update(args=args, kwargs=kwargs),
+    )
+
+    lightning_service._persist_bundle(
+        state,
+        fit,
+        model,
+        object(),
+        True,
+        None,
+        None,
+        rescaled_source_sha256=digest,
+    )
+
+    assert metadata_call["kwargs"]["rescaled_source_sha256"] == digest
+
+
+@pytest.mark.parametrize("digest", [None, "c" * 64])
+def test_rescaled_source_sha256_persists_only_in_root_manifest(
+    tmp_path,
+    digest,
+):
+    import io
+    import json
+    import zipfile
+
+    from ptycho.config.config import ModelConfig as CanonicalModelConfig
+    from ptycho.config.config import TrainingConfig as CanonicalTrainingConfig
+    from ptycho_torch.application_factory import build_ptychopinn_application
+    from ptycho_torch.artifact_schema import encode_artifact_identity
+    from ptycho_torch.config_bridge import to_model_config
+    from ptycho_torch.config_params import (
+        DataConfig,
+        InferenceConfig,
+        ModelConfig,
+        TrainingConfig,
+    )
+    from ptycho_torch.model_manager import save_torch_bundle
+    from ptycho_torch.model_spec import derive_model_spec
+    from ptycho_torch.workflows import bundle_io
+
+    data = DataConfig(N=64, gridsize=1)
+    model_config = ModelConfig(object_big=False, probe_big=False)
+    training = TrainingConfig(device="cpu", torch_loss_mode="poisson")
+    inference = InferenceConfig()
+    spec = derive_model_spec(to_model_config(data, model_config), model_config, data)
+    model = build_ptychopinn_application(spec, data, training, inference)
+    bundle_dir = tmp_path / ("with-digest" if digest else "without-digest")
+    base_path = bundle_dir / "wts.h5"
+    save_torch_bundle(
+        {"autoencoder": model, "diffraction_to_obj": model},
+        str(base_path),
+        CanonicalTrainingConfig(
+            model=CanonicalModelConfig(N=64, gridsize=1),
+            output_dir=bundle_dir,
+        ),
+    )
+    archive_path = base_path.with_suffix(".h5.zip")
+    bundle_io._persist_bundle_scaling_metadata(
+        archive_path,
+        model,
+        rescaled_source_sha256=digest,
+    )
+
+    with zipfile.ZipFile(archive_path, "r") as archive:
+        manifest = json.loads(archive.read("manifest.json"))
+        metadata = torch.load(
+            io.BytesIO(archive.read("torch_scaling_metadata.pt")),
+            map_location="cpu",
+            weights_only=True,
+        )
+        member_names = archive.namelist()
+        params_payloads = [
+            json.loads(archive.read(name))
+            for name in member_names
+            if name.endswith("/params.json")
+        ]
+
+    if digest is None:
+        assert "rescaled_source_sha256" not in manifest
+    else:
+        assert manifest["rescaled_source_sha256"] == digest
+    assert not _contains_mapping_key(metadata, "rescaled_source_sha256")
+    assert not _contains_mapping_key(
+        encode_artifact_identity(spec, data, training, inference),
+        "rescaled_source_sha256",
+    )
+    assert not _contains_mapping_key(dict(model.hparams), "rescaled_source_sha256")
+    checkpoint = {"hyper_parameters": dict(model.hparams)}
+    model.on_save_checkpoint(checkpoint)
+    assert not _contains_mapping_key(checkpoint, "rescaled_source_sha256")
+    assert not hasattr(model, "rescaled_source_sha256")
+    assert all(
+        "rescaled_source_sha256" not in payload for payload in params_payloads
+    )
+    assert "amplitude_physics_gain_record.json" not in member_names
+
+    if digest is not None:
+        from ptycho import params
+
+        snapshot = dict(params.cfg)
+        try:
+            _, loaded_params = bundle_io.load_inference_bundle_torch(bundle_dir)
+        finally:
+            params.cfg.clear()
+            params.cfg.update(snapshot)
+        assert loaded_params["rescaled_source_sha256"] == digest
+
+
 @pytest.fixture(autouse=True)
 def _isolate_effective_runtime_artifacts(monkeypatch):
     """Keep workflow-unit fakes focused on their declared Trainer behavior."""
