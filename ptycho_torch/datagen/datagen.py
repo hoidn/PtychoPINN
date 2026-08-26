@@ -9,7 +9,6 @@ import time
 from functools import partial
 
 #Other functions
-import ptycho_torch.patch_generator as pg
 from ptycho_torch.datagen.objects import create_complex_layered_procedural_object, downscale_complex_image, create_complex_polyhedra
 from ptycho_torch.datagen.objects import create_dead_leaves, create_white_noise_object, create_simplex_noise_object
 from ptycho_torch.datagen.probe import generate_zernike_probe, generate_random_fzp, generate_random_zernike

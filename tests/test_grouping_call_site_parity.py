@@ -1,10 +1,10 @@
 """Parity: both mirrors route grouping through the single shared call site.
 
-``ptycho.grouping.group_from_config`` is the one place that decides seed,
-oversampling, pool size, and count semantics.  This fixture pins that the
-TensorFlow mirror (``create_ptycho_data_container``) and the PyTorch mirror
-(``create_torch_data_container``) produce identical sample indices and group shapes for
-the same seeded input.
+``ptycho.grouping.group_from_config`` is the one place that decides seed and
+count semantics.  This fixture pins that the TensorFlow mirror
+(``create_ptycho_data_container``) and the PyTorch mirror
+(``create_torch_data_container``) produce identical sample indices and group
+shapes for the same seeded input.
 """
 
 import numpy as np

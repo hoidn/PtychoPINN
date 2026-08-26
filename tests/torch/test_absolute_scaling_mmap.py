@@ -663,3 +663,83 @@ def test_ci_compute_loss_does_not_require_physics_scaling_constant():
     loss = module.compute_loss(batch)
 
     assert torch.isfinite(loss)
+
+
+# ---------------------------------------------------------------------------
+# Retained public grouped-dictionary storage/layout assertions (moved from
+# tests/test_coordinate_grouping.py before its deletion)
+# ---------------------------------------------------------------------------
+
+def _grouped_acquisition():
+    """Small RawData with a 10x10 coordinate raster and dummy diffraction."""
+    from ptycho.raw_data import RawData
+
+    grid = 100
+    x = np.linspace(0, 10, grid)
+    y = np.linspace(0, 10, grid)
+    xx, yy = np.meshgrid(x, y)
+    xcoords = xx.flatten()
+    ycoords = yy.flatten()
+    n_points = len(xcoords)
+    diffraction = np.random.rand(
+        n_points, N_PIX, N_PIX
+    ).astype(np.float32)
+    scan_index = np.arange(n_points)
+    probe = np.ones((N_PIX, N_PIX), dtype=complex)
+    obj = np.ones((256, 256), dtype=complex)
+    raw_data = RawData(
+        xcoords=xcoords,
+        ycoords=ycoords,
+        xcoords_start=xcoords,
+        ycoords_start=ycoords,
+        diff3d=diffraction,
+        probeGuess=probe,
+        scan_index=scan_index,
+        objectGuess=obj,
+        Y=None,
+    )
+    return raw_data
+
+
+def test_generate_grouped_data_layout_gridsize_2():
+    """Full grouped-dictionary contract for C=4."""
+    raw_data = _grouped_acquisition()
+    N = N_PIX
+    K = 7
+    nsamples = 50
+
+    result = raw_data.generate_grouped_data(
+        N=N, K=K, nsamples=nsamples, seed=42, gridsize=2
+    )
+
+    expected_keys = {
+        "diffraction",
+        "Y",
+        "coords_offsets",
+        "coords_relative",
+        "coords_nn",
+        "nn_indices",
+        "objectGuess",
+        "X_full",
+    }
+    assert expected_keys <= set(result)
+    C = 4
+    assert result["diffraction"].shape == (nsamples, N, N, C)
+    assert result["coords_offsets"].shape == (nsamples, 1, 2, 1)
+    assert result["coords_relative"].shape == (nsamples, 1, 2, C)
+    assert result["nn_indices"].shape == (nsamples, C)
+
+
+def test_generate_grouped_data_layout_gridsize_1():
+    """Gridsize=1 uses the efficient implementation with C=1 layout."""
+    raw_data = _grouped_acquisition()
+    N = N_PIX
+    K = 7
+    nsamples = 100
+
+    result = raw_data.generate_grouped_data(
+        N=N, K=K, nsamples=nsamples, seed=42, gridsize=1
+    )
+
+    assert result["diffraction"].shape == (nsamples, N, N, 1)
+    assert result["nn_indices"].shape == (nsamples, 1)

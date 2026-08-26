@@ -473,7 +473,7 @@ def _scan_identity_evidence(
     used = torch.as_tensor(mmap["nn_indices"]).detach().cpu().reshape(-1)
     filtered = torch.as_tensor(valid_per_file[experiment_number]).detach().cpu().reshape(-1)
     source = torch.as_tensor(source_per_file[experiment_number]).detach().cpu().reshape(-1)
-    grouping_enabled = getattr(source_dataset, "group_coords_enabled", None)
+    grouping_enabled = getattr(source_dataset, "grouping_enabled", None)
     if callable(grouping_enabled):
         grouped = bool(grouping_enabled())
     else:
@@ -498,21 +498,12 @@ def _scan_identity_evidence(
         centers = used
         center_identity_available = True
     else:
-        required = {"center_scan_id", "center_scan_id_available"}
-        if not required <= set(mmap.keys()):
+        if "center_scan_id" not in mmap.keys():
             raise ValueError("Grouped scan identity requires persisted center fields")
-        raw_centers = torch.as_tensor(mmap["center_scan_id"]).detach().cpu().reshape(-1)
-        availability = torch.as_tensor(
-            mmap["center_scan_id_available"]
-        ).detach().cpu().to(torch.bool).reshape(-1)
-        if raw_centers.shape != availability.shape:
-            raise ValueError("Grouped center identity fields have incompatible shapes")
-        if bool(torch.any((~availability) & (raw_centers != -1))):
-            raise ValueError("Unavailable grouped center ids must use sentinel -1")
-        if bool(torch.any(availability & (raw_centers < 0))):
-            raise ValueError("Available grouped center ids must be nonnegative")
-        center_identity_available = bool(torch.all(availability))
-        centers = raw_centers if center_identity_available else raw_centers[:0]
+        centers = torch.as_tensor(mmap["center_scan_id"]).detach().cpu().reshape(-1)
+        # Centered-nearest plans every bounded row as its own group center,
+        # so the persisted center identity is always available.
+        center_identity_available = True
     used_ids = tuple(int(item) for item in torch.unique(used, sorted=True).tolist())
     center_ids = tuple(
         int(item) for item in torch.unique(centers, sorted=True).tolist()

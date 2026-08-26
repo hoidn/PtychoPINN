@@ -1611,12 +1611,12 @@ class TestWorkflowsComponentsTraining:
         )
 
 
-    def test_oversampling_required_but_not_enabled_raises(
+    def test_requested_groups_exceeding_candidates_raise(
         self,
         minimal_training_config,
         dummy_raw_data,
     ):
-        """Oversampling requested (training_groups > n_points, gridsize>1) without opt-in fails loudly."""
+        """More requested groups than candidate rows fails loudly (no oversampling)."""
         from ptycho_torch.workflows import components as torch_components
 
         config = replace(
@@ -1625,16 +1625,16 @@ class TestWorkflowsComponentsTraining:
             training_groups=minimal_training_config.training_groups * 2,
             enable_oversampling=False,
         )
-        with pytest.raises(ValueError, match="oversampling is required but not enabled"):
+        with pytest.raises(ValueError, match="unique centers from only"):
             torch_components.create_torch_data_container(dummy_raw_data, config)
 
-    def test_enable_oversampling_is_honored_not_rejected(
+    def test_enable_oversampling_flag_is_inert(
         self,
         params_cfg_snapshot,
         minimal_training_config,
         dummy_raw_data,
     ):
-        """enable_oversampling=True is passed through; no longer a config error by itself."""
+        """enable_oversampling no longer affects grouping; the request still builds."""
         from ptycho.config.config import update_legacy_dict
         from ptycho import params
         from ptycho_torch.workflows import components as torch_components
@@ -1644,13 +1644,13 @@ class TestWorkflowsComponentsTraining:
         container = torch_components.create_torch_data_container(dummy_raw_data, config)
         assert container is not None
 
-    def test_neighbor_pool_size_is_honored_not_rejected(
+    def test_neighbor_pool_size_is_inert(
         self,
         params_cfg_snapshot,
         minimal_training_config,
         dummy_raw_data,
     ):
-        """A pool size differing from neighbor_count is passed through (no longer dropped)."""
+        """neighbor_pool_size no longer affects grouping; the request still builds."""
         from ptycho.config.config import update_legacy_dict
         from ptycho import params
         from ptycho_torch.workflows import components as torch_components
@@ -1663,7 +1663,7 @@ class TestWorkflowsComponentsTraining:
         container = torch_components.create_torch_data_container(dummy_raw_data, config)
         assert container is not None
 
-    def test_grouping_noop_when_pool_size_equals_neighbor_count(
+    def test_grouping_ignores_pool_size_when_equals_neighbor_count(
         self,
         params_cfg_snapshot,
         minimal_training_config,

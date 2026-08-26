@@ -2011,8 +2011,8 @@ def test_synthetic_raw_selection_requires_exact_requested_cardinality():
         _validate_selected_raw_count(raw, expected=4096)
 
 
-def test_legacy_grouping_retains_cap_to_available_behavior(tmp_path):
-    """Exact group cardinality is synthetic-only, not a legacy CLI change."""
+def test_group_raw_data_rejects_inexact_group_count(tmp_path):
+    """_group_raw_data enforces the exact configured group count."""
     import numpy as np
 
     from ptycho.config import ModelConfig, TrainingConfig
@@ -2028,13 +2028,14 @@ def test_legacy_grouping_retains_cap_to_available_behavior(tmp_path):
         training_groups=5,
     )
 
-    grouped = _group_raw_data(
-        FakeRaw(),
-        config,
-        config.train_data_file,
-        require_exact=False,
-    )
-    assert grouped["nn_indices"].shape[0] == 3
+    with pytest.raises(
+        ValueError, match="grouping produced 3 groups; expected exactly 5"
+    ):
+        _group_raw_data(
+            FakeRaw(),
+            config,
+            config.train_data_file,
+        )
 
 
 def test_backend_selector_forwards_resolved_payload_and_gain_record(monkeypatch):

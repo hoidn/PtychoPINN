@@ -154,8 +154,6 @@ def interpret_sampling_parameters(config: TrainingConfig):
     """Resolve raw selection and exact group counts without side effects."""
 
     gridsize = config.model.gridsize
-    enable_oversampling = config.enable_oversampling
-    neighbor_pool_size = config.neighbor_pool_size
     if config.train_raw_selection is not None:
         raw_selection = config.train_raw_selection
         group_count = config.training_groups
@@ -181,14 +179,13 @@ def interpret_sampling_parameters(config: TrainingConfig):
                 f"(gridsize={gridsize}, approx "
                 f"{group_count * gridsize * gridsize} patterns)"
             )
-    if enable_oversampling:
-        pool = neighbor_pool_size or config.neighbor_count
-        message += f" [Oversampling enabled: K={pool}]"
+    # The oversampling/pool flags are retired: exact unique centers only.
+    # Keep the legacy 5-tuple shape for callers that still unpack it.
     return (
         raw_selection,
         group_count,
-        enable_oversampling,
-        neighbor_pool_size,
+        False,
+        None,
         message,
     )
 
@@ -249,7 +246,6 @@ def _group_raw_data(
     config: TrainingConfig,
     path: Path,
     *,
-    require_exact: bool = True,
     group_count: int | None = None,
 ) -> dict:
     expected_groups = config.training_groups if group_count is None else group_count
@@ -261,11 +257,9 @@ def _group_raw_data(
         seed=config.subsample_seed,
         sequential_sampling=config.sequential_sampling,
         gridsize=config.model.gridsize,
-        enable_oversampling=config.enable_oversampling,
-        neighbor_pool_size=config.neighbor_pool_size,
     )
     actual = int(np.asarray(grouped["nn_indices"]).shape[0])
-    if require_exact and actual != expected_groups:
+    if actual != expected_groups:
         raise ValueError(
             f"grouping produced {actual} groups; expected exactly {expected_groups}"
         )
@@ -553,7 +547,6 @@ def run_training_workflow(
             train_raw,
             config,
             Path(config.train_data_file),
-            require_exact=request.resolved_synthetic_workflow is not None,
         )
         validation_grouped = None
         if test_raw is not None:
@@ -561,7 +554,6 @@ def run_training_workflow(
                 test_raw,
                 config,
                 Path(config.test_data_file),
-                require_exact=request.resolved_synthetic_workflow is not None,
                 group_count=(
                     request.resolved_synthetic_workflow.training.validation_groups
                     if request.resolved_synthetic_workflow is not None

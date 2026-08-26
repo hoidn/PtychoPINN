@@ -480,7 +480,7 @@ def _validate_authentic_channels(
         raise ValueError("C4 channel scan identities must be integer indices")
     if np.any(index_rows < 0):
         raise ValueError("C4 channel scan identities must be nonnegative")
-    grouping_enabled = getattr(dataset, "group_coords_enabled", None)
+    grouping_enabled = getattr(dataset, "grouping_enabled", None)
     grouped = bool(grouping_enabled()) if callable(grouping_enabled) else C > 1
     if not grouped:
         # Ungrouped layouts persist LOCAL row indices in nn_indices while the

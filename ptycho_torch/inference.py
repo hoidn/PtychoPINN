@@ -346,10 +346,6 @@ def _stage_and_construct_reconstruction_dataset(
         data_dir=str(workspace / "mmap" / "memmap"),
         remake_map=True,
         groups_per_center=groups_per_center,
-        require_complete_group_coverage=(
-            runtime_data_config.neighbor_function == "Nearest"
-            and groups_per_center == 1
-        ),
     )
     return dataset, source_metadata, runtime_data_config, runtime_training_config
 

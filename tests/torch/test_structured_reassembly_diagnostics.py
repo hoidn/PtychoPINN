@@ -38,7 +38,6 @@ def test_scan_identity_evidence_preserves_grouped_source_ids():
     subset = SimpleNamespace(mmap_ptycho={
         "nn_indices": torch.tensor([[9, 4], [4, 9]]),
         "center_scan_id": torch.tensor([7, 7]),
-        "center_scan_id_available": torch.tensor([True, True]),
     })
 
     used, centers, available, filtered, source_ids = reassembly._scan_identity_evidence(
@@ -64,7 +63,6 @@ def test_scan_identity_allows_group_neighbor_outside_bounds_eligible_centers():
     subset = SimpleNamespace(mmap_ptycho={
         "nn_indices": torch.tensor([[4, 11]]),
         "center_scan_id": torch.tensor([7]),
-        "center_scan_id_available": torch.tensor([True]),
     })
 
     participating, centers, available, filtered, source_ids = (

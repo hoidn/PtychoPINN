@@ -21,7 +21,14 @@ from tensordict import MemoryMappedTensor, TensorDict
 from ptycho.acquisition import decode_acquisition, inspect_acquisition
 
 #Patch generation
-from ptycho_torch.patch_generator import group_coords, get_relative_coords
+from ptycho_torch.patch_generator import get_relative_coords
+
+#Grouping plans
+from ptycho.grouping import (
+    CENTERED_NEAREST_GROUPING_CONTRACT,
+    GroupingPlan,
+    plan_nearest_groups,
+)
 
 #Parameters
 from ptycho_torch.config_params import TrainingConfig, DataConfig, ModelConfig
@@ -54,7 +61,7 @@ from ptycho_torch.collate import (
 
 # --- Helper functions for the dataloader ---
 _MMAP_SCHEMA_NAME = "ptycho_torch_mmap"
-_MMAP_SCHEMA_VERSION = 4
+_MMAP_SCHEMA_VERSION = 5
 _CI_STATISTICS_CHUNK_SIZE = 256
 _COMMON_MMAP_FIELDS = {
     "images",
@@ -65,7 +72,6 @@ _COMMON_MMAP_FIELDS = {
     "coords_start_relative",
     "nn_indices",
     "center_scan_id",
-    "center_scan_id_available",
     "experiment_id",
     "object_index",
     "label_amp",
@@ -86,28 +92,6 @@ def _ci_profile_active(model_config, data_config):
         getattr(data_config, "measurement_domain", None),
     )
     return profile.version == CI_SCALE_CONTRACT
-
-
-def _normalize_legacy_grouping_records(file_list, valid_per_file, grouping_per_file):
-    """Upgrade grouping records without inventing unavailable legacy centers."""
-    if len(grouping_per_file) != len(valid_per_file):
-        raise ValueError("legacy grouping records must align with valid-index files")
-    normalized = []
-    for index, record in enumerate(grouping_per_file):
-        if record is None or len(record) == 4:
-            normalized.append(record)
-            continue
-        if len(record) == 3:
-            nn_indices, coords_nn, centers = record
-            available = np.ones(len(nn_indices), dtype=np.bool_)
-        elif len(record) == 2 and index < len(file_list):
-            nn_indices, coords_nn = record
-            centers = np.full(len(nn_indices), -1, dtype=np.int64)
-            available = np.zeros(len(nn_indices), dtype=np.bool_)
-        else:
-            raise ValueError("legacy grouping record must contain two or three elements")
-        normalized.append((nn_indices, coords_nn, centers, available))
-    return normalized
 
 
 def npz_headers(npz):
@@ -409,8 +393,6 @@ class PtychoDataset(Dataset):
     data_config: DataConfig instance, expected to have attributes like x_bounds, y_bounds, C, N, etc.
     data_dir: Directory for memory map files.
     remake_map: Boolean, if True, recreate the memory map.
-    require_complete_group_coverage: Reconstruction-only Nearest policy that
-        repairs missing eligible participants while preserving existing rows.
 
     """
     _ptycho_vectorized_batch = True
@@ -419,8 +401,7 @@ class PtychoDataset(Dataset):
                  training_config: 'TrainingConfig' = None,
                  data_dir: str = 'data/memmap', remake_map: bool = False,
                  defer_ci_statistics: bool = False,
-                 groups_per_center: int = 1,
-                 require_complete_group_coverage: bool = False):
+                 groups_per_center: int = 1):
         
         # --- Initial loading ---
         self.model_config = model_config
@@ -429,13 +410,6 @@ class PtychoDataset(Dataset):
         self.object_compatibility = resolve_model_object_compatibility(model_config)
         self.ci_contract_active = _ci_profile_active(model_config, data_config)
         self.defer_ci_statistics = defer_ci_statistics
-        if not isinstance(require_complete_group_coverage, bool):
-            raise TypeError(
-                "require_complete_group_coverage must be a bool"
-            )
-        self.require_complete_group_coverage = (
-            require_complete_group_coverage
-        )
         self.is_ddp_active = is_ddp_initialized_and_active()
         self.current_rank = get_current_rank()
         self.data_dict = {} #Includes important tensors that don't need to be memory mapped
@@ -463,33 +437,18 @@ class PtychoDataset(Dataset):
 
         # Calculate length of total memory map, with try/except for ddp
         try:
-            length_result = self.calculate_length()
-            if len(length_result) == 5:
-                (self.length, self.im_shape, self.cum_length,
-                 self.valid_indices_per_file,
-                 self.grouping_per_file) = length_result
-                self.source_indices_per_file = [
-                    np.arange(npz_headers(path)[0][0], dtype=np.int64)
-                    for path in self.file_list
-                ]
-                self.grouping_per_file = _normalize_legacy_grouping_records(
-                    self.file_list,
-                    self.valid_indices_per_file,
-                    self.grouping_per_file,
-                )
-            else:
-                (self.length, self.im_shape, self.cum_length,
-                 self.valid_indices_per_file, self.source_indices_per_file,
-                 self.grouping_per_file) = length_result
+            (self.length, self.im_shape, self.cum_length,
+             self.valid_indices_per_file, self.source_indices_per_file,
+             self.grouping_per_file) = self.calculate_length()
             if self.length == 0:
                  raise ValueError(
                      f"[Rank {self.current_rank}] calculate_length() resulted in 0 items. "
                      "Cannot proceed."
                  )
-            # Group counts are deterministic (RNG only picks which neighbor fills a
-            # quadrant, never how many groups survive), so every rank agrees on
-            # self.length. Only rank 0 writes the map, so the rest can drop the
-            # cached grouping arrays rather than hold them for the process lifetime.
+            # Exact centered plans emit one row per valid center per repeat, so
+            # every rank agrees on self.length. Only rank 0 writes the map; the
+            # rest can drop cached plans rather than hold them for the process
+            # lifetime.
             if self.current_rank != 0:
                 self.grouping_per_file = [None] * len(self.grouping_per_file)
         except Exception as e:
@@ -610,22 +569,21 @@ class PtychoDataset(Dataset):
         Also calculates cumulative length for linear indexing based on *filtered* counts.
         Stores the valid indices per file for reuse in memory_map_data.
 
-        When coordinate grouping applies, the groups are built here rather than
-        estimated: group_coords can return fewer groups than there are valid
-        points (a '4_quadrant' center whose quadrants are not all populated is
-        discarded), so `n_valid_points * n_subsample` overcounts. Grouping once
-        and caching it keeps the allocation, cum_length, and the tensors written
-        by memory_map_data exactly consistent -- and means the grouping is not
-        recomputed with different random draws on the write pass.
+        When coordinate grouping applies, the groups are planned here rather
+        than estimated: centered-nearest plans exactly one group per bounded
+        center per ``groups_per_center`` repeat, and planning once and caching
+        the ``GroupingPlan`` keeps the allocation, cum_length, and the tensors
+        written by memory_map_data exactly consistent -- and means the grouping
+        is not recomputed with different random draws on the write pass.
         """
         total_length = 0
         cumulative_length = [0]
         first_im_shape = None
         valid_indices_per_file = [] # Store valid indices for each file
         source_indices_per_file = [] # Every source diffraction index before bounds
-        grouping_per_file = [] # (nn_indices, coords_nn) per file when grouping applies, else None
+        grouping_per_file = [] # GroupingPlan per file when grouping applies, else None
 
-        group_coordinates = self.group_coords_enabled()
+        group_coordinates = self.grouping_enabled()
         print("Calculating dataset length with coordinate bounds...")
         # Make sure bounds are valid
         if not (0.0 <= self.data_config.x_bounds[0] < self.data_config.x_bounds[1] <= 1.0):
@@ -686,38 +644,41 @@ class PtychoDataset(Dataset):
                 print(f"Warning: No points found within bounds for file {npz_file}")
             # ---------------------------------
 
-            # Build the coordinate groups now so the length is the true group count.
-            # groups_per_center is applied inside group_coords, so it is not multiplied in here.
-
+            # Plan the coordinate groups now so the length is the true group
+            # count: one centered-nearest row per bounded center per repeat.
+            # The plan is cached and reused verbatim by the write pass.
             if group_coordinates and n_valid_points > 0:
-                nn_indices, coords_nn, center_indices = group_coords(
-                    xcoords, ycoords,
-                    xcoords[valid_indices], ycoords[valid_indices],
-                    None,
-                    valid_indices,
-                    self.data_config, C=self.data_config.gridsize * self.data_config.gridsize,
-
-                    return_center_indices=True,
-                    groups_per_center=self.groups_per_center,
+                local_rng = np.random.default_rng(
+                    0 if self.data_config.subsample_seed is None
+                    else self.data_config.subsample_seed
+                )
+                plan = plan_nearest_groups(
+                    xcoords,
+                    ycoords,
+                    center_indices=valid_indices,
+                    candidate_indices=valid_indices,
+                    group_size=(
+                        self.data_config.gridsize * self.data_config.gridsize
+                    ),
+                    neighbor_count=self.data_config.neighbor_count,
+                    repeats=self.groups_per_center,
                     object_index=header.object_index,
                     experiment_id=i,
-                    ensure_complete_coverage=(
-                        self.require_complete_group_coverage
-                    ))
-                nn_indices = nn_indices.astype(np.int64)
-                grouping_per_file.append(
-                    (
-                        nn_indices,
-                        coords_nn,
-                        center_indices,
-                        np.ones(len(nn_indices), dtype=np.bool_),
-                    )
+                    source_indices=np.arange(
+                        tensor_shape[0], dtype=np.int64
+                    ),
+                    rng=local_rng,
                 )
-                length_contribution = len(nn_indices)
-                if length_contribution != n_valid_points * self.groups_per_center:
-                    print(f"  {npz_file}: grouping kept {length_contribution} of "
-                          f"{n_valid_points * self.groups_per_center} candidate groups "
-                          f"({n_valid_points} valid points x {self.groups_per_center} groups per center).")
+                expected_rows = n_valid_points * self.groups_per_center
+                if len(plan.neighbor_indices) != expected_rows:
+                    raise ValueError(
+                        f"{npz_file}: cached grouping plan produced "
+                        f"{len(plan.neighbor_indices)} rows, expected "
+                        f"{expected_rows} ({n_valid_points} valid points x "
+                        f"{self.groups_per_center} groups per center)."
+                    )
+                grouping_per_file.append(plan)
+                length_contribution = len(plan.neighbor_indices)
             else:
                 grouping_per_file.append(None)
                 length_contribution = n_valid_points
@@ -731,7 +692,7 @@ class PtychoDataset(Dataset):
         return (total_length, first_im_shape, cumulative_length,
                 valid_indices_per_file, source_indices_per_file, grouping_per_file)
 
-    def group_coords_enabled(self):
+    def grouping_enabled(self):
         """Whether memory_map_data groups coordinates into solution regions.
 
         Mirrors the branch condition in memory_map_data exactly: calculate_length
@@ -758,9 +719,7 @@ class PtychoDataset(Dataset):
             "scale_contract_version": contract_version,
             "measurement_domain": measurement_domain,
             "required_fields": sorted(required_fields),
-            "require_complete_group_coverage": (
-                self.require_complete_group_coverage
-            ),
+            "grouping_contract": CENTERED_NEAREST_GROUPING_CONTRACT,
         }
 
     def _mmap_rebuild_error(self, reason):
@@ -791,11 +750,9 @@ class PtychoDataset(Dataset):
             "scale_contract_version",
             "measurement_domain",
             "required_fields",
-            "require_complete_group_coverage",
+            "grouping_contract",
         ):
             observed = manifest.get(field)
-            if field == "require_complete_group_coverage":
-                observed = manifest.get(field, False)
             if observed != expected[field]:
                 raise self._mmap_rebuild_error(
                     f"manifest {field}={observed!r}, "
@@ -818,7 +775,6 @@ class PtychoDataset(Dataset):
         data_config,
         current_rank=0,
         is_ddp_active=False,
-        require_complete_group_coverage=False,
     ):
         """
         Creates data instance from existing memory map. Do NOT run without a memory map!
@@ -843,9 +799,6 @@ class PtychoDataset(Dataset):
             data_config,
         )
         instance.defer_ci_statistics = False
-        instance.require_complete_group_coverage = (
-            require_complete_group_coverage
-        )
         instance.current_rank = current_rank
         instance.is_ddp_active = is_ddp_active
 
@@ -884,7 +837,7 @@ class PtychoDataset(Dataset):
         Creates memory mapped tensor dictionary containg diffraction images and relevant coordinate information.
         Great care needs to be taken to track the indices corresponding to each unique dataset. This is because we pre-allocate
         the memory of the memory map and batch fill it.
-        1.  Solves for solution patch indices using group_coords method
+        1.  Reuses the cached GroupingPlan built by calculate_length
         2.  Writes to respective memory maps. The diffraction map is populated in batches, while the other maps
         are populated in full for every individual dataset
             - "images" - (N x C x H x W), N = # of patterns, C = # of images per soln patch, H = height, W = width
@@ -954,9 +907,6 @@ class PtychoDataset(Dataset):
                 ),
                 "center_scan_id": MemoryMappedTensor.empty(
                     (mmap_length), dtype=torch.int64
-                ),
-                "center_scan_id_available": MemoryMappedTensor.empty(
-                    (mmap_length), dtype=torch.bool
                 ),
                 "experiment_id": MemoryMappedTensor.empty(
                     (mmap_length),
@@ -1074,22 +1024,42 @@ class PtychoDataset(Dataset):
 
             #--- Coordinate patches/Supervised Labels ---
             # Note that object_big = True means we are enforcing ptychographic constraints and need to group coordinates
-            if self.group_coords_enabled(): # PtychoPINN/Ptychography Constraint
-                #Reuse the grouping built in calculate_length: regrouping here would
+            if self.grouping_enabled(): # PtychoPINN/Ptychography Constraint
+                #Reuse the plan built in calculate_length: regrouping here would
                 #redraw the random candidate/subsample picks and desync from cum_length
-                (nn_indices, coords_nn, center_indices,
-                 center_indices_available) = self.grouping_per_file[i]
+                plan = self.grouping_per_file[i]
+                if plan is None:
+                    raise RuntimeError(
+                        f"cached grouping plan for file {i} is missing; "
+                        "cannot write the allocated mmap slice"
+                    )
+                if end - start != len(plan.neighbor_indices):
+                    raise RuntimeError(
+                        f"allocated mmap slice [{start}:{end}] has {end - start} "
+                        f"rows but the cached grouping plan has "
+                        f"{len(plan.neighbor_indices)}"
+                    )
+
+                # Map plan-local rows onto global source rows and persist them.
+                nn_indices = plan.source_indices[plan.neighbor_indices]
+                center_indices = plan.source_indices[plan.center_indices]
+                coords_nn = np.stack(
+                    [
+                        xcoords_full[nn_indices],
+                        ycoords_full[nn_indices],
+                    ],
+                    axis=2,
+                )[:, :, None, :]
 
                 #Get relative and center of mass coordinates for each coordinate group
                 coords_com, coords_relative = get_relative_coords(coords_nn)
                 mmap_ptycho["coords_center"][start:end] = torch.from_numpy(coords_com)
                 mmap_ptycho["coords_relative"][start:end] = torch.from_numpy(coords_relative)
-                mmap_ptycho["nn_indices"][start:end] = torch.from_numpy(nn_indices)
-                mmap_ptycho["center_scan_id"][start:end] = torch.from_numpy(
-                    center_indices
+                mmap_ptycho["nn_indices"][start:end] = torch.from_numpy(
+                    np.asarray(nn_indices, dtype=np.int64)
                 )
-                mmap_ptycho["center_scan_id_available"][start:end] = torch.from_numpy(
-                    center_indices_available
+                mmap_ptycho["center_scan_id"][start:end] = torch.from_numpy(
+                    np.asarray(center_indices, dtype=np.int64)
                 )
 
                 #Coordinates just outside the "valid range" are still allowed to be used to create coordinate
@@ -1109,7 +1079,6 @@ class PtychoDataset(Dataset):
                 index_range = np.arange(end-start, dtype=np.int64)
                 mmap_ptycho["nn_indices"][start:end] = torch.from_numpy(index_range)[:,None]
                 mmap_ptycho["center_scan_id"][start:end] = torch.from_numpy(nn_indices)
-                mmap_ptycho["center_scan_id_available"][start:end] = True
                 mmap_ptycho["coords_global"][start:end] = torch.from_numpy(
                                                             np.stack([xcoords,
                                                             ycoords],axis=1)[:, None, None, :]).to(torch.float32)
@@ -1205,7 +1174,7 @@ class PtychoDataset(Dataset):
             # and return inf). Found while running Task 1.5's Step 0 smoke gate.
             #Inserting dummy channel dimension when nn_indices is flat (M,) rather
             #than grouped (M, C): keyed on the same branch that produced nn_indices
-            if not self.group_coords_enabled():
+            if not self.grouping_enabled():
                 diff_stack = diff_stack[:,None]
 
             # Normalizing diffraction images for explicit legacy/amplitude paths.
@@ -1264,7 +1233,14 @@ class PtychoDataset(Dataset):
 
             diff_time = time.time() - diff_timer_start
             print("Diffraction memory map write time: {}".format(diff_time))
-        
+
+        #Every allocated row must have been written by exactly one experiment.
+        if global_to != mmap_length:
+            raise RuntimeError(
+                f"memory map write cursor {global_to} does not match the "
+                f"allocated length {mmap_length}"
+            )
+
         #Assign memory map to class attribute
         self.mmap_ptycho = mmap_ptycho
         if self.ci_contract_active and not self.defer_ci_statistics:

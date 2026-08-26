@@ -20,21 +20,27 @@ from ptycho_torch.dataloader import PtychoDataset
 N = 64
 
 
-def _configs(grid_size=1, *, ci=False, batch_size=4, num_workers=0, strategy="auto"):
+def _configs(
+    grid_size=1,
+    *,
+    ci=False,
+    batch_size=4,
+    num_workers=0,
+    strategy="auto",
+    grouped=False,
+):
     from ptycho.config.config import (
         ModelConfig as PublicModelConfig,
         PyTorchExecutionConfig,
         TrainingConfig as PublicTrainingConfig,
     )
 
+    grouped_object = grouped or grid_size > 1
     data = DataConfig(
         N=N,
         neighbor_count=1 if grid_size == 1 else 6,
-        K_quadrant=8,
         n_raw_frames_selected=1,
         gridsize=grid_size,
-        neighbor_function="Nearest" if grid_size == 1 else "4_quadrant",
-        scan_pattern="Isotropic",
         x_bounds=(0.0, 1.0),
         y_bounds=(0.0, 1.0),
         normalize="Batch",
@@ -42,7 +48,7 @@ def _configs(grid_size=1, *, ci=False, batch_size=4, num_workers=0, strategy="au
         measurement_domain="count_intensity" if ci else "normalized_amplitude",
     )
     model = ModelConfig(
-        object_big=grid_size > 1,
+        object_big=grouped_object,
         physics_forward_mode="rectangular_scaled" if ci else "amplitude",
         cnn_output_mode="real_imag" if ci else "amp_phase",
     )
@@ -54,7 +60,9 @@ def _configs(grid_size=1, *, ci=False, batch_size=4, num_workers=0, strategy="au
         orchestrator="Mlflow",
     )
     public = PublicTrainingConfig(
-        model=PublicModelConfig(N=N, gridsize=grid_size, object_big=grid_size > 1),
+        model=PublicModelConfig(
+            N=N, gridsize=grid_size, object_big=grouped_object
+        ),
         batch_size=batch_size,
         sequential_sampling=True,
         backend="pytorch",
@@ -128,18 +136,96 @@ def _dataset(tmp_path, payload, *, ci=False, two_experiments=False):
     )
 
 
-def _ram_container(dataset):
-    fields = dataset.mmap_ptycho
+def _ram_container(payload, npz_path):
+    """Build a RAM container independently from one acquisition.
+
+    The mmap rail plans every fully bounded row through ``plan_nearest_groups``
+    with a fresh seed-0 generator; ``RawData.generate_grouped_data`` with
+    ``sequential_sampling=True`` enters the same planner with the same ordered
+    all-row centers, candidates, identities, and RNG state, so the two
+    materializations must agree field for field. No mmap arrays are copied.
+    """
+    from dataclasses import replace
+
+    import ptycho_torch.helper as hh
+    from ptycho.acquisition import decode_acquisition
+    from ptycho.raw_data import RawData
+
+    data_config = payload.pt_data_config
+    model_config = payload.pt_model_config
+    grid_size = data_config.gridsize
+    acquisition = decode_acquisition(
+        str(npz_path), coordinate_policy="trailing", experiment_id=0
+    )
+    size = len(acquisition.xcoords)
+    raw_data = RawData(
+        xcoords=acquisition.xcoords,
+        ycoords=acquisition.ycoords,
+        xcoords_start=acquisition.xcoords,
+        ycoords_start=acquisition.ycoords,
+        diff3d=acquisition.diff3d,
+        probeGuess=acquisition.probeGuess,
+        scan_index=np.arange(size, dtype=np.int64),
+        objectGuess=acquisition.objectGuess,
+        Y=getattr(acquisition, "Y", None),
+    )
+    grouped = raw_data.generate_grouped_data(
+        N=N,
+        K=data_config.neighbor_count,
+        nsamples=size,
+        seed=0,
+        sequential_sampling=True,
+        gridsize=grid_size,
+    )
+
+    # Normalization: the mmap rail computes one Batch scalar from the full 3D
+    # acquisition stack, so the RAM side must derive it from the same stack.
+    factor_config = (
+        data_config
+        if data_config.normalize == "Batch"
+        else replace(data_config, normalize="Batch")
+    )
+    diff_stack = torch.from_numpy(acquisition.diff3d).to(torch.float32)
+    rms = hh.get_rms_scaling_factor(diff_stack, factor_config)
+    physics = hh.get_physics_scaling_factor(diff_stack, factor_config)
+
+    # Probe normalization mirrors the dataloader write pass so the emitted
+    # probe bank and scaling agree with the mmap data_dict.
+    probe_data = acquisition.probeGuess
+    if data_config.probe_normalize:
+        normalized_probe, scaling_factor = hh.normalize_probe_like_tf(
+            probe_data,
+            probe_scale=data_config.probe_scale,
+            probe_mask=getattr(model_config, "probe_mask", False),
+            probe_mask_tensor=getattr(model_config, "probe_mask_tensor", None),
+            probe_mask_sigma=getattr(model_config, "probe_mask_sigma", 1.0),
+            probe_mask_diameter=getattr(
+                model_config, "probe_mask_diameter", None
+            ),
+        )
+    else:
+        normalized_probe, scaling_factor = probe_data, 1.0
+
     return {
-        "X": fields["images"].permute(0, 2, 3, 1).clone(),
-        "coords_relative": fields["coords_relative"].permute(0, 2, 3, 1).clone(),
-        "experiment_id": fields["experiment_id"].clone(),
-        "object_index": fields["object_index"].clone(),
-        "nn_indices": fields["nn_indices"].clone(),
-        "rms_scaling_constant": fields["rms_scaling_constant"].clone(),
-        "physics_scaling_constant": fields["physics_scaling_constant"].clone(),
-        "probe": dataset.data_dict["probes"][0].clone(),
-        "scaling_constant": dataset.data_dict["probe_scaling"][:1].clone(),
+        "X": np.asarray(grouped["diffraction"], dtype=np.float32),
+        "coords_relative": np.asarray(
+            grouped["coords_relative"], dtype=np.float32
+        ),
+        "experiment_id": np.asarray(
+            grouped["experiment_id"], dtype=np.int32
+        ),
+        "object_index": np.asarray(
+            grouped["object_index"], dtype=np.int64
+        ),
+        "nn_indices": np.asarray(grouped["nn_indices"], dtype=np.int64),
+        "rms_scaling_constant": rms,
+        "physics_scaling_constant": physics,
+        "probe": torch.from_numpy(np.asarray(normalized_probe)).to(
+            torch.complex64
+        ),
+        "probe_scaling": torch.tensor(
+            [float(scaling_factor)], dtype=torch.float32
+        ),
     }
 
 
@@ -147,10 +233,11 @@ def _ram_container(dataset):
 def test_ram_and_mmap_emit_the_same_named_batch(grid_size, tmp_path):
     from ptycho_torch.workflows.components import _build_lightning_dataloaders
 
-    public, payload = _configs(grid_size)
+    public, payload = _configs(grid_size, grouped=True)
     mmap_dataset = _dataset(tmp_path, payload)
+    assert mmap_dataset.grouping_enabled()
     ram_loader, _ = _build_lightning_dataloaders(
-        _ram_container(mmap_dataset),
+        _ram_container(payload, tmp_path / "npz" / "experiment-0.npz"),
         None,
         public,
         payload=payload,

@@ -207,6 +207,11 @@ following behavioural contract in addition to the configuration bridge.
   `PtychoDataContainer` attribute, populated from the `coords_relative` key when `ptycho.loader.load`
   constructs the container. `ptycho.loader.load` consumes this dictionary. Any replacement must either continue producing this dictionary or adapt
   `ptychodus` accordingly.
+- Grouping uses the centered-nearest planner: `nn_indices` column 0 is the exact selected
+  center of each group (a unique draw without replacement for random selection, or the first
+  `nsamples` rows sequentially), and the remaining columns are that center's K nearest
+  same-object candidates. Requests for more centers than candidate rows raise `ValueError`;
+  grouping never oversamples or replaces (`ptycho.grouping.plan_nearest_groups`).
 - `PtychoDataContainer` instances expose TensorFlow tensors (`X`, `local_offsets`, `global_offsets`, complex
   ground truth) that are passed straight into the model (`ptycho.loader.PtychoDataContainer`). Shapes depend on
   `N` and `gridsize` and must match the TensorFlow model signature described below.

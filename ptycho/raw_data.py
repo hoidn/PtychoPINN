@@ -14,24 +14,24 @@ learning pipeline. Data flows: NPZ files → raw_data.py (RawData) → loader.py
 Primary Components:
 - `RawData`: Core data container class with validation and I/O capabilities
 - `RawData.from_file()`: Static factory method for loading NPZ datasets
-- `RawData.generate_grouped_data()`: Efficient coordinate grouping using "sample-then-group" strategy
+- `RawData.generate_grouped_data()`: Exact centered-nearest coordinate grouping
 
-Key Algorithm - Sample-Then-Group Strategy:
-The coordinate grouping implementation uses an efficient "sample-then-group" approach:
-1. Sample seed points from the full dataset (random or sequential)
-2. Find K nearest neighbors only for sampled points (not all points)
-3. Form groups of size C (gridsize²) from neighbors
-4. Generate final dataset with proper coordinate transformations
+Key Algorithm - Centered-Nearest Grouping:
+`RawData.generate_grouped_data` selects an exact set of unique centers (random
+draw without replacement, or the first rows sequentially) and delegates index
+planning to the backend-neutral centered planner in `ptycho.grouping`. Every
+emitted group begins with its designated center; the remaining members are the
+center's K nearest same-object candidates. Requests beyond the candidate pool
+fail; grouping never oversamples or replaces.
 
 Performance Characteristics:
-- **10-100x faster** than cache-based approaches (no cache generation needed)
-- **10-100x lower memory usage** (no storage of all possible groups)
-- **Zero cache files** (eliminates disk I/O overhead)
+- **O(nsamples * K)** planning via the centered planner (one tree per object
+  partition), no cache files
 - **Deterministic results** via optional seed parameter
-- **O(nsamples * K)** complexity instead of O(n_points * K)
+- **Zero cache files** (eliminates disk I/O overhead)
 
 Public Interface:
-    `RawData.generate_grouped_data(N, K, nsamples, dataset_path, seed, sequential_sampling)`
+    `RawData.generate_grouped_data(N, K, nsamples, dataset_path, seed, sequential_sampling, gridsize, *, rng)`
         Returns dictionary with the following structure:
 
         Required Keys:
@@ -111,7 +111,6 @@ Primary Consumers:
 """
 import numpy as np
 from typing import Tuple, Optional
-from scipy.spatial import cKDTree
 import os
 import logging
 from pathlib import Path
@@ -411,26 +410,33 @@ class RawData:
         return train_raw_data, test_raw_data
 
     #@debug
-    def generate_grouped_data(self, N, K = 4, nsamples = 1, dataset_path: Optional[str] = None, seed: Optional[int] = None, sequential_sampling: bool = False, gridsize: Optional[int] = None, enable_oversampling: bool = False, neighbor_pool_size: Optional[int] = None, *, rng: Optional[np.random.Generator] = None):
+    def generate_grouped_data(self, N, K = 4, nsamples = 1, dataset_path: Optional[str] = None, seed: Optional[int] = None, sequential_sampling: bool = False, gridsize: Optional[int] = None, *, rng: Optional[np.random.Generator] = None):
         """
-        Generate nearest-neighbor solution region grouping with efficient sampling.
-        
-        This method implements a "sample-then-group" strategy that first samples
-        seed points from the dataset, then finds neighbors only for those seed points.
-        This approach is highly efficient and eliminates the need for caching.
-        
-        **Efficient Sampling Strategy:**
-        1. Either randomly samples or sequentially selects nsamples seed points
-        2. Finds K nearest neighbors only for the sampled points
-        3. Forms groups of size C (gridsize²) from the neighbors
-        4. Handles edge cases gracefully (small datasets, etc.)
+        Generate centered nearest-neighbor solution region grouping.
+
+        This method selects an exact set of unique centers from the already-
+        selected ``RawData`` rows and delegates index planning to the
+        backend-neutral centered planner (``ptycho.grouping.plan_nearest_groups``).
+        Every emitted group begins with its designated center in column zero;
+        the remaining members come from that center's K nearest same-object
+        candidates.  ``RawData`` retains grouped-dictionary materialization,
+        normalization, and probe validation.
+
+        Center selection:
+        1. Random (default): one split-local generator draws ``nsamples`` unique
+           centers without replacement and is then passed, already advanced, to
+           the planner for neighbor selection.
+        2. Sequential: the first ``nsamples`` rows are the centers; neighbors use
+           the fixed seed-0 local generator.
+        A request larger than the candidate pool fails; it is never satisfied by
+        replacement or oversampling.
 
         Args:
             N (int): Size of the solution region.
             K (int, optional): Number of nearest neighbors. Defaults to 4.
             nsamples (int, optional): Number of samples. For gridsize=1, this is the
                                     number of individual images. For gridsize>1, this
-                                    is the number of neighbor groups (total images = 
+                                    is the number of neighbor groups (total images =
                                     nsamples * gridsize²).
             dataset_path (str, optional): Path to dataset (kept for compatibility, no longer used for caching).
             seed (int, optional): Random seed for reproducible sampling.
@@ -438,12 +444,6 @@ class RawData:
                                                  instead of random sampling. Useful for debugging or
                                                  analyzing specific scan regions. Defaults to False.
             gridsize (int): Grid size for patch grouping. Required.
-            enable_oversampling (bool, optional): Explicit opt-in for K choose C oversampling.
-                                                 Defaults to False. When True and nsamples > n_points,
-                                                 enables oversampling if neighbor_pool_size >= C.
-            neighbor_pool_size (Optional[int], optional): Pool size K for oversampling. If None,
-                                                         defaults to the K parameter. Must be >= C
-                                                         when enable_oversampling is True.
             rng (np.random.Generator, optional): Caller-owned random generator. Mutually
                                                 exclusive with seed.
 
@@ -452,17 +452,15 @@ class RawData:
                 - 'diffraction': 4D array of diffraction patterns
                 - 'Y': 4D array of ground truth patches (if available)
                 - 'coords_offsets', 'coords_relative': Coordinate information
-                - 'nn_indices': Selected neighbor indices  
+                - 'nn_indices': Selected neighbor indices; column zero is the
+                  exact selected center of each group
                 - 'X_full': Normalized diffraction data
                 - Additional coordinate and metadata arrays
-                
+
         Raises:
-            ValueError: If dataset is too small for requested parameters
-            
-        Note:
-            The new efficient implementation eliminates the need for caching.
-            Performance is fast enough that first-run and subsequent runs
-            have similar execution times.
+            ValueError: If more centers are requested than candidate rows, if
+                seed and rng are both supplied, or if a candidate pool is too
+                small for the requested grouping.
 
         Note:
         ``gridsize`` is required. A missing value now raises instead of silently
@@ -476,41 +474,43 @@ class RawData:
                 "explicitly (e.g. gridsize=config.model.gridsize)."
             )
         C = gridsize ** 2
-        try:
-            plan = grouping.plan_sample_then_group(
-                self.xcoords,
-                self.ycoords,
-                object_index=self.object_index,
-                experiment_id=self.experiment_id,
-                count=nsamples,
-                neighbor_count=K,
-                group_size=C,
-                seed=seed,
-                rng=rng,
-                sequential=sequential_sampling,
-                enable_oversampling=enable_oversampling,
-                neighbor_pool_size=neighbor_pool_size,
-                **(
-                    {"source_indices": self.sample_indices}
-                    if self.sample_indices is not None
-                    else {}
-                ),
+        size = len(self.xcoords)
+        if seed is not None and rng is not None:
+            raise ValueError("seed and rng are mutually exclusive")
+        if nsamples > size:
+            raise ValueError(
+                f"requested {nsamples} unique centers from only {size} candidates"
             )
-        except ValueError as exc:
-            message = str(exc)
-            if (
-                "K choose C oversampling" in message
-                and "OVERSAMPLING-001" not in message
-            ):
-                raise ValueError(
-                    f"{message}. See OVERSAMPLING-001 in docs/findings.md for details."
-                ) from exc
-            raise
-        dtype = (
-            np.int64
-            if C == 1 or plan.policy == "raw_k_choose_c_oversampling"
-            else np.int32
+        candidate_indices = np.arange(size, dtype=np.int64)
+        if sequential_sampling:
+            centers = candidate_indices[:nsamples]
+            local_rng = np.random.default_rng(0)
+        else:
+            local_rng = rng if rng is not None else np.random.default_rng(seed)
+            drawn_centers = local_rng.choice(
+                candidate_indices, nsamples, replace=False
+            )
+            # Preserve canonical all-row order (and exact C1 arrays), while still
+            # consuming the one split-local generator for random center selection.
+            centers = candidate_indices if nsamples == size else drawn_centers
+        source_indices = (
+            self.sample_indices
+            if self.sample_indices is not None
+            else candidate_indices
         )
+        plan = grouping.plan_nearest_groups(
+            self.xcoords,
+            self.ycoords,
+            center_indices=centers,
+            candidate_indices=candidate_indices,
+            group_size=C,
+            neighbor_count=K,
+            object_index=self.object_index,
+            experiment_id=self.experiment_id,
+            source_indices=source_indices,
+            rng=local_rng,
+        )
+        dtype = np.int64 if C == 1 else np.int32
         selected_groups = np.array(plan.neighbor_indices, dtype=dtype, copy=True)
         grouped = self._generate_dataset_from_groups(
             selected_groups, N, K, gridsize
@@ -604,55 +604,6 @@ class RawData:
         return dset
 
 
-    def _generate_groups_efficiently(self, nsamples: int, K: int, C: int, seed: Optional[int] = None, seed_indices: Optional[np.ndarray] = None, *, rng: Optional[np.random.Generator] = None) -> np.ndarray:
-        """Compatibility adapter for the canonical sample-then-group planner."""
-        count = min(nsamples, len(self.xcoords))
-        sequential = seed_indices is not None
-        if sequential:
-            count = min(len(seed_indices), len(self.xcoords))
-        plan = grouping.plan_sample_then_group(
-            self.xcoords,
-            self.ycoords,
-            object_index=self.object_index,
-            experiment_id=self.experiment_id,
-            count=count,
-            neighbor_count=K,
-            group_size=C,
-            seed=seed,
-            rng=rng,
-            sequential=sequential,
-            **(
-                {"source_indices": self.sample_indices}
-                if self.sample_indices is not None
-                else {}
-            ),
-        )
-        dtype = np.int64 if C == 1 else np.int32
-        return np.array(plan.neighbor_indices, dtype=dtype, copy=True)
-
-    def _generate_groups_with_oversampling(self, nsamples, K, C, seed=None, seed_indices=None, *, rng: Optional[np.random.Generator] = None):
-        """Compatibility adapter for canonical K-choose-C planning."""
-        plan = grouping.plan_sample_then_group(
-            self.xcoords,
-            self.ycoords,
-            object_index=self.object_index,
-            experiment_id=self.experiment_id,
-            count=nsamples,
-            neighbor_count=K,
-            group_size=C,
-            seed=seed,
-            rng=rng,
-            sequential=seed_indices is not None,
-            enable_oversampling=True,
-            neighbor_pool_size=K,
-            **(
-                {"source_indices": self.sample_indices}
-                if self.sample_indices is not None
-                else {}
-            ),
-        )
-        return np.array(plan.neighbor_indices, copy=True)
-
     #@debug
     def _check_data_validity(self, xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess, scan_index):
         """
@@ -741,28 +692,6 @@ def get_relative_coords(coords_nn):
     coords_relative = local_offset_sign * (coords_nn - coords_offsets)
     return coords_offsets, coords_relative
 
-#@debug
-def get_neighbor_indices(xcoords, ycoords, K = 3):
-    """
-    Get K nearest neighbor indices for each point.
-
-    Args:
-        xcoords (np.ndarray): x coordinates of the scan points.
-        ycoords (np.ndarray): y coordinates of the scan points.
-        K (int, optional): Number of nearest neighbors to find. Defaults to 3.
-
-    Returns:
-        np.ndarray: Array of nearest neighbor indices.
-    """
-    # Combine x and y coordinates into a single array
-    points = np.column_stack((xcoords, ycoords))
-
-    # Create a KDTree
-    tree = cKDTree(points)
-
-    # Query for K nearest neighbors for each point
-    distances, nn_indices = tree.query(points, k=K+1)  # +1 because the point itself is included in the results
-    return nn_indices
 
 #@debug
 def normalize_data(dset: dict, N: int) -> np.ndarray:

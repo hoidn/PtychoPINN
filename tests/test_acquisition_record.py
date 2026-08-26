@@ -748,14 +748,14 @@ def test_raw_data_passes_selection_source_mapping_to_grouping_owner(monkeypatch)
         scan_index=np.arange(4, dtype=np.int64),
     )
     raw.sample_indices = source_indices
-    real_planner = grouping.plan_sample_then_group
+    real_planner = grouping.plan_nearest_groups
     captured = {}
 
     def capture_mapping(*args, **kwargs):
         captured["source_indices"] = kwargs.get("source_indices")
         return real_planner(*args, **kwargs)
 
-    monkeypatch.setattr(grouping, "plan_sample_then_group", capture_mapping)
+    monkeypatch.setattr(grouping, "plan_nearest_groups", capture_mapping)
 
     grouped = raw.generate_grouped_data(
         N=2,

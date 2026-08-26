@@ -175,7 +175,7 @@ def test_validate_authentic_channels_maps_ungrouped_ids_to_source_space():
                 groups, 1, 1, 2
             ),
         },
-        group_coords_enabled=lambda: False,
+        grouping_enabled=lambda: False,
         valid_indices_per_file=[source_ids],
     )
     data_config = SimpleNamespace(gridsize=1)
