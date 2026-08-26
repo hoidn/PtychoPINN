@@ -11,7 +11,7 @@ rewrites it as a JSON-manifest bundle carrying a sealed identity payload:
   manifest and params members are re-serialized as JSON and the identity is
   preserved verbatim.
 * metadata-free bundles reconstruct the model the way the removed legacy load
-  path did, seal a fresh current (``torch-artifact-v4``) identity payload from
+  path did, seal a fresh current (``torch-artifact-v5``) identity payload from
   the reconstructed configuration, and stamp it into ``torch_scaling_metadata.pt``.
 
 The reconstruction helpers below are vendored copies of the deleted
@@ -55,6 +55,21 @@ _CI_ENTRYPOINTS_SCHEMA = "ci-entrypoints-v1"
 _LEGACY_MANIFEST_MEMBER = "manifest.dill"
 _LEGACY_PARAMS_MEMBER = "params.dill"
 
+# Retired centered-grouping policy names: never re-emitted into migrated
+# params.json members (the current DataConfig rejects them as unknown fields).
+_RETIRED_PARAM_NAMES = frozenset(
+    {
+        "enable_oversampling",
+        "neighbor_pool_size",
+        "neighbor_function",
+        "K_quadrant",
+        "min_neighbor_distance",
+        "max_neighbor_distance",
+        "scan_pattern",
+        "require_complete_group_coverage",
+    }
+)
+
 
 # ---------------------------------------------------------------------------
 # Vendored legacy reconstruction (deleted from ptycho_torch.model_manager)
@@ -80,6 +95,13 @@ def create_torch_model_with_gridsize(gridsize, N, params_dict=None):
         raise ValueError(
             "legacy bundle channel identity is unfaithful: stored C="
             f"{stored_c} conflicts with derived gridsize**2={derived_channels}"
+        )
+    if derived_channels != 1:
+        raise ValueError(
+            "metadata-free legacy bundles derive C="
+            f"{derived_channels} from gridsize={gridsize}; the centered-nearest "
+            "grouping contract supports exactly one derived channel; retrain "
+            "under torch-artifact-v5"
         )
     if params_dict.get('model_type', 'pinn') != 'pinn':
         raise ValueError(
@@ -269,6 +291,11 @@ def migrate_bundle(source_dir, out_dir):
     with zipfile.ZipFile(source_zip, "r") as archive:
         names = set(archive.namelist())
         manifest, params_dict = _read_manifest_and_params(archive, names)
+        params_dict = {
+            name: value
+            for name, value in params_dict.items()
+            if name not in _RETIRED_PARAM_NAMES
+        }
         metadata = _read_scaling_metadata(archive, names)
         members = {
             info.filename: archive.read(info.filename)
@@ -316,7 +343,7 @@ def migrate_bundle(source_dir, out_dir):
                 )
             # Validate the sealed identity so an unfaithful legacy channel
             # identity is rejected rather than re-emitted, then re-seal it under
-            # the current era so the output loads on the v3/v4-only runtime path.
+            # the current era so the output loads on the v3-v5 runtime path.
             decoded = decode_artifact_identity(metadata)
             identity_payload = encode_artifact_identity(
                 decoded.model_spec,

@@ -511,7 +511,7 @@ def get_bigN(data_config: DataConfig, model_config: ModelConfig) -> int: # Added
     N = data_config.N # Use config
     gridsize = data_config.gridsize # Use config
 
-    offset = math.ceil(data_config.max_neighbor_distance) # Use config
+    offset = math.ceil(data_config.group_padding_step) # Use config
     #Add extra offset if odd, otherwise get weird padding mismatch error
     if offset % 2 == 1:
         offset += 1

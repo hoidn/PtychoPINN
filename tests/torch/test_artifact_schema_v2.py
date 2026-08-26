@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from copy import deepcopy
 
+import pytest
+
 
 def _identity_sections():
     from ptycho.config.config import ModelConfig as CanonicalModelConfig
@@ -74,8 +76,8 @@ def test_new_artifact_identity_is_current_era_with_nested_model_spec_v3():
     spec, data, training, inference = _identity_sections()
     payload = encode_artifact_identity(spec, data, training, inference)
 
-    assert CURRENT_ARTIFACT_SCHEMA_VERSION == "torch-artifact-v4"
-    assert payload["schema_version"] == "torch-artifact-v4"
+    assert CURRENT_ARTIFACT_SCHEMA_VERSION == "torch-artifact-v5"
+    assert payload["schema_version"] == "torch-artifact-v5"
     assert payload["model_spec"]["schema_version"] == "torch-model-spec-v3"
     decoded = decode_artifact_identity(payload)
     assert decoded.model_spec.to_model_config() == spec.to_model_config()
@@ -84,6 +86,8 @@ def test_new_artifact_identity_is_current_era_with_nested_model_spec_v3():
 def test_outer_artifact_v1_with_nested_model_spec_v1_upgrades_to_v2():
     from ptycho_torch.artifact_schema import (
         ARTIFACT_SCHEMA_V1_VERSION,
+        ARTIFACT_V1_DATA_FIELDS,
+        CENTERED_NEAREST_GROUPING_CONTRACT,
         decode_artifact_identity,
         encode_artifact_identity,
     )
@@ -91,12 +95,29 @@ def test_outer_artifact_v1_with_nested_model_spec_v1_upgrades_to_v2():
     spec, data, training, inference = _identity_sections()
     payload = encode_artifact_identity(spec, data, training, inference)
     payload["schema_version"] = ARTIFACT_SCHEMA_V1_VERSION
+    payload.pop("grouping_contract")  # v1 exact-key set predates the marker
     payload["model_spec"] = _v1_model_spec_payload(spec)
-    legacy_data = dict(payload["data_config"])
-    legacy_data["grid_size"] = (legacy_data.pop("gridsize"),) * 2
-    legacy_data["C"] = legacy_data["grid_size"][0] * legacy_data["grid_size"][1]
-    legacy_data["n_subsample"] = legacy_data.pop("n_raw_frames_selected")
-    legacy_data["K"] = legacy_data.pop("neighbor_count")
+    # Project the current data section onto the frozen v1-era wire shape
+    # (including the retired K-choose-C policy fields the v1 literal pins), so
+    # the decode path exercises the real legacy->centered upgrade and stays
+    # strict about exact field sets.
+    current_data = payload["data_config"]
+    legacy_values = {
+        "C": 1,
+        "grid_size": (1, 1),
+        "n_subsample": current_data["n_raw_frames_selected"],
+        "K": current_data["neighbor_count"],
+        "K_quadrant": 30,
+        "neighbor_function": "Nearest",
+        "min_neighbor_distance": 0.0,
+        "max_neighbor_distance": current_data["group_padding_step"],
+        "scan_pattern": "Isotropic",
+    }
+    legacy_data = {
+        name: legacy_values[name] if name in legacy_values else current_data[name]
+        for name in ARTIFACT_V1_DATA_FIELDS
+    }
+    assert set(legacy_data) == set(ARTIFACT_V1_DATA_FIELDS)
     payload["data_config"] = legacy_data
     legacy_training = dict(payload["training_config"])
     legacy_training["n_groups"] = legacy_training.pop("training_groups")
@@ -106,6 +127,8 @@ def test_outer_artifact_v1_with_nested_model_spec_v1_upgrades_to_v2():
 
     assert decoded.model_spec.schema_version == "torch-model-spec-v3"
     assert decoded.model_spec.to_model_config() == spec.to_model_config()
+    # A successful pre-v5 C1 decode exposes the current grouping contract.
+    assert decoded.grouping_contract == CENTERED_NEAREST_GROUPING_CONTRACT
 
 
 def test_bundle_manifest_accepts_v1_and_v2_without_changing_container_or_roles():
@@ -147,9 +170,10 @@ def test_artifact_v2_rejects_compatibility_alias_contradiction_before_return():
         raise AssertionError("contradictory v2 object_big alias was accepted")
 
 
-def test_artifact_v4_roundtrip_preserves_identity_and_declares_v4_fields():
+def test_artifact_v5_roundtrip_preserves_identity_and_declares_v5_fields():
     from ptycho_torch.artifact_schema import (
-        ARTIFACT_SCHEMA_V4_VERSION,
+        ARTIFACT_SCHEMA_V5_VERSION,
+        CENTERED_NEAREST_GROUPING_CONTRACT,
         decode_artifact_identity,
         encode_artifact_identity,
     )
@@ -157,9 +181,9 @@ def test_artifact_v4_roundtrip_preserves_identity_and_declares_v4_fields():
     spec, data, training, inference = _identity_sections()
     payload = encode_artifact_identity(spec, data, training, inference)
 
-    assert payload["schema_version"] == ARTIFACT_SCHEMA_V4_VERSION
+    assert payload["schema_version"] == ARTIFACT_SCHEMA_V5_VERSION
     assert payload["model_spec"]["schema_version"] == "torch-model-spec-v3"
-    # v3 data section declares the derived/renamed fields, not the stored ones.
+    # v5 data section declares the derived/renamed fields, not the stored ones.
     assert payload["data_config"]["gridsize"] == data.gridsize
     assert payload["data_config"]["n_raw_frames_selected"] == data.n_raw_frames_selected
     assert "C" not in payload["data_config"]
@@ -169,6 +193,18 @@ def test_artifact_v4_roundtrip_preserves_identity_and_declares_v4_fields():
     assert payload["data_config"]["neighbor_count"] == data.neighbor_count
     assert "K" not in payload["data_config"]
     assert "groups_per_center" not in payload["data_config"]
+    # v5 data section: centered-nearest marker and padding step replace the
+    # retired grouping policy/option fields.
+    assert payload["grouping_contract"] == CENTERED_NEAREST_GROUPING_CONTRACT
+    assert payload["data_config"]["group_padding_step"] == data.group_padding_step
+    for retired in (
+        "K_quadrant",
+        "neighbor_function",
+        "min_neighbor_distance",
+        "max_neighbor_distance",
+        "scan_pattern",
+    ):
+        assert retired not in payload["data_config"]
     # v4 training section: honest groups spelling.
     assert payload["training_config"]["training_groups"] == training.training_groups
     assert "n_groups" not in payload["training_config"]
@@ -183,7 +219,7 @@ def test_artifact_v4_roundtrip_preserves_identity_and_declares_v4_fields():
     assert decoded.inference_config == inference
 
 
-def test_artifact_v4_roundtrip_with_tensor_and_parity_identity():
+def test_artifact_v5_roundtrip_with_tensor_and_parity_identity():
     import torch
 
     from ptycho_torch.artifact_schema import (
@@ -243,7 +279,7 @@ def test_artifact_v4_roundtrip_with_tensor_and_parity_identity():
     assert decoded.data_config == data
 
 
-def test_artifact_v4_rejects_unknown_model_spec_field_on_decode():
+def test_artifact_v5_rejects_unknown_model_spec_field_on_decode():
     import pytest
 
     from ptycho_torch.artifact_schema import (
@@ -255,6 +291,34 @@ def test_artifact_v4_rejects_unknown_model_spec_field_on_decode():
     payload = encode_artifact_identity(spec, data, training, inference)
     payload["model_spec"]["model_config"]["future_default"] = True
     with pytest.raises(ValueError, match="v3.*unknown=.*future_default"):
+        decode_artifact_identity(payload)
+
+
+@pytest.mark.parametrize(
+    ("mutate", "message"),
+    [
+        (
+            lambda payload: payload.pop("grouping_contract"),
+            r"keys are not exact",
+        ),
+        (
+            lambda payload: payload.__setitem__(
+                "grouping_contract", "oversampled-quadrant-v1"
+            ),
+            r"grouping_contract must be",
+        ),
+    ],
+)
+def test_v5_requires_the_exact_centered_marker(mutate, message):
+    from ptycho_torch.artifact_schema import (
+        decode_artifact_identity,
+        encode_artifact_identity,
+    )
+
+    spec, data, training, inference = _identity_sections()
+    payload = encode_artifact_identity(spec, data, training, inference)
+    mutate(payload)
+    with pytest.raises(ValueError, match=message):
         decode_artifact_identity(payload)
 
 

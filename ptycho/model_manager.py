@@ -49,6 +49,7 @@ from ptycho.config.legacy_state import (
     archived_params_scope,
     transactional_legacy_params,
 )
+from ptycho.grouping import CENTERED_NEAREST_GROUPING_CONTRACT
 
 class ModelManager:
     _KNOWN_MODEL_ROLES = frozenset({
@@ -166,36 +167,54 @@ class ModelManager:
         )
 
     @staticmethod
-    def load_model(model_dir: str) -> tf.keras.Model:
+    def load_model(
+        model_dir: str,
+        archived_params: Optional[Dict[str, Any]] = None,
+    ) -> tf.keras.Model:
         """Load a model and commit its archived flat state only on success."""
-        params_path = os.path.join(model_dir, "params.dill")
-        with open(params_path, "rb") as f:
-            loaded_params = dill.load(f)
+        if archived_params is None:
+            params_path = os.path.join(model_dir, "params.dill")
+            with open(params_path, "rb") as f:
+                loaded_params = dill.load(f)
+        else:
+            loaded_params = dict(archived_params)
         loaded_params.pop("_version", None)
 
         with archived_params_scope(loaded_params):
-            return ModelManager._load_model_uncontained(model_dir)
+            return ModelManager._load_model_uncontained(
+                model_dir,
+                archived_params=loaded_params,
+            )
 
     @staticmethod
-    def _load_model_uncontained(model_dir: str) -> tf.keras.Model:
+    def _load_model_uncontained(
+        model_dir: str,
+        archived_params: Optional[Dict[str, Any]] = None,
+    ) -> tf.keras.Model:
         """
         Load a single model along with its custom objects, parameters, and intensity scale.
         Uses architecture-aware loading to avoid gridsize mismatch issues.
 
         Args:
             model_dir (str): Directory containing the model files.
+            archived_params (Optional[Dict[str, Any]]): Pre-decoded params.dill
+                values supplied by the multi-model preflight; when given, the
+                archive is not deserialized a second time.
 
         Returns:
             tf.keras.Model: The loaded model.
         """
         custom_objects_path = os.path.join(model_dir, "custom_objects.dill")
         params_path = os.path.join(model_dir, "params.dill")
-        
+
         try:
             # Load parameters
-            with open(params_path, 'rb') as f:
-                loaded_params = dill.load(f)
-            
+            if archived_params is None:
+                with open(params_path, 'rb') as f:
+                    loaded_params = dill.load(f)
+            else:
+                loaded_params = dict(archived_params)
+
             # Check version and handle any necessary migrations
             loaded_params.pop('_version', '1.0')
             
@@ -452,6 +471,50 @@ class ModelManager:
             raise
 
     @staticmethod
+    def _validate_grouping_contract(manifest: Dict[str, Any], role_params: Dict[str, Dict[str, Any]]) -> None:
+        """Preconstruction grouping-identity preflight for TF multi-model archives.
+
+        Raises ValueError before any model is constructed when the root
+        manifest or any listed role's params.dill violates the centered
+        nearest grouping boundary: every role must provide one agreeing
+        positive-integer gridsize (Python or numpy integral values are
+        accepted; bool, non-integral, and non-positive values are rejected);
+        version 1.0 is accepted only when C = gridsize**2 == 1 (projected in
+        memory, archive untouched); version 2.0 requires the exact centered
+        marker; anything else is unsupported.
+        """
+        gridsizes = []
+        for role, params in role_params.items():
+            if "gridsize" not in params:
+                raise ValueError(f"{role} params.dill lacks gridsize")
+            gridsize = params["gridsize"]
+            if isinstance(gridsize, bool) or not isinstance(
+                gridsize,
+                (int, np.integer),
+            ):
+                raise ValueError(
+                    f"{role} params.dill gridsize must be a positive "
+                    f"integer, got {gridsize!r}"
+                )
+            gridsize = int(gridsize)
+            if gridsize <= 0:
+                raise ValueError(
+                    f"{role} params.dill gridsize must be a positive "
+                    f"integer, got {gridsize!r}"
+                )
+            gridsizes.append(gridsize)
+        if len(set(gridsizes)) != 1:
+            raise ValueError("TensorFlow bundle roles disagree on gridsize")
+        version = manifest.get("version")
+        if version == "1.0" and gridsizes[0] ** 2 != 1:
+            raise ValueError("version-1.0 C>1 bundle requires retraining")
+        if version == "2.0" and manifest.get("grouping_contract") != \
+                CENTERED_NEAREST_GROUPING_CONTRACT:
+            raise ValueError("version-2.0 bundle lacks centered-nearest-v1")
+        if version not in {"1.0", "2.0"}:
+            raise ValueError(f"unsupported TensorFlow bundle version {version!r}")
+
+    @staticmethod
     def save_multiple_models(models_dict: Dict[str, tf.keras.Model], base_path: str, custom_objects: Dict[str, Any], intensity_scale: float) -> None:
         """
         Save multiple models into a single zip archive.
@@ -464,10 +527,14 @@ class ModelManager:
         """
         zip_path = f"{base_path}.zip"
         os.makedirs(os.path.dirname(zip_path), exist_ok=True)
-        
+
         with tempfile.TemporaryDirectory() as temp_dir:
             # Save manifest of included models
-            manifest = {'models': list(models_dict.keys()), 'version': '1.0'}
+            manifest = {
+                'models': list(models_dict.keys()),
+                'version': '2.0',
+                'grouping_contract': CENTERED_NEAREST_GROUPING_CONTRACT,
+            }
             manifest_path = os.path.join(temp_dir, 'manifest.dill')
             with open(manifest_path, 'wb') as f:
                 dill.dump(manifest, f)
@@ -524,13 +591,35 @@ class ModelManager:
                     raise KeyError(
                         f"Requested models not found in archive: {missing}"
                     )
-            
-            # Load each requested model
+
+            # Preconstruction preflight: decode the root manifest and every
+            # listed role's params.dill, validate the grouping identity, and
+            # only then construct/load any model. Accepted bundles expose the
+            # marker in params.cfg; archives are never rewritten and no
+            # TensorFlow migrator exists.
+            role_params = {}
+            for role in available_models:
+                role_params_path = os.path.join(temp_dir, role, "params.dill")
+                with open(role_params_path, "rb") as f:
+                    role_params[role] = dill.load(f)
+            ModelManager._validate_grouping_contract(manifest, role_params)
+            # Project the root-validated marker into the in-memory role
+            # params (never the archive bytes) so a stale per-role
+            # grouping_contract cannot override the accepted root marker
+            # when each role's archived state is applied during load.
+            for role_cfg in role_params.values():
+                role_cfg["grouping_contract"] = CENTERED_NEAREST_GROUPING_CONTRACT
+            params.cfg["grouping_contract"] = CENTERED_NEAREST_GROUPING_CONTRACT
+
+            # Load each requested model using the already-decoded params
             loaded_models = {}
             for model_name in model_names:
                 model_subdir = os.path.join(temp_dir, model_name)
-                loaded_models[model_name] = ModelManager.load_model(model_subdir)
-            
+                loaded_models[model_name] = ModelManager.load_model(
+                    model_subdir,
+                    archived_params=role_params[model_name],
+                )
+
             return loaded_models
 
 

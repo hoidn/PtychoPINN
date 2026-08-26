@@ -78,7 +78,6 @@ def _configs(**data_overrides):
 def _group_configs(normalize='Group', data_scaling='Parseval'):
     data_config = DataConfig(
         N=N_PIX, gridsize=2, neighbor_count=6, n_raw_frames_selected=1,
-        neighbor_function='4_quadrant', scan_pattern='Isotropic',
         x_bounds=(0.0, 1.0), y_bounds=(0.0, 1.0), normalize=normalize,
         data_scaling=data_scaling)
     model_config = ModelConfig(object_big=True)

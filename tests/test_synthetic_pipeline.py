@@ -241,6 +241,35 @@ def test_pipeline_and_evaluator_share_one_metric_contract_version():
     assert METRIC_CONTRACT_VERSION == EVALUATION_METRIC_CONTRACT_VERSION
 
 
+def test_historical_v2_stage_root_cannot_supply_v3_stages(tmp_path):
+    """A synthetic-workflow-v2 root must not silently feed v3 stage reuse.
+
+    The stage-reuse identity includes the root schema version and the
+    centered-nearest grouping marker; a v2-era recorded root (no marker,
+    older schema) is a retraining boundary, not a reuse match.
+    """
+    first = _Executors()
+    _run(_request(tmp_path, ("simulate", "train")), first)
+    assert first.calls == ["simulate", "train"]
+
+    resolved_path = tmp_path / "resolved_workflow.json"
+    v3_root = json.loads(resolved_path.read_text(encoding="utf-8"))
+    assert v3_root["schema_version"] == "synthetic-workflow-v3"
+    assert v3_root["grouping_contract"] == "centered-nearest-v1"
+    v2_root = json.loads(json.dumps(v3_root))
+    v2_root["schema_version"] = "synthetic-workflow-v2"
+    v2_root.pop("grouping_contract")
+    resolved_path.write_text(json.dumps(v2_root), encoding="utf-8")
+
+    replay = _Executors()
+    with pytest.raises(
+        ValueError,
+        match=r"schema_version conflicts with reusable (simulate|train) identity",
+    ):
+        _run(_request(tmp_path, ("simulate", "train")), replay)
+    assert replay.calls == []
+
+
 def test_historical_v1_stage_manifest_requires_new_root_or_retraining(tmp_path):
     _run(_request(tmp_path, ("simulate",)), _Executors())
     manifest_path = tmp_path / "stage_manifest.json"
@@ -1260,7 +1289,6 @@ def _resolved_tiled(root: Path):
                 "training_groups": 4,
                 "validation_groups": 4,
                 "neighbor_count": 1,
-                "neighbor_pool_size": 1,
             },
             "inference": {
                 "reconstruction_method": "tiled",

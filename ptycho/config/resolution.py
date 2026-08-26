@@ -26,6 +26,33 @@ _INFERENCE_INPUT_NAMES = frozenset(f.name for f in fields(InferenceConfig)) - {"
 assert _MODEL_INPUT_NAMES.isdisjoint(_TRAINING_INPUT_NAMES)
 assert _MODEL_INPUT_NAMES.isdisjoint(_INFERENCE_INPUT_NAMES)
 
+# Retired centered-grouping configuration names (atomic Task 4 cutover). One
+# small shared check: callers at mapping/YAML boundaries that would otherwise
+# report a bare "unknown field" append this migration diagnostic instead.
+# Direct removed dataclass keywords already fail through the strict
+# constructor; no aliases or silent ignores exist.
+_RETIRED_GROUPING_FIELDS = frozenset(
+    {
+        "enable_oversampling",
+        "neighbor_pool_size",
+        "neighbor_function",
+        "K_quadrant",
+        "min_neighbor_distance",
+        "max_neighbor_distance",
+        "scan_pattern",
+        "require_complete_group_coverage",
+    }
+)
+
+
+def retired_grouping_field_diagnostic(name: str) -> str | None:
+    """Return a migration diagnostic for a retired grouping field name."""
+    if name == "max_neighbor_distance":
+        return f"field {name!r} was renamed to 'group_padding_step'"
+    if name in _RETIRED_GROUPING_FIELDS:
+        return f"field {name!r} is a retired grouping policy/option and was removed"
+    return None
+
 
 def _is_path_annotation(annotation: Any) -> bool:
     origin = get_origin(annotation)
@@ -179,16 +206,28 @@ def _normalize_public_source(
     known_root_names = _MODEL_INPUT_NAMES | workflow_names | {"model"}
     unknown_root_names = set(values) - known_root_names
     if unknown_root_names:
+        diagnostics = [
+            retired_grouping_field_diagnostic(name)
+            for name in sorted(unknown_root_names, key=str)
+            if retired_grouping_field_diagnostic(name) is not None
+        ]
+        detail = f"; {diagnostics[0]}" if diagnostics else ""
         raise ValueError(
             f"{source} configuration has unknown root fields "
-            f"{_sorted_names(unknown_root_names)}"
+            f"{_sorted_names(unknown_root_names)}{detail}"
         )
 
     unknown_model_names = set(nested_model) - _MODEL_INPUT_NAMES
     if unknown_model_names:
+        diagnostics = [
+            retired_grouping_field_diagnostic(name)
+            for name in sorted(unknown_model_names, key=str)
+            if retired_grouping_field_diagnostic(name) is not None
+        ]
+        detail = f"; {diagnostics[0]}" if diagnostics else ""
         raise ValueError(
             f"{source} configuration has unknown model fields "
-            f"{_sorted_names(unknown_model_names)}"
+            f"{_sorted_names(unknown_model_names)}{detail}"
         )
 
     model_values = dict(nested_model)
@@ -387,23 +426,6 @@ def validate_model_config_structure(config: ModelConfig) -> None:
     resolve_model_object_policy(config, warn_deprecated=False)
 
 
-def _validate_sampling_semantics(
-    config: TrainingConfig | InferenceConfig,
-) -> None:
-    if config.enable_oversampling and config.model.gridsize > 1:
-        pool_size = (
-            config.neighbor_count
-            if config.neighbor_pool_size is None
-            else config.neighbor_pool_size
-        )
-        group_size = config.model.gridsize**2
-        if pool_size < group_size:
-            raise ValueError(
-                "oversampling requires neighbor_pool_size or neighbor_count "
-                f">= gridsize² ({group_size}), got {pool_size}"
-            )
-
-
 def validate_training_config_structure(config: TrainingConfig) -> None:
     """Validate a complete training record without filesystem checks."""
 
@@ -416,7 +438,6 @@ def validate_training_config_structure(config: TrainingConfig) -> None:
         strict=True,
     )
     validate_model_config_structure(config.model)
-    _validate_sampling_semantics(config)
 
     if config.realspace_mae_weight > 0 and config.realspace_weight <= 0:
         raise ValueError("realspace_mae_weight requires positive realspace_weight")
@@ -440,7 +461,6 @@ def validate_inference_config_structure(config: InferenceConfig) -> None:
         strict=True,
     )
     validate_model_config_structure(config.model)
-    _validate_sampling_semantics(config)
 
     resolve_model_object_policy(
         config.model,
@@ -514,6 +534,7 @@ def validate_inference_resources(config: InferenceConfig) -> None:
 __all__ = [
     "resolve_inference_config",
     "resolve_training_config",
+    "retired_grouping_field_diagnostic",
     "validate_inference_config_structure",
     "validate_inference_resources",
     "validate_model_config_structure",

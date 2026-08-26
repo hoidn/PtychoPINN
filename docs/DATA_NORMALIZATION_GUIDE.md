@@ -40,7 +40,7 @@ CI is enabled only for unsupervised `rectangular_scaled` training with Poisson N
 | Mode | Behavior | Default |
 |---|---|---|
 | `ones` | Set `s1=s2=1.0` and consume no training data. | Bare Torch `ModelConfig` and non-CI public training profiles |
-| `dose_closure` | Under the coherent CI contract, solve `s1=s2=sqrt(sum(counts)/sum(predicted_intensity))` from the fixed representative 256-slot sample and real unit-object forward. | Training-only `ci` and synthetic `hybrid-resnet-lines-ci` profiles |
+| `dose_closure` | Under the coherent CI contract, solve `s1=s2=sqrt(sum(counts)/sum(predicted_intensity))` from the fixed representative 256-slot sample and real unit-object forward. | Training-only `ci` and synthetic `cnn-lines-ci` profiles |
 
 An explicit `ones` overrides either CI profile. Historical `data` is retired,
 not translated. The [normative core contract](specs/spec-ptycho-core.md#ci-rectangular-gauge-initialization-normative)

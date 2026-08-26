@@ -2,6 +2,7 @@
 
 import unittest
 import tempfile
+import zipfile
 import dill
 from pathlib import Path
 from types import SimpleNamespace
@@ -15,6 +16,7 @@ project_root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(project_root))
 
 from ptycho import params as p  # noqa: E402
+from ptycho.grouping import CENTERED_NEAREST_GROUPING_CONTRACT  # noqa: E402
 from ptycho.probe import get_default_probe  # noqa: E402
 
 # Initialize probe before importing model to avoid KeyError
@@ -324,6 +326,321 @@ class TestModelManagerPersistence(unittest.TestCase):
                 candidates,
                 artifact_name='unknown-artifact',
             )
+
+class TestTensorFlowBundleGroupingContract(unittest.TestCase):
+    """Centered-nearest grouping boundary on multi-model TF archives.
+
+    The bundle loader must preflight the root manifest and every listed
+    role's params.dill against the grouping identity BEFORE any model is
+    constructed, project the marker into params.cfg only after accepted
+    validation, and never rewrite accepted archives.
+    """
+
+    _ROLES = ("autoencoder", "diffraction_to_obj")
+
+    def setUp(self):
+        self.test_dir = tempfile.TemporaryDirectory()
+        self.original_params = p.cfg.copy()
+        p.set('N', 64)
+        p.set('gridsize', 1)
+        p.set('intensity_scale', 1.0)
+        p.set('probe.type', 'gaussian')
+        p.set('probe.photons', 1e10)
+
+    def tearDown(self):
+        self.test_dir.cleanup()
+        p.cfg.clear()
+        p.cfg.update(self.original_params)
+
+    def _write_bundle(self, archive_path, manifest, role_params):
+        """Write a wts.h5-style zip: manifest.dill + per-role params.dill."""
+        with zipfile.ZipFile(archive_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr("manifest.dill", dill.dumps(manifest))
+            for role, params_dict in role_params.items():
+                zf.writestr(
+                    f"{role}/params.dill",
+                    dill.dumps(dict(params_dict)),
+                )
+                zf.writestr(
+                    f"{role}/custom_objects.dill",
+                    dill.dumps({}),
+                )
+
+    @staticmethod
+    def _role_params(gridsize):
+        return {
+            role: {"N": 64, "gridsize": np.int64(gridsize)}
+            for role in TestTensorFlowBundleGroupingContract._ROLES
+        }
+
+    def test_grouping_contract_matrix_rejects_before_construction(self):
+        """Every incompatible bundle is rejected before model construction."""
+        contract = CENTERED_NEAREST_GROUPING_CONTRACT
+        cases = [
+            (
+                "v1 any role C>1 requires retraining",
+                {"models": list(self._ROLES), "version": "1.0"},
+                self._role_params(2),
+                "version-1.0 C>1 bundle requires retraining",
+            ),
+            (
+                "v1 missing gridsize",
+                {"models": list(self._ROLES), "version": "1.0"},
+                {
+                    "autoencoder": {"N": 64},
+                    "diffraction_to_obj": {"N": 64, "gridsize": 1},
+                },
+                "autoencoder params.dill lacks gridsize",
+            ),
+            (
+                "v1 None gridsize",
+                {"models": list(self._ROLES), "version": "1.0"},
+                {
+                    "autoencoder": {"N": 64, "gridsize": None},
+                    "diffraction_to_obj": {"N": 64, "gridsize": 1},
+                },
+                "autoencoder params.dill gridsize must be a positive integer",
+            ),
+            (
+                "v1 zero gridsize",
+                {"models": list(self._ROLES), "version": "1.0"},
+                {
+                    "autoencoder": {"N": 64, "gridsize": 0},
+                    "diffraction_to_obj": {"N": 64, "gridsize": 1},
+                },
+                "autoencoder params.dill gridsize must be a positive integer",
+            ),
+            (
+                "v1 fractional gridsize",
+                {"models": list(self._ROLES), "version": "1.0"},
+                {
+                    "autoencoder": {"N": 64, "gridsize": 1.5},
+                    "diffraction_to_obj": {"N": 64, "gridsize": 1},
+                },
+                "autoencoder params.dill gridsize must be a positive integer",
+            ),
+            (
+                "v1 bool gridsize",
+                {"models": list(self._ROLES), "version": "1.0"},
+                {
+                    "autoencoder": {"N": 64, "gridsize": True},
+                    "diffraction_to_obj": {"N": 64, "gridsize": 1},
+                },
+                "autoencoder params.dill gridsize must be a positive integer",
+            ),
+            (
+                "v1 conflicting role gridsizes",
+                {"models": list(self._ROLES), "version": "1.0"},
+                {
+                    "autoencoder": {"N": 64, "gridsize": 1},
+                    "diffraction_to_obj": {"N": 64, "gridsize": 2},
+                },
+                "TensorFlow bundle roles disagree on gridsize",
+            ),
+            (
+                "v2 missing marker",
+                {
+                    "models": list(self._ROLES),
+                    "version": "2.0",
+                },
+                self._role_params(1),
+                "version-2.0 bundle lacks centered-nearest-v1",
+            ),
+            (
+                "v2 unknown marker",
+                {
+                    "models": list(self._ROLES),
+                    "version": "2.0",
+                    "grouping_contract": "quadrant-v9",
+                },
+                self._role_params(1),
+                "version-2.0 bundle lacks centered-nearest-v1",
+            ),
+            (
+                "v2 conflicting role gridsizes",
+                {
+                    "models": list(self._ROLES),
+                    "version": "2.0",
+                    "grouping_contract": contract,
+                },
+                {
+                    "autoencoder": {"N": 64, "gridsize": 1},
+                    "diffraction_to_obj": {"N": 64, "gridsize": 2},
+                },
+                "TensorFlow bundle roles disagree on gridsize",
+            ),
+            (
+                "unsupported version",
+                {"models": list(self._ROLES), "version": "3.0"},
+                self._role_params(1),
+                "unsupported TensorFlow bundle version '3.0'",
+            ),
+        ]
+        for label, manifest, role_params, error_regex in cases:
+            with self.subTest(label=label):
+                base = Path(self.test_dir.name) / f"reject_{label.replace(' ', '_')}"
+                self._write_bundle(f"{base}.zip", manifest, role_params)
+
+                with (
+                    patch(
+                        "ptycho.model.create_model_with_gridsize"
+                    ) as mock_create,
+                ):
+                    with self.assertRaisesRegex(ValueError, error_regex):
+                        ModelManager.load_multiple_models(str(base))
+                    mock_create.assert_not_called()
+
+    def test_v1_all_roles_c1_accepted_in_memory_and_bytes_unchanged(self):
+        """Accepted v1 C1 loads in memory without rewriting the archive."""
+        base = Path(self.test_dir.name) / "v1_c1"
+        self._write_bundle(
+            f"{base}.zip",
+            {"models": list(self._ROLES), "version": "1.0"},
+            self._role_params(1),
+        )
+        archive_path = base.parent / "v1_c1.zip"
+        snapshot = archive_path.read_bytes()
+
+        autoencoder = MagicMock(spec=tf.keras.Model)
+        diffraction_to_obj = MagicMock(spec=tf.keras.Model)
+        with patch(
+            "ptycho.model.create_model_with_gridsize",
+            return_value=(autoencoder, diffraction_to_obj),
+        ):
+            loaded = ModelManager.load_multiple_models(str(base))
+
+        self.assertEqual(set(loaded), set(self._ROLES))
+        self.assertIs(loaded["diffraction_to_obj"], diffraction_to_obj)
+        self.assertEqual(
+            p.cfg.get("grouping_contract"),
+            CENTERED_NEAREST_GROUPING_CONTRACT,
+            "accepted v1 C1 load must expose the marker in params.cfg",
+        )
+        self.assertEqual(
+            archive_path.read_bytes(),
+            snapshot,
+            "accepted v1 C1 loading must not rewrite the bundle",
+        )
+
+    def test_v2_marker_accepted_for_c1_and_c_gt_1(self):
+        """Version-2.0 bundles with the marker accept agreeing C1 or C>1."""
+        for gridsize in (1, 2):
+            with self.subTest(gridsize=gridsize):
+                base = Path(self.test_dir.name) / f"v2_gs{gridsize}"
+                self._write_bundle(
+                    f"{base}.zip",
+                    {
+                        "models": list(self._ROLES),
+                        "version": "2.0",
+                        "grouping_contract": CENTERED_NEAREST_GROUPING_CONTRACT,
+                    },
+                    self._role_params(gridsize),
+                )
+                archive_path = base.parent / f"v2_gs{gridsize}.zip"
+                snapshot = archive_path.read_bytes()
+
+                autoencoder = MagicMock(spec=tf.keras.Model)
+                diffraction_to_obj = MagicMock(spec=tf.keras.Model)
+                with patch(
+                    "ptycho.model.create_model_with_gridsize",
+                    return_value=(autoencoder, diffraction_to_obj),
+                ):
+                    loaded = ModelManager.load_multiple_models(str(base))
+
+                self.assertEqual(set(loaded), set(self._ROLES))
+                self.assertEqual(
+                    p.cfg.get("grouping_contract"),
+                    CENTERED_NEAREST_GROUPING_CONTRACT,
+                )
+                self.assertEqual(
+                    archive_path.read_bytes(),
+                    snapshot,
+                    "accepted v2 loading must not rewrite the bundle",
+                )
+
+    def test_stale_per_role_marker_does_not_override_accepted_root_marker(self):
+        """Accepted loads must keep the root-validated marker in params.cfg.
+
+        A stale/conflicting grouping_contract persisted inside a role's
+        params.dill must not win over the root-validated centered marker.
+        """
+        contract = CENTERED_NEAREST_GROUPING_CONTRACT
+        cases = [
+            (
+                "v1 C1 root with stale per-role marker",
+                {"models": list(self._ROLES), "version": "1.0"},
+            ),
+            (
+                "v2 exact root marker with stale per-role marker",
+                {
+                    "models": list(self._ROLES),
+                    "version": "2.0",
+                    "grouping_contract": contract,
+                },
+            ),
+        ]
+        for label, manifest in cases:
+            with self.subTest(label=label):
+                base = Path(self.test_dir.name) / f"stale_{label.replace(' ', '_')}"
+                self._write_bundle(
+                    f"{base}.zip",
+                    manifest,
+                    {
+                        role: {
+                            "N": 64,
+                            "gridsize": 1,
+                            "grouping_contract": "quadrant-v9",
+                        }
+                        for role in self._ROLES
+                    },
+                )
+
+                with patch(
+                    "ptycho.model.create_model_with_gridsize",
+                    return_value=(
+                        MagicMock(spec=tf.keras.Model),
+                        MagicMock(spec=tf.keras.Model),
+                    ),
+                ):
+                    ModelManager.load_multiple_models(str(base))
+
+                self.assertEqual(
+                    p.cfg.get("grouping_contract"),
+                    contract,
+                    "stale per-role grouping_contract must not override "
+                    "the accepted root marker",
+                )
+
+    def test_new_save_writes_v2_manifest_with_centered_marker(self):
+        """save_multiple_models writes root manifest 2.0 + the marker."""
+        p.set('gridsize', 1)
+        p.set('intensity_scale', 1.0)
+        base = Path(self.test_dir.name) / "new_save"
+        ModelManager.save_multiple_models(
+            {
+                "autoencoder": MagicMock(spec=tf.keras.Model),
+                "diffraction_to_obj": MagicMock(spec=tf.keras.Model),
+            },
+            str(base),
+            {},
+            1.0,
+        )
+
+        with zipfile.ZipFile(f"{base}.zip", 'r') as zf:
+            manifest = dill.loads(zf.read("manifest.dill"))
+            autoencoder_params = dill.loads(
+                zf.read("autoencoder/params.dill")
+            )
+
+        self.assertEqual(manifest["version"], "2.0")
+        self.assertEqual(
+            manifest["grouping_contract"],
+            CENTERED_NEAREST_GROUPING_CONTRACT,
+        )
+        self.assertEqual(set(manifest["models"]), set(self._ROLES))
+        # Per-role params versions are unchanged.
+        self.assertEqual(autoencoder_params["_version"], "1.0")
+
 
 if __name__ == '__main__':
     unittest.main()

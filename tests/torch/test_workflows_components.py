@@ -1623,64 +1623,19 @@ class TestWorkflowsComponentsTraining:
             minimal_training_config,
             model=replace(minimal_training_config.model, gridsize=2),
             training_groups=minimal_training_config.training_groups * 2,
-            enable_oversampling=False,
         )
         with pytest.raises(ValueError, match="unique centers from only"):
             torch_components.create_torch_data_container(dummy_raw_data, config)
 
-    def test_enable_oversampling_flag_is_inert(
+    def test_retired_grouping_fields_fail_closed_at_container_factory(
         self,
-        params_cfg_snapshot,
         minimal_training_config,
-        dummy_raw_data,
     ):
-        """enable_oversampling no longer affects grouping; the request still builds."""
-        from ptycho.config.config import update_legacy_dict
-        from ptycho import params
-        from ptycho_torch.workflows import components as torch_components
-
-        config = replace(minimal_training_config, enable_oversampling=True)
-        update_legacy_dict(params.cfg, config)
-        container = torch_components.create_torch_data_container(dummy_raw_data, config)
-        assert container is not None
-
-    def test_neighbor_pool_size_is_inert(
-        self,
-        params_cfg_snapshot,
-        minimal_training_config,
-        dummy_raw_data,
-    ):
-        """neighbor_pool_size no longer affects grouping; the request still builds."""
-        from ptycho.config.config import update_legacy_dict
-        from ptycho import params
-        from ptycho_torch.workflows import components as torch_components
-
-        config = replace(
-            minimal_training_config,
-            neighbor_pool_size=minimal_training_config.neighbor_count + 1,
-        )
-        update_legacy_dict(params.cfg, config)
-        container = torch_components.create_torch_data_container(dummy_raw_data, config)
-        assert container is not None
-
-    def test_grouping_ignores_pool_size_when_equals_neighbor_count(
-        self,
-        params_cfg_snapshot,
-        minimal_training_config,
-        dummy_raw_data,
-    ):
-        """Pool size equal to neighbor_count does not change grouping."""
-        from ptycho.config.config import update_legacy_dict
-        from ptycho import params
-        from ptycho_torch.workflows import components as torch_components
-
-        config = replace(
-            minimal_training_config,
-            neighbor_pool_size=minimal_training_config.neighbor_count,
-        )
-        update_legacy_dict(params.cfg, config)
-        container = torch_components.create_torch_data_container(dummy_raw_data, config)
-        assert container is not None
+        """Retired oversampling controls no longer exist on the resolved config."""
+        with pytest.raises(TypeError):
+            replace(minimal_training_config, enable_oversampling=True)
+        with pytest.raises(TypeError):
+            replace(minimal_training_config, neighbor_pool_size=2)
 
     def test_grouping_noop_on_default_config(
         self,
@@ -1688,7 +1643,7 @@ class TestWorkflowsComponentsTraining:
         minimal_training_config,
         dummy_raw_data,
     ):
-        """Default config (oversampling off, pool size None) must not raise."""
+        """Default centered-nearest config (no retired fields) must not raise."""
         from ptycho.config.config import update_legacy_dict
         from ptycho import params
         from ptycho_torch.workflows import components as torch_components

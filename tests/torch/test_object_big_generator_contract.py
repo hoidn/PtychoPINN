@@ -45,7 +45,7 @@ from ptycho_torch.helper import (
 from ptycho_torch.model import Decoder_last, PtychoPINN_Lightning
 
 # Small synthetic geometry: gridsize 2 (C = gridsize^2 = 4), N=32 patches.
-# max_neighbor_distance=6.0 -> bigN = N + 6 = 38, so the padded canvas leaves a
+# group_padding_step=6.0 -> bigN = N + (gridsize-1)*6 = 38, so the padded canvas leaves a
 # +/-3 px shift margin while the group offsets stay at +/-2 px (S below).
 N = 32
 GRID = (2, 2)
@@ -170,7 +170,7 @@ def test_merge_extract_roundtrip_pins_group_geometry():
 
     Pins docs/plans/2026-07-06-generator-gridsize2-support.md Task 2 Step 1.
     """
-    data_cfg = DataConfig(N=N, gridsize=2, max_neighbor_distance=MND)
+    data_cfg = DataConfig(N=N, gridsize=2, group_padding_step=MND)
     model_cfg = ModelConfig(object_big=True)
     M = get_padded_size(data_cfg, model_cfg)
 
@@ -421,7 +421,7 @@ def test_oracle_generator_realimag_reproduces_reference_diffraction():
     generator-format contract (the edge treatment of reassemble/extract is identical
     on both paths and cancels).
     """
-    data_cfg = DataConfig(N=N, gridsize=2, max_neighbor_distance=MND)
+    data_cfg = DataConfig(N=N, gridsize=2, group_padding_step=MND)
     model_cfg = ModelConfig(object_big=True)
     M = get_padded_size(data_cfg, model_cfg)
 

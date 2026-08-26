@@ -71,10 +71,10 @@ The synthetic runner registers two profiles:
 
 | Profile | Recipe | Measurement path |
 |---|---|---|
-| `hybrid-resnet-lines` | `hybrid-resnet-lines-v2` | Default legacy normalized-amplitude Hybrid ResNet workflow |
-| `hybrid-resnet-lines-ci` | `hybrid-resnet-lines-ci-v2` | Count-intensity Poisson Hybrid ResNet workflow with dose-closure startup |
+| `synthetic-lines` | `synthetic-lines-v3` | Default legacy normalized-amplitude CNN workflow |
+| `cnn-lines-ci` | `cnn-lines-ci-v3` | Count-intensity Poisson CNN workflow with dose-closure startup |
 
-With no selection, `ptycho_synthetic` uses `hybrid-resnet-lines`. A YAML, TOML,
+With no selection, `ptycho_synthetic` uses `synthetic-lines`. A YAML, TOML,
 or JSON workflow may set root `profile`; explicit `--profile` wins. Value
 precedence is selected profile, then file values, then explicit CLI values. The
 profiles are overrideable starting bundles rather than profile-specific lock
@@ -92,8 +92,8 @@ for exact stage-reuse and NPZ-digest behavior.
 
 ### Default profile
 
-The default profile is `hybrid-resnet-lines` (recipe
-`hybrid-resnet-lines-v2`):
+The default profile is `synthetic-lines` (recipe
+`synthetic-lines-v3`):
 
 | Area | Important resolved defaults |
 |---|---|
@@ -151,7 +151,7 @@ The CLI's `--object-kind` derives the registered recipe. Structured files may
 pin both explicitly:
 
 ```yaml
-profile: hybrid-resnet-lines
+profile: synthetic-lines
 
 simulation:
   object_recipe: dead-leaves-object-v2
@@ -212,7 +212,7 @@ illumination as `probe_simulated`; `null` uses the transformed `probeGuess`
 unchanged. For example:
 
 ```yaml
-profile: hybrid-resnet-lines
+profile: synthetic-lines
 
 simulation:
   train_patterns: 8978
@@ -247,7 +247,7 @@ raw-source object gauge can be restored exactly once.
 ### Structured GS2 example
 
 This config selects an ordinary five-epoch GS2/custom-probe experiment. It is
-not one of the sealed quality gates; those are Hybrid ResNet GS1/C1, GS2/C4,
+not one of the sealed quality gates; those are CNN GS1/C1, GS2/C4,
 and C4-CI (count-intensity), documented in `docs/TESTING_GUIDE.md`. The 4,096
 training groups and 1,024 validation groups
 are independent counts; validation is built from the complete test acquisition
@@ -255,7 +255,7 @@ rather than copied from the train count.
 
 ```yaml
 # configs/synthetic-gs2.yaml
-profile: hybrid-resnet-lines
+profile: synthetic-lines
 
 simulation:
   N: 128
@@ -309,12 +309,12 @@ closed; use a new output root for a changed experiment.
 
 ### CI gauge initialization in YAML and TOML
 
-The synthetic `hybrid-resnet-lines-ci` profile selects count-intensity Poisson
+The synthetic `cnn-lines-ci` profile selects count-intensity Poisson
 training and defaults `model.rect_s1s2_init` to `dose_closure`. Writing the
 field explicitly makes that choice visible in review:
 
 ```yaml
-profile: hybrid-resnet-lines-ci
+profile: cnn-lines-ci
 model:
   rect_s1s2_init: dose_closure
 workflow:
@@ -324,7 +324,7 @@ workflow:
 The same configuration in TOML is:
 
 ```toml
-profile = "hybrid-resnet-lines-ci"
+profile = "cnn-lines-ci"
 
 [model]
 rect_s1s2_init = "dose_closure"
@@ -354,7 +354,7 @@ The native Torch training CLI accepts `--profile ci`. Programmatic callers use
 `resolve_training_payload(..., profile="ci")` on the modern path or
 `create_training_payload(..., profile="ci")` at the compatibility boundary.
 This profile configures training against an existing count-intensity NPZ; it is
-separate from the synthetic runner's `hybrid-resnet-lines-ci` profile, which
+separate from the synthetic runner's `cnn-lines-ci` profile, which
 also owns simulation and defaults to dose-closure startup. With `profile=None`,
 the training factory performs ordinary resolution without applying a named
 bundle.

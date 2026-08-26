@@ -1715,8 +1715,6 @@ def test_public_factory_selection_bridge_fields_round_trip(tmp_path):
         backend="pytorch",
         training_groups=7,
         neighbor_count=5,
-        enable_oversampling=True,
-        neighbor_pool_size=5,
         sequential_sampling=True,
     )
 
@@ -1727,8 +1725,6 @@ def test_public_factory_selection_bridge_fields_round_trip(tmp_path):
         training_baseline=config,
     )
 
-    assert payload.tf_training_config.enable_oversampling is True
-    assert payload.tf_training_config.neighbor_pool_size == 5
     assert payload.tf_training_config.sequential_sampling is True
 
 

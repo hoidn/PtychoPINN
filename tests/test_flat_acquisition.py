@@ -35,7 +35,6 @@ def _small_request(seed: int) -> dict[str, object]:
                 "training_groups": 2,
                 "validation_groups": 2,
                 "neighbor_count": 1,
-                "neighbor_pool_size": 1,
             },
         },
     }
@@ -306,7 +305,6 @@ def test_frozen_object_bank_generation_records_and_revalidates_external_source(
                 "training_groups": 8,
                 "validation_groups": 4,
                 "neighbor_count": 1,
-                "neighbor_pool_size": 1,
             },
         },
     )
@@ -905,7 +903,6 @@ def test_dead_leaves_manifest_records_locked_object_identity(
                 "training_groups": 2,
                 "validation_groups": 2,
                 "neighbor_count": 1,
-                "neighbor_pool_size": 1,
             },
         }
     )
@@ -1280,7 +1277,6 @@ def test_generate_flat_acquisitions_preserves_resolved_logical_geometry(tmp_path
                 "training_groups": 4,
                 "validation_groups": 4,
                 "neighbor_count": 4,
-                "neighbor_pool_size": 4,
             },
         }
     )
@@ -1484,7 +1480,6 @@ def _small_resolved(profile, seed=5, **overrides):
             "training_groups": 2,
             "validation_groups": 2,
             "neighbor_count": 1,
-            "neighbor_pool_size": 1,
         },
     }
     for namespace, patch in overrides.items():
@@ -1510,7 +1505,6 @@ def _small_dead_leaves_raster_workflow(
             "training_groups": 4,
             "validation_groups": 4,
             "neighbor_count": 1,
-            "neighbor_pool_size": 1,
         },
     )
 
@@ -1623,7 +1617,6 @@ def test_independent_object_banks_preserve_total_rows_truth_and_object_identity(
                 "training_groups": 4,
                 "validation_groups": 2,
                 "neighbor_count": 1,
-                "neighbor_pool_size": 1,
             },
         }
     )
@@ -1692,7 +1685,6 @@ def test_coordinate_major_frame_recipe_interleaves_objects_and_transposes_raster
                 "training_groups": 8,
                 "validation_groups": 4,
                 "neighbor_count": 1,
-                "neighbor_pool_size": 1,
             },
         }
     )
@@ -2216,7 +2208,6 @@ def test_split_verification_binds_npz_object_scale_to_manifest(tmp_path: Path):
                 "training_groups": 4,
                 "validation_groups": 4,
                 "neighbor_count": 1,
-                "neighbor_pool_size": 1,
             },
             "inference": {
                 "reconstruction_method": "tiled",
@@ -2603,7 +2594,6 @@ def _raster_resolved(profile="synthetic-lines", patterns=9, test_patterns=4):
                 "training_groups": min(patterns, test_patterns),
                 "validation_groups": min(patterns, test_patterns),
                 "neighbor_count": 1,
-                "neighbor_pool_size": 1,
             },
         },
     )
@@ -2723,7 +2713,6 @@ def test_coordinate_major_frame_recipe_requires_a_raster_layout():
                 "training_groups": 4,
                 "validation_groups": 4,
                 "neighbor_count": 1,
-                "neighbor_pool_size": 1,
             },
         }
     )

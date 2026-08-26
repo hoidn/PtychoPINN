@@ -32,6 +32,10 @@ from pydantic import (
     with_config,
 )
 
+from ptycho.config.resolution import retired_grouping_field_diagnostic
+from ptycho.grouping import (
+    CENTERED_NEAREST_GROUPING_CONTRACT as _GROUPING_CONTRACT,
+)
 from ptycho.config.config import (
     DEFAULT_SCAN_POSITION_LAYOUT,
     SimulationConfig,
@@ -79,9 +83,9 @@ __all__ = [
 
 _PROFILE_NAME = "synthetic-lines"
 _CI_PROFILE_NAME = "cnn-lines-ci"
-_RECIPE_VERSION = "synthetic-lines-v2"
-_CI_RECIPE_VERSION = "cnn-lines-ci-v2"
-_SCHEMA_VERSION = "synthetic-workflow-v2"
+_RECIPE_VERSION = "synthetic-lines-v3"
+_CI_RECIPE_VERSION = "cnn-lines-ci-v3"
+_SCHEMA_VERSION = "synthetic-workflow-v3"
 
 
 class _UnsetType:
@@ -219,8 +223,6 @@ class SyntheticTrainingConfig:
     training_groups: _StrictPositiveInt = 1024
     validation_groups: _StrictPositiveInt = 1024
     neighbor_count: _StrictPositiveInt = 4
-    neighbor_pool_size: _StrictPositiveInt = 4
-    enable_oversampling: _StrictBool = False
     sequential_sampling: _StrictBool = False
     subsample_seed: _StrictNonNegativeInt | None = None
     torch_training_seed: _StrictNonNegativeInt | None = None
@@ -364,6 +366,7 @@ class ResolvedSyntheticWorkflow:
     """Complete semantic snapshot including the derived persisted DataConfig."""
 
     schema_version: str
+    grouping_contract: str
     profile: str
     recipe_version: str
     simulation: SyntheticSimulationConfig
@@ -448,11 +451,9 @@ _DATA_VALIDATION_TYPES.update(
         "N": _StrictPositiveInt,
         "gridsize": _StrictPositiveInt,
         "neighbor_count": _StrictPositiveInt,
-        "K_quadrant": _StrictPositiveInt,
         "n_raw_frames_selected": _StrictPositiveInt,
         "subsample_seed": _StrictNonNegativeInt | None,
-        "min_neighbor_distance": _StrictFiniteNonNegativeNumber,
-        "max_neighbor_distance": _StrictFinitePositiveNumber,
+        "group_padding_step": _StrictFiniteNonNegativeNumber,
         "probe_scale": _StrictFinitePositiveNumber,
         "probe_normalize": _StrictBool,
         "phase_subtraction": _StrictBool,
@@ -625,7 +626,6 @@ _FLAT_ALIASES: dict[str, tuple[str, ...]] = {
     "training_groups": ("training", "training_groups"),
     "validation_groups": ("training", "validation_groups"),
     "neighbor_count": ("training", "neighbor_count"),
-    "neighbor_pool_size": ("training", "neighbor_pool_size"),
     "groups_per_center": ("inference", "groups_per_center"),
     "inference_batch_size": ("inference", "batch_size"),
     "accelerator": ("workflow", "accelerator"),
@@ -688,9 +688,15 @@ def _normalize_nested_patch(
     unknown = set(value) - set(template)
     if unknown:
         names = ", ".join(sorted(str(name) for name in unknown))
+        detail = ""
+        for name in sorted(unknown, key=str):
+            diagnostic = retired_grouping_field_diagnostic(name)
+            if diagnostic is not None:
+                detail = f"; {diagnostic}"
+                break
         raise ValueError(
             f"{source} configuration has unknown field(s) under "
-            f"{'.'.join(path)}: {names}"
+            f"{'.'.join(path)}: {names}{detail}"
         )
     for name, item in value.items():
         child_path = (*path, name)
@@ -744,7 +750,11 @@ def _normalize_source(
             continue
         alias = _FLAT_ALIASES.get(name)
         if alias is None:
-            raise ValueError(f"{source} configuration has unknown field {name!r}")
+            diagnostic = retired_grouping_field_diagnostic(name)
+            detail = f"; {diagnostic}" if diagnostic is not None else ""
+            raise ValueError(
+                f"{source} configuration has unknown field {name!r}{detail}"
+            )
         _put_patch_value(output, alias, value, source=source)
     return output
 
@@ -969,10 +979,6 @@ def _adapt_data(values: Mapping[str, Any]) -> ResolvedDataConfig:
         name: _adapt(adapter, values[name], root=f"data.{name}")
         for name, adapter in _DATA_FIELD_ADAPTERS.items()
     }
-    if validated["min_neighbor_distance"] > validated["max_neighbor_distance"]:
-        raise ValueError(
-            "data.min_neighbor_distance must be <= data.max_neighbor_distance"
-        )
     for name in ("x_bounds", "y_bounds"):
         lower, upper = validated[name]
         if lower >= upper:
@@ -1128,21 +1134,15 @@ def _validate_sampling(
             f"simulation.test_patterns must be >= C={C}, got {test_patterns}"
         )
     if training.training_groups > training.train_raw_selection:
-        detail = " with oversampling disabled" if not training.enable_oversampling else ""
         raise ValueError(
             "training.training_groups must be <= training.train_raw_selection"
-            f"{detail}, got {training.training_groups} > "
+            f", got {training.training_groups} > "
             f"{training.train_raw_selection}"
         )
     if training.validation_groups > test_patterns:
         raise ValueError(
             "training.validation_groups must be <= simulation.test_patterns, "
             f"got {training.validation_groups} > {test_patterns}"
-        )
-    if training.enable_oversampling and training.neighbor_pool_size < C:
-        raise ValueError(
-            f"training.neighbor_pool_size must be >= C={C} when "
-            "training.enable_oversampling is true"
         )
 
 
@@ -1490,6 +1490,11 @@ def _validate_resolved_workflow(resolved: ResolvedSyntheticWorkflow) -> None:
             f"schema_version must be {_SCHEMA_VERSION!r}, got "
             f"{resolved.schema_version!r}"
         )
+    if not _values_equal(resolved.grouping_contract, _GROUPING_CONTRACT):
+        raise ValueError(
+            f"grouping_contract must be {_GROUPING_CONTRACT!r}, got "
+            f"{resolved.grouping_contract!r}"
+        )
     if resolved.profile not in _PROFILES:
         expected = ", ".join(repr(name) for name in sorted(_PROFILES))
         raise ValueError(
@@ -1722,6 +1727,7 @@ def resolve_synthetic_workflow(
     )
     resolved = ResolvedSyntheticWorkflow(
         schema_version=_SCHEMA_VERSION,
+        grouping_contract=_GROUPING_CONTRACT,
         profile=profile,
         recipe_version=recipe_version,
         simulation=simulation,
@@ -1812,6 +1818,7 @@ def synthetic_workflow_digest_input(
         raise TypeError("resolved must be a workflow record or semantic mapping")
     expected_roots = {
         "schema_version",
+        "grouping_contract",
         "profile",
         "recipe_version",
         "simulation",
@@ -1821,6 +1828,10 @@ def synthetic_workflow_digest_input(
         "workflow",
         "data",
     }
+    if payload.get("schema_version") == "synthetic-workflow-v2":
+        # Historical identities (sealed fixtures) predate the centered-nearest
+        # grouping_contract marker; their root set is exactly the v2 roots.
+        expected_roots = expected_roots - {"grouping_contract"}
     if set(payload) != expected_roots:
         raise ValueError("resolved workflow digest input fields are not exact")
     workflow = payload["workflow"]

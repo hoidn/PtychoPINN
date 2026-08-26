@@ -18,6 +18,9 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from ptycho import params  # noqa: E402
+from ptycho.grouping import (  # noqa: E402
+    CENTERED_NEAREST_GROUPING_CONTRACT,
+)
 from ptycho.workflows.components import (  # noqa: E402
     DiffractionToObjectAdapter,
     load_inference_bundle,
@@ -237,6 +240,54 @@ class TestLoadInferenceBundle(unittest.TestCase):
                 load_inference_bundle_explicit(self.model_dir)
 
         self.assertEqual(params.cfg, ambient)
+
+    def test_real_v1_c1_bundle_load_returns_config_with_grouping_marker(self):
+        """Accepted v1 C1 loads expose the centered marker in the config."""
+        ambient = dict(params.cfg)
+        zip_path = self.model_dir / "wts.h5.zip"
+        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr(
+                "manifest.dill",
+                dill.dumps(
+                    {
+                        "models": ["diffraction_to_obj"],
+                        "version": "1.0",
+                    }
+                ),
+            )
+            zf.writestr(
+                "diffraction_to_obj/params.dill",
+                dill.dumps(
+                    {
+                        "_version": "1.0",
+                        "N": 64,
+                        "gridsize": 1,
+                        "intensity_scale": 1.0,
+                    }
+                ),
+            )
+            zf.writestr(
+                "diffraction_to_obj/custom_objects.dill",
+                dill.dumps({}),
+            )
+        try:
+            with patch(
+                "ptycho.model.create_model_with_gridsize",
+                return_value=(
+                    MagicMock(spec=tf.keras.Model),
+                    MagicMock(spec=tf.keras.Model),
+                ),
+            ):
+                model, config = load_inference_bundle(self.model_dir)
+
+            self.assertIsInstance(model, DiffractionToObjectAdapter)
+            self.assertEqual(
+                config.get("grouping_contract"),
+                CENTERED_NEAREST_GROUPING_CONTRACT,
+            )
+        finally:
+            params.cfg.clear()
+            params.cfg.update(ambient)
 
 
 if __name__ == '__main__':

@@ -313,7 +313,6 @@ def test_tiled_public_adapter_runs_real_mmap_grouping_and_accumulator(
                 "training_groups": 4,
                 "validation_groups": 4,
                 "neighbor_count": 1,
-                "neighbor_pool_size": 1,
             },
             "inference": {
                 "batch_size": 4,

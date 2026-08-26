@@ -36,8 +36,8 @@ The runner registers two profiles:
 
 | Profile | Recipe | Purpose |
 |---|---|---|
-| `synthetic-lines` | `synthetic-lines-v2` | Default legacy normalized-amplitude CNN lines workflow |
-| `cnn-lines-ci` | `cnn-lines-ci-v2` | Count-intensity Poisson CNN lines workflow with dose-closure startup |
+| `synthetic-lines` | `synthetic-lines-v3` | Default legacy normalized-amplitude CNN lines workflow |
+| `cnn-lines-ci` | `cnn-lines-ci-v3` | Count-intensity Poisson CNN lines workflow with dose-closure startup |
 
 With no selection, the runner uses `synthetic-lines`. A YAML, TOML, or JSON
 workflow may select either profile with the root `profile` field; explicit
@@ -150,8 +150,8 @@ This section is the operational profile summary. The
 [configuration guide](../../docs/CONFIGURATION.md#profiles-and-presets) owns the
 profile-versus-preset semantics. The default named profile is
 `synthetic-lines`, recipe
-`synthetic-lines-v2`. A second profile, `cnn-lines-ci`
-(recipe `cnn-lines-ci-v2`), selects the count-intensity Poisson
+`synthetic-lines-v3`. A second profile, `cnn-lines-ci`
+(recipe `cnn-lines-ci-v3`), selects the count-intensity Poisson
 contract and `model.rect_s1s2_init=dose_closure`. The amplitude profile keeps
 `rect_s1s2_init=ones`. Every resolved field is written to
 `resolved_workflow.json`; this

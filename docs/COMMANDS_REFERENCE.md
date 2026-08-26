@@ -99,14 +99,14 @@ held-out scan through mmap-backed barycentric assembly, and evaluates raw
 complex arrays.
 
 ```bash
-# Complete default profile: N=128, GS1 Hybrid ResNet, ideal probe, 50 epochs
+# Complete default profile: N=128, GS1 CNN, ideal probe, 50 epochs
 ptycho_synthetic \
-  --profile hybrid-resnet-lines \
+  --profile synthetic-lines \
   --output-root outputs/synthetic_hybrid_resnet_gs1
 
-# Sealed five-epoch Hybrid ResNet GS1/C1 quality recipe
+# Sealed five-epoch CNN GS1/C1 quality recipe
 ptycho_synthetic \
-  --profile hybrid-resnet-lines \
+  --profile synthetic-lines \
   --output-root outputs/synthetic_hybrid_resnet_gs1_5ep_quality \
   --gridsize 1 \
   --epochs 5 \
@@ -132,7 +132,7 @@ ptycho_synthetic \
 
 # CI count-intensity profile with pre-fit rectangular gauge initialization
 ptycho_synthetic \
-  --profile hybrid-resnet-lines-ci \
+  --profile cnn-lines-ci \
   --rect-s1s2-init dose_closure \
   --output-root outputs/synthetic_ci
 ```
@@ -141,7 +141,7 @@ The structured config equivalent accepts JSON, TOML, or YAML. For example,
 `configs/synthetic_gs1.yaml` may contain:
 
 ```yaml
-profile: hybrid-resnet-lines
+profile: synthetic-lines
 simulation:
   gridsize: 1
   train_patterns: 4489
@@ -551,7 +551,7 @@ layer owns comparison and collation, not an alternate trainer.
 ptycho_study --help
 ```
 
-### Hybrid ResNet Schematic Generator (TikZ + DOT)
+### CNN Schematic Generator (TikZ + DOT)
 
 Generate architecture schematics for `hybrid_resnet` directly from module execution with
 shape capture. This writes source artifacts that are easy to diff and regenerate.

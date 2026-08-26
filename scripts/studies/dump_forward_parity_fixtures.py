@@ -162,7 +162,7 @@ def _c1_positions(B: int, C: int) -> torch.Tensor:
 def _c4_positions(B: int, C: int) -> torch.Tensor:
     # Small overlapping 2x2-grid offsets (pixels, (x, y)); N=64 patches
     # shifted by only +/-3px overlap heavily, well within the padded canvas
-    # margin (M - N = 14 for the default grid_size=(2,2)/max_neighbor_distance=3.0).
+    # margin (M - N = 14 for the default gridsize=2/group_padding_step=3.0).
     assert (B, C) == (1, 4)
     return torch.tensor(
         [[[-3.0, -3.0]], [[3.0, -3.0]], [[-3.0, 3.0]], [[3.0, 3.0]]],

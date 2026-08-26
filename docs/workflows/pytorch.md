@@ -131,7 +131,7 @@ selects unit initialization. With `profile=None`, ordinary resolution applies
 without a named bundle and the bare model default remains `ones`.
 
 This training-only profile is distinct from the synthetic runner's
-`--profile hybrid-resnet-lines-ci`, which also chooses the simulation recipe
+`--profile cnn-lines-ci`, which also chooses the simulation recipe
 and defaults to `dose_closure`. Persisted model, data, training, inference,
 and artifact identity controls inference, so loading does not require selecting either
 profile name again. See the
@@ -308,7 +308,7 @@ rectangular-scaled diffraction entry in `docs/findings.md`.
 
 `dose_closure` adopts a unit-object convention, so it is startup conditioning,
 not physical probe calibration. Bare Torch `ModelConfig` defaults to `ones`;
-the training-only `ci` and synthetic `hybrid-resnet-lines-ci` profiles default
+the training-only `ci` and synthetic `cnn-lines-ci` profiles default
 to `dose_closure`. The field is sealed in `ModelSpec`. Its initialization
 record is distinct from final learned `s1`/`s2` and inference VarPro.
 
@@ -391,12 +391,12 @@ CUDA-hidden child process. Object/probe/coordinate production and workflow
 orchestration use NumPy/Python, while all model training, inference, and
 reassembly are PyTorch.
 
-The complete coherent default profile is a 50-epoch GS1 Hybrid ResNet run with
+The complete coherent default profile is a 50-epoch GS1 CNN run with
 an ideal probe:
 
 ```bash
 ptycho_synthetic \
-  --profile hybrid-resnet-lines \
+  --profile synthetic-lines \
   --output-root outputs/synthetic_hybrid_resnet_gs1
 ```
 
@@ -412,12 +412,12 @@ Important default-profile values are:
 | Reconstruction | probe-weighted barycentric assembly, VarPro on, `groups_per_center=1` |
 | Runtime | accelerator auto, one device, FP32, deterministic, zero workers, CSV logger |
 
-For the sealed Hybrid ResNet GS1/C1 five-epoch recipe with the checked-in
+For the sealed CNN GS1/C1 five-epoch recipe with the checked-in
 Run1084 probe, use:
 
 ```bash
 ptycho_synthetic \
-  --profile hybrid-resnet-lines \
+  --profile synthetic-lines \
   --output-root outputs/synthetic_hybrid_resnet_gs1_5ep_quality \
   --gridsize 1 \
   --epochs 5 \
@@ -450,7 +450,7 @@ The same run may be expressed as a structured JSON, TOML, or YAML file. For
 example, save this as `configs/synthetic_gs1.yaml`:
 
 ```yaml
-profile: hybrid-resnet-lines
+profile: synthetic-lines
 simulation:
   gridsize: 1
   train_patterns: 4489

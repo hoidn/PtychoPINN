@@ -112,6 +112,14 @@ def decode_checkpoint_hparams(hparams: dict) -> dict:
             raw_model if isinstance(raw_model, dict) else {},
             era="checkpoint",
         )
+        grid_h, grid_w = raw_data["grid_size"]
+        if grid_h * grid_w != 1:
+            raise ValueError(
+                f"checkpoint data_config derives C={grid_h * grid_w} from "
+                f"grid_size={raw_data['grid_size']}; the centered-nearest "
+                "grouping contract supports exactly one derived channel; "
+                "retrain under torch-artifact-v5"
+            )
     decoded_model_spec = (
         model_spec_payload
         if isinstance(model_spec_payload, ModelSpec)

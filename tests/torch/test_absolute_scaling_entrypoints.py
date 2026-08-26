@@ -331,8 +331,9 @@ def test_ci_bundle_recovers_profile_configs_and_frozen_statistics(tmp_path):
             weights_only=False,
         )
     assert manifest["backend"] == "pytorch"
-    assert manifest["artifact_schema_version"] == "torch-artifact-v4"
-    assert persisted_identity["schema_version"] == "torch-artifact-v4"
+    assert manifest["artifact_schema_version"] == "torch-artifact-v5"
+    assert persisted_identity["schema_version"] == "torch-artifact-v5"
+    assert persisted_identity["grouping_contract"] == "centered-nearest-v1"
     assert persisted_identity["model_spec"]["schema_version"] == "torch-model-spec-v3"
 
     models, params = components.load_inference_bundle_torch(tmp_path / "bundle")

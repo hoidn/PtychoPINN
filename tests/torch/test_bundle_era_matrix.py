@@ -72,9 +72,9 @@ def _run_p1(era: str, tmp_path: Path):
         models, _ = load_inference_bundle_torch(bundle_builder(tmp_path))
         model = models["diffraction_to_obj"]
         return model.data_config.gridsize, model.data_config.N
-    if era == "v4":
-        # Full load: real save + sealed v4 identity.
-        models, _ = load_inference_bundle_torch(ef.v4_bundle(tmp_path))
+    if era == "v5":
+        # Full load: real save + sealed v5 identity.
+        models, _ = load_inference_bundle_torch(ef.v5_bundle(tmp_path))
         model = models["diffraction_to_obj"]
         return model.data_config.gridsize, model.data_config.N
     if era == "unfaithful-unversioned":
@@ -91,22 +91,41 @@ def _run_p1(era: str, tmp_path: Path):
         }[era]
         _decode_bundle_metadata(ef.read_bundle_metadata(bundle_builder(tmp_path)))
         raise AssertionError(f"{era} bundle unexpectedly decoded by the runtime path")
-    # v3: metadata-decode level (no weights); v3 upgrades to v4.
-    identity = _decode_bundle_metadata(ef.read_bundle_metadata(ef.v3_bundle(tmp_path)))
+    if era in ("v3-c4", "v4-c4"):
+        # C>1 pre-v5 bundles fail the centered-nearest gate at runtime decode.
+        bundle_builder = {"v3-c4": ef.v3_c4_bundle, "v4-c4": ef.v4_c4_bundle}[era]
+        _decode_bundle_metadata(ef.read_bundle_metadata(bundle_builder(tmp_path)))
+        raise AssertionError(f"{era} C>1 bundle unexpectedly decoded")
+    # v3/v4: metadata-decode level (no weights); they upgrade to v5.
+    bundle_builder = {"v3": ef.v3_bundle, "v4": ef.v4_bundle}[era]
+    identity = _decode_bundle_metadata(ef.read_bundle_metadata(bundle_builder(tmp_path)))
     return identity.data_config.gridsize, identity.data_config.N
 
 
 def _run_p2(era: str, tmp_path: Path):
     from ptycho_torch.checkpoint_decode import decode_checkpoint_hparams
 
-    if era in ("v3", "v4"):
-        payload = ef.v4_payload() if era == "v4" else ef.v3_payload()
+    if era in ("v3", "v4", "v5", "v3-c4", "v4-c4"):
+        payload = {
+            "v3": ef.v3_payload,
+            "v4": ef.v4_payload,
+            "v5": ef.v5_payload,
+            "v3-c4": ef.v3_c4_payload,
+            "v4-c4": ef.v4_c4_payload,
+        }[era]()
         decode_checkpoint_hparams({"artifact_identity": payload})
         return payload["data_config"]["gridsize"], payload["data_config"]["N"]
     if era == "unfaithful-legacy":
         decode_checkpoint_hparams(_checkpoint_hparams(ef.unfaithful_v1_payload()))
         raise AssertionError("unfaithful checkpoint unexpectedly decoded")
-    payload = ef.v1_payload() if era == "v1" else ef.v2_payload()
+    # Old-era checkpoints: single-channel variants promote in memory;
+    # multi-channel (C=4 frozen) payloads fail the centered-nearest gate.
+    payload = {
+        "v1": ef.v1_payload,
+        "v2": ef.v2_payload,
+        "v1-c1": ef.v1_c1_payload,
+        "v2-c1": ef.v2_c1_payload,
+    }[era]()
     decode_checkpoint_hparams(_checkpoint_hparams(payload))
     return payload["data_config"]["grid_size"][0], payload["data_config"]["N"]
 
@@ -129,8 +148,13 @@ _P3_BUNDLES = {
     "unfaithful-unversioned": ef.unfaithful_unversioned_bundle,
     "v1": ef.v1_bundle,
     "v2": ef.v2_bundle,
+    "v1-c1": ef.v1_c1_bundle,
+    "v2-c1": ef.v2_c1_bundle,
     "v3": ef.v3_bundle,
     "v4": ef.v4_bundle,
+    "v3-c4": ef.v3_c4_bundle,
+    "v4-c4": ef.v4_c4_bundle,
+    "v5": ef.v5_bundle,
     "unfaithful-legacy": ef.unfaithful_bundle,
 }
 
@@ -145,19 +169,34 @@ _CELLS = [
     ("ci-entrypoints-v1-legacy-shaped", "P1", "accept", None),
     ("ci-entrypoints-v1-legacy-shaped", "P3", "accept", None),
     ("v1", "P1", "reject", r"migrate_bundle"),
-    ("v1", "P2", "accept", None),
-    ("v1", "P3", "accept", None),
+    ("v1", "P2", "reject", r"supports exactly one derived channel"),
+    ("v1", "P3", "reject", r"supports exactly one derived channel"),
+    ("v1-c1", "P2", "accept", None),
+    ("v1-c1", "P3", "accept", None),
     ("v2", "P1", "reject", r"migrate_bundle"),
-    ("v2", "P2", "accept", None),
-    ("v2", "P3", "accept", None),
+    ("v2", "P2", "reject", r"supports exactly one derived channel"),
+    ("v2", "P3", "reject", r"supports exactly one derived channel"),
+    ("v2-c1", "P2", "accept", None),
+    ("v2-c1", "P3", "accept", None),
     ("v3", "P1", "accept", None),
     ("v3", "P2", "accept", None),
     ("v3", "P3", "accept", None),
     ("v4", "P1", "accept", None),
     ("v4", "P2", "accept", None),
     ("v4", "P3", "accept", None),
+    ("v3-c4", "P1", "reject", r"supports exactly one derived channel"),
+    ("v3-c4", "P2", "reject", r"supports exactly one derived channel"),
+    ("v3-c4", "P3", "reject", r"supports exactly one derived channel"),
+    ("v4-c4", "P1", "reject", r"supports exactly one derived channel"),
+    ("v4-c4", "P2", "reject", r"supports exactly one derived channel"),
+    ("v4-c4", "P3", "reject", r"supports exactly one derived channel"),
+    ("v5", "P1", "accept", None),
+    ("v5", "P2", "accept", None),
+    ("v5", "P3", "accept", None),
     ("unfaithful-legacy", "P1", "reject", r"migrate_bundle"),
     ("unfaithful-legacy", "P2", "reject", r"gridsize\*\*2"),
+    # Raw channel faithfulness is validated before the centered-nearest C1
+    # gate, so the migrator's decode reports the stored-C disagreement.
     ("unfaithful-legacy", "P3", "reject", r"gridsize\*\*2"),
     ("unfaithful-unversioned", "P1", "reject", r"unversioned.*gridsize\*\*2"),
     ("unfaithful-unversioned", "P3", "reject", r"unversioned.*gridsize\*\*2"),
@@ -181,27 +220,30 @@ def test_bundle_era_matrix(era, path, expect, match, tmp_path):
 
 
 def test_metadata_free_p3_migrates_to_current_era(tmp_path):
-    """P3 on a dill-era bundle promotes the manifest to torch-artifact-v4."""
+    """P3 on a dill-era bundle promotes the manifest to torch-artifact-v5."""
     from scripts.migrate_legacy_bundle import migrate_bundle
 
     out_dir = tmp_path / "migrated"
     migrate_bundle(ef.metadata_free_bundle(tmp_path), out_dir)
     with zipfile.ZipFile(out_dir / "wts.h5.zip", "r") as archive:
         manifest = json.loads(archive.read("manifest.json"))
-    assert manifest["artifact_schema_version"] == "torch-artifact-v4"
+    assert manifest["artifact_schema_version"] == "torch-artifact-v5"
     assert "manifest.dill" not in zipfile.ZipFile(out_dir / "wts.h5.zip").namelist()
 
 
-def test_v3_bundle_upgrades_to_v4_fields(tmp_path):
-    """A v3 bundle decodes under v4 CURRENT with the renamed field spellings."""
+def test_v3_bundle_upgrades_to_v5_fields(tmp_path):
+    """A v3 bundle decodes under v5 CURRENT with the renamed field spellings."""
+    from ptycho_torch.artifact_schema import CENTERED_NEAREST_GROUPING_CONTRACT
     from ptycho_torch.workflows.bundle_io import _decode_bundle_metadata
 
     identity = _decode_bundle_metadata(
         ef.read_bundle_metadata(ef.v3_bundle(tmp_path))
     )
+    assert identity.grouping_contract == CENTERED_NEAREST_GROUPING_CONTRACT
     assert identity.data_config.neighbor_count == 7
     assert not hasattr(identity.data_config, "K")
     assert not hasattr(identity.data_config, "groups_per_center")
+    assert identity.data_config.group_padding_step == 3.0
     assert identity.training_config.training_groups == 4
     assert not hasattr(identity.training_config, "n_groups")
 

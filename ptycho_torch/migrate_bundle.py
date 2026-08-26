@@ -1,7 +1,7 @@
 """Offline era-detecting bundle migration entry point.
 
 Migrate a pre-JSON or metadata-free ``wts.h5.zip`` bundle into the current
-``torch-artifact-v4`` era:
+``torch-artifact-v5`` era:
 
     python -m ptycho_torch.migrate_bundle SOURCE_DIR OUT_DIR
 

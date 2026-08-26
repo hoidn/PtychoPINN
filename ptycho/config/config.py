@@ -629,9 +629,7 @@ class TrainingConfig:
     n_images: _StrictNonNegativeInt | None = None  # DEPRECATED: Use training_groups instead (kept for backward compatibility)
     train_raw_selection: _StrictNonNegativeInt | None = None  # Number of images to subsample before grouping (independent control)
     subsample_seed: _StrictNonNegativeInt | None = None  # Random seed for reproducible subsampling
-    neighbor_count: _StrictPositiveInt = 4  # K value: number of nearest neighbors for grouping (use higher values like 7 for K choose C oversampling)
-    enable_oversampling: _StrictBool = False  # Explicit opt-in for K choose C oversampling (requires gridsize>1 and neighbor_pool_size>=C)
-    neighbor_pool_size: _StrictPositiveInt | None = None  # Pool size for K choose C oversampling (if None, defaults to neighbor_count)
+    neighbor_count: _StrictPositiveInt = 4  # K value: number of nearest neighbors for grouping
     positions_provided: _StrictBool = True
     probe_trainable: _StrictBool = False
     intensity_scale_trainable: _StrictBool = True  # Changed default
@@ -683,9 +681,7 @@ class InferenceConfig:
     n_images: _StrictNonNegativeInt | None = None  # DEPRECATED: Use inference_groups instead (kept for backward compatibility)
     inference_raw_selection: _StrictNonNegativeInt | None = None  # Number of images to subsample for inference (independent control)
     subsample_seed: _StrictNonNegativeInt | None = None  # Random seed for reproducible subsampling
-    neighbor_count: _StrictPositiveInt = 4  # K value: number of nearest neighbors for grouping (use higher values like 7 for K choose C oversampling)
-    enable_oversampling: _StrictBool = False  # Explicit opt-in for K choose C oversampling (requires gridsize>1 and neighbor_pool_size>=C)
-    neighbor_pool_size: _StrictPositiveInt | None = None  # Pool size for K choose C oversampling (if None, defaults to neighbor_count)
+    neighbor_count: _StrictPositiveInt = 4  # K value: number of nearest neighbors for grouping
     debug: _StrictBool = False
     output_dir: _PublicPath = Path("inference_outputs")
     backend: Annotated[Literal['tensorflow', 'pytorch'], BeforeValidator(_require_exact_str)] = 'tensorflow'  # Backend selection: defaults to TensorFlow for backward compatibility

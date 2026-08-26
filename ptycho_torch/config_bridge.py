@@ -121,8 +121,6 @@ _TRAINING_CONFIG_BRIDGED_FIELDS = frozenset({
 })
 _TRAINING_CONFIG_EXCLUDED_FIELDS = frozenset({
     "n_images",             # deprecated: training_groups is the canonical field
-    "enable_oversampling",  # factory: set by the training factory, not the bridge
-    "neighbor_pool_size",   # factory: set by the training factory, not the bridge
 })
 _TF_TRAINING_FIELDS = frozenset(f.name for f in fields(TFTrainingConfig))
 assert _TRAINING_CONFIG_BRIDGED_FIELDS == _TF_TRAINING_FIELDS - _TRAINING_CONFIG_EXCLUDED_FIELDS, (
@@ -138,8 +136,6 @@ _INFERENCE_CONFIG_BRIDGED_FIELDS = frozenset({
 })
 _INFERENCE_CONFIG_EXCLUDED_FIELDS = frozenset({
     "n_images",             # deprecated: inference_groups is the canonical field
-    "enable_oversampling",  # factory: set by the inference factory, not the bridge
-    "neighbor_pool_size",   # factory: set by the inference factory, not the bridge
 })
 _TF_INFERENCE_FIELDS = frozenset(f.name for f in fields(TFInferenceConfig))
 assert _INFERENCE_CONFIG_BRIDGED_FIELDS == _TF_INFERENCE_FIELDS - _INFERENCE_CONFIG_EXCLUDED_FIELDS, (

@@ -48,7 +48,7 @@ def test_probe_weighting_reduces_corrupted_overlap_seam_error():
     inputs = torch.stack([patch_corrupted, patch_corrupted, patch_correct, patch_correct]).unsqueeze(0)
     offsets = torch.zeros((1, C, 1, 2), dtype=torch.float32)
 
-    data_cfg = DataConfig(N=N, gridsize=2, max_neighbor_distance=0.0)
+    data_cfg = DataConfig(N=N, gridsize=2, group_padding_step=0.0)
     model_cfg = ModelConfig(max_position_jitter=0)
 
     probe_corrupted = torch.ones((1, N, N), dtype=torch.float32)
@@ -83,7 +83,7 @@ def test_reassemble_patches_position_real_probe_c1_no_nan_support_preserved():
     M = 16
     pad = (M - N) // 2
 
-    data_cfg = DataConfig(N=N, gridsize=1, max_neighbor_distance=0.0)
+    data_cfg = DataConfig(N=N, gridsize=1, group_padding_step=0.0)
     model_cfg = ModelConfig(max_position_jitter=0)
 
     inputs = torch.ones((1, 1, N, N), dtype=torch.complex64)
@@ -117,7 +117,7 @@ def test_reassemble_patches_position_real_probe_return_contract_shapes():
     C = 4
     B = 2
 
-    data_cfg = DataConfig(N=N, gridsize=2, max_neighbor_distance=0.0)
+    data_cfg = DataConfig(N=N, gridsize=2, group_padding_step=0.0)
     model_cfg = ModelConfig(max_position_jitter=0)
 
     inputs = torch.ones((B, C, N, N), dtype=torch.complex64)
@@ -153,7 +153,7 @@ def test_training_patch_weighting_defaults_to_central_mask():
 
 
 def _forward_case_configs(mode: str):
-    data_cfg = DataConfig(N=8, gridsize=2, max_neighbor_distance=0.0)
+    data_cfg = DataConfig(N=8, gridsize=2, group_padding_step=0.0)
     model_cfg = ModelConfig(
         object_big=True, max_position_jitter=0,
         intensity_scale_trainable=False, training_patch_weighting=mode,
@@ -212,7 +212,7 @@ def test_forward_default_matches_explicit_central_mask():
     probe = torch.ones((1, C, 1, N, N), dtype=torch.complex64)
     scale = torch.ones((1, 1, 1, 1), dtype=torch.float32)
 
-    data_cfg = DataConfig(N=N, gridsize=2, max_neighbor_distance=0.0)
+    data_cfg = DataConfig(N=N, gridsize=2, group_padding_step=0.0)
     default_cfg = ModelConfig(object_big=True, max_position_jitter=0)
     explicit_cfg = ModelConfig(object_big=True, max_position_jitter=0,
                                training_patch_weighting='central_mask')
@@ -273,7 +273,7 @@ def test_probe_helper_offset_seam_two_patch_geometry():
     2.2 tests only used offset=0)."""
     N, C, M = 8, 4, 16
     a, b = 1.0, 3.0
-    data_cfg = DataConfig(N=N, gridsize=2, max_neighbor_distance=0.0)
+    data_cfg = DataConfig(N=N, gridsize=2, group_padding_step=0.0)
     model_cfg = ModelConfig(max_position_jitter=0)
 
     inputs = torch.stack([
@@ -314,7 +314,7 @@ def test_probe_helper_padded_size_none_uses_get_padded_size():
     ``get_padded_size(data_config, model_config)`` (2.2 tests always passed an
     explicit padded_size)."""
     N = 8
-    data_cfg = DataConfig(N=N, gridsize=2, max_neighbor_distance=3.0)
+    data_cfg = DataConfig(N=N, gridsize=2, group_padding_step=3.0)
     model_cfg = ModelConfig(max_position_jitter=0)
 
     expected_M = hh.get_padded_size(data_cfg, model_cfg)
@@ -339,7 +339,7 @@ def test_probe_helper_multimode_probe_sums_over_modes():
     Exercises the ``torch.sum(torch.abs(probe)**2, dim=2)`` line (2.2 tests were
     P=1 only)."""
     N, C = 8, 4
-    data_cfg = DataConfig(N=N, gridsize=2, max_neighbor_distance=0.0)
+    data_cfg = DataConfig(N=N, gridsize=2, group_padding_step=0.0)
     model_cfg = ModelConfig(max_position_jitter=0)
 
     # Four fully-overlapping patches: two value 1, two value 5.
@@ -402,7 +402,7 @@ def test_probe_helper_multimode_probe_sums_over_modes():
 def test_probe_helper_batch_broadcast_layout_weights_equal_probe_intensity():
     """A direct ``(B, H, W)`` probe must match its modes-layout expansion."""
     N, C, B = 8, 4, 2
-    data_cfg = DataConfig(N=N, gridsize=2, max_neighbor_distance=0.0)
+    data_cfg = DataConfig(N=N, gridsize=2, group_padding_step=0.0)
     model_cfg = ModelConfig(max_position_jitter=0)
 
     # Distinct per-(b,c) patch values so channel/batch ordering matters.
@@ -437,7 +437,7 @@ def test_probe_helper_batch_broadcast_layout_weights_equal_probe_intensity():
 def test_probe_helper_bare_hw_layout_weights_equal_probe_intensity():
     """A direct ``(H, W)`` probe must match its modes-layout expansion."""
     N, C, B = 8, 4, 2
-    data_cfg = DataConfig(N=N, gridsize=2, max_neighbor_distance=0.0)
+    data_cfg = DataConfig(N=N, gridsize=2, group_padding_step=0.0)
     model_cfg = ModelConfig(max_position_jitter=0)
 
     inputs = torch.arange(1, B * C + 1, dtype=torch.float32).reshape(B, C, 1, 1)
@@ -465,7 +465,7 @@ def test_object_big_shared_multimode_probe_expands_across_batch_and_channels():
     """A documented shared ``(1,1,P,H,W)`` probe must weight every object_big
     patch identically to explicit ``(B,C,P,H,W)`` expansion."""
     N, B, C, P = 8, 2, 4, 2
-    data_cfg = DataConfig(N=N, gridsize=2, max_neighbor_distance=0.0)
+    data_cfg = DataConfig(N=N, gridsize=2, group_padding_step=0.0)
     model_cfg = ModelConfig(
         object_big=True,
         training_patch_weighting="probe",
@@ -512,7 +512,7 @@ def test_probe_helper_batch_broadcast_hand_built_weighted_average():
     """(a'') Independent hand-built oracle: two fully-overlapping patches per
     batch, probe intensities w0 and w1, merged center == (v0*w0 + v1*w1)/(w0+w1)."""
     N, C = 8, 4
-    data_cfg = DataConfig(N=N, gridsize=2, max_neighbor_distance=0.0)
+    data_cfg = DataConfig(N=N, gridsize=2, group_padding_step=0.0)
     model_cfg = ModelConfig(max_position_jitter=0)
 
     v0, v1 = 1.0, 5.0
@@ -543,7 +543,7 @@ def test_probe_helper_uniform_weighting_byte_identical_with_plain_probe():
     plain-layout probe (or a modes probe, or None) yields byte-identical output.
     Pins the uniform path against pre-captured values so a regression is caught."""
     N, C, B = 8, 4, 2
-    data_cfg = DataConfig(N=N, gridsize=2, max_neighbor_distance=0.0)
+    data_cfg = DataConfig(N=N, gridsize=2, group_padding_step=0.0)
     model_cfg = ModelConfig(max_position_jitter=0)
 
     inputs = torch.arange(1, B * C + 1, dtype=torch.float32).reshape(B, C, 1, 1)
@@ -576,7 +576,7 @@ def test_probe_helper_rejects_unsupported_probe_ndim():
     ValueError naming the received shape and the accepted layout families,
     not silently mis-weight or crash inside F.pad."""
     N, C = 8, 1
-    data_cfg = DataConfig(N=N, gridsize=1, max_neighbor_distance=0.0)
+    data_cfg = DataConfig(N=N, gridsize=1, group_padding_step=0.0)
     model_cfg = ModelConfig(max_position_jitter=0)
 
     inputs = torch.ones((1, C, N, N), dtype=torch.complex64)

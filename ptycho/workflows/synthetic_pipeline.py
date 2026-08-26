@@ -622,7 +622,7 @@ def _assert_stage_identity(
     current: Mapping[str, Any],
     manifest: Mapping[str, Any],
 ) -> None:
-    for name in ("schema_version", "profile", "recipe_version"):
+    for name in ("schema_version", "grouping_contract", "profile", "recipe_version"):
         difference = _first_difference(recorded.get(name), current.get(name), name)
         if difference is not None:
             raise ValueError(f"{difference} conflicts with reusable {stage} identity")

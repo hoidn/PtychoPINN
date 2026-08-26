@@ -36,7 +36,7 @@ def _build_model_and_batch(*, use_legacy_decoder_channel_override=False):
     images = torch.rand((B, C, N, N), generator=gen, dtype=torch.float32)
 
     # Small 2x2-grid-like offsets (pixels) plus per-sample jitter, consistent with
-    # DataConfig.max_neighbor_distance=3.0.
+    # DataConfig.group_padding_step=3.0.
     base_offsets = torch.tensor([[-2.0, -2.0], [-2.0, 2.0], [2.0, -2.0], [2.0, 2.0]])
     jitter = (torch.rand((B, C, 2), generator=gen) - 0.5) * 0.5
     positions = (base_offsets.unsqueeze(0) + jitter).unsqueeze(2)  # (B, C, 1, 2)

@@ -52,8 +52,6 @@ def _public_config_from_synthetic(request: Any) -> TrainingConfig:
         train_raw_selection=training.train_raw_selection,
         subsample_seed=training.subsample_seed,
         neighbor_count=training.neighbor_count,
-        enable_oversampling=training.enable_oversampling,
-        neighbor_pool_size=training.neighbor_pool_size,
         output_dir=Path(request.output_dir),
         sequential_sampling=training.sequential_sampling,
         backend="pytorch",
@@ -243,8 +241,6 @@ def _validate_payload_selection_identity(
         "train_raw_selection",
         "subsample_seed",
         "neighbor_count",
-        "enable_oversampling",
-        "neighbor_pool_size",
         "sequential_sampling",
         "nphotons",
     )

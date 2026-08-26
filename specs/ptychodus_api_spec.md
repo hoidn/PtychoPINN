@@ -298,6 +298,15 @@ Scaling
 Archive identification and backend tagging
 - File name: Model archives SHALL use the canonical base name `wts.h5` with a zip extension, i.e. `wts.h5.zip`.
 - Manifest: TensorFlow archives SHALL include a `manifest.dill` at the root with, at minimum, `{'models': [...], 'version': 'X.Y'}`.
+  Newly written TensorFlow archives SHALL use `{'models': [...], 'version': '2.0', 'grouping_contract': 'centered-nearest-v1'}`
+  (the `CENTERED_NEAREST_GROUPING_CONTRACT` marker from `ptycho.grouping`); per-role `params.dill` versions and model
+  formats are unchanged. The loader SHALL read the root manifest and every listed role's `params.dill` and validate the
+  grouping identity BEFORE constructing or loading any model: every role MUST provide one agreeing `gridsize`; version
+  `1.0` is accepted only when `C = gridsize² = 1` (projected in memory only — archive bytes remain untouched) and rejected
+  with a retraining instruction when `C > 1`; version `2.0` requires the exact centered marker. Missing `gridsize`,
+  conflicting role gridsizes, unsupported versions, and missing/unknown v2 markers are rejected before model construction.
+  Accepted loads expose `params.cfg['grouping_contract']` in memory. The preflight reads only each role's `params.dill`;
+  unused roles' model payloads are still not deserialized.
   PyTorch archives SHALL instead include a `manifest.json` at the root with, at minimum, `{'models': [...], 'version': 'X.Y'}`, an
   explicit `manifest_version` marker (currently `'torch-manifest-v1'`), and `backend: 'pytorch'`; TensorFlow MAY omit `backend`
   and defaults to `'tensorflow'`. Per-model config projections are stored as `params.json` (PyTorch) rather than `params.dill`.
@@ -306,17 +315,21 @@ Archive identification and backend tagging
 - Contents: TensorFlow archives contain Keras/SavedModel payloads and serialized custom objects; PyTorch archives contain Lightning
   `.ckpt` payload(s) and serialized hyperparameters required for state-free reload. The outer archive structure remains identical.
 - PyTorch object-policy identity: newly written PyTorch archives use
-  `artifact_schema_version='torch-artifact-v4'` (the current write era) and a
-  nested `torch-model-spec-v3`. The outer archive version remains `2.0-pytorch`
+  `artifact_schema_version='torch-artifact-v5'` (the current write era), carry
+  the `grouping_contract='centered-nearest-v1'` marker, and a nested
+  `torch-model-spec-v3`. The outer archive version remains `2.0-pytorch`
   and the exact model roles remain `autoencoder` and `diffraction_to_obj`.
 - Runtime decoding: the PyTorch runtime load paths accept only
-  `torch-artifact-v3` and `torch-artifact-v4`. `torch-artifact-v1` and
-  `torch-artifact-v2` are immutable historical schemas; the runtime rejects
-  them with an error naming `python -m ptycho_torch.migrate_bundle`, which
-  deterministically upgrades them to the current era before model construction
-  or state loading. TensorFlow archive version `1.0` and its flat derived
-  `object.big` value are unchanged. Old installed binaries are not required to
-  read new v4 PyTorch artifacts.
+  `torch-artifact-v3`, `torch-artifact-v4`, and `torch-artifact-v5`.
+  `torch-artifact-v1` and `torch-artifact-v2` are immutable historical
+  schemas; the runtime rejects them with an error naming
+  `python -m ptycho_torch.migrate_bundle`, which deterministically upgrades
+  them to the current era before model construction or state loading.
+  TensorFlow archive version `1.0` and its flat derived `object.big` value are
+  unchanged on disk: v1 C1 bundles load in memory only and are never rewritten,
+  and v1 C>1 bundles require retraining into the v2 centered-nearest era.
+  Old installed binaries are not required to read new v5 PyTorch
+  artifacts.
 - Cross-backend loading: Not required. When unsupported, loaders MUST raise a descriptive error stating the archived backend and
   the active loader backend.
 

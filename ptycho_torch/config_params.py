@@ -39,14 +39,11 @@ class DataConfig:
     N: int = 64  # Size of the diffraction patterns/object patch
     gridsize: int = 2  # Square group side length; C = gridsize**2 derived at consumption
     neighbor_count: int = 6    # Number of nearest neighbors for lookup
-    #Grid parameters specifically for overlap constraint
-    K_quadrant: int = 30 # Number of nearest neighbors for quadrant lookup
+    #Canvas padding for the grouped object patch (centered-nearest grouping
+    #era): sizes the grouped canvas only; no planner reads it.
+    group_padding_step: float = 3.0
     n_raw_frames_selected: int = 7 # Training: raw frames selected before grouping
     subsample_seed: Optional[int] = None # Random seed for reproducible subsampling
-    neighbor_function: Literal['Nearest','Min_dist','4_quadrant'] = 'Nearest'
-    min_neighbor_distance: float = 0.0
-    max_neighbor_distance: float = 3.0
-    scan_pattern: Literal['Isotropic', 'Rectangular'] = 'Isotropic' # Scan pattern, used for 4_quadrant neighbor function
 
     #Miscellaneous
     normalize: Literal['Group', 'Batch', 'None'] = 'Batch' # Whether to normalize the data
@@ -58,6 +55,13 @@ class DataConfig:
     #Bounding parameters for scan positions
     x_bounds: Tuple[float, float] = (0.1,0.9)
     y_bounds: Tuple[float, float] = (0.1,0.9)
+
+    def __post_init__(self):
+        """Validate the centered canvas sizing field."""
+        if not math.isfinite(self.group_padding_step) or self.group_padding_step < 0.0:
+            raise ValueError(
+                "group_padding_step must be finite and nonnegative"
+            )
 
 @dataclass
 class ModelConfig:

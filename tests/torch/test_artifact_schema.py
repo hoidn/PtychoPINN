@@ -426,17 +426,18 @@ def test_transitional_ci_entrypoints_bundle_upgrades_and_strict_loads(tmp_path):
         )
 
 
-def _read_frozen_v1():
+def _read_frozen_artifact(name: str):
     import json
     from pathlib import Path
 
-    fixture = (
-        Path(__file__).parents[1]
-        / "fixtures"
-        / "config"
-        / "pydantic_pre_migration_torch_artifact_v1.json"
-    )
+    fixture = Path(__file__).parents[1] / "fixtures" / "config" / name
     return json.loads(fixture.read_text(encoding="utf-8"))
+
+
+def _read_frozen_v1():
+    return _read_frozen_artifact(
+        "pydantic_pre_migration_torch_artifact_v1.json"
+    )
 
 
 def test_unfaithful_legacy_data_channel_identity_rejects_typed():
@@ -445,10 +446,12 @@ def test_unfaithful_legacy_data_channel_identity_rejects_typed():
         from_json_payload,
     )
 
+    # Single-channel grid keeps the centered-nearest gate open so the
+    # stored-C faithfulness check is what rejects.
     raw = _read_frozen_v1()
-    raw["data_config"]["C"] = 7  # faithful gridsize**2 == 4
+    raw["data_config"]["grid_size"] = [1, 1]  # C stays 4 -> unfaithful
 
-    with pytest.raises(ValueError, match=r"C=7.*gridsize\*\*2=4"):
+    with pytest.raises(ValueError, match=r"C=4.*gridsize\*\*2=1"):
         decode_artifact_identity(from_json_payload(raw))
 
 
@@ -458,12 +461,72 @@ def test_unfaithful_legacy_model_channel_identity_rejects_typed():
         from_json_payload,
     )
 
+    # Single-channel grid keeps the centered-nearest gate open so the
+    # stored-C_model faithfulness check is what rejects.
     raw = _read_frozen_v1()
-    raw["model_spec"]["model_config"]["C_model"] = 9  # faithful gridsize**2 == 4
+    raw["data_config"]["grid_size"] = [1, 1]
+    raw["data_config"]["C"] = 1
+    raw["model_spec"]["model_config"]["C_model"] = 9  # faithful gridsize**2 == 1
+    raw["model_spec"]["model_config"]["C_forward"] = 9
+
+    with pytest.raises(ValueError, match=r"C_model=9.*gridsize\*\*2=1"):
+        decode_artifact_identity(from_json_payload(raw))
+
+
+@pytest.mark.parametrize(
+    "fixture_name",
+    [
+        "pydantic_pre_migration_torch_artifact_v1.json",
+        "pydantic_pre_migration_torch_artifact_v2.json",
+    ],
+)
+def test_unfaithful_legacy_data_channel_wins_over_centered_retrain_gate(
+    fixture_name: str,
+) -> None:
+    """Raw v1/v2 stored-C disagreement is reported before the centered gate."""
+    from ptycho_torch.artifact_schema import (
+        decode_artifact_identity,
+        from_json_payload,
+    )
+
+    raw = _read_frozen_artifact(fixture_name)
+    # grid_size [2,2] would trip the centered-nearest retrain gate (derived
+    # C=4); the raw stored-C faithfulness error must win.
+    raw["data_config"]["C"] = 3
+
+    with pytest.raises(ValueError, match=r"C=3.*gridsize\*\*2=4"):
+        decode_artifact_identity(from_json_payload(raw))
+
+
+def test_unfaithful_legacy_model_channel_wins_over_centered_retrain_gate() -> None:
+    from ptycho_torch.artifact_schema import (
+        decode_artifact_identity,
+        from_json_payload,
+    )
+
+    raw = _read_frozen_v1()
+    # Stored data C stays faithful to grid_size [2,2]; only the model channel
+    # disagrees. The model faithfulness error must win over the centered gate.
+    raw["model_spec"]["model_config"]["C_model"] = 9
     raw["model_spec"]["model_config"]["C_forward"] = 9
 
     with pytest.raises(ValueError, match=r"C_model=9.*gridsize\*\*2=4"):
         decode_artifact_identity(from_json_payload(raw))
+
+
+def test_unversioned_legacy_channel_faithfulness_wins_over_centered_retrain_gate() -> None:
+    from ptycho_torch.artifact_schema import upgrade_unversioned_sections
+
+    raw = _read_frozen_v1()
+    raw["data_config"]["C"] = 3
+
+    with pytest.raises(ValueError, match=r"C=3.*gridsize\*\*2=4"):
+        upgrade_unversioned_sections(
+            data_config=raw["data_config"],
+            model_config=raw["model_spec"]["model_config"],
+            training_config=raw["training_config"],
+            inference_config=raw["inference_config"],
+        )
 
 
 def test_ensure_supported_artifact_schema_version_accepts_every_supported_era():
@@ -487,10 +550,11 @@ def test_ensure_supported_artifact_schema_version_rejects_unknown_naming_migrato
         )
 
 
-def test_runtime_supported_versions_are_exactly_v3_v4():
+def test_runtime_supported_versions_are_exactly_v3_v4_v5():
     from ptycho_torch.artifact_schema import (
         ARTIFACT_SCHEMA_V3_VERSION,
         ARTIFACT_SCHEMA_V4_VERSION,
+        ARTIFACT_SCHEMA_V5_VERSION,
         RUNTIME_SUPPORTED_ARTIFACT_SCHEMA_VERSIONS,
         SUPPORTED_ARTIFACT_SCHEMA_VERSIONS,
     )
@@ -498,6 +562,7 @@ def test_runtime_supported_versions_are_exactly_v3_v4():
     assert RUNTIME_SUPPORTED_ARTIFACT_SCHEMA_VERSIONS == (
         ARTIFACT_SCHEMA_V3_VERSION,
         ARTIFACT_SCHEMA_V4_VERSION,
+        ARTIFACT_SCHEMA_V5_VERSION,
     )
     # The runtime set is a strict suffix of the full historical list the
     # migrator keeps; it never admits an era the migrator cannot.

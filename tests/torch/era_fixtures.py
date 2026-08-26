@@ -86,12 +86,85 @@ def _identity_parts():
     return spec, data, training, inference
 
 
-def v4_payload() -> dict:
-    """A current-era ``torch-artifact-v4`` payload from the live encoder."""
+def v5_payload() -> dict:
+    """A current-era ``torch-artifact-v5`` payload from the live encoder."""
     from ptycho_torch.artifact_schema import encode_artifact_identity
 
     spec, data, training, inference = _identity_parts()
     return encode_artifact_identity(spec, data, training, inference)
+
+
+def v4_payload() -> dict:
+    """A synthesized C1 ``torch-artifact-v4`` payload (pre-centered wire).
+
+    The v4 era stored the retired K-choose-C policy fields in the data
+    section and had no ``grouping_contract`` marker. Synthesized from the
+    current dataclasses with those spellings restored so the v4->v5 upgrade
+    path is exercised end to end.
+    """
+    from ptycho_torch.artifact_schema import (
+        ARTIFACT_V4_DATA_FIELDS,
+        ARTIFACT_V4_INFERENCE_FIELDS,
+        ARTIFACT_V4_TRAINING_FIELDS,
+    )
+
+    spec, data, training, inference = _identity_parts()
+    data_values = asdict(data)
+    data_values["K_quadrant"] = 30
+    data_values["neighbor_function"] = "Nearest"
+    data_values["min_neighbor_distance"] = 0.0
+    data_values["max_neighbor_distance"] = 3.0
+    data_values["scan_pattern"] = "Isotropic"
+    data_wire = {name: data_values[name] for name in ARTIFACT_V4_DATA_FIELDS}
+    training_wire = {
+        name: asdict(training)[name] for name in ARTIFACT_V4_TRAINING_FIELDS
+    }
+    inference_wire = {
+        name: asdict(inference)[name] for name in ARTIFACT_V4_INFERENCE_FIELDS
+    }
+    return {
+        "backend": "pytorch",
+        "schema_version": "torch-artifact-v4",
+        "model_spec": spec.to_payload(),
+        "data_config": data_wire,
+        "training_config": training_wire,
+        "inference_config": inference_wire,
+        "ci_statistics": None,
+    }
+
+
+def v3_c4_payload() -> dict:
+    """A C>1 (gridsize=2) variant of the synthesized v3 payload."""
+    payload = v3_payload()
+    payload["data_config"]["gridsize"] = 2
+    return payload
+
+
+def v4_c4_payload() -> dict:
+    """A C>1 (gridsize=2) variant of the synthesized v4 payload."""
+    payload = v4_payload()
+    payload["data_config"]["gridsize"] = 2
+    return payload
+
+
+def v1_c1_payload() -> dict:
+    """A C1 variant of the frozen v1 payload (single-channel upgrade path)."""
+    payload = v1_payload()
+    payload["data_config"]["grid_size"] = [1, 1]
+    payload["data_config"]["C"] = 1
+    payload["model_spec"]["model_config"]["C_model"] = 1
+    payload["model_spec"]["model_config"]["C_forward"] = 1
+    return payload
+
+
+def v2_c1_payload() -> dict:
+    """A C1 variant of the frozen v2 payload (single-channel upgrade path)."""
+    payload = v2_payload()
+    payload["data_config"]["grid_size"] = [1, 1]
+    payload["data_config"]["C"] = 1
+    payload["model_spec"]["model_config"]["C_model"] = 1
+    payload["model_spec"]["model_config"]["C_forward"] = 1
+    return payload
 
 
 def v3_payload() -> dict:
@@ -112,6 +185,11 @@ def v3_payload() -> dict:
     data_values = asdict(data)
     data_values["K"] = 7
     data_values["groups_per_center"] = 3
+    data_values["K_quadrant"] = 30
+    data_values["neighbor_function"] = "Nearest"
+    data_values["min_neighbor_distance"] = 0.0
+    data_values["max_neighbor_distance"] = 3.0
+    data_values["scan_pattern"] = "Isotropic"
     data_wire = {name: data_values[name] for name in ARTIFACT_V3_DATA_FIELDS}
     training_values = asdict(training)
     training_values["n_groups"] = 4
@@ -205,8 +283,8 @@ def mismatched_v2_bundle(tmp_path: Path) -> Path:
 
 
 
-def v4_bundle(tmp_path: Path) -> Path:
-    """A real current-era (v4) bundle: save + persist scaling metadata + reload."""
+def v5_bundle(tmp_path: Path) -> Path:
+    """A real current-era (v5) bundle: save + persist scaling metadata + reload."""
     from ptycho.config.config import ModelConfig as CanonicalModelConfig
     from ptycho.config.config import TrainingConfig as CanonicalTrainingConfig
     from ptycho_torch.application_factory import build_ptychopinn_application
@@ -215,7 +293,7 @@ def v4_bundle(tmp_path: Path) -> Path:
 
     spec, data, training, inference = _identity_parts()
     model = build_ptychopinn_application(spec, data, training, inference)
-    bundle_dir = tmp_path / "era-v4"
+    bundle_dir = tmp_path / "era-v5"
     bundle_dir.mkdir(parents=True, exist_ok=True)
     base_path = bundle_dir / "wts.h5"
     save_torch_bundle(
@@ -228,6 +306,117 @@ def v4_bundle(tmp_path: Path) -> Path:
     )
     _persist_bundle_scaling_metadata(base_path.with_suffix(".h5.zip"), model)
     return bundle_dir
+
+
+def v4_bundle(tmp_path: Path) -> Path:
+    """A frozen v4-era bundle: stamped v4 identity, metadata-decode level."""
+    payload = v4_payload()
+    grid = payload["data_config"]["gridsize"]
+    params = {
+        "_version": "2.0-pytorch",
+        "N": payload["data_config"]["N"],
+        "gridsize": grid,
+        "C": grid * grid,
+    }
+    manifest = {
+        "models": ["autoencoder", "diffraction_to_obj"],
+        "version": "2.0-pytorch",
+        "manifest_version": "torch-manifest-v1",
+        "backend": "pytorch",
+        "artifact_schema_version": "torch-artifact-v4",
+    }
+    buffer = io.BytesIO()
+    torch.save(payload, buffer)
+    members = {
+        "manifest.json": json.dumps(manifest).encode("utf-8"),
+        "torch_scaling_metadata.pt": buffer.getvalue(),
+        "autoencoder/params.json": json.dumps(params).encode("utf-8"),
+        "diffraction_to_obj/params.json": json.dumps(params).encode("utf-8"),
+    }
+    bundle_dir = tmp_path / "era-v4"
+    bundle_dir.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(bundle_dir / "wts.h5.zip", "w", zipfile.ZIP_DEFLATED) as zf:
+        for member, content in members.items():
+            zf.writestr(member, content)
+    return bundle_dir
+
+
+def v1_c1_bundle(tmp_path: Path) -> Path:
+    return _stamp_identity_bundle(
+        tmp_path, "torch-artifact-v1", v1_c1_payload(), "era-v1-c1"
+    )
+
+
+def v3_c4_bundle(tmp_path: Path) -> Path:
+    """A C>1 (gridsize=2) v3-era bundle: stamped v3 identity, no weights."""
+    payload = v3_c4_payload()
+    grid = payload["data_config"]["gridsize"]
+    params = {
+        "_version": "2.0-pytorch",
+        "N": payload["data_config"]["N"],
+        "gridsize": grid,
+        "C": grid * grid,
+    }
+    manifest = {
+        "models": ["autoencoder", "diffraction_to_obj"],
+        "version": "2.0-pytorch",
+        "manifest_version": "torch-manifest-v1",
+        "backend": "pytorch",
+        "artifact_schema_version": "torch-artifact-v3",
+    }
+    buffer = io.BytesIO()
+    torch.save(payload, buffer)
+    members = {
+        "manifest.json": json.dumps(manifest).encode("utf-8"),
+        "torch_scaling_metadata.pt": buffer.getvalue(),
+        "autoencoder/params.json": json.dumps(params).encode("utf-8"),
+        "diffraction_to_obj/params.json": json.dumps(params).encode("utf-8"),
+    }
+    bundle_dir = tmp_path / "era-v3-c4"
+    bundle_dir.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(bundle_dir / "wts.h5.zip", "w", zipfile.ZIP_DEFLATED) as zf:
+        for member, content in members.items():
+            zf.writestr(member, content)
+    return bundle_dir
+
+
+def v4_c4_bundle(tmp_path: Path) -> Path:
+    """A C>1 (gridsize=2) v4-era bundle: stamped v4 identity, no weights."""
+    payload = v4_c4_payload()
+    grid = payload["data_config"]["gridsize"]
+    params = {
+        "_version": "2.0-pytorch",
+        "N": payload["data_config"]["N"],
+        "gridsize": grid,
+        "C": grid * grid,
+    }
+    manifest = {
+        "models": ["autoencoder", "diffraction_to_obj"],
+        "version": "2.0-pytorch",
+        "manifest_version": "torch-manifest-v1",
+        "backend": "pytorch",
+        "artifact_schema_version": "torch-artifact-v4",
+    }
+    buffer = io.BytesIO()
+    torch.save(payload, buffer)
+    members = {
+        "manifest.json": json.dumps(manifest).encode("utf-8"),
+        "torch_scaling_metadata.pt": buffer.getvalue(),
+        "autoencoder/params.json": json.dumps(params).encode("utf-8"),
+        "diffraction_to_obj/params.json": json.dumps(params).encode("utf-8"),
+    }
+    bundle_dir = tmp_path / "era-v4-c4"
+    bundle_dir.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(bundle_dir / "wts.h5.zip", "w", zipfile.ZIP_DEFLATED) as zf:
+        for member, content in members.items():
+            zf.writestr(member, content)
+    return bundle_dir
+
+
+def v2_c1_bundle(tmp_path: Path) -> Path:
+    return _stamp_identity_bundle(
+        tmp_path, "torch-artifact-v2", v2_c1_payload(), "era-v2-c1"
+    )
 
 
 def v3_bundle(tmp_path: Path) -> Path:
@@ -318,6 +507,11 @@ def _legacy_shaped_sections(data, model_config) -> tuple[dict, dict]:
         "grid_size": (gridsize, gridsize),
         "n_subsample": current_data["n_raw_frames_selected"],
         "K": current_data["neighbor_count"],
+        "K_quadrant": 30,
+        "neighbor_function": "Nearest",
+        "min_neighbor_distance": 0.0,
+        "max_neighbor_distance": 3.0,
+        "scan_pattern": "Isotropic",
     }
     legacy_data = {
         name: legacy_values[name] if name in legacy_values else current_data[name]

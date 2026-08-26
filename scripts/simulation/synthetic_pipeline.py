@@ -157,8 +157,6 @@ def build_parser() -> argparse.ArgumentParser:
     training.add_argument("--training-groups", type=int)
     training.add_argument("--validation-groups", type=int)
     training.add_argument("--neighbor-count", type=int)
-    training.add_argument("--neighbor-pool-size", type=int)
-    training.add_argument("--oversampling", action=argparse.BooleanOptionalAction)
     training.add_argument(
         "--sequential-sampling", action=argparse.BooleanOptionalAction
     )
@@ -341,8 +339,6 @@ _ARG_PATHS: dict[str, tuple[str, ...]] = {
     "training_groups": ("training", "training_groups"),
     "validation_groups": ("training", "validation_groups"),
     "neighbor_count": ("training", "neighbor_count"),
-    "neighbor_pool_size": ("training", "neighbor_pool_size"),
-    "oversampling": ("training", "enable_oversampling"),
     "sequential_sampling": ("training", "sequential_sampling"),
     "epochs": ("training", "epochs"),
     "batch_size": ("training", "batch_size"),

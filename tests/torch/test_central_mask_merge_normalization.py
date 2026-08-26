@@ -27,11 +27,11 @@ from ptycho_torch.config_params import DataConfig, ModelConfig
 N = 32
 C = 4
 GRID = (2, 2)
-MAX_NEIGHBOR = 4.0  # -> get_bigN = N + (2-1)*4 = 36 padded canvas
+MAX_PADDING = 4.0  # -> get_bigN = N + (2-1)*4 = 36 padded canvas
 
 
 def _configs():
-    data_cfg = DataConfig(N=N, gridsize=2, max_neighbor_distance=MAX_NEIGHBOR)
+    data_cfg = DataConfig(N=N, gridsize=2, group_padding_step=MAX_PADDING)
     model_cfg = ModelConfig(object_big=True, max_position_jitter=0)
     return data_cfg, model_cfg
 

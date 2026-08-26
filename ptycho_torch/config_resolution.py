@@ -10,6 +10,7 @@ from types import MappingProxyType
 from typing import Literal, get_args, get_type_hints
 
 from ptycho.config.config import TrainingConfig as PublicTrainingConfig
+from ptycho.config.resolution import retired_grouping_field_diagnostic
 from ptycho_torch.config_params import (
     DataConfig,
     InferenceConfig,
@@ -291,14 +292,10 @@ _TRAINING_INPUTS_BY_OWNER: tuple[
             "measurement_domain",
             "N",
             "neighbor_count",
-            "K_quadrant",
             "n_raw_frames_selected",
             "subsample_seed",
             "gridsize",
-            "neighbor_function",
-            "min_neighbor_distance",
-            "max_neighbor_distance",
-            "scan_pattern",
+            "group_padding_step",
             "normalize",
             "probe_scale",
             "probe_normalize",
@@ -429,8 +426,6 @@ _TRAINING_INPUTS_BY_OWNER: tuple[
     (
         "bridge",
         (
-            "enable_oversampling",
-            "neighbor_pool_size",
             "sequential_sampling",
         ),
     ),
@@ -633,8 +628,14 @@ def _normalize_raw_patch(
     alias_names = {alias for rule in rules for alias in rule.aliases}
     unknown = sorted(set(copied_patch) - canonical_names - alias_names)
     if unknown:
+        diagnostics = [
+            diagnostic
+            for name in unknown
+            if (diagnostic := retired_grouping_field_diagnostic(name)) is not None
+        ]
+        detail = "; " + "; ".join(diagnostics) if diagnostics else ""
         raise ValueError(
-            f"unknown {phase} input field(s): " + ", ".join(unknown)
+            f"unknown {phase} input field(s): " + ", ".join(unknown) + detail
         )
 
     values: dict[str, object] = {}
@@ -992,29 +993,11 @@ def _validate_training_bridge_domains(
     bridge_values: Mapping[str, object],
     data: DataConfig,
 ) -> None:
-    for field_name in ("enable_oversampling", "sequential_sampling"):
-        if field_name in bridge_values:
-            _require_exact_boolean(bridge_values[field_name], field_name)
-
-    neighbor_pool_size = bridge_values.get("neighbor_pool_size")
-    if neighbor_pool_size is not None:
-        neighbor_pool_size = _require_exact_positive_integer(
-            neighbor_pool_size,
-            "neighbor_pool_size",
+    if "sequential_sampling" in bridge_values:
+        _require_exact_boolean(
+            bridge_values["sequential_sampling"],
+            "sequential_sampling",
         )
-
-    enable_oversampling = bridge_values.get("enable_oversampling", False)
-    if enable_oversampling and data.gridsize != 1:
-        effective_pool_size = (
-            data.neighbor_count if neighbor_pool_size is None else neighbor_pool_size
-        )
-        derived_channels = data.gridsize * data.gridsize
-        if effective_pool_size < derived_channels:
-            raise ValueError(
-                "enable_oversampling requires neighbor_pool_size or neighbor_count >= "
-                f"derived C={derived_channels} for gridsize={data.gridsize}, "
-                f"got {effective_pool_size}"
-            )
 
 
 def _loss_identity(torch_loss_mode: object) -> tuple[str, bool]:
@@ -1337,19 +1320,11 @@ def resolve_training_bundle(
         bridge["subsample_seed"] = data.subsample_seed
     bridge_values = {
         name: normalized.values[name]
-        for name in (
-            "enable_oversampling",
-            "neighbor_pool_size",
-            "sequential_sampling",
-        )
+        for name in ("sequential_sampling",)
         if name in normalized.values
     }
     _validate_training_bridge_domains(bridge_values, data)
-    for name in (
-        "enable_oversampling",
-        "neighbor_pool_size",
-        "sequential_sampling",
-    ):
+    for name in ("sequential_sampling",):
         if name in bridge_values:
             bridge[name] = bridge_values[name]
 

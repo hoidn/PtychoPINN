@@ -8,6 +8,7 @@ from typing import Any, Mapping, Optional
 
 import torch
 
+from ptycho.grouping import CENTERED_NEAREST_GROUPING_CONTRACT
 from ptycho_torch.config_bridge import to_model_config
 from ptycho_torch.config_params import (
     DataConfig,
@@ -37,16 +38,19 @@ ARTIFACT_SCHEMA_V1_VERSION = "torch-artifact-v1"
 ARTIFACT_SCHEMA_V2_VERSION = "torch-artifact-v2"
 ARTIFACT_SCHEMA_V3_VERSION = "torch-artifact-v3"
 ARTIFACT_SCHEMA_V4_VERSION = "torch-artifact-v4"
-CURRENT_ARTIFACT_SCHEMA_VERSION = ARTIFACT_SCHEMA_V4_VERSION
+ARTIFACT_SCHEMA_V5_VERSION = "torch-artifact-v5"
+CURRENT_ARTIFACT_SCHEMA_VERSION = ARTIFACT_SCHEMA_V5_VERSION
 SUPPORTED_ARTIFACT_SCHEMA_VERSIONS = (
     ARTIFACT_SCHEMA_V1_VERSION,
     ARTIFACT_SCHEMA_V2_VERSION,
     ARTIFACT_SCHEMA_V3_VERSION,
     ARTIFACT_SCHEMA_V4_VERSION,
+    ARTIFACT_SCHEMA_V5_VERSION,
 )
 RUNTIME_SUPPORTED_ARTIFACT_SCHEMA_VERSIONS = (
     ARTIFACT_SCHEMA_V3_VERSION,
     ARTIFACT_SCHEMA_V4_VERSION,
+    ARTIFACT_SCHEMA_V5_VERSION,
 )
 TORCH_BUNDLE_VERSION = "2.0-pytorch"
 TORCH_MANIFEST_JSON_VERSION = "torch-manifest-v1"
@@ -154,39 +158,54 @@ ARTIFACT_V4_TRAINING_FIELDS = (
 )
 ARTIFACT_V4_INFERENCE_FIELDS = ARTIFACT_V1_INFERENCE_FIELDS
 
+# Declared v5-era section schemas (centered-nearest grouping). Data drops the
+# K-choose-C oversampling family (K_quadrant, neighbor_function,
+# min/max_neighbor_distance, scan_pattern) and carries group_padding_step
+# instead. Training and inference are unchanged from v4 and alias the frozen
+# literals.
+ARTIFACT_V5_DATA_FIELDS = (
+    "nphotons", "scale_contract_version", "measurement_domain", "N",
+    "gridsize", "neighbor_count", "group_padding_step",
+    "n_raw_frames_selected", "subsample_seed", "normalize", "probe_scale",
+    "probe_normalize", "data_scaling", "phase_subtraction", "x_bounds",
+    "y_bounds",
+)
+ARTIFACT_V5_TRAINING_FIELDS = ARTIFACT_V4_TRAINING_FIELDS
+ARTIFACT_V5_INFERENCE_FIELDS = ARTIFACT_V1_INFERENCE_FIELDS
+
 def _derive_fields(config_type) -> tuple[str, ...]:
-    """Persisted-dataclass field names in declaration order (the v4 wire shape)."""
+    """Persisted-dataclass field names in declaration order (the v5 wire shape)."""
     return tuple(field.name for field in fields(config_type))
 
 
-# Derived current-era (v4) section schemas (W2.2): the only writable era's wire
+# Derived current-era (v5) section schemas (W2.2): the only writable era's wire
 # shape is exactly the persisted torch dataclass fields. Runtime encode/decode
-# consumes these derived tuples; the v4 DATA/TRAINING literals above are
-# retained this release only as the transition-assert target and are scheduled
-# for deletion next release (they become these derived tuples, not literals).
-_DERIVED_V4_DATA_FIELDS = _derive_fields(DataConfig)
-_DERIVED_V4_TRAINING_FIELDS = _derive_fields(TrainingConfig)
-_DERIVED_V4_INFERENCE_FIELDS = _derive_fields(InferenceConfig)
+# consumes these derived tuples; the v4 DATA/TRAINING literals above are frozen
+# (they encode the pre-centered wire) and stay independent of dataclass
+# reflection.
+_DERIVED_V5_DATA_FIELDS = _derive_fields(DataConfig)
+_DERIVED_V5_TRAINING_FIELDS = _derive_fields(TrainingConfig)
+_DERIVED_V5_INFERENCE_FIELDS = _derive_fields(InferenceConfig)
 
 # W1.1 import-time totality tripwire, re-expressed as the W2.2 transition
-# assert (derived == literal): the v4 tuples guard the only writable era, so
+# assert (derived == literal): the v5 tuples guard the only writable era, so
 # their content must exactly equal the persisted torch dataclass fields. A
 # dataclass field addition/rename fails here at import instead of silently
 # drifting the decode schema.
-assert set(_DERIVED_V4_DATA_FIELDS) == set(ARTIFACT_V4_DATA_FIELDS), (
-    "ARTIFACT_V4_DATA_FIELDS drifted from DataConfig fields: "
-    f"extra={sorted(set(ARTIFACT_V4_DATA_FIELDS) - set(_DERIVED_V4_DATA_FIELDS))} "
-    f"missing={sorted(set(_DERIVED_V4_DATA_FIELDS) - set(ARTIFACT_V4_DATA_FIELDS))}"
+assert set(_DERIVED_V5_DATA_FIELDS) == set(ARTIFACT_V5_DATA_FIELDS), (
+    "ARTIFACT_V5_DATA_FIELDS drifted from DataConfig fields: "
+    f"extra={sorted(set(ARTIFACT_V5_DATA_FIELDS) - set(_DERIVED_V5_DATA_FIELDS))} "
+    f"missing={sorted(set(_DERIVED_V5_DATA_FIELDS) - set(ARTIFACT_V5_DATA_FIELDS))}"
 )
-assert set(_DERIVED_V4_TRAINING_FIELDS) == set(ARTIFACT_V4_TRAINING_FIELDS), (
-    "ARTIFACT_V4_TRAINING_FIELDS drifted from TrainingConfig fields: "
-    f"extra={sorted(set(ARTIFACT_V4_TRAINING_FIELDS) - set(_DERIVED_V4_TRAINING_FIELDS))} "
-    f"missing={sorted(set(_DERIVED_V4_TRAINING_FIELDS) - set(ARTIFACT_V4_TRAINING_FIELDS))}"
+assert set(_DERIVED_V5_TRAINING_FIELDS) == set(ARTIFACT_V5_TRAINING_FIELDS), (
+    "ARTIFACT_V5_TRAINING_FIELDS drifted from TrainingConfig fields: "
+    f"extra={sorted(set(ARTIFACT_V5_TRAINING_FIELDS) - set(_DERIVED_V5_TRAINING_FIELDS))} "
+    f"missing={sorted(set(_DERIVED_V5_TRAINING_FIELDS) - set(ARTIFACT_V5_TRAINING_FIELDS))}"
 )
-assert set(_DERIVED_V4_INFERENCE_FIELDS) == set(ARTIFACT_V4_INFERENCE_FIELDS), (
-    "ARTIFACT_V4_INFERENCE_FIELDS drifted from InferenceConfig fields: "
-    f"extra={sorted(set(ARTIFACT_V4_INFERENCE_FIELDS) - set(_DERIVED_V4_INFERENCE_FIELDS))} "
-    f"missing={sorted(set(_DERIVED_V4_INFERENCE_FIELDS) - set(ARTIFACT_V4_INFERENCE_FIELDS))}"
+assert set(_DERIVED_V5_INFERENCE_FIELDS) == set(ARTIFACT_V5_INFERENCE_FIELDS), (
+    "ARTIFACT_V5_INFERENCE_FIELDS drifted from InferenceConfig fields: "
+    f"extra={sorted(set(ARTIFACT_V5_INFERENCE_FIELDS) - set(_DERIVED_V5_INFERENCE_FIELDS))} "
+    f"missing={sorted(set(_DERIVED_V5_INFERENCE_FIELDS) - set(ARTIFACT_V5_INFERENCE_FIELDS))}"
 )
 
 
@@ -197,6 +216,7 @@ class DecodedArtifactIdentity:
     training_config: TrainingConfig
     inference_config: InferenceConfig
     ci_statistics: Optional[dict[str, list[float]]]
+    grouping_contract: Optional[str] = None
 
 
 def _config_field_names(config_type) -> set[str]:
@@ -246,19 +266,22 @@ _DATA_FIELDS_BY_ERA = {
     ARTIFACT_SCHEMA_V1_VERSION: ARTIFACT_V1_DATA_FIELDS,
     ARTIFACT_SCHEMA_V2_VERSION: ARTIFACT_V2_DATA_FIELDS,
     ARTIFACT_SCHEMA_V3_VERSION: ARTIFACT_V3_DATA_FIELDS,
-    ARTIFACT_SCHEMA_V4_VERSION: _DERIVED_V4_DATA_FIELDS,
+    ARTIFACT_SCHEMA_V4_VERSION: ARTIFACT_V4_DATA_FIELDS,
+    ARTIFACT_SCHEMA_V5_VERSION: _DERIVED_V5_DATA_FIELDS,
 }
 _TRAINING_FIELDS_BY_ERA = {
     ARTIFACT_SCHEMA_V1_VERSION: ARTIFACT_V1_TRAINING_FIELDS,
     ARTIFACT_SCHEMA_V2_VERSION: ARTIFACT_V2_TRAINING_FIELDS,
     ARTIFACT_SCHEMA_V3_VERSION: ARTIFACT_V3_TRAINING_FIELDS,
-    ARTIFACT_SCHEMA_V4_VERSION: _DERIVED_V4_TRAINING_FIELDS,
+    ARTIFACT_SCHEMA_V4_VERSION: ARTIFACT_V4_TRAINING_FIELDS,
+    ARTIFACT_SCHEMA_V5_VERSION: _DERIVED_V5_TRAINING_FIELDS,
 }
 _INFERENCE_FIELDS_BY_ERA = {
     ARTIFACT_SCHEMA_V1_VERSION: ARTIFACT_V1_INFERENCE_FIELDS,
     ARTIFACT_SCHEMA_V2_VERSION: ARTIFACT_V2_INFERENCE_FIELDS,
     ARTIFACT_SCHEMA_V3_VERSION: ARTIFACT_V3_INFERENCE_FIELDS,
-    ARTIFACT_SCHEMA_V4_VERSION: _DERIVED_V4_INFERENCE_FIELDS,
+    ARTIFACT_SCHEMA_V4_VERSION: ARTIFACT_V4_INFERENCE_FIELDS,
+    ARTIFACT_SCHEMA_V5_VERSION: _DERIVED_V5_INFERENCE_FIELDS,
 }
 
 
@@ -310,18 +333,46 @@ def validate_legacy_channel_faithfulness(
 
 
 def _project_legacy_data_to_runtime(values: dict[str, Any]) -> dict[str, Any]:
-    """Map a v1/v2 data section onto the current (v4) DataConfig."""
+    """Map a v1/v2 data section onto the current (v5) DataConfig."""
     grid_h, grid_w = values.pop("grid_size")
     if grid_h != grid_w:
         raise ValueError(
             f"non-square grid_size=({grid_h}, {grid_w}) cannot upgrade to "
-            "a v4 gridsize"
+            "a v5 gridsize"
         )
     values["gridsize"] = grid_h
     values.pop("C")
     values["n_raw_frames_selected"] = values.pop("n_subsample")
     values["neighbor_count"] = values.pop("K")
     return values
+
+
+def _upgrade_pre_centered_data(era: str, values: dict[str, Any]) -> None:
+    """Convert a pre-v5 data section to the centered-nearest era in place.
+
+    The centered-nearest grouping contract supports exactly one derived
+    channel (gridsize**2 == 1). Multi-channel pre-v5 payloads cannot be
+    projected faithfully and must be retrained under torch-artifact-v5.
+    Single-channel payloads drop the retired K-choose-C policy fields and map
+    ``max_neighbor_distance`` onto ``group_padding_step``.
+    """
+    gridsize = values["gridsize"]
+    derived = gridsize * gridsize
+    if derived != 1:
+        raise ValueError(
+            f"{era} data section derives C={derived} from gridsize={gridsize}; "
+            "the centered-nearest grouping contract supports exactly one "
+            "derived channel; retrain under torch-artifact-v5"
+        )
+    for name in (
+        "K_quadrant",
+        "neighbor_function",
+        "min_neighbor_distance",
+        "scan_pattern",
+    ):
+        values.pop(name, None)
+    if "max_neighbor_distance" in values:
+        values["group_padding_step"] = values.pop("max_neighbor_distance")
 
 
 def _upgrade_data_section(
@@ -340,6 +391,8 @@ def _upgrade_data_section(
     elif era == ARTIFACT_SCHEMA_V3_VERSION:
         values["neighbor_count"] = values.pop("K")
         values.pop("groups_per_center")
+    if era != ARTIFACT_SCHEMA_V5_VERSION:
+        _upgrade_pre_centered_data(era, values)
     return values
 
 
@@ -376,8 +429,8 @@ def _upgrade_inference_section(
     )
 
 
-def _encode_data_section_v4(data_config: DataConfig) -> dict[str, Any]:
-    # The current DataConfig already carries the v4 shape; asdict is the wire.
+def _encode_data_section_v5(data_config: DataConfig) -> dict[str, Any]:
+    # The current DataConfig already carries the v5 shape; asdict is the wire.
     return asdict(data_config)
 
 
@@ -397,16 +450,17 @@ def encode_artifact_identity(
     ci_statistics=None,
     schema_version: str = CURRENT_ARTIFACT_SCHEMA_VERSION,
 ) -> dict[str, Any]:
-    if schema_version != ARTIFACT_SCHEMA_V4_VERSION:
+    if schema_version != ARTIFACT_SCHEMA_V5_VERSION:
         raise ValueError(
             f"unsupported Torch artifact schema {schema_version!r}; only the "
-            f"current {ARTIFACT_SCHEMA_V4_VERSION!r} can be written"
+            f"current {ARTIFACT_SCHEMA_V5_VERSION!r} can be written"
         )
     return {
         "backend": TORCH_ARTIFACT_BACKEND,
         "schema_version": schema_version,
+        "grouping_contract": CENTERED_NEAREST_GROUPING_CONTRACT,
         "model_spec": _encode_model_spec_v3(model_spec),
-        "data_config": _encode_data_section_v4(data_config),
+        "data_config": _encode_data_section_v5(data_config),
         "training_config": asdict(training_config),
         "inference_config": asdict(inference_config),
         "ci_statistics": _normalize_statistics(ci_statistics),
@@ -426,8 +480,8 @@ def decode_artifact_identity(payload: Mapping[str, Any]) -> DecodedArtifactIdent
         raise ValueError(
             f"unsupported Torch artifact schema {schema!r}; "
             f"expected {ARTIFACT_SCHEMA_V1_VERSION!r}, "
-            f"{ARTIFACT_SCHEMA_V2_VERSION!r}, {ARTIFACT_SCHEMA_V3_VERSION!r}, or "
-            f"{ARTIFACT_SCHEMA_V4_VERSION!r}"
+            f"{ARTIFACT_SCHEMA_V2_VERSION!r}, {ARTIFACT_SCHEMA_V3_VERSION!r}, "
+            f"{ARTIFACT_SCHEMA_V4_VERSION!r}, or {ARTIFACT_SCHEMA_V5_VERSION!r}"
         )
     expected_keys = {
         "backend",
@@ -438,6 +492,8 @@ def decode_artifact_identity(payload: Mapping[str, Any]) -> DecodedArtifactIdent
         "inference_config",
         "ci_statistics",
     }
+    if schema == ARTIFACT_SCHEMA_V5_VERSION:
+        expected_keys.add("grouping_contract")
     received = set(payload)
     if received != expected_keys:
         raise ValueError(
@@ -445,15 +501,30 @@ def decode_artifact_identity(payload: Mapping[str, Any]) -> DecodedArtifactIdent
             f"missing={sorted(expected_keys - received)}, "
             f"unknown={sorted(received - expected_keys)}"
         )
+    if schema == ARTIFACT_SCHEMA_V5_VERSION:
+        grouping_contract = payload.get("grouping_contract")
+        if grouping_contract != CENTERED_NEAREST_GROUPING_CONTRACT:
+            raise ValueError(
+                "v5 Torch artifact grouping_contract must be "
+                f"{CENTERED_NEAREST_GROUPING_CONTRACT!r}, got "
+                f"{grouping_contract!r}"
+            )
+    else:
+        # Pre-v5 payloads never carried the marker; a successful C1 upgrade
+        # to the centered-nearest era exposes the current contract in memory.
+        grouping_contract = CENTERED_NEAREST_GROUPING_CONTRACT
 
     data_section = payload["data_config"]
     model_section = payload["model_spec"]
-    data = DataConfig(**_upgrade_data_section(schema, data_section))
-    spec = ModelSpec.from_payload(model_section)
     if schema in (ARTIFACT_SCHEMA_V1_VERSION, ARTIFACT_SCHEMA_V2_VERSION):
+        # Raw wire faithfulness is validated before DataConfig construction:
+        # a stored-C disagreement must win over the centered-nearest retrain
+        # gate that construction would otherwise trip first.
         validate_legacy_channel_faithfulness(
             data_section, model_section["model_config"], era=schema
         )
+    data = DataConfig(**_upgrade_data_section(schema, data_section))
+    spec = ModelSpec.from_payload(model_section)
     training = TrainingConfig(
         **_upgrade_training_section(schema, payload["training_config"])
     )
@@ -466,6 +537,7 @@ def decode_artifact_identity(payload: Mapping[str, Any]) -> DecodedArtifactIdent
         training_config=training,
         inference_config=inference,
         ci_statistics=_normalize_statistics(payload["ci_statistics"]),
+        grouping_contract=grouping_contract,
     )
 
 
@@ -502,7 +574,13 @@ def upgrade_unversioned_sections(
         )
     received_data_fields = set(raw_data)
     legacy_data_fields = set(ARTIFACT_V1_DATA_FIELDS)
+    v4_data_fields = set(ARTIFACT_V4_DATA_FIELDS)
+    raw_model = copy.deepcopy(dict(model_config))
     if received_data_fields == legacy_data_fields:
+        # Raw wire faithfulness is validated before projection: a stored-C
+        # disagreement must win over the centered-nearest retrain gate that
+        # projection would otherwise trip first.
+        validate_legacy_channel_faithfulness(raw_data, raw_model, era="unversioned")
         data_values = _require_exact_config_payload(
             raw_data,
             DataConfig,
@@ -511,18 +589,24 @@ def upgrade_unversioned_sections(
             expected_fields=ARTIFACT_V1_DATA_FIELDS,
         )
         data_values = _project_legacy_data_to_runtime(data_values)
+        _upgrade_pre_centered_data("unversioned", data_values)
     else:
+        # Transitional metadata was dual-written from the live dataclasses in
+        # both the v4-era (retired policy fields) and current v5-era shapes.
+        expected_fields = (
+            ARTIFACT_V4_DATA_FIELDS
+            if received_data_fields == v4_data_fields
+            else ARTIFACT_V5_DATA_FIELDS
+        )
         data_values = _require_exact_config_payload(
             raw_data,
             DataConfig,
             era="unversioned",
             section="data_config",
-            expected_fields=_DERIVED_V4_DATA_FIELDS,
+            expected_fields=expected_fields,
         )
-    raw_model = copy.deepcopy(dict(model_config))
+        _upgrade_pre_centered_data("unversioned", data_values)
     received_model_fields = set(raw_model)
-    if received_data_fields == legacy_data_fields:
-        validate_legacy_channel_faithfulness(raw_data, raw_model, era="unversioned")
     v1_model_fields = set(MODEL_SPEC_V1_MODEL_FIELDS)
     v2_model_fields = set(MODEL_SPEC_V2_MODEL_FIELDS)
     v3_model_fields = set(MODEL_SPEC_V3_MODEL_FIELDS)
@@ -587,7 +671,7 @@ def upgrade_unversioned_sections(
             TrainingConfig,
             era="unversioned",
             section="training_config",
-            expected_fields=_DERIVED_V4_TRAINING_FIELDS,
+            expected_fields=ARTIFACT_V4_TRAINING_FIELDS,
         )
     inference_values = _require_exact_config_payload(
         inference_config,
@@ -616,6 +700,7 @@ def upgrade_unversioned_sections(
         training_config=training,
         inference_config=inference,
         ci_statistics=_normalize_statistics(ci_statistics),
+        grouping_contract=CENTERED_NEAREST_GROUPING_CONTRACT,
     )
 
 

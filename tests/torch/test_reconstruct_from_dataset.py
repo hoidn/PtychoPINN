@@ -48,7 +48,6 @@ def _fixed_texture_model_and_scan(tmp_path):
                 "training_groups": 4,
                 "validation_groups": 4,
                 "neighbor_count": 1,
-                "neighbor_pool_size": 1,
             },
             "inference": {
                 "batch_size": 4,
