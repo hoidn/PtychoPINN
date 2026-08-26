@@ -10,6 +10,8 @@ tests lock the two structural guarantees the decomposition must preserve:
 from __future__ import annotations
 
 import inspect
+import subprocess
+import sys
 from types import SimpleNamespace
 
 import numpy as np
@@ -200,6 +202,39 @@ def test_seed_runs_before_application_construction(tmp_path, monkeypatch):
     assert "seed" in calls
     assert "build" in calls
     assert calls.index("seed") < calls.index("build")
+
+
+def test_construct_application_preserves_saved_hparams_in_ipython():
+    """Construction must not ask Lightning to inspect notebook caller frames."""
+    script = """
+from types import SimpleNamespace
+import lightning as L
+from ptycho_torch import application_factory
+from ptycho_torch.workflows import lightning_service
+
+class Model(L.LightningModule):
+    def __init__(self):
+        super().__init__()
+        self.save_hyperparameters({"identity": "saved"})
+
+model = Model()
+application_factory.build_ptychopinn_application = lambda *_args: model
+constructed = lightning_service._construct_application(
+    SimpleNamespace(model_spec=object()),
+    (object(), object(), object(), object()),
+    None,
+)
+assert constructed is model
+assert dict(constructed.hparams) == {"identity": "saved"}
+print("NOTEBOOK_CONSTRUCTION_OK")
+"""
+    result = subprocess.run(
+        [sys.executable, "-m", "IPython", "--colors=NoColor", "-c", script],
+        capture_output=True,
+        text=True,
+    )
+
+    assert "NOTEBOOK_CONSTRUCTION_OK" in result.stdout, result.stdout + result.stderr
 
 
 def test_assembled_trainer_dataloader_settings_immutable():

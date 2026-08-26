@@ -620,9 +620,6 @@ def _construct_application(payload, pt_configs, ci_statistics):
         pt_inference_config,
     )
 
-    # Save hyperparameters so checkpoint can reconstruct module without external state
-    model.save_hyperparameters()
-
     if ci_statistics is not None:
         model.register_ci_statistics(ci_statistics)
 
