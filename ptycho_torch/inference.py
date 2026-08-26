@@ -10,13 +10,12 @@ Usage Examples:
       --model_path training_outputs \\
       --test_data datasets/Run1084_recon3_postPC_shrunk_3.npz \\
       --output_dir inference_outputs \\
-      --n_images 32 \\
       --device cpu
 
 References:
-  - Phase E2 plan: plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md §E2.C2
+  - Entry-point contract: docs/specs/spec-ptycho-interfaces.md (python -m ptycho_torch.inference)
   - Test contract: tests/torch/test_integration_workflow_torch.py
-  - Red phase evidence: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T213500Z/red_phase.md §2.3
+  - Red phase evidence: docs/findings.md (see git history for the originating plan) §2.3
 """
 
 #Generic
@@ -24,19 +23,22 @@ import os
 import argparse
 import copy
 import gc
-import json
-import shutil
 import sys
 import tempfile
-from dataclasses import dataclass, fields, is_dataclass, replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Mapping, Optional, TYPE_CHECKING
 
 import numpy as np
-from ptycho.acquisition import decode_acquisition
 from ptycho.config.legacy_state import scoped_legacy_params
-from ptycho.reconstruction_policy import OutputSpec, resolve_cli_reconstruction_policy
+from ptycho.reconstruction_policy import resolve_cli_reconstruction_policy
 from ptycho_torch.reconstruction_ports import present_reconstruction_canvas
+from ptycho_torch.inference_validation import (
+    _require_record_fields_agree,
+    _validate_authentic_channels,
+    _validate_flat_npz,
+    validate_bundle_matches_workflow,
+)
 
 #ML libraries
 import matplotlib.pyplot as plt
@@ -46,38 +48,13 @@ if TYPE_CHECKING:
     from ptycho_torch.config_params import DataConfig
     from ptycho_torch.reassembly_diagnostics import ReassemblyDiagnostics
 
-def _training_normalization_scale(diffraction: "torch.Tensor") -> "torch.Tensor":
-    """
-    Match RawData.normalize_data() normalization used in training.
-
-    RawData.normalize_data() computes:
-        scale = sqrt(((N/2)^2) / mean(sum(diffraction^2)))
-
-    Returns a (B, 1, 1, 1) tensor for broadcast with (B, C, H, W).
-    """
-    import torch
-
-    if diffraction.ndim == 4:
-        diff = diffraction.squeeze(1)
-    else:
-        diff = diffraction
-
-    mean_sum = torch.mean(torch.sum(diff ** 2, dim=(-2, -1)))
-    if mean_sum.item() <= 0:
-        # Fall back to unity scaling when diffraction is all zeros (test fixtures / degenerate inputs).
-        return torch.ones((diffraction.shape[0], 1, 1, 1), device=diffraction.device, dtype=diffraction.dtype)
-
-    n = float(diff.shape[-1])
-    scale = torch.sqrt(torch.tensor((n / 2.0) ** 2, device=diffraction.device, dtype=diffraction.dtype) / mean_sum)
-    return scale.view(1, 1, 1, 1).expand(diffraction.shape[0], 1, 1, 1)
-
 
 def save_individual_reconstructions(obj_amp, obj_phase, output_dir):
     """
     Save individual amplitude and phase reconstructions as separate PNG files.
 
     This function generates the specific output artifacts expected by the PyTorch
-    integration test workflow (Phase E2.C2).
+    integration test workflow.
 
     Args:
         obj_amp: Reconstructed amplitude array (numpy array)
@@ -93,55 +70,27 @@ def save_individual_reconstructions(obj_amp, obj_phase, output_dir):
 
     # Create amplitude figure
     fig_amp, ax_amp = plt.subplots(figsize=(6, 6))
-    try:
-        im_amp = ax_amp.imshow(obj_amp, cmap='gray')
-        plt.colorbar(im_amp, ax=ax_amp)
-        ax_amp.set_title('Reconstructed Amplitude')
-        ax_amp.axis('off')
+    im_amp = ax_amp.imshow(obj_amp, cmap='gray')
+    plt.colorbar(im_amp, ax=ax_amp)
+    ax_amp.set_title('Reconstructed Amplitude')
+    ax_amp.axis('off')
 
-        amp_path = output_dir / "reconstructed_amplitude.png"
-        plt.savefig(amp_path, dpi=150, bbox_inches='tight')
-    finally:
-        plt.close(fig_amp)
+    amp_path = output_dir / "reconstructed_amplitude.png"
+    plt.savefig(amp_path, dpi=150, bbox_inches='tight')
+    plt.close(fig_amp)
     print(f"Saved amplitude reconstruction to: {amp_path}")
 
     # Create phase figure
     fig_phase, ax_phase = plt.subplots(figsize=(6, 6))
-    try:
-        im_phase = ax_phase.imshow(obj_phase, cmap='gray')
-        plt.colorbar(im_phase, ax=ax_phase)
-        ax_phase.set_title('Reconstructed Phase')
-        ax_phase.axis('off')
+    im_phase = ax_phase.imshow(obj_phase, cmap='gray')
+    plt.colorbar(im_phase, ax=ax_phase)
+    ax_phase.set_title('Reconstructed Phase')
+    ax_phase.axis('off')
 
-        phase_path = output_dir / "reconstructed_phase.png"
-        plt.savefig(phase_path, dpi=150, bbox_inches='tight')
-    finally:
-        plt.close(fig_phase)
+    phase_path = output_dir / "reconstructed_phase.png"
+    plt.savefig(phase_path, dpi=150, bbox_inches='tight')
+    plt.close(fig_phase)
     print(f"Saved phase reconstruction to: {phase_path}")
-
-
-def _resolve_reassembly_route(patch_weighting, varpro_scaling):
-    """
-    Decide which stitching path honors the requested inference knobs
-    (Conformance D4, 2026-07-14 CI paper-conformance audit Theme 2.1).
-
-    Args:
-        patch_weighting: 'uniform' (legacy binary/uniform stitching) or 'probe'
-            (|P|^2-weighted barycentric assembly).
-        varpro_scaling: Whether the VarPro (s1, s2) least-squares intensity
-            refit is requested.
-
-    Returns:
-        'uniform' when neither knob deviates from the legacy CLI behavior
-        (keeps that path bit-identical), else 'barycentric'.
-
-    Raises:
-        ValueError: patch_weighting is not one of 'uniform' / 'probe'.
-    """
-    return resolve_cli_reconstruction_policy(
-        patch_weighting,
-        varpro_scaling,
-    ).compatibility_route
 
 
 def _describe_requested_knobs(patch_weighting, varpro_scaling):
@@ -200,6 +149,7 @@ class BarycentricReconstructionResult:
     """Self-contained output of strict-load mmap barycentric reconstruction."""
 
     complex_canvas: np.ndarray
+    measurement_gauge_canvas: np.ndarray
     amplitude: np.ndarray
     phase: np.ndarray
     prescale_canvas: np.ndarray
@@ -207,59 +157,88 @@ class BarycentricReconstructionResult:
     canvas_weights: np.ndarray
     canvas_anchor: Mapping[str, Any]
     channel_indices: np.ndarray
+    channel_coordinates: np.ndarray
+    source_metadata: Mapping[str, np.ndarray]
     reassembly: "ReassemblyDiagnostics"
 
 
-def _values_agree(left: Any, right: Any) -> bool:
-    import torch
+@dataclass(frozen=True)
+class TiledReconstructionResult:
+    """Self-contained output of strict-load mmap raster tiling."""
 
-    if isinstance(left, torch.Tensor) or isinstance(right, torch.Tensor):
-        try:
-            left_tensor = torch.as_tensor(left).detach().cpu()
-            right_tensor = torch.as_tensor(right).detach().cpu()
-        except (TypeError, ValueError):
-            return False
-        return (
-            left_tensor.shape == right_tensor.shape
-            and left_tensor.dtype == right_tensor.dtype
-            and bool(torch.equal(left_tensor, right_tensor))
-        )
-    if isinstance(left, np.ndarray) or isinstance(right, np.ndarray):
-        try:
-            return bool(np.array_equal(np.asarray(left), np.asarray(right)))
-        except (TypeError, ValueError):
-            return False
-    if isinstance(left, Path) or isinstance(right, Path):
-        return Path(left) == Path(right)
-    return left == right
+    complex_canvas: np.ndarray
+    measurement_gauge_canvas: np.ndarray
+    amplitude: np.ndarray
+    phase: np.ndarray
+    prescale_canvas: np.ndarray
+    effective_data_config: "DataConfig"
+    canvas_weights: np.ndarray
+    canvas_anchor: Mapping[str, Any]
+    channel_indices: np.ndarray
+    channel_coordinates: np.ndarray
+    reassembly: Mapping[str, Any]
 
 
-def _require_record_fields_agree(
-    namespace: str,
-    expected: Any,
-    actual: Any,
-    field_names: tuple[str, ...],
+def _canonicalize_tiled_patch_order(
+    patches: Any,
+    scan_ids: Any,
+    coordinates: Any,
     *,
-    skipped: frozenset[str] = frozenset(),
-) -> None:
-    for name in field_names:
-        if name in skipped:
-            continue
-        expected_value = getattr(expected, name)
-        actual_value = getattr(actual, name)
-        if not _values_agree(expected_value, actual_value):
-            raise ValueError(
-                f"{namespace}.{name} mismatch: expected {expected_value!r}, "
-                f"loaded {actual_value!r}"
-            )
+    expected_x: Any,
+    expected_y: Any,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Order patches by authenticated scan id and verify the declared lattice."""
+
+    patch_array = np.asarray(patches)
+    ids = np.asarray(scan_ids)
+    coords = np.asarray(coordinates, dtype=np.float64)
+    expected_x_array = np.asarray(expected_x, dtype=np.float64)
+    expected_y_array = np.asarray(expected_y, dtype=np.float64)
+    expected_count = int(expected_x_array.size)
+    if (
+        expected_x_array.ndim != 1
+        or expected_y_array.shape != expected_x_array.shape
+        or patch_array.ndim != 3
+        or ids.shape != (patch_array.shape[0],)
+        or coords.shape != (patch_array.shape[0], 2)
+        or patch_array.shape[0] != expected_count
+        or not np.issubdtype(ids.dtype, np.integer)
+    ):
+        raise ValueError(
+            "tiled scan ids must form a complete source-row bijection"
+        )
+    normalized_ids = ids.astype(np.int64, copy=False)
+    order = np.argsort(normalized_ids, kind="stable")
+    ordered_ids = normalized_ids[order]
+    if not np.array_equal(ordered_ids, np.arange(expected_count, dtype=np.int64)):
+        raise ValueError(
+            "tiled scan ids must form a complete source-row bijection"
+        )
+    ordered_coords = coords[order]
+    if not np.allclose(
+        ordered_coords[:, 0], expected_x_array, rtol=0.0, atol=1e-6
+    ) or not np.allclose(
+        ordered_coords[:, 1], expected_y_array, rtol=0.0, atol=1e-6
+    ):
+        raise ValueError(
+            "tiled scan coordinates do not match the declared fixed-pitch raster"
+        )
+    ordered = np.ascontiguousarray(patch_array[order])
+    ordered_ids = np.ascontiguousarray(ordered_ids)
+    ordered.setflags(write=False)
+    ordered_ids.setflags(write=False)
+    return ordered, ordered_ids
 
 
-def _validate_loaded_reconstruction_identity(
-    model: Any,
-    loader_params: Mapping[str, Any],
-    expected_workflow: Any = None,
-) -> None:
-    """Join the strict loader's dual-written identity before any mmap work."""
+def _validate_loaded_reconstruction_identity(model: Any) -> None:
+    """Validate the strict loader's decode/construction boundary before mmap work.
+
+    Channel count is derived from ``data_config.gridsize`` at consumption, and
+    scale-contract coherence is enforced by ``decode_artifact_identity`` and
+    ``build_ptychopinn_application`` on the load path; this function only
+    re-checks the dual-written structural surface that construction derives but
+    does not independently verify against the persisted ``ModelSpec``.
+    """
     from ptycho_torch.config_params import (
         DataConfig,
         InferenceConfig,
@@ -267,10 +246,6 @@ def _validate_loaded_reconstruction_identity(
         TrainingConfig,
     )
     from ptycho_torch.model_spec import ModelSpec
-    from ptycho_torch.scaling_contract import (
-        resolve_scale_contract,
-        validate_scale_contract,
-    )
 
     required = (
         ("data_config", DataConfig),
@@ -296,570 +271,211 @@ def _validate_loaded_reconstruction_identity(
         "ModelSpec/model_config", spec_config, model.model_config, model_fields
     )
 
-    data_config = model.data_config
-    model_config = model.model_config
-    resolve_scale_contract(
-        data_config.scale_contract_version,
-        data_config.measurement_domain,
-    )
-    validate_scale_contract(
-        data_config,
-        model_config,
-        model.training_config,
-    )
-    gain_record = loader_params.get("amplitude_physics_gain_record")
-    if expected_workflow is None:
-        return
-    if not (
-        is_dataclass(expected_workflow)
-        and all(
-            hasattr(expected_workflow, name)
-            for name in ("data", "model", "training", "inference")
-        )
-    ):
-        raise TypeError(
-            "expected_workflow must be a resolved synthetic workflow dataclass"
-        )
 
-    expected_data_fields = tuple(item.name for item in fields(data_config))
-    _require_record_fields_agree(
-        "resolved_workflow.data",
-        expected_workflow.data,
-        data_config,
-        expected_data_fields,
-    )
+@dataclass(frozen=True)
+class ReconstructionRuntimeParams:
+    """Runtime loader parameters for the dataset-in reconstruction kernel.
 
-    expected_provenance = getattr(
-        expected_workflow.model,
-        "amplitude_physics_gain_provenance",
-        None,
-    )
-    pending_gain = expected_provenance == "pending_training_split_derivation"
-    _require_record_fields_agree(
-        "resolved_workflow.model",
-        expected_workflow.model,
-        model_config,
-        model_fields,
-        skipped=(
-            frozenset({"amplitude_physics_gain"})
-            if pending_gain
-            else frozenset()
-        ),
-    )
-    if pending_gain:
-        if gain_record is None or gain_record.provenance != "derived":
-            raise ValueError(
-                "resolved pending amplitude gain requires the bundle's derived gain sidecar"
-            )
-    elif gain_record is not None and expected_provenance is not None:
-        expected_sidecar_provenance = {
-            "explicit": "override",
-            "scale_contract_fixed": "scale_contract_fixed",
-        }.get(expected_provenance)
-        if (
-            expected_sidecar_provenance is not None
-            and gain_record.provenance != expected_sidecar_provenance
-        ):
-            raise ValueError(
-                "amplitude gain provenance disagrees with resolved_workflow.model"
-            )
+    All three runtime configs are explicit arguments: the kernel never reads
+    them back off the dataset or the global ``params.cfg``. ``data_config`` is
+    ``model.data_config`` (the persisted data config, handed straight to
+    ``PtychoDataset``); ``training_config`` and ``inference_config`` are the
+    runtime (loader) configs. ``source_metadata`` is the NPZ-side
+    coordinate/scale metadata the wrapper read during load, threaded through
+    to the frozen result.
+    """
 
-    training_names = tuple(
-        item.name
-        for item in fields(model.training_config)
-        if hasattr(expected_workflow.training, item.name)
-    )
-    _require_record_fields_agree(
-        "resolved_workflow.training",
-        expected_workflow.training,
-        model.training_config,
-        training_names,
-    )
-    if not hasattr(expected_workflow.training, "training_groups"):
-        raise TypeError(
-            "expected_workflow.training must expose training_groups"
-        )
-    expected_training_groups = expected_workflow.training.training_groups
-    if not _values_agree(
-        expected_training_groups,
-        model.training_config.training_groups,
-    ):
-        raise ValueError(
-            "resolved_workflow.training.training_groups mismatch with "
-            "loaded training_config.training_groups: expected "
-            f"{expected_training_groups!r}, loaded "
-            f"{model.training_config.training_groups!r}"
-        )
-    inference_names = tuple(
-        item.name
-        for item in fields(model.inference_config)
-        if hasattr(expected_workflow.inference, item.name)
-    )
-    _require_record_fields_agree(
-        "resolved_workflow.inference",
-        expected_workflow.inference,
-        model.inference_config,
-        inference_names,
-    )
-    if getattr(
-        expected_workflow.inference,
-        "reconstruction_method",
-        "barycentric",
-    ) != "barycentric":
-        raise ValueError(
-            "expected_workflow.inference.reconstruction_method must be "
-            "'barycentric' for reconstruct_npz_barycentric"
-        )
+    data_config: Any
+    training_config: Any
+    inference_config: Any
+    source_metadata: Mapping[str, np.ndarray]
+    precision: str = "32-true"
+    quiet: bool = False
+    enforce_ci_varpro: bool = True
+    compute_count_metrics: bool = True
 
 
-def _validate_expected_runtime_reconstruction(
-    expected_workflow: Any,
-    runtime_inference_config: Any,
-    *,
-    groups_per_center: int,
-) -> None:
-    """Reject runtime reconstruction knobs that drift from resolved identity."""
-    if expected_workflow is None:
-        return
-    expected_groups = getattr(
-        expected_workflow.inference,
-        "groups_per_center",
-        None,
-    )
-    if expected_groups != groups_per_center:
-        raise ValueError(
-            "runtime groups_per_center disagrees with "
-            "expected_workflow.inference.groups_per_center: "
-            f"{groups_per_center!r} != {expected_groups!r}"
-        )
-    names = tuple(
-        item.name
-        for item in fields(runtime_inference_config)
-        if hasattr(expected_workflow.inference, item.name)
-    )
-    _require_record_fields_agree(
-        "runtime inference",
-        expected_workflow.inference,
-        runtime_inference_config,
-        names,
-    )
 
-
-def _validate_flat_npz(
-    test_data_path: Path,
-    data_config: Any,
-    *,
-    dataset_manifest_path: Optional[Path] = None,
-    expected_workflow: Any = None,
-) -> None:
-    """Validate one held-out acquisition and optional flat-v1 identity."""
-    strict_flat_v1 = dataset_manifest_path is not None
-    required_dtypes = {
-        "xcoords": np.dtype(np.float64),
-        "ycoords": np.dtype(np.float64),
-        "probeGuess": np.dtype(np.complex64),
-    }
-    optional_dtypes = {
-        "objectGuess": np.dtype(np.complex64),
-        "Y": np.dtype(np.complex64),
-        "probe_simulated": np.dtype(np.complex64),
-        "xcoords_start": np.dtype(np.float64),
-        "ycoords_start": np.dtype(np.float64),
-        "scan_index": np.dtype(np.int64),
-        "object_index": np.dtype(np.int64),
-        "object_amplitude_scale": np.dtype(np.float64),
-    }
-    with np.load(test_data_path, allow_pickle=False) as archive:
-        archive_names = set(archive.files)
-        if strict_flat_v1 and "diff3d" not in archive_names:
-            raise ValueError(
-                f"{test_data_path}: flat-v1 NPZ is missing required key 'diff3d'"
-            )
-        arrays = {name: np.asarray(archive[name]) for name in archive.files}
-
-    record = decode_acquisition(
-        test_data_path,
-        coordinate_policy="strict" if strict_flat_v1 else "trailing",
-    )
-    diffraction_name = "diff3d" if "diff3d" in arrays else "diffraction"
-    expected_dtypes = {
-        diffraction_name: np.dtype(np.float32),
-        **required_dtypes,
-        **optional_dtypes,
-    }
-    for name, expected_dtype in expected_dtypes.items():
-        if (
-            strict_flat_v1
-            and name in arrays
-            and arrays[name].dtype != expected_dtype
-        ):
-            raise ValueError(
-                f"{test_data_path}: {name} dtype must be {expected_dtype.name}, "
-                f"got {arrays[name].dtype.name}"
-            )
-        if name in arrays and not np.isfinite(arrays[name]).all():
-            raise ValueError(f"{test_data_path}: {name} contains nonfinite values")
-
-    diffraction = record.diff3d
-    N = int(data_config.N)
-    if strict_flat_v1 and arrays["diff3d"].shape != diffraction.shape:
-        raise ValueError(
-            f"{test_data_path}: diff3d must have shape (M, N, N) "
-            f"with loaded N={N}, got {arrays['diff3d'].shape}"
-        )
-    if diffraction.shape[1:] != (N, N):
-        raise ValueError(
-            f"{test_data_path}: {diffraction_name} must have shape (M, N, N) "
-            f"with loaded N={N}, got {diffraction.shape}"
-        )
-    if np.any(diffraction < 0):
-        raise ValueError(f"{diffraction_name} measurements must be nonnegative")
-
-    if dataset_manifest_path is None:
-        return
-    manifest_path = Path(dataset_manifest_path)
-    if not manifest_path.is_file():
-        raise FileNotFoundError(f"dataset manifest does not exist: {manifest_path}")
-    try:
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
-        raise ValueError(f"cannot decode dataset manifest {manifest_path}") from error
-    if manifest.get("schema_version") != "flat-acquisition-manifest-v1":
-        raise ValueError("dataset manifest schema_version is not flat-acquisition-manifest-v1")
-    if manifest.get("storage_layout") != "flat_acquisition_v1":
-        raise ValueError("dataset manifest storage_layout is not flat_acquisition_v1")
-    splits = manifest.get("splits")
-    split_record = splits.get("test") if isinstance(splits, Mapping) else None
-    if not isinstance(split_record, Mapping):
-        raise ValueError("dataset manifest is missing splits.test")
-    if expected_workflow is not None:
-        if not hasattr(expected_workflow, "simulation"):
-            raise TypeError(
-                "expected_workflow must expose simulation identity when a "
-                "dataset manifest is supplied"
-            )
-        from ptycho.config import (
-            simulation_config_sha256,
-            simulation_config_to_dict,
-        )
-        from ptycho.simulation.flat_acquisition import derive_seed_lineage
-        from ptycho.workflows.synthetic_config import synthetic_workflow_to_dict
-
-        expected_semantic = synthetic_workflow_to_dict(expected_workflow)
-        if manifest.get("profile") != expected_workflow.profile:
-            raise ValueError("dataset manifest profile disagrees with resolved workflow")
-        if manifest.get("recipe_version") != expected_workflow.recipe_version:
-            raise ValueError(
-                "dataset manifest recipe_version disagrees with resolved workflow"
-            )
-        if manifest.get("simulation") != expected_semantic["simulation"]:
-            raise ValueError(
-                "dataset manifest simulation disagrees with resolved workflow"
-            )
-        expected_seed_lineage = derive_seed_lineage(
-            expected_workflow.simulation.train.seed
-        )
-        if manifest.get("seed_lineage") != expected_seed_lineage:
-            raise ValueError(
-                "dataset manifest seed_lineage disagrees with resolved workflow"
-            )
-        expected_test_simulation = expected_workflow.simulation.test
-        if split_record.get("simulation_config") != simulation_config_to_dict(
-            expected_test_simulation
-        ):
-            raise ValueError(
-                "dataset manifest splits.test simulation_config disagrees "
-                "with resolved workflow"
-            )
-        if split_record.get(
-            "simulation_config_sha256"
-        ) != simulation_config_sha256(expected_test_simulation):
-            raise ValueError(
-                "dataset manifest splits.test simulation_config_sha256 mismatch"
-            )
-        if split_record.get("seed_lineage") != expected_seed_lineage:
-            raise ValueError(
-                "dataset manifest splits.test seed_lineage disagrees with "
-                "resolved workflow"
-            )
-        for field_name, lineage_name in (
-            ("coordinate_seed", "test_coordinates"),
-            ("detector_seed", "test_noise"),
-        ):
-            if split_record.get(field_name) != expected_seed_lineage[lineage_name]:
-                raise ValueError(
-                    f"dataset manifest splits.test {field_name} disagrees "
-                    "with resolved workflow"
-                )
-    artifact_path = manifest_path.parent / str(split_record.get("artifact_path", ""))
-    if artifact_path.resolve() != test_data_path.resolve():
-        raise ValueError(
-            "dataset manifest splits.test artifact_path does not identify held-out NPZ"
-        )
-    from ptycho.simulation.identity import (
-        array_sha256,
-        canonical_sha256,
-        file_sha256,
-    )
-
-    recorded_npz_sha256 = split_record.get("npz_sha256")
-    if recorded_npz_sha256 != file_sha256(test_data_path):
-        raise ValueError("dataset manifest splits.test npz_sha256 mismatch")
-    recorded_array_hashes = split_record.get("array_sha256")
-    if not isinstance(recorded_array_hashes, Mapping):
-        raise ValueError(
-            "dataset manifest splits.test array_sha256 must be a mapping"
-        )
-    computed_array_hashes = {
-        name: array_sha256(value) for name, value in arrays.items()
-    }
-    computed_shapes = {
-        name: list(value.shape) for name, value in arrays.items()
-    }
-    computed_dtypes = {
-        name: value.dtype.name for name, value in arrays.items()
-    }
-    if dict(recorded_array_hashes) != computed_array_hashes:
-        raise ValueError("dataset manifest splits.test array_sha256 mismatch")
-    expected_dataset_identity = {
-        "split_recipe_sha256": split_record.get("split_recipe_sha256"),
-        "array_sha256": computed_array_hashes,
-        "shapes": computed_shapes,
-        "dtypes": computed_dtypes,
-    }
-    if split_record.get("dataset_identity") != expected_dataset_identity:
-        raise ValueError("dataset manifest splits.test dataset_identity mismatch")
-    if split_record.get("dataset_sha256") != canonical_sha256(
-        expected_dataset_identity
-    ):
-        raise ValueError("dataset manifest splits.test dataset_sha256 mismatch")
-    shapes = split_record.get("shapes")
-    if not isinstance(shapes, Mapping):
-        raise ValueError("dataset manifest splits.test shapes must be a mapping")
-    if dict(shapes) != computed_shapes:
-        raise ValueError("dataset manifest splits.test shapes mismatch")
-    dtypes = split_record.get("dtypes")
-    if not isinstance(dtypes, Mapping):
-        raise ValueError("dataset manifest splits.test dtypes must be a mapping")
-    if dict(dtypes) != computed_dtypes:
-        raise ValueError("dataset manifest splits.test dtypes mismatch")
-    measurement = split_record.get("measurement_identity")
-    if not isinstance(measurement, Mapping):
-        raise ValueError(
-            "dataset manifest splits.test measurement_identity must be a mapping"
-        )
-    if measurement.get("scale_contract_version") != data_config.scale_contract_version:
-        raise ValueError("dataset manifest scale_contract_version disagrees with bundle")
-    if measurement.get("measurement_domain") != data_config.measurement_domain:
-        raise ValueError("dataset manifest measurement_domain disagrees with bundle")
-    photons = measurement.get("photons_per_pattern")
-    if not _values_agree(photons, float(data_config.nphotons)):
-        raise ValueError(
-            "dataset manifest photons_per_pattern disagrees with bundle "
-            f"DataConfig.nphotons: {photons!r} != {data_config.nphotons!r}"
-        )
-
-
-def _validate_authentic_channels(
-    dataset: Any,
-    data_config: Any,
-) -> tuple[set[int], int, np.ndarray]:
-    """Reject any grouped representation that collapsed the C4 scan identity."""
-    import torch
-
-    mmap = getattr(dataset, "mmap_ptycho", None)
-    if mmap is None:
-        raise ValueError("PtychoDataset did not expose mmap_ptycho")
-    try:
-        images = torch.as_tensor(mmap["images"])
-        indices = torch.as_tensor(mmap["nn_indices"])
-        coords = torch.as_tensor(mmap["coords_global"])
-    except (KeyError, TypeError) as error:
-        raise ValueError(
-            "mmap dataset is missing images/nn_indices/coords_global channel identity"
-        ) from error
-    C = int(data_config.gridsize) ** 2
-    if (
-        images.ndim < 2
-        or images.shape[1] != C
-        or indices.ndim != 2
-        or indices.shape[1] != C
-        or coords.ndim != 4
-        or coords.shape[1:] != (C, 1, 2)
-        or indices.shape[0] == 0
-        or indices.shape[0] != coords.shape[0]
-        or indices.shape[0] != images.shape[0]
-    ):
-        raise ValueError(
-            f"C4 channel identity was collapsed: expected aligned (groups, C={C}) mmap tensors"
-        )
-    index_rows = indices.detach().cpu().numpy()
-    if not np.issubdtype(index_rows.dtype, np.integer):
-        raise ValueError("C4 channel scan identities must be integer indices")
-    if np.any(index_rows < 0):
-        raise ValueError("C4 channel scan identities must be nonnegative")
-    if C > 1:
-        coord_rows = coords.detach().cpu().numpy().reshape(indices.shape[0], C, 2)
-        for index_row, coord_row in zip(index_rows, coord_rows, strict=True):
-            if len(set(int(item) for item in index_row)) != C:
-                raise ValueError("C4 channel scan identities must be distinct within every group")
-            if len({tuple(float(item) for item in coord) for coord in coord_row}) != C:
-                raise ValueError("C4 channel global coordinates must be distinct within every group")
-    channel_indices = np.array(index_rows, dtype=np.int64, copy=True)
-    channel_indices.setflags(write=False)
-    flat_indices = channel_indices.reshape(-1).tolist()
-    return (
-        set(int(item) for item in flat_indices),
-        len(flat_indices),
-        channel_indices,
-    )
-
-
-def _reconstruct_loaded_npz_barycentric(
+def _stage_and_construct_reconstruction_dataset(
     model: Any,
     test_data_path: Path,
     *,
-    run_root: Path,
+    workspace: Path,
     groups_per_center: int,
-    inference_config: Any,
     device: str,
     num_workers: int,
-    inference_batch_size: Optional[int],
-    precision: str,
-    quiet: bool,
-) -> BarycentricReconstructionResult:
-    from ptycho_torch.dataloader import PtychoDataset
-    from ptycho_torch.reassembly import reconstruct_image_barycentric
-    from ptycho_torch.reassembly_diagnostics import ReassemblyDiagnostics
+    dataset_manifest_path: Optional[Path],
+    expected_workflow: Any,
+) -> tuple[Any, Mapping[str, np.ndarray], Any, Any]:
+    """Validate and symlink-stage one flat NPZ into a mmap PtychoDataset.
 
+    The held-out NPZ is linked (not copied) into a staging directory inside
+    the caller-provided mmap workspace so ``PtychoDataset``'s directory glob
+    finds exactly one scan. Returns
+    ``(dataset, source_metadata, runtime_data_config, runtime_training_config)``
+    — the runtime configs with the ``groups_per_center`` runtime argument threaded
+    to the dataset constructor (no dataclass field round-trip).
+    """
+    from ptycho_torch.dataloader import PtychoDataset
     runtime_data_config = model.data_config
     runtime_training_config = replace(
         model.training_config,
         device=str(device),
         num_workers=num_workers,
     )
-    runtime_inference_config = inference_config
-    if inference_batch_size is not None:
-        runtime_inference_config = replace(
-            runtime_inference_config,
-            batch_size=inference_batch_size,
-        )
-    _require_ci_varpro_scaling(model, runtime_inference_config)
+    _validate_flat_npz(
+        test_data_path,
+        model.data_config,
+        dataset_manifest_path=dataset_manifest_path,
+        expected_workflow=expected_workflow,
+    )
+    with np.load(test_data_path, allow_pickle=False) as archive:
+        source_metadata = {
+            name: np.array(archive[name], copy=True)
+            for name in ("xcoords", "ycoords", "object_amplitude_scale")
+            if name in archive.files
+        }
+    staged_dir = workspace / "staged"
+    staged_dir.mkdir()
+    staged_dir.joinpath(test_data_path.name).symlink_to(test_data_path.resolve())
+    dataset = PtychoDataset(
+        str(staged_dir),
+        model.model_config,
+        runtime_data_config,
+        training_config=runtime_training_config,
+        data_dir=str(workspace / "mmap" / "memmap"),
+        remake_map=True,
+        groups_per_center=groups_per_center,
+        require_complete_group_coverage=(
+            runtime_data_config.neighbor_function == "Nearest"
+            and groups_per_center == 1
+        ),
+    )
+    return dataset, source_metadata, runtime_data_config, runtime_training_config
+
+
+def reconstruct_from_dataset(
+    model: Any,
+    dataset: Any,
+    *,
+    runtime_params: ReconstructionRuntimeParams,
+) -> BarycentricReconstructionResult:
+    """Reconstruct one already-grouped mmap dataset in place (dataset-in kernel).
+
+    The one documented programmatic reconstruction kernel: a loaded model and
+    an already-constructed ``PtychoDataset`` in, frozen amplitude/phase
+    snapshots out. No NPZ staging, no ``params.cfg`` access, no global reads;
+    the mmap workspace is the caller's (it was supplied when the dataset was
+    built). Hop count: CLI -> stage -> kernel.
+    """
+    from ptycho_torch.reassembly import reconstruct_image_barycentric
+    from ptycho_torch.reassembly_diagnostics import ReassemblyDiagnostics
+
+    runtime_data_config = runtime_params.data_config
+    training_config = runtime_params.training_config
+    inference_config = runtime_params.inference_config
+    precision = runtime_params.precision
+    quiet = runtime_params.quiet
+
+    if runtime_params.enforce_ci_varpro:
+        _require_ci_varpro_scaling(model, inference_config)
     requested = _describe_requested_knobs(
-        runtime_inference_config.patch_weighting,
-        runtime_inference_config.varpro_scaling,
+        inference_config.patch_weighting,
+        inference_config.varpro_scaling,
     )
     if not quiet:
         print(f"Reassembly route: barycentric ({requested})")
 
-    dataset = None
+    (
+        expected_scan_ids,
+        expected_patch_count,
+        channel_indices,
+        channel_coordinates,
+    ) = _validate_authentic_channels(dataset, runtime_data_config)
     reconstruction_dataset = None
-    with tempfile.TemporaryDirectory(
-        prefix="barycentric-workspace-",
-        dir=run_root,
-    ) as workspace_name:
-        workspace = Path(workspace_name)
-        staged_dir = workspace / "staged"
-        staged_dir.mkdir()
-        shutil.copy2(test_data_path, staged_dir / test_data_path.name)
-        try:
-            dataset = PtychoDataset(
-                str(staged_dir),
-                model.model_config,
+    try:
+        canvas, reconstruction_dataset, diagnostics, prescale_canvas = (
+            reconstruct_image_barycentric(
+                model,
+                dataset,
+                training_config,
                 runtime_data_config,
-                training_config=runtime_training_config,
-                data_dir=str(workspace / "mmap" / "memmap"),
-                remake_map=True,
-                groups_per_center=groups_per_center,
-                require_complete_group_coverage=(
-                    runtime_data_config.neighbor_function == "Nearest"
-                    and groups_per_center == 1
-                ),
+                model.model_config,
+                inference_config,
+                gpu_ids=None,
+                verbose=not quiet,
+                structured_diagnostics=True,
+                precision=precision,
+                compute_count_metrics=runtime_params.compute_count_metrics,
             )
-            (
-                expected_scan_ids,
-                expected_patch_count,
-                channel_indices,
-            ) = _validate_authentic_channels(dataset, runtime_data_config)
-            canvas, reconstruction_dataset, diagnostics, prescale_canvas = (
-                reconstruct_image_barycentric(
-                    model,
-                    dataset,
-                    runtime_training_config,
-                    runtime_data_config,
-                    model.model_config,
-                    runtime_inference_config,
-                    gpu_ids=None,
-                    verbose=not quiet,
-                    structured_diagnostics=True,
-                    precision=precision,
-                )
+        )
+        if not isinstance(diagnostics, ReassemblyDiagnostics):
+            raise TypeError(
+                "reconstruct_image_barycentric did not return structured "
+                "ReassemblyDiagnostics"
             )
-            if not isinstance(diagnostics, ReassemblyDiagnostics):
-                raise TypeError(
-                    "reconstruct_image_barycentric did not return structured "
-                    "ReassemblyDiagnostics"
-                )
-            if not expected_scan_ids.issubset(set(diagnostics.used_scan_ids)):
-                missing = sorted(expected_scan_ids - set(diagnostics.used_scan_ids))
-                raise ValueError(
-                    "barycentric reassembly did not use every C4 channel scan "
-                    f"id: {missing}"
-                )
-            if (
-                diagnostics.total_patches != expected_patch_count
-                or diagnostics.accepted_patches != expected_patch_count
-            ):
-                raise ValueError(
-                    "barycentric reassembly must accept every authentic C4 "
-                    f"channel patch ({diagnostics.accepted_patches}/"
-                    f"{diagnostics.total_patches}, expected {expected_patch_count})"
-                )
-            policy = resolve_cli_reconstruction_policy(
-                runtime_inference_config.patch_weighting,
-                runtime_inference_config.varpro_scaling,
+        if not expected_scan_ids.issubset(set(diagnostics.used_scan_ids)):
+            missing = sorted(expected_scan_ids - set(diagnostics.used_scan_ids))
+            raise ValueError(
+                "barycentric reassembly did not use every C4 channel scan "
+                f"id: {missing}"
             )
-            amplitude, phase = present_reconstruction_canvas(canvas, policy.output)
-            canvas_snapshot = _snapshot_array(
-                canvas, name="complex_canvas", complex_required=True
+        if (
+            diagnostics.total_patches != expected_patch_count
+            or diagnostics.accepted_patches != expected_patch_count
+        ):
+            raise ValueError(
+                "barycentric reassembly must accept every authentic C4 "
+                f"channel patch ({diagnostics.accepted_patches}/"
+                f"{diagnostics.total_patches}, expected {expected_patch_count})"
             )
-            prescale_snapshot = _snapshot_array(
-                prescale_canvas, name="prescale_canvas", complex_required=True
+        policy = resolve_cli_reconstruction_policy(
+            inference_config.patch_weighting,
+            inference_config.varpro_scaling,
+        )
+        amplitude, phase = present_reconstruction_canvas(canvas, policy.output)
+        canvas_snapshot = _snapshot_array(
+            canvas, name="complex_canvas", complex_required=True
+        )
+        prescale_snapshot = _snapshot_array(
+            prescale_canvas, name="prescale_canvas", complex_required=True
+        )
+        amplitude_snapshot = _snapshot_array(amplitude, name="amplitude")
+        phase_snapshot = _snapshot_array(phase, name="phase")
+        weight_snapshot = _snapshot_array(
+            diagnostics.canvas_weights,
+            name="canvas weights",
+        )
+        if weight_snapshot.shape != canvas_snapshot.shape:
+            raise ValueError("canvas weights shape must match the complex canvas")
+        if not bool(np.any(weight_snapshot > 0)):
+            raise ValueError(
+                "canvas weights must contain nonempty positive support"
             )
-            amplitude_snapshot = _snapshot_array(amplitude, name="amplitude")
-            phase_snapshot = _snapshot_array(phase, name="phase")
-            weight_snapshot = _snapshot_array(
-                diagnostics.canvas_weights,
-                name="canvas weights",
+        anchor_snapshot = copy.deepcopy(dict(diagnostics.canvas_anchor))
+        if "scan_com" not in anchor_snapshot:
+            raise ValueError(
+                "structured reassembly diagnostics are missing scan_com anchor"
             )
-            if weight_snapshot.shape != canvas_snapshot.shape:
-                raise ValueError("canvas weights shape must match the complex canvas")
-            if not bool(np.any(weight_snapshot > 0)):
-                raise ValueError(
-                    "canvas weights must contain nonempty positive support"
-                )
-            anchor_snapshot = copy.deepcopy(dict(diagnostics.canvas_anchor))
-            if "scan_com" not in anchor_snapshot:
-                raise ValueError(
-                    "structured reassembly diagnostics are missing scan_com anchor"
-                )
-            result = BarycentricReconstructionResult(
-                complex_canvas=canvas_snapshot,
-                amplitude=amplitude_snapshot,
-                phase=phase_snapshot,
-                prescale_canvas=prescale_snapshot,
-                effective_data_config=runtime_data_config,
-                canvas_weights=weight_snapshot,
-                canvas_anchor=anchor_snapshot,
-                channel_indices=channel_indices,
-                reassembly=diagnostics,
-            )
-        finally:
-            # TensorDict mmap handles must be unreachable before the owned
-            # TemporaryDirectory attempts cleanup, including error paths.
-            del reconstruction_dataset
-            dataset = None
-            gc.collect()
+        result = BarycentricReconstructionResult(
+            complex_canvas=canvas_snapshot,
+            measurement_gauge_canvas=canvas_snapshot,
+            amplitude=amplitude_snapshot,
+            phase=phase_snapshot,
+            prescale_canvas=prescale_snapshot,
+            effective_data_config=runtime_data_config,
+            canvas_weights=weight_snapshot,
+            canvas_anchor=anchor_snapshot,
+            channel_indices=channel_indices,
+            channel_coordinates=channel_coordinates,
+            source_metadata=dict(runtime_params.source_metadata),
+            reassembly=diagnostics,
+        )
+    finally:
+        # TensorDict mmap handles must be unreachable before the caller's
+        # workspace teardown, including error paths.
+        del reconstruction_dataset
+        gc.collect()
 
     if not quiet:
         print(f"Reconstruction shape: {result.amplitude.shape}")
@@ -939,21 +555,7 @@ def reconstruct_npz_barycentric(
     if "diffraction_to_obj" not in models:
         raise ValueError("strict bundle did not contain diffraction_to_obj")
     model = models["diffraction_to_obj"]
-    _validate_loaded_reconstruction_identity(
-        model,
-        loader_params,
-        expected_workflow=expected_workflow,
-    )
-    _validate_flat_npz(
-        test_data_path,
-        model.data_config,
-        dataset_manifest_path=(
-            Path(dataset_manifest_path)
-            if dataset_manifest_path is not None
-            else None
-        ),
-        expected_workflow=expected_workflow,
-    )
+    _validate_loaded_reconstruction_identity(model)
     if inference_config is not None and not isinstance(
         inference_config, InferenceConfig
     ):
@@ -975,205 +577,498 @@ def reconstruct_npz_barycentric(
             runtime_inference_config,
             batch_size=inference_batch_size,
         )
-    _validate_expected_runtime_reconstruction(
+    validate_bundle_matches_workflow(
+        model,
+        loader_params,
         expected_workflow,
-        runtime_inference_config,
+        reconstruction_method="barycentric",
+        runtime_inference_config=runtime_inference_config,
         groups_per_center=groups_per_center,
     )
-    return _reconstruct_loaded_npz_barycentric(
+    manifest_path = (
+        Path(dataset_manifest_path)
+        if dataset_manifest_path is not None
+        else None
+    )
+    with tempfile.TemporaryDirectory(
+        prefix="barycentric-workspace-",
+        dir=output_root,
+    ) as workspace_name:
+        workspace = Path(workspace_name)
+        (
+            dataset,
+            source_metadata,
+            runtime_data_config,
+            runtime_training_config,
+        ) = _stage_and_construct_reconstruction_dataset(
+            model,
+            test_data_path,
+            workspace=workspace,
+            groups_per_center=groups_per_center,
+            device=device,
+            num_workers=num_workers,
+            dataset_manifest_path=manifest_path,
+            expected_workflow=expected_workflow,
+        )
+        result = reconstruct_from_dataset(
+            model,
+            dataset,
+            runtime_params=ReconstructionRuntimeParams(
+                data_config=runtime_data_config,
+                training_config=runtime_training_config,
+                inference_config=runtime_inference_config,
+                source_metadata=source_metadata,
+                precision=precision,
+                quiet=quiet,
+            ),
+        )
+        del dataset
+        gc.collect()
+    return result
+
+
+def reconstruct_from_arrays(
+    model: Any,
+    arrays: Mapping[str, np.ndarray],
+    *,
+    runtime_params: ReconstructionRuntimeParams,
+    workspace: os.PathLike[str] | str,
+    groups_per_center: int = 1,
+    device: str = "cpu",
+    num_workers: int = 0,
+) -> BarycentricReconstructionResult:
+    """Reconstruct one flat acquisition staged from in-memory arrays (arrays-in kernel).
+
+    The embedder-facing reconstruction seam (Ptychodus): a loaded model and a
+    mapping of in-memory numpy arrays — the flat-acquisition NPZ contents
+    (``diff3d``/``diffraction``, ``xcoords``, ``ycoords``, ``probeGuess``, and
+    the optional keys) — in, frozen amplitude/phase snapshots out. No source
+    NPZ path, no ``params.cfg`` access. Hop count: embedder -> stage (arrays ->
+    mmap dataset) -> kernel (``reconstruct_from_dataset``).
+
+    ``runtime_params`` supplies ``inference_config`` and the ``precision``,
+    ``quiet``, ``enforce_ci_varpro``, and ``compute_count_metrics`` knobs. Its
+    ``data_config``, ``training_config``, and ``source_metadata`` fields are
+    derived during staging from the model, the arrays, and the
+    ``device``/``num_workers`` staging arguments, and replace any caller values.
+    No dataset-manifest or workflow-conformance validation: those identity
+    checks belong to the NPZ-path entry (``reconstruct_npz_barycentric``); the
+    arrays-in seam validates the array dtype/shape/coordinate contract only.
+    """
+    if not isinstance(arrays, Mapping):
+        raise TypeError("arrays must be a mapping of numpy array names to arrays")
+    if isinstance(groups_per_center, bool) or not isinstance(groups_per_center, int):
+        raise TypeError("groups_per_center must be a positive integer")
+    if groups_per_center <= 0:
+        raise ValueError("groups_per_center must be a positive integer")
+    if isinstance(num_workers, bool) or not isinstance(num_workers, int):
+        raise TypeError("num_workers must be a nonnegative integer")
+    if num_workers < 0:
+        raise ValueError("num_workers must be a nonnegative integer")
+
+    workspace_path = Path(workspace)
+    workspace_path.mkdir(parents=True, exist_ok=True)
+    arrays_path = workspace_path / "held_out.npz"
+    np.savez(
+        arrays_path,
+        **{name: np.asarray(value) for name, value in arrays.items()},
+    )
+    (
+        dataset,
+        source_metadata,
+        runtime_data_config,
+        runtime_training_config,
+    ) = _stage_and_construct_reconstruction_dataset(
         model,
-        test_data_path,
-        run_root=output_root,
+        arrays_path,
+        workspace=workspace_path,
         groups_per_center=groups_per_center,
-        inference_config=runtime_inference_config,
         device=device,
         num_workers=num_workers,
-        inference_batch_size=None,
-        precision=precision,
-        quiet=quiet,
+        dataset_manifest_path=None,
+        expected_workflow=None,
+    )
+    kernel_params = replace(
+        runtime_params,
+        data_config=runtime_data_config,
+        training_config=runtime_training_config,
+        source_metadata=source_metadata,
+    )
+    try:
+        return reconstruct_from_dataset(
+            model,
+            dataset,
+            runtime_params=kernel_params,
+        )
+    finally:
+        del dataset
+        gc.collect()
+
+
+def reconstruct_npz_tiled(
+    bundle_path: os.PathLike[str] | str,
+    test_npz_path: os.PathLike[str] | str,
+    *,
+    run_root: os.PathLike[str] | str,
+    groups_per_center: int = 1,
+    expected_workflow: Any,
+    dataset_manifest_path: Optional[os.PathLike[str] | str] = None,
+    scale_contract_version: Optional[str] = None,
+    measurement_domain: Optional[str] = None,
+    inference_config: Any = None,
+    device: str = "cpu",
+    num_workers: int = 0,
+    inference_batch_size: Optional[int] = None,
+    precision: str = "32-true",
+    quiet: bool = False,
+) -> TiledReconstructionResult:
+    """Strictly reload one bundle and assemble a fixed-pitch mmap raster.
+
+    The shared coordinate accumulator is evaluated with a method-derived
+    window equal to the fixed raster pitch.  On the validated integer lattice
+    every patch lands without interpolation or overlap, so cropping the exact
+    unit-weight support is equivalent to the declared raster tiling while
+    remaining independent of loader iteration order.
+    """
+
+    from ptycho.config.legacy_state import isolated_archived_params_scope
+    from ptycho.simulation.flat_acquisition import (
+        fixed_pitch_raster_positions,
+        ordered_raster_coordinates,
+    )
+    from ptycho_torch.config_params import InferenceConfig
+    from ptycho_torch.reassembly_diagnostics import array_metadata
+    from ptycho_torch.workflows.bundle_io import load_inference_bundle_torch
+
+    if expected_workflow is None or not hasattr(expected_workflow, "inference"):
+        raise TypeError("tiled reconstruction requires expected_workflow identity")
+    if expected_workflow.inference.reconstruction_method != "tiled":
+        raise ValueError("expected_workflow does not request tiled reconstruction")
+    if isinstance(groups_per_center, bool) or not isinstance(groups_per_center, int):
+        raise TypeError("groups_per_center must be a positive integer")
+    if groups_per_center != 1:
+        raise ValueError("tiled reconstruction requires groups_per_center=1")
+    if isinstance(num_workers, bool) or not isinstance(num_workers, int):
+        raise TypeError("num_workers must be a nonnegative integer")
+    if num_workers < 0:
+        raise ValueError("num_workers must be a nonnegative integer")
+    if inference_batch_size is not None and (
+        isinstance(inference_batch_size, bool)
+        or not isinstance(inference_batch_size, int)
+        or inference_batch_size <= 0
+    ):
+        raise ValueError("inference_batch_size must be a positive integer or None")
+
+    bundle_input = Path(bundle_path)
+    bundle_dir = bundle_input.parent if bundle_input.name == "wts.h5.zip" else bundle_input
+    archive_path = bundle_dir / "wts.h5.zip"
+    if not archive_path.is_file() or archive_path.stat().st_size <= 0:
+        raise FileNotFoundError(
+            f"strict reconstruction requires a nonempty {archive_path}"
+        )
+    test_data_path = Path(test_npz_path)
+    if not test_data_path.is_file() or test_data_path.suffix.lower() != ".npz":
+        raise FileNotFoundError(f"held-out NPZ does not exist: {test_data_path}")
+    output_root = Path(run_root)
+    output_root.mkdir(parents=True, exist_ok=True)
+    if not output_root.is_dir():
+        raise NotADirectoryError(f"run_root is not a directory: {output_root}")
+
+    with isolated_archived_params_scope():
+        models, loader_params = load_inference_bundle_torch(
+            bundle_dir,
+            model_name="diffraction_to_obj",
+            scale_contract_version=scale_contract_version,
+            measurement_domain=measurement_domain,
+        )
+    if "diffraction_to_obj" not in models:
+        raise ValueError("strict bundle did not contain diffraction_to_obj")
+    model = models["diffraction_to_obj"]
+    _validate_loaded_reconstruction_identity(model)
+    if inference_config is not None and not isinstance(
+        inference_config, InferenceConfig
+    ):
+        raise TypeError("inference_config must be a Torch InferenceConfig")
+    runtime_inference_config = model.inference_config
+    if inference_config is not None:
+        runtime_inference_config = replace(
+            runtime_inference_config,
+            patch_weighting=inference_config.patch_weighting,
+            varpro_scaling=inference_config.varpro_scaling,
+            log_patch_stats=inference_config.log_patch_stats,
+            patch_stats_limit=inference_config.patch_stats_limit,
+        )
+    if inference_batch_size is not None:
+        runtime_inference_config = replace(
+            runtime_inference_config,
+            batch_size=inference_batch_size,
+        )
+    validate_bundle_matches_workflow(
+        model,
+        loader_params,
+        expected_workflow,
+        reconstruction_method="tiled",
+        runtime_inference_config=runtime_inference_config,
+        groups_per_center=groups_per_center,
+    )
+
+    simulation = expected_workflow.simulation.test
+    if simulation.scan.grid_size != (1, 1):
+        raise ValueError("tiled reconstruction requires C=1/gridsize=1")
+    outer_offset = int(simulation.scan.outer_offset_test)
+    if (
+        outer_offset <= 0
+        or outer_offset % 4
+        or outer_offset > 2 * int(simulation.N)
+    ):
+        raise ValueError(
+            "tiled reconstruction requires outer_offset_test divisible by 4 "
+            "and no larger than 2*N"
+        )
+    tile_size = outer_offset // 2
+    tiled_inference_config = replace(
+        runtime_inference_config,
+        middle_trim=tile_size,
+        patch_weighting="uniform",
+    )
+    manifest_path = (
+        Path(dataset_manifest_path)
+        if dataset_manifest_path is not None
+        else None
+    )
+    with tempfile.TemporaryDirectory(
+        prefix="tiled-workspace-",
+        dir=output_root,
+    ) as workspace_name:
+        workspace = Path(workspace_name)
+        (
+            dataset,
+            source_metadata,
+            runtime_data_config,
+            runtime_training_config,
+        ) = _stage_and_construct_reconstruction_dataset(
+            model,
+            test_data_path,
+            workspace=workspace,
+            groups_per_center=groups_per_center,
+            device=device,
+            num_workers=num_workers,
+            dataset_manifest_path=manifest_path,
+            expected_workflow=expected_workflow,
+        )
+        base = reconstruct_from_dataset(
+            model,
+            dataset,
+            runtime_params=ReconstructionRuntimeParams(
+                data_config=runtime_data_config,
+                training_config=runtime_training_config,
+                inference_config=tiled_inference_config,
+                source_metadata=source_metadata,
+                precision=precision,
+                quiet=quiet,
+                enforce_ci_varpro=True,
+                compute_count_metrics=True,
+            ),
+        )
+        del dataset
+        gc.collect()
+    source_metadata = base.source_metadata
+    xcoords = np.asarray(source_metadata["xcoords"], dtype=np.float64)
+    ycoords = np.asarray(source_metadata["ycoords"], dtype=np.float64)
+    if simulation.object.patch_amplitude_normalization == "mean_patch_max":
+        if "object_amplitude_scale" not in source_metadata:
+            raise ValueError(
+                "tiled reconstruction requires test object_amplitude_scale"
+            )
+        scale_array = np.asarray(source_metadata["object_amplitude_scale"])
+        if scale_array.shape != ():
+            raise ValueError("object_amplitude_scale must be scalar")
+        object_amplitude_scale = float(scale_array)
+    else:
+        if "object_amplitude_scale" in source_metadata:
+            raise ValueError(
+                "object_amplitude_scale requires mean_patch_max identity"
+            )
+        object_amplitude_scale = 1.0
+    if not np.isfinite(object_amplitude_scale) or object_amplitude_scale <= 0.0:
+        raise ValueError("object_amplitude_scale must be positive and finite")
+    expected_x, expected_y = fixed_pitch_raster_positions(
+        n_positions=simulation.object.diffractions_per_object,
+        height=simulation.object.image_size[0],
+        width=simulation.object.image_size[1],
+        patch_size=simulation.N,
+        pitch=float(tile_size),
+    )
+    expected_x, expected_y = ordered_raster_coordinates(
+        (expected_x, expected_y),
+        frame_order_recipe=getattr(
+            expected_workflow.simulation,
+            "frame_order_recipe",
+            "object-major-v1",
+        ),
+    )
+    if not np.array_equal(xcoords, expected_x) or not np.array_equal(
+        ycoords, expected_y
+    ):
+        raise ValueError("held-out coordinates do not match fixed_pitch_raster")
+    flat_ids = np.asarray(base.channel_indices, dtype=np.int64).reshape(-1)
+    identity_patches = flat_ids[:, None, None].astype(np.complex64)
+    identity_coords = np.asarray(base.channel_coordinates).reshape(-1, 2)
+    _canonicalize_tiled_patch_order(
+        identity_patches,
+        flat_ids,
+        identity_coords,
+        expected_x=expected_x,
+        expected_y=expected_y,
+    )
+
+    weights = np.asarray(base.canvas_weights)
+    support = weights > 0
+    rows = np.flatnonzero(np.any(support, axis=1))
+    columns = np.flatnonzero(np.any(support, axis=0))
+    if rows.size == 0 or columns.size == 0:
+        raise ValueError("tiled reconstruction has empty canvas support")
+    row_slice = slice(int(rows[0]), int(rows[-1]) + 1)
+    column_slice = slice(int(columns[0]), int(columns[-1]) + 1)
+    support_crop = support[row_slice, column_slice]
+    weight_crop = np.asarray(weights[row_slice, column_slice])
+    side = int(np.sqrt(simulation.object.diffractions_per_object))
+    expected_shape = (side * tile_size, side * tile_size)
+    if support_crop.shape != expected_shape or not support_crop.all():
+        raise ValueError(
+            "tiled reconstruction support does not form the expected raster canvas"
+        )
+    if not np.allclose(weight_crop, 1.0, rtol=0.0, atol=1e-6):
+        raise ValueError("tiled reconstruction requires unit nonoverlapping weights")
+
+    normalized_canvas = np.asarray(base.complex_canvas)[row_slice, column_slice]
+    normalized_prescale = np.asarray(base.prescale_canvas)[row_slice, column_slice]
+    restored_canvas = normalized_canvas * object_amplitude_scale
+    restored_prescale = normalized_prescale * object_amplitude_scale
+    canvas_snapshot = _snapshot_array(
+        restored_canvas,
+        name="complex_canvas",
+        complex_required=True,
+    )
+    prescale_snapshot = _snapshot_array(
+        restored_prescale,
+        name="prescale_canvas",
+        complex_required=True,
+    )
+    weight_snapshot = _snapshot_array(weight_crop, name="canvas weights")
+    measurement_gauge_snapshot = _snapshot_array(
+        normalized_canvas,
+        name="measurement_gauge_canvas",
+        complex_required=True,
+    )
+    amplitude_snapshot = _snapshot_array(np.abs(canvas_snapshot), name="amplitude")
+    phase_snapshot = _snapshot_array(np.angle(canvas_snapshot), name="phase")
+    scan_com = [float(np.mean(expected_x)), float(np.mean(expected_y))]
+    border_size = (int(simulation.N) - tile_size) / 2.0
+    truth_origin = [int(np.ceil(border_size)), int(np.ceil(border_size))]
+    canvas_anchor = {
+        "scan_com": scan_com,
+        "canvas_shape": list(expected_shape),
+        "canvas_origin_offset": [
+            expected_shape[1] // 2 - scan_com[0],
+            expected_shape[0] // 2 - scan_com[1],
+        ],
+        "truth_origin": truth_origin,
+        "assembly_method": "tiled_raster_v1",
+    }
+    reassembly = base.reassembly.to_jsonable()
+    reassembly.update(
+        {
+            "assembly_method": "tiled_raster_v1",
+            "canvas_anchor": canvas_anchor,
+            "canvas_weights": array_metadata(weight_snapshot),
+            "measurement_gauge_canvas": array_metadata(
+                measurement_gauge_snapshot
+            ),
+            "requested_middle_trim": int(runtime_inference_config.middle_trim),
+            "effective_tile_size": tile_size,
+            "effective_patch_weighting": "uniform",
+            "effective_varpro_scaling": bool(
+                tiled_inference_config.varpro_scaling
+            ),
+            "lattice_shape": [side, side],
+            "lattice_pitch": [float(tile_size), float(tile_size)],
+            "object_amplitude_scale": object_amplitude_scale,
+            "object_amplitude_scale_applied": (
+                simulation.object.patch_amplitude_normalization
+                == "mean_patch_max"
+            ),
+            "object_gauge": {
+                "inference_canvas_before_publication": (
+                    "split_normalized"
+                    if simulation.object.patch_amplitude_normalization
+                    == "mean_patch_max"
+                    else "raw_source"
+                ),
+                "published_canvas": "raw_source",
+                "published_scale_factor": object_amplitude_scale,
+                "count_diagnostics_canvas": (
+                    "split_normalized"
+                    if simulation.object.patch_amplitude_normalization
+                    == "mean_patch_max"
+                    else "raw_source"
+                ),
+            },
+        }
+    )
+    return TiledReconstructionResult(
+        complex_canvas=canvas_snapshot,
+        measurement_gauge_canvas=measurement_gauge_snapshot,
+        amplitude=amplitude_snapshot,
+        phase=phase_snapshot,
+        prescale_canvas=prescale_snapshot,
+        effective_data_config=base.effective_data_config,
+        canvas_weights=weight_snapshot,
+        canvas_anchor=canvas_anchor,
+        channel_indices=base.channel_indices,
+        channel_coordinates=base.channel_coordinates,
+        reassembly=reassembly,
     )
 
 
-def _run_inference_and_reconstruct(model, raw_data, config, execution_config, device, quiet=False, intensity_scale=None):
-    """
-    Extract inference logic into testable helper function (Phase D.C C3).
+def resolve_device_and_precision(execution_config) -> tuple[str, str]:
+    """Map a resolved execution config to (torch device, Lightning precision).
 
-    Args:
-        model: Loaded Lightning module (should be in eval mode)
-        raw_data: RawData instance with test data
-        config: TFInferenceConfig with inference_groups, etc.
-        execution_config: PyTorchExecutionConfig with device, batch size, etc.
-        device: Torch device string ('cpu', 'cuda', 'mps')
-        quiet: Suppress progress output (default: False)
-
-    Returns:
-        Tuple of (amplitude, phase) numpy arrays
-
-    Notes:
-        - Wraps existing simplified inference logic (lines 563-641)
-        - Enforces DTYPE-001 (float32 for diffraction, complex64 for probe)
-        - Averages across batch for single reconstruction
-        - DEVICE-MISMATCH-001: Ensures model is on the correct device
+    Single owner of the accelerator->device mapping and precision defaulting
+    used by every reconstruction door (both ``cli_main`` arms and the
+    installed ``ptycho_inference`` dispatcher) — previously three drifting
+    inline copies.
     """
     import torch
-    from ptycho_torch.scaling_contract import (
-        CI_SCALE_CONTRACT,
-        ci_scaling_active,
-        resolve_scale_contract,
-    )
 
-    model_config = getattr(model, "model_config", None)
-    data_config = getattr(model, "data_config", None)
-    if model_config is not None and ci_scaling_active(model_config):
-        profile = resolve_scale_contract(
-            getattr(data_config, "scale_contract_version", None),
-            getattr(data_config, "measurement_domain", None),
-        )
-        if profile.version == CI_SCALE_CONTRACT:
-            raise RuntimeError(
-                "ci_intensity_v2 inference requires the canonical "
-                "reconstruct_image_barycentric physical-probe VarPro path. The "
-                "simplified uniform-stitching path cannot produce CI-scaled output. "
-                "Re-run with --patch-weighting probe --varpro-scaling to route "
-                "through it."
-            )
-
-    # DEVICE-MISMATCH-001 fix: Ensure model is on the requested device and in eval mode
-    model.to(device)
-    model.eval()
-
-    # DTYPE ENFORCEMENT (Phase D1d): Cast to float32 per DATA-001
-    diffraction = torch.from_numpy(raw_data.diff3d).to(device, dtype=torch.float32)
-    probe = torch.from_numpy(raw_data.probeGuess).to(device, dtype=torch.complex64)
-
-    from ptycho import debug_parity
-    debug_parity.log_array_stats("torch.diffraction_raw", raw_data.diff3d)
-    debug_parity.log_array_stats("torch.probe_raw", raw_data.probeGuess)
-
-    # Limit to inference_groups
-    diffraction = diffraction[:config.inference_groups]
-
-    # Add channel dimension if needed: (n, H, W) -> (n, 1, H, W)
-    if diffraction.ndim == 3:
-        diffraction = diffraction.unsqueeze(1)
-
-    # Match expected channel count for grouped inputs (gridsize>1)
-    expected_channels = None
-    if hasattr(model, 'data_config') and hasattr(model.data_config, 'gridsize'):
-        expected_channels = int(model.data_config.gridsize) ** 2
-    elif hasattr(config, 'model') and hasattr(config.model, 'gridsize'):
-        expected_channels = int(config.model.gridsize) ** 2
-
-    if expected_channels and diffraction.shape[1] == 1 and expected_channels > 1:
-        diffraction = diffraction.repeat(1, expected_channels, 1, 1)
-
-    # Ensure probe is complex64
-    if not torch.is_complex(probe):
-        probe = probe.to(torch.complex64)
-
-    # Add batch dimension to probe if needed
-    if probe.ndim == 2:
-        probe = probe.unsqueeze(0).unsqueeze(0).unsqueeze(0)  # (1, 1, 1, H, W)
-
-    # Prepare positions (API requires it), real offsets computed for reassembly below
-    batch_size = diffraction.shape[0]
-    N = diffraction.shape[-1]
-    positions = torch.zeros((batch_size, 1, 1, 2), device=device)
-
-    # Prepare scaling factors (match training normalization)
-    from ptycho_torch import helper as hh
-    from ptycho_torch.config_params import DataConfig as PTDataConfig
-
-    data_cfg_norm = PTDataConfig(N=int(N), gridsize=1)
-    rms_scale = _training_normalization_scale(diffraction)
-    rms_scale = rms_scale.to(device=device, dtype=torch.float32)
-
-    if intensity_scale is not None:
-        physics_scale = torch.full((batch_size, 1, 1, 1), float(intensity_scale), device=device, dtype=torch.float32)
-    else:
-        physics_scale = hh.get_physics_scaling_factor(diffraction.squeeze(1), data_cfg_norm)
-        if not isinstance(physics_scale, torch.Tensor):
-            physics_scale = torch.from_numpy(physics_scale)
-        physics_scale = physics_scale.to(device=device, dtype=torch.float32)
-        if physics_scale.ndim == 1:
-            physics_scale = physics_scale.view(-1, 1, 1, 1)
-
-    physics_weight = 1.0 if getattr(model, 'torch_loss_mode', 'poisson') == 'poisson' else 0.0
-    input_scale_factor = rms_scale
-    output_scale_factor = (1.0 - physics_weight) * rms_scale + physics_weight * physics_scale  # noqa: F841
-
-    if not quiet:
-        print(f"Running inference on {batch_size} images...")
-
-    # Forward pass through model to get per-patch complex predictions
-    with torch.no_grad():
-        patch_complex = model.forward_predict(
-            diffraction,
-            positions,
-            probe,
-            input_scale_factor
-        )
-
-    # Compute pixel offsets relative to center-of-mass (B, 1, 1, 2)
-    x = torch.from_numpy(raw_data.xcoords[:batch_size]).to(device=device, dtype=torch.float32)
-    y = torch.from_numpy(raw_data.ycoords[:batch_size]).to(device=device, dtype=torch.float32)
-    dx = x - torch.mean(x)
-    dy = y - torch.mean(y)
-    offsets = torch.stack([dx, dy], dim=-1).view(batch_size, 1, 1, 2)
-    if offsets.shape[1] == 1 and patch_complex.ndim == 4 and patch_complex.shape[1] > 1:
-        offsets = offsets.repeat(1, patch_complex.shape[1], 1, 1)
-    debug_parity.log_offsets_stats("torch.offsets_global", offsets)
-
-    if os.getenv("PTYCHO_TORCH_STITCH_DEBUG") == "1":
-        from ptycho_torch.debug import summarize_offsets
-        print(summarize_offsets("offsets_before_reassembly", offsets))
-
-    # Position-aware reassembly using torch helper to produce stitched canvas
-    from ptycho_torch.config_params import DataConfig, ModelConfig
-    from ptycho_torch import helper as hh
-
-    # Minimal configs required for padding and translation
-    N = patch_complex.shape[-1]
-    data_cfg = DataConfig(N=int(N), gridsize=1)
-    model_cfg = ModelConfig()
-    # Collapse batch into channel dimension so reassembly uses all patches
-    patch_complex_reassemble = patch_complex.reshape(1, -1, N, N)
-    offsets_reassemble = offsets.reshape(1, -1, 1, 2)
-
-    crop_size = getattr(config, "stitch_crop_size", 20)
-    if crop_size > N:
-        crop_size = int(N)
-    imgs_merged, _, _ = hh.reassemble_patches_position_real(
-        patch_complex_reassemble, offsets_reassemble, data_cfg, model_cfg, crop_size=crop_size
-    )
-    debug_parity.log_array_stats("torch.reassembly_output", imgs_merged)
-
-    canvas = imgs_merged[0]  # (M, M)
-    result_amp, result_phase = present_reconstruction_canvas(canvas, OutputSpec())
-
-    if not quiet:
-        print(f"Reconstruction shape: {result_amp.shape}")
-        print(f"Amplitude range: [{result_amp.min():.4f}, {result_amp.max():.4f}]")
-        print(f"Phase range: [{result_phase.min():.4f}, {result_phase.max():.4f}]")
-
-    return result_amp, result_phase
+    device_map = {
+        'cpu': 'cpu',
+        'gpu': 'cuda',
+        'cuda': 'cuda',
+        'mps': 'mps',
+        'auto': 'cuda' if torch.cuda.is_available() else 'cpu',
+    }
+    device = device_map.get(getattr(execution_config, 'accelerator', None), 'cpu')
+    precision = getattr(execution_config, 'precision', None)
+    if precision not in {'32-true', '16-mixed', 'bf16-mixed'}:
+        precision = '32-true'
+    return device, precision
 
 
 @scoped_legacy_params
 def cli_main():
     """
-    CLI entrypoint for PyTorch Lightning checkpoint inference (ADR-003 Phase D.C thin wrapper).
+    CLI entrypoint for PyTorch Lightning checkpoint inference (the config-factory contract (docs/specs/spec-ptycho-config-bridge.md) Phase D.C thin wrapper).
 
     Thin wrapper that delegates to shared helpers (ptycho_torch.cli.shared) for validation,
-    execution config construction, and device resolution. Inference orchestration extracted
-    to _run_inference_and_reconstruct() helper for testability.
+    execution config construction, and device resolution, then reconstructs the full scan
+    through the barycentric kernel.
 
     Usage:
         python -m ptycho_torch.inference \\
             --model_path <training_output_dir> \\
             --test_data <npz_file> \\
             --output_dir <inference_output_dir> \\
-            --n_images 32 \\
             --accelerator cpu \\
             [--quiet]
 
@@ -1182,7 +1077,7 @@ def cli_main():
         - <output_dir>/reconstructed_phase.png
 
     References:
-        - Blueprint: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T114500Z/phase_d_cli_wrappers_inference/inference_refactor.md
+        - Blueprint: docs/findings.md (see git history for the originating plan)
         - Test contract: tests/torch/test_cli_inference_torch.py
         - Shared helpers: ptycho_torch/cli/shared.py
     """
@@ -1197,7 +1092,6 @@ Examples:
       --model_path training_outputs \\
       --test_data datasets/Run1084_recon3_postPC_shrunk_3.npz \\
       --output_dir inference_outputs \\
-      --n_images 32 \\
       --device cpu
 
   # Run with quiet output
@@ -1205,7 +1099,6 @@ Examples:
       --model_path training_outputs \\
       --test_data test.npz \\
       --output_dir outputs \\
-      --n_images 64 \\
       --device cuda \\
       --quiet
         """
@@ -1230,24 +1123,13 @@ Examples:
         help='Directory to save reconstruction outputs (amplitude/phase PNGs)'
     )
     parser.add_argument(
-        '--n_images',
-        type=int,
-        default=None,
-        help=(
-            'Number of images to use for reconstruction on the uniform stitching '
-            'path (default: 32). Incompatible with --patch-weighting probe / '
-            '--varpro-scaling, which always reconstruct from the full scan.'
-        )
-    )
-    parser.add_argument(
         '--patch-weighting',
         choices=['uniform', 'probe'],
         default='uniform',
         dest='patch_weighting',
         help=(
-            "Stitching weight for patch reassembly: 'uniform' keeps the legacy "
-            "CLI path unchanged (default); 'probe' applies |P|^2-weighted "
-            "barycentric assembly via reconstruct_image_barycentric."
+            "Stitching weight for patch reassembly on the barycentric kernel "
+            "path: 'uniform' (default) or 'probe' (|P|^2-weighted)."
         )
     )
     parser.add_argument(
@@ -1334,7 +1216,7 @@ Examples:
         help='Measurement-domain override; must be paired with --scale-contract-version.',
     )
 
-    # Execution config flags (Phase C4.C5 - ADR-003)
+    # Execution config flags (the config-factory contract (docs/specs/spec-ptycho-config-bridge.md))
     parser.add_argument(
         '--accelerator',
         type=str,
@@ -1368,31 +1250,13 @@ Examples:
 
     args = parser.parse_args()
 
-    # --- Conformance D4: resolve the stitching/scaling route up front ---
-    # 'uniform' keeps the legacy reassemble_patches_position_real path
-    # bit-identical; any non-default knob routes through
-    # reconstruct_image_barycentric. Requested-but-unsatisfiable combinations
-    # fail fast here instead of being silently discarded.
-    reassembly_route = _resolve_reassembly_route(
-        args.patch_weighting, args.varpro_scaling
-    )
-    if reassembly_route == 'barycentric':
-        requested_knobs = _describe_requested_knobs(
-            args.patch_weighting, args.varpro_scaling
+    # The barycentric kernel is the sole reconstruction entry; the deprecated
+    # uniform-stitching route was deleted at the Phase 4 closeout.
+    if args.probe_mask:
+        raise ValueError(
+            "--probe-mask cannot be honored on the barycentric kernel path "
+            "(the kernel uses the checkpoint's own probe configuration)."
         )
-        if args.n_images is not None:
-            raise ValueError(
-                f"--n_images cannot be honored together with {requested_knobs}: "
-                "the barycentric reconstruction path always uses the full scan. "
-                "Drop --n_images or the stitching/scaling flag(s)."
-            )
-        if args.probe_mask:
-            raise ValueError(
-                f"--probe-mask cannot be honored together with {requested_knobs}: "
-                "the barycentric path uses the checkpoint's own probe "
-                "configuration. Drop one of the flags."
-            )
-    n_images = args.n_images if args.n_images is not None else 32
 
     # --- Phase D.C C3: Validate paths using shared helper ---
     from ptycho_torch.cli.shared import validate_paths
@@ -1430,7 +1294,7 @@ Examples:
             f"Import error: {e}"
         )
 
-    # Phase C4.C6+C4.C7: Delegate to factory for CONFIG-001 compliance (ADR-003)
+    # Delegate to factory for CONFIG-001 compliance (config-factory contract; docs/specs/spec-ptycho-config-bridge.md)
     # Replaces manual checkpoint loading and config construction with centralized
     # factory pattern. The factory handles:
     # 1. Path validation and checkpoint discovery
@@ -1439,7 +1303,6 @@ Examples:
     # 4. Execution config merging with override precedence
 
     from ptycho_torch.config_factory import create_inference_payload
-    from ptycho.raw_data import RawData
 
     # Convert paths to Path objects
     model_path = Path(args.model_path)
@@ -1448,13 +1311,15 @@ Examples:
 
     # Build overrides dict for factory
     overrides = {
-        'inference_groups': n_images,  # Map CLI arg to config field
+        # inference_groups is the canonical inference group-count key; the
+        # barycentric kernel reconstructs the full scan and ignores this count.
+        'inference_groups': 32,
         'probe_mask': args.probe_mask,
         'probe_mask_sigma': args.probe_mask_sigma,
         'probe_mask_diameter': args.probe_mask_diameter,
         'log_patch_stats': args.log_patch_stats,
         'patch_stats_limit': args.patch_stats_limit,
-        # Conformance D4: thread the stitching/scaling knobs so the resolved
+        # docs/specs/spec-ptycho-conformance.md (D4): thread the stitching/scaling knobs so the resolved
         # pt_inference_config matches the routing decision above.
         'patch_weighting': args.patch_weighting,
         'varpro_scaling': args.varpro_scaling,
@@ -1493,137 +1358,28 @@ Examples:
             "Ensure model_path contains wts.h5.zip and test_data conforms to DATA-001."
         )
 
-    if reassembly_route == 'barycentric':
-        try:
-            import torch
-
-            device_map = {
-                'cpu': 'cpu',
-                'gpu': 'cuda',
-                'cuda': 'cuda',
-                'mps': 'mps',
-                'auto': 'cuda' if torch.cuda.is_available() else 'cpu',
-            }
-            device = device_map.get(execution_config.accelerator, 'cpu')
-            precision = getattr(execution_config, 'precision', None)
-            if precision not in {'32-true', '16-mixed', 'bf16-mixed'}:
-                precision = '32-true'
-            result = reconstruct_npz_barycentric(
-                model_path,
-                test_data_path,
-                run_root=output_dir,
-                groups_per_center=args.groups_per_center,
-                scale_contract_version=args.scale_contract_version,
-                measurement_domain=args.measurement_domain,
-                inference_config=payload.pt_inference_config,
-                device=device,
-                num_workers=int(execution_config.num_workers or 0),
-                inference_batch_size=execution_config.inference_batch_size,
-                precision=precision,
-                quiet=args.quiet,
-            )
-            amplitude, phase = result.amplitude, result.phase
-            save_individual_reconstructions(amplitude, phase, output_dir)
-            if payload.pt_inference_config.log_patch_stats:
-                from ptycho_torch.patch_stats_instrumentation import PatchStatsLogger
-
-                amp_tensor = torch.as_tensor(amplitude).unsqueeze(0).unsqueeze(0)
-                logger = PatchStatsLogger(
-                    output_dir=output_dir / "analysis",
-                    enabled=True,
-                    limit=payload.pt_inference_config.patch_stats_limit,
-                )
-                logger.log_batch(amp_tensor, phase="inference", batch_idx=0)
-                logger.finalize()
-            if not args.quiet:
-                print("\nInference completed successfully!")
-                print(f"Output artifacts saved to: {output_dir}")
-            return 0
-        except Exception as e:
-            print(f"ERROR: Inference failed with exception: {e}", file=sys.stderr)
-            import traceback
-            traceback.print_exc()
-            return 1
-
-    # Load checkpoint via spec-compliant bundle loader (Phase C4.C6/C4.C7 - ADR-003)
-    # Replaces manual checkpoint search with factory-validated wts.h5.zip loading
     try:
         import torch
-        from ptycho_torch.workflows.bundle_io import load_inference_bundle_torch
 
-        # load_inference_bundle_torch expects bundle_dir containing wts.h5.zip
-        # It handles CONFIG-001 (restores params.cfg from archive) and returns
-        # (models_dict, params_dict) matching TensorFlow baseline API
-        models_dict, params_dict = load_inference_bundle_torch(
-            bundle_dir=model_path,
-            model_name='diffraction_to_obj',
+        device, precision = resolve_device_and_precision(execution_config)
+        result = reconstruct_npz_barycentric(
+            model_path,
+            test_data_path,
+            run_root=output_dir,
+            groups_per_center=args.groups_per_center,
             scale_contract_version=args.scale_contract_version,
             measurement_domain=args.measurement_domain,
-        )
-
-        # Extract Lightning module from models dict
-        model = models_dict['diffraction_to_obj']
-        model.eval()
-
-        # Resolve device from execution config
-        device_map = {
-            'cpu': 'cpu',
-            'gpu': 'cuda',
-            'cuda': 'cuda',
-            'mps': 'mps',
-            'auto': 'cuda' if torch.cuda.is_available() else 'cpu',
-        }
-        device = device_map.get(execution_config.accelerator, 'cpu')
-        model.to(device)
-
-        if not args.quiet:
-            print(f"Loaded model bundle from: {model_path / 'wts.h5.zip'}")
-            print(f"Model device: {device}")
-            print(f"Restored params.cfg from bundle (N={params_dict.get('N', 'N/A')}, "
-                  f"gridsize={params_dict.get('gridsize', 'N/A')})")
-
-    except Exception as e:
-        raise RuntimeError(
-            f"Failed to load inference bundle from {model_path}.\n"
-            f"Error: {e}\n"
-            "Ensure model_path contains wts.h5.zip archive (spec-compliant format)."
-        )
-
-    _require_ci_varpro_scaling(model, payload.pt_inference_config)
-
-    # Load test data via RawData (factory already validated path)
-    # NOTE: params.cfg already populated by factory, so RawData.from_file is safe to call
-    try:
-        raw_data = RawData.from_file(str(test_data_path))
-
-        if not args.quiet:
-            print(f"Loaded test data: {raw_data.diff3d.shape[0]} scan positions")
-
-    except Exception as e:
-        raise RuntimeError(
-            f"Failed to load test data from {test_data_path}.\n"
-            f"Error: {e}\n"
-            "Ensure NPZ conforms to specs/data_contracts.md"
-        )
-
-    # --- Phase D.C C3: Delegate to inference helper (Conformance D4 routing) ---
-    try:
-        amplitude, phase = _run_inference_and_reconstruct(
-            model=model,
-            raw_data=raw_data,
-            config=tf_inference_config,
-            execution_config=execution_config,
+            inference_config=payload.pt_inference_config,
             device=device,
+            num_workers=int(execution_config.num_workers or 0),
+            inference_batch_size=execution_config.inference_batch_size,
+            precision=precision,
             quiet=args.quiet,
-            intensity_scale=params_dict.get('intensity_scale'),
         )
-
-        # Save individual reconstructions (required by test contract)
+        amplitude, phase = result.amplitude, result.phase
         save_individual_reconstructions(amplitude, phase, output_dir)
-
         if payload.pt_inference_config.log_patch_stats:
             from ptycho_torch.patch_stats_instrumentation import PatchStatsLogger
-            import torch
 
             amp_tensor = torch.as_tensor(amplitude).unsqueeze(0).unsqueeze(0)
             logger = PatchStatsLogger(
@@ -1633,13 +1389,10 @@ Examples:
             )
             logger.log_batch(amp_tensor, phase="inference", batch_idx=0)
             logger.finalize()
-
         if not args.quiet:
             print("\nInference completed successfully!")
             print(f"Output artifacts saved to: {output_dir}")
-
         return 0
-
     except Exception as e:
         print(f"ERROR: Inference failed with exception: {e}", file=sys.stderr)
         import traceback

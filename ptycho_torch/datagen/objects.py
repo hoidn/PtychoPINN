@@ -1002,15 +1002,18 @@ def generate_3d_polyhedra_and_project(
     #     device_str=device_to_use
     # )
 
-def create_dead_leaves(img_shape, obj_arg, *, rng=None):
+def create_dead_leaves(img_shape, obj_arg, *, rng=None, shape_rng=None):
     """
     Wrapper for dead leaves function. Only takes square shapes.
 
     Args:
         img_shape (int, int): Image dimensions in (h,w)
         obj_arg (Dict): Passable dictionary with object generation arguments
-        rng (numpy.random.Generator, optional): Explicit random source. Passing
-            a generator makes every stochastic dead-leaves draw reproducible.
+        rng (numpy.random.Generator, optional): Numeric random source.
+        shape_rng (numpy.random.Generator, optional): Independent source for
+            every geometry draw: shape family, radius, center, orientation,
+            and polygon vertices. When omitted, the historical combined-stream
+            behavior is retained.
     """
 
 
@@ -1043,7 +1046,7 @@ def create_dead_leaves(img_shape, obj_arg, *, rng=None):
                         thickness = EFFECTIVE_THICKNESS,
                         min_phase = MIN_PHASE, max_phase = MAX_PHASE,
                         min_amp = MIN_AMP, max_amp = MAX_AMP,
-                        rng=rng)
+                        rng=rng, shape_rng=shape_rng)
     
     obj = amp_2d * np.exp(1j * phase_2d)
 
@@ -1061,8 +1064,8 @@ def get_skewed_random_value(alpha, scale, min_clip=1e-6, max_clip=None, *, rng=N
     # power > 1 skews towards 0
     # power < 1 skews towards scale
     power = alpha # Reuse alpha, larger alpha means more skew to 0
-    random_source = np.random if rng is None else rng
-    val = (random_source.uniform(0, 1) ** power) * scale
+    numeric_source = np.random if rng is None else rng
+    val = (numeric_source.uniform(0, 1) ** power) * scale
     val = max(val, min_clip)
     if max_clip is not None:
         val = min(val, max_clip)
@@ -1075,12 +1078,15 @@ def dead_leaves_ptycho(res, r_sigma_param, max_iters,
                        thickness,
                        min_phase, max_phase,
                        min_amp, max_amp,
-                       rng=None):
+                       rng=None, shape_rng=None):
     import cv2
 
     if rng is not None and not isinstance(rng, np.random.Generator):
         raise TypeError("rng must be a numpy.random.Generator")
-    random_source = np.random if rng is None else rng
+    if shape_rng is not None and not isinstance(shape_rng, np.random.Generator):
+        raise TypeError("shape_rng must be a numpy.random.Generator")
+    numeric_source = np.random if rng is None else rng
+    geometry_source = numeric_source if shape_rng is None else shape_rng
     # --- Initialize Canvases ---
     # These will store the material properties (beta, delta) of the TOPMOST leaf at each pixel
     beta_map = np.zeros((res, res), dtype=np.float32)
@@ -1112,10 +1118,15 @@ def dead_leaves_ptycho(res, r_sigma_param, max_iters,
     for i in range(max_iters):
         # 1. Select Shape Type
         available_shapes = ['circle', 'oriented_square', 'rectangle', 'triangle', 'quadrilater']
-        shape = random.choice(available_shapes) if rng is None else rng.choice(available_shapes)
+        if shape_rng is not None:
+            shape = geometry_source.choice(available_shapes)
+        elif rng is None:
+            shape = random.choice(available_shapes)
+        else:
+            shape = geometry_source.choice(available_shapes)
 
         # 2. Select Size (Radius)
-        r_p = random_source.uniform(0, 1)
+        r_p = geometry_source.uniform(0, 1)
         r_i = np.argmin(np.abs(r_dist - r_p))
         radius_pixels = max(int(r_list_abs[r_i]), 1)
 
@@ -1128,7 +1139,7 @@ def dead_leaves_ptycho(res, r_sigma_param, max_iters,
             rng=rng,
         )
         
-        ratio = random_source.normal(loc=delta_beta_mean, scale=delta_beta_std)
+        ratio = numeric_source.normal(loc=delta_beta_mean, scale=delta_beta_std)
         ratio = max(1.0, ratio) # Ensure delta is at least beta
         current_delta = current_beta * ratio
         
@@ -1136,10 +1147,10 @@ def dead_leaves_ptycho(res, r_sigma_param, max_iters,
         # This can be capped if necessary, e.g., current_delta = min(current_delta, MAX_DELTA_VALUE)
 
         # 4. Select Position
-        if rng is None:
+        if shape_rng is None and rng is None:
             center_x, center_y = np.random.randint(0, res, size=2)
         else:
-            center_x, center_y = rng.integers(0, res, size=2)
+            center_x, center_y = geometry_source.integers(0, res, size=2)
 
         # 5. Create a Mask for the Current Shape
         # We need a temporary 2D boolean mask for the current shape
@@ -1156,22 +1167,22 @@ def dead_leaves_ptycho(res, r_sigma_param, max_iters,
                 corners_rel = np.array(((-side / 2, -side / 2), (+side / 2, -side / 2),
                                         (+side / 2, +side / 2), (-side / 2, +side / 2)))
 
-                theta = random_source.uniform(0, 2 * np.pi)
+                theta = geometry_source.uniform(0, 2 * np.pi)
                 c, s = np.cos(theta), np.sin(theta)
                 R_mat = np.array(((c, -s), (s, c)))
                 corners_rel = (R_mat @ corners_rel.T).T
             elif shape == 'rectangle':
-                a = random_source.uniform(0, 0.5 * np.pi)
+                a = geometry_source.uniform(0, 0.5 * np.pi)
                 rx, ry = radius_pixels * np.cos(a), radius_pixels * np.sin(a) # radii of rectangle
                 corners_rel = np.array(((+rx, +ry), (+rx, -ry), (-rx, -ry), (-rx, +ry)))
                 
-                theta = random_source.uniform(0, 2 * np.pi)
+                theta = geometry_source.uniform(0, 2 * np.pi)
                 c, s = np.cos(theta), np.sin(theta)
                 R_mat = np.array(((c, -s), (s, c)))
                 corners_rel = (R_mat @ corners_rel.T).T
             else: # triangle or quadrilateral
                 num_verts = 3 if shape == 'triangle' else 4
-                angles = sorted(random_source.uniform(0, 2 * np.pi, num_verts))
+                angles = sorted(geometry_source.uniform(0, 2 * np.pi, num_verts))
                 corners_rel = []
                 for ang in angles:
                     corners_rel.append((radius_pixels * np.cos(ang), radius_pixels * np.sin(ang)))

@@ -85,7 +85,8 @@ def test_rectangular_scaled_intensity_matches_count_reference():
     N = 32
     data_cfg = DataConfig(N=N, gridsize=1)
     model_cfg = ModelConfig(
-        object_big=False, physics_forward_mode="rectangular_scaled",
+        object_big=False,
+        physics_forward_mode="rectangular_scaled",
     )
     train_cfg = TrainingConfig()
 

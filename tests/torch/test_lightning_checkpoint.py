@@ -29,14 +29,7 @@ except ImportError:
     TORCH_AVAILABLE = False
 
 if TORCH_AVAILABLE:
-    from ptycho.config.config import (
-        DataConfig as TFDataConfig,
-        LossConfig as TFLossConfig,
-        ModelConfig as TFModelConfig,
-        SamplingConfig as TFSamplingConfig,
-        TrainingConfig as TFTrainingConfig,
-        update_legacy_dict,
-    )
+    from ptycho.config.config import ModelConfig as TFModelConfig, TrainingConfig as TFTrainingConfig, update_legacy_dict
     from ptycho import params as p
     from ptycho_torch.config_params import ModelConfig, DataConfig, TrainingConfig, InferenceConfig
     from ptycho_torch.model import PtychoPINN_Lightning
@@ -45,6 +38,8 @@ if TORCH_AVAILABLE:
 GENERATOR_CLASS_BY_ARCHITECTURE = {
     "ffno": "FfnoGeneratorModule",
     "fno": "CascadedFNOGenerator",
+    "hybrid": "HybridUNOGenerator",
+    "stable_hybrid": "StableHybridUNOGenerator",
     "fno_vanilla": "FnoVanillaGeneratorModule",
     "neuralop_uno": "NeuralopUnoGeneratorModule",
 }
@@ -91,15 +86,18 @@ class TestLightningCheckpointSerialization:
             N=64,
             gridsize=1,
             model_type='pinn',
-            amp_activation='swish',
+            amp_activation='silu',
             n_filters_scale=1,
         )
         tf_train_cfg = TFTrainingConfig(
             model=tf_model_cfg,
-            data=TFDataConfig(train_data_file=Path('dummy_train.npz'), test_data_file=None, nphotons=1e6),
-            sampling=TFSamplingConfig(training_groups=16, neighbor_count=4),
+            train_data_file=Path('dummy_train.npz'),
+            test_data_file=None,
+            training_groups=16,
             batch_size=16,
             nepochs=0,
+            nphotons=1e6,
+            neighbor_count=4,
             output_dir=tmp_path,
         )
         update_legacy_dict(p.cfg, tf_train_cfg)
@@ -287,6 +285,8 @@ class TestLightningCheckpointSerialization:
         [
             "ffno",
             "fno",
+            "hybrid",
+            "stable_hybrid",
             "fno_vanilla",
             "neuralop_uno",
         ],
@@ -387,18 +387,21 @@ class TestLightningCheckpointSerialization:
             N=image_size,
             gridsize=1,
             model_type='supervised' if mode == "Supervised" else 'pinn',
-            amp_activation='swish',
+            amp_activation='silu',
             n_filters_scale=1,
             architecture=architecture,
         )
         tf_train_cfg = TFTrainingConfig(
             model=tf_model_cfg,
-            data=TFDataConfig(train_data_file=Path('dummy_train.npz'), test_data_file=None, nphotons=1e6),
-            sampling=TFSamplingConfig(training_groups=2, neighbor_count=4),
-            loss=TFLossConfig(torch_loss_mode="mae" if mode == "Supervised" else "poisson"),
+            train_data_file=Path('dummy_train.npz'),
+            test_data_file=None,
+            training_groups=2,
             batch_size=2,
             nepochs=0,
+            nphotons=1e6,
+            neighbor_count=4,
             output_dir=tmp_path,
+            torch_loss_mode="mae" if mode == "Supervised" else "poisson",
         )
         update_legacy_dict(p.cfg, tf_train_cfg)
 

@@ -607,25 +607,18 @@ class TestAmplitudePhysicsGainBundleRecord:
         import json
         import zipfile
 
-        from ptycho_torch.artifact_schema import (
-            TORCH_MANIFEST_JSON_VERSION,
-            TORCH_MANIFEST_MEMBER,
-            TORCH_PARAMS_MEMBER,
-        )
-
         bundle_path.parent.mkdir(parents=True, exist_ok=True)
         manifest = {
             "models": ["autoencoder", "diffraction_to_obj"],
             "version": "2.0-pytorch",
-            "manifest_version": TORCH_MANIFEST_JSON_VERSION,
             "backend": "pytorch",
         }
         params_payload = {"_version": "2.0-pytorch"}
         with zipfile.ZipFile(bundle_path, "w", zipfile.ZIP_DEFLATED) as archive:
-            archive.writestr(TORCH_MANIFEST_MEMBER, json.dumps(manifest))
+            archive.writestr("manifest.json", json.dumps(manifest))
             for model_name in manifest["models"]:
                 archive.writestr(
-                    f"{model_name}/{TORCH_PARAMS_MEMBER}",
+                    f"{model_name}/params.json",
                     json.dumps(params_payload),
                 )
             members = (
@@ -643,10 +636,8 @@ class TestAmplitudePhysicsGainBundleRecord:
 
         from ptycho_torch.workflows import components
 
-        from ptycho_torch.artifact_schema import TORCH_MANIFEST_MEMBER
-
         rewritten_members = {
-            TORCH_MANIFEST_MEMBER,
+            "manifest.json",
             components._BUNDLE_SCALING_METADATA,
             components._BUNDLE_AMPLITUDE_PHYSICS_GAIN_RECORD,
         }
@@ -833,12 +824,10 @@ class TestAmplitudePhysicsGainBundleRecord:
                 }
             return models, dict(kwargs["params_dict"]), kwargs["identity"]
 
-        monkeypatch.setattr(
-            "ptycho_torch.workflows.bundle_io._read_bundle_scaling_metadata",
+        monkeypatch.setattr("ptycho_torch.workflows.bundle_io._read_bundle_scaling_metadata",
             read_metadata_then_replace,
         )
-        monkeypatch.setattr(
-            "ptycho_torch.workflows.bundle_io._reconstruct_inference_bundle_explicit",
+        monkeypatch.setattr("ptycho_torch.workflows.bundle_io._reconstruct_inference_bundle_explicit",
             reconstruct_from_supplied_generation,
         )
 
@@ -876,12 +865,10 @@ class TestAmplitudePhysicsGainBundleRecord:
             bundle_path,
             self._model_for_payload(payload),
         )
-        from ptycho_torch.artifact_schema import TORCH_MANIFEST_MEMBER
-
         with pytest.warns(UserWarning, match="Duplicate name"):
             with zipfile.ZipFile(bundle_path, "a") as archive:
                 archive.writestr(
-                    TORCH_MANIFEST_MEMBER,
+                    "manifest.json",
                     json.dumps({"models": ["forged"]}),
                 )
         params_before = dict(params.cfg)
@@ -916,8 +903,7 @@ class TestAmplitudePhysicsGainBundleRecord:
                 components._BUNDLE_AMPLITUDE_PHYSICS_GAIN_RECORD,
                 amplitude_physics_gain_record_to_json(self._record()),
             )
-        monkeypatch.setattr(
-            "ptycho_torch.workflows.bundle_io._reconstruct_inference_bundle_explicit",
+        monkeypatch.setattr("ptycho_torch.workflows.bundle_io._reconstruct_inference_bundle_explicit",
             lambda *_args, **_kwargs: pytest.fail(
                 "record/ModelSpec mismatch reached model reconstruction"
             ),
@@ -943,8 +929,7 @@ class TestAmplitudePhysicsGainBundleRecord:
         def fake_reconstruct(_archive_path, _zip_path, **kwargs):
             return {"diffraction_to_obj": object()}, dict(kwargs["params_dict"]), kwargs["identity"]
 
-        monkeypatch.setattr(
-            "ptycho_torch.workflows.bundle_io._reconstruct_inference_bundle_explicit",
+        monkeypatch.setattr("ptycho_torch.workflows.bundle_io._reconstruct_inference_bundle_explicit",
             fake_reconstruct,
         )
         params_before = dict(params.cfg)
@@ -990,8 +975,7 @@ class TestAmplitudePhysicsGainBundleRecord:
         model = self._model_for_payload(payload)
         captured = {}
 
-        monkeypatch.setattr(
-            "ptycho_torch.workflows.containers._ensure_container",
+        monkeypatch.setattr("ptycho_torch.workflows.containers.create_torch_data_container",
             lambda *_args, **_kwargs: object(),
         )
 
@@ -1005,8 +989,7 @@ class TestAmplitudePhysicsGainBundleRecord:
                 "bundle_path": output_dir / "wts.h5.zip",
             }
 
-        monkeypatch.setattr(
-            "ptycho_torch.workflows.lightning_service._train_with_lightning",
+        monkeypatch.setattr("ptycho_torch.workflows.lightning_service._train_with_lightning",
             fake_train,
         )
 

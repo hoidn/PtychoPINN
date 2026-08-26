@@ -39,6 +39,12 @@ lazy_modules = {
     "ptycho_torch.config_bridge",
     "ptycho_torch.data_container_bridge",
     "ptycho_torch.workflows.components",
+    "ptycho_torch.workflows.bundle_io",
+    "ptycho_torch.workflows.containers",
+    "ptycho_torch.workflows.dataloaders",
+    "ptycho_torch.workflows.rect_s1s2",
+    "ptycho_torch.workflows.lightning_service",
+    "ptycho_torch.workflows.legacy",
 }
 print(json.dumps({
     "lazy_loaded": sorted(lazy_modules.intersection(sys.modules)),
@@ -135,3 +141,49 @@ def test_from_import_preserves_named_exports_and_submodules() -> None:
     assert config_bridge.to_model_config is to_model_config
     assert helper.__name__ == "ptycho_torch.helper"
     assert reassembly.__name__ == "ptycho_torch.reassembly"
+
+
+def test_cold_resolver_import_avoids_eager_backend_and_workflow_imports() -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    script = r"""
+import json
+import resource
+import sys
+import time
+
+started = time.perf_counter()
+from scripts.studies.ablation.configuration import resolve_torch_configs
+
+forbidden_prefixes = ("tensorflow", "ptycho_torch.workflows")
+forbidden_exact = {
+    "ptycho_torch.config_bridge",
+    "ptycho_torch.data_container_bridge",
+}
+loaded = sorted(
+    name
+    for name in sys.modules
+    if name in forbidden_exact or name.startswith(forbidden_prefixes)
+)
+print(json.dumps({
+    "elapsed_seconds": time.perf_counter() - started,
+    "loaded": loaded,
+    "resolver": resolve_torch_configs.__name__,
+    "rss_kib": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
+}, sort_keys=True))
+"""
+    completed = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=repo_root,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert completed.stderr == ""
+    metrics = json.loads(completed.stdout)
+    assert metrics["loaded"] == []
+    assert metrics["resolver"] == "resolve_torch_configs"
+    assert 0 < metrics["elapsed_seconds"] < 30
+    assert metrics["rss_kib"] > 0

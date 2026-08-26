@@ -2,36 +2,46 @@
 PyTorch model persistence layer for PtychoPINN.
 
 This module provides wts.h5.zip-compatible archive creation and loading functions
-for PyTorch models, maintaining layout parity with the TensorFlow ModelManager
+for PyTorch models, maintaining format parity with the TensorFlow ModelManager
 implementation in ptycho/model_manager.py.
 
 Critical Design Requirements:
-- Archive layout matches the TensorFlow baseline (root manifest + per-model
-  subdirs), but PyTorch archives use a versioned JSON manifest (`manifest.json`)
-  and per-model `params.json` (spec §4.6). TensorFlow archives keep
-  `manifest.dill`.
+- Archive format matches the TensorFlow baseline layout (root manifest + per-model
+  subdirs), but PyTorch archives use a versioned JSON manifest (`manifest.json`) and
+  per-model `params.json` (spec §4.6).
 - Legacy projection snapshots MUST come from dataclass_to_legacy_dict (CONFIG-001)
 - Dual-model bundle support MUST be maintained (spec §4.6 requirement)
 
 Architecture Role:
-    Persistence shim bridging PyTorch training (Lightning-based) and the
-    reconstructor contract defined in specs/ptychodus_api_spec.md §4.5-4.6.
+    Persistence shim bridging PyTorch training (Lightning-based) and the reconstructor
+    contract defined in specs/ptychodus_api_spec.md §4.5-4.6. Enables cross-backend
+    compatibility by preserving TensorFlow archive schema.
 
 Core Functionality:
     - save_torch_bundle: Create wts.h5.zip archives from trained PyTorch models
     - _read_torch_bundle_manifest_and_params: JSON-only bundle identity/params reader
 
-Pre-JSON (dill-container) PyTorch archives are supported exclusively via
-`python scripts/migrate_legacy_bundle.py`; the in-process dill-era restore
-path was retired (Decision 3: delete before abstracting).
+File Format:
+    Identical to TensorFlow except model.pth (state_dict) replaces model.keras,
+    with version='2.0-pytorch' tag for backend detection.
+
+Usage Example:
+    # Training - save dual-model bundle
+    models = {'autoencoder': model1, 'diffraction_to_obj': model2}
+    save_torch_bundle(models, 'output/wts.h5', config)
+
+    # Inference - load through the strict sealed-identity path
+    from ptycho_torch.workflows.components import load_inference_bundle_torch
+    models, params_dict = load_inference_bundle_torch('output')
 
 References:
-- TensorFlow baseline: ptycho/model_manager.py (save_multiple_models)
-- Spec contract: specs/ptychodus_api_spec.md §4.6
+- TensorFlow baseline: ptycho/model_manager.py:346-378 (save_multiple_models)
+- Persistence contract: specs/ptychodus_api_spec.md §4.6 (PyTorch archives)
+- Spec contract: specs/ptychodus_api_spec.md:192-202
 """
 
-import json
 import os
+import json
 import tempfile
 import zipfile
 from typing import Dict, Any, Tuple, Optional
@@ -42,8 +52,8 @@ try:
     import torch.nn as nn
 except ImportError as e:
     raise RuntimeError(
-        "PyTorch is required for ptycho_torch.model_manager. "
-        "Install torch to use the PyTorch persistence layer."
+        "PyTorch is required for ptycho_torch modules. "
+        "Install PyTorch >= 2.2 with: pip install torch>=2.2"
     ) from e
 
 
@@ -57,17 +67,15 @@ def save_torch_bundle(
     Save PyTorch models to wts.h5.zip-compatible archive with dual-model structure.
 
     Creates a zip archive matching the TensorFlow ModelManager.save_multiple_models
-    layout, enabling cross-backend compatibility and satisfying the reconstructor
+    format, enabling cross-backend compatibility and satisfying the reconstructor
     persistence contract (spec §4.6).
 
     Archive Structure:
         {base_path}.zip/
-        ├── manifest.json  # {'models': [...], 'version': '2.0-pytorch',
-        │                  #  'manifest_version': 'torch-manifest-v1',
-        │                  #  'backend': 'pytorch'}
+        ├── manifest.json  # {'models': [...], 'version': '2.0-pytorch', ...}
         ├── autoencoder/
-        │   ├── model.pth   # PyTorch state_dict
-        │   └── params.json # Config-derived legacy projection (CONFIG-001)
+        │   ├── model.pth  # PyTorch state_dict
+        │   └── params.json  # Config-derived legacy projection (CONFIG-001)
         └── diffraction_to_obj/
             ├── model.pth
             └── params.json
@@ -84,7 +92,14 @@ def save_torch_bundle(
 
     Raises:
         ValueError: If models_dict is empty or missing required model names.
-        RuntimeError: If a model is not a trained nn.Module.
+        RuntimeError: If PyTorch is unavailable and models are not sentinel dicts.
+
+    Example:
+        >>> from ptycho.config.config import TrainingConfig, ModelConfig
+        >>> config = TrainingConfig(model=ModelConfig(N=64, gridsize=2), ...)
+        >>> models = {'autoencoder': ae_model, 'diffraction_to_obj': recon_model}
+        >>> save_torch_bundle(models, 'output/wts.h5', config)
+        >>> # Creates output/wts.h5.zip with dual-model structure
     """
     from ptycho.config.config import dataclass_to_legacy_dict
 
@@ -190,8 +205,8 @@ def _read_torch_bundle_manifest_and_params(base_path: str) -> Tuple[dict, dict]:
             ):
                 raise ValueError(
                     "wts.h5.zip is a legacy pre-JSON bundle; run "
-                    "`python scripts/migrate_legacy_bundle.py SOURCE_DIR OUT_DIR` "
-                    "to migrate it to the versioned JSON manifest era."
+                    "`python -m ptycho_torch.migrate_bundle` to migrate it to the "
+                    "versioned JSON manifest era."
                 ) from exc
             raise ValueError(
                 f"Malformed Torch bundle: missing required archive member {exc}."

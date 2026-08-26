@@ -1,36 +1,18 @@
 diff --git a/ptycho_torch/config_params.py b/ptycho_torch/config_params.py
+index 7e8f7b598..c9489a8cc 100644
 --- a/ptycho_torch/config_params.py
 +++ b/ptycho_torch/config_params.py
-@@ -68 +68 @@
+@@ -61 +61 @@ class ModelConfig:
 -        'cnn', 'ffno', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'neuralop_uno', 'hybrid_resnet', 'hybrid_resnet_ffno_ptychoblock_encoder', 'hybrid_resnet_ptychoblock_ffno_encoder', 'spectral_resnet_bottleneck_net', 'spectral_resnet_bottleneck_linear_decoder', 'hybrid_resnet_ffno_bottleneck', 'hybrid_resnet_convnext_bottleneck'
 +        'cnn', 'ffno', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'neuralop_uno'
-@@ -86 +85,0 @@
+@@ -79 +78,0 @@ class ModelConfig:
 -    hybrid_resnet_blocks: int = 6
-@@ -88,2 +86,0 @@
+@@ -81,2 +79,0 @@ class ModelConfig:
 -    hybrid_resnet_bottleneck_layerscale_mode: Literal['learned', 'fixed'] = 'learned'
 -    hybrid_resnet_bottleneck_layerscale_value: Optional[float] = None
-@@ -109,8 +105,0 @@
--    spectral_bottleneck_blocks: int = 6
--    spectral_bottleneck_modes: int = 12
--    spectral_bottleneck_share_weights: bool = True
--    spectral_bottleneck_gate_init: float = 0.1
--    spectral_bottleneck_gate_mode: Literal['shared', 'per_block'] = 'shared'
--    convnext_bottleneck_layerscale_init: float = 0.1
--    convnext_bottleneck_mlp_ratio: float = 4.0
--    convnext_bottleneck_kernel_size: int = 7
-@@ -265,2 +253,0 @@
--            'convnext_bottleneck_layerscale_init',
--            'convnext_bottleneck_mlp_ratio',
-@@ -293 +279,0 @@
+@@ -287 +283,0 @@ class ModelConfig:
 -            'hybrid_resnet_blocks',
-@@ -295,3 +280,0 @@
--            'spectral_bottleneck_blocks',
--            'spectral_bottleneck_modes',
--            'convnext_bottleneck_kernel_size',
-@@ -303,25 +285,0 @@
--        if self.convnext_bottleneck_kernel_size % 2 == 0:
--            raise ValueError("convnext_bottleneck_kernel_size must be odd")
--
+@@ -300,22 +295,0 @@ class ModelConfig:
 -        if self.hybrid_resnet_bottleneck_layerscale_mode not in {
 -            'learned',
 -            'fixed',
@@ -53,8 +35,3 @@ diff --git a/ptycho_torch/config_params.py b/ptycho_torch/config_params.py
 -                "> 0 when mode is fixed"
 -            )
 -
-@@ -341,4 +298,0 @@
--        if self.spectral_bottleneck_gate_mode not in {'shared', 'per_block'}:
--            raise ValueError("invalid spectral_bottleneck_gate_mode")
--        if not math.isfinite(float(self.spectral_bottleneck_gate_init)):
--            raise ValueError("spectral_bottleneck_gate_init must be finite")

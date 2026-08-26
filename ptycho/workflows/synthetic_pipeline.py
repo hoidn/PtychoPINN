@@ -26,6 +26,7 @@ from ptycho.invocation_logging import write_invocation_artifacts
 from ptycho.workflows.synthetic_config import (
     ResolvedSyntheticWorkflow,
     resolve_synthetic_workflow,
+    synthetic_simulation_compatibility_identity,
     synthetic_workflow_to_dict,
 )
 from ptycho_torch.rect_s1s2_initialization import (
@@ -37,7 +38,22 @@ STAGE_ORDER = ("simulate", "train", "reconstruct", "evaluate")
 STAGE_MANIFEST_SCHEMA = "synthetic-stage-manifest-v2"
 DIAGNOSTICS_SCHEMA = "synthetic-reconstruction-diagnostics-v1"
 METRIC_CONTRACT_VERSION = "synthetic-quality-metrics-v1"
-RECONSTRUCTION_SCHEMA = "synthetic-barycentric-reconstruction-v1"
+RECONSTRUCTION_SCHEMA = "synthetic-reconstruction-v2"
+_FLAT_ACQUISITION_MANIFEST_SCHEMAS = frozenset(
+    {
+        "flat-acquisition-manifest-v1",
+        "flat-acquisition-manifest-v2",
+        "flat-acquisition-manifest-v3",
+        "flat-acquisition-manifest-v4",
+    }
+)
+_FLAT_ACQUISITION_PROBE_LINEAGE_SCHEMAS = frozenset(
+    {
+        "flat-acquisition-manifest-v2",
+        "flat-acquisition-manifest-v3",
+        "flat-acquisition-manifest-v4",
+    }
+)
 _STAGE_LOG_STREAM_LIMIT = 16_384
 
 _STAGE_NAMESPACES = {
@@ -127,7 +143,7 @@ def _thaw(value: Any) -> Any:
 class SyntheticPipelineRequest:
     """Raw canonical inputs needed to resolve and reproduce one pipeline run."""
 
-    profile: str = "synthetic-lines"
+    profile: str = "hybrid-resnet-lines"
     file_values: Mapping[str, Any] | None = None
     cli_values: Mapping[str, Any] | None = None
     raw_argv: tuple[str, ...] = ()
@@ -611,9 +627,18 @@ def _assert_stage_identity(
         if difference is not None:
             raise ValueError(f"{difference} conflicts with reusable {stage} identity")
     for namespace in _STAGE_NAMESPACES[stage]:
+        recorded_value = recorded.get(namespace)
+        current_value = current.get(namespace)
+        if namespace == "simulation":
+            recorded_value = synthetic_simulation_compatibility_identity(
+                recorded_value
+            )
+            current_value = synthetic_simulation_compatibility_identity(
+                current_value
+            )
         difference = _first_difference(
-            recorded.get(namespace),
-            current.get(namespace),
+            recorded_value,
+            current_value,
             namespace,
         )
         if difference is not None:
@@ -784,6 +809,139 @@ def _run_shared_training_workflow(request: Any) -> Any:
     return run_training_workflow(request)
 
 
+def _verify_truth_forward_closure(
+    *,
+    manifest: Mapping[str, Any],
+    resolved: ResolvedSyntheticWorkflow,
+    train_path: Path,
+    test_path: Path,
+) -> None:
+    """Recompute the acquisition closure before allowing model training."""
+
+    import numpy as np
+
+    from ptycho.simulation.flat_acquisition import _truth_forward_closure
+
+    recorded = manifest.get("truth_forward_closure")
+    if recorded is None:
+        if manifest.get("schema_version") in _FLAT_ACQUISITION_PROBE_LINEAGE_SCHEMAS:
+            raise ValueError("dataset manifest truth_forward_closure is required")
+        return
+    payloads: dict[str, dict[str, np.ndarray]] = {}
+    for split, path in (("train", train_path), ("test", test_path)):
+        try:
+            with np.load(path, allow_pickle=False) as archive:
+                payloads[split] = {
+                    name: np.asarray(archive[name])
+                    for name in (
+                        "diff3d",
+                        "Y",
+                        "probe_simulated",
+                        "object_index",
+                        "xcoords",
+                        "ycoords",
+                    )
+                }
+                if "object_amplitude_scale" in archive.files:
+                    payloads[split]["object_amplitude_scale"] = np.asarray(
+                        archive["object_amplitude_scale"]
+                    )
+        except (KeyError, OSError) as error:
+            raise ValueError(
+                f"{split} dataset cannot satisfy truth-forward closure: {error}"
+            ) from error
+    source_name = manifest.get("artifacts", {}).get("source", "source.npz")
+    source_relative = Path(str(source_name))
+    if source_relative.is_absolute() or ".." in source_relative.parts:
+        raise ValueError("dataset manifest artifacts.source must be a relative path")
+    source_path = (train_path.parent / source_relative).resolve()
+    if not source_path.is_relative_to(train_path.parent.resolve()):
+        raise ValueError("dataset manifest artifacts.source escapes dataset root")
+    from ptycho.simulation.identity import file_sha256
+
+    if manifest.get("source_npz_sha256") != file_sha256(source_path):
+        raise ValueError("dataset manifest source_npz_sha256 mismatch")
+    try:
+        with np.load(source_path, allow_pickle=False) as source:
+            object_banks = {
+                "train": np.array(source["trainObjectGuess"], copy=True),
+                "test": np.array(source["testObjectGuess"], copy=True),
+            }
+    except (KeyError, OSError) as error:
+        raise ValueError(
+            f"source dataset cannot satisfy truth-forward closure: {error}"
+        ) from error
+    expected = _truth_forward_closure(
+        payloads,
+        base_seed=resolved.simulation.train.seed,
+        measurement_domain=resolved.simulation.measurement_domain,
+        photons_per_pattern={
+            "train": float(
+                resolved.simulation.train.detector.photons_per_pattern
+            ),
+            "test": float(
+                resolved.simulation.test.detector.photons_per_pattern
+            ),
+        },
+        object_banks=object_banks,
+        diffractions_per_object={
+            "train": int(
+                resolved.simulation.train.object.diffractions_per_object
+            ),
+            "test": int(
+                resolved.simulation.test.object.diffractions_per_object
+            ),
+        },
+        patch_amplitude_normalization={
+            "train": (
+                resolved.simulation.train.object.patch_amplitude_normalization
+            ),
+            "test": (
+                resolved.simulation.test.object.patch_amplitude_normalization
+            ),
+        },
+    )
+    numeric_fields = {
+        "relative_l2",
+        "relative_l2_limit",
+        "poisson_noise_reference",
+        "truth_patch_relative_l2",
+        "truth_patch_relative_l2_limit",
+        "object_amplitude_scale",
+    }
+    if not isinstance(recorded, Mapping):
+        raise ValueError("dataset manifest truth_forward_closure mismatch")
+    recorded_static = json.loads(json.dumps(recorded))
+    expected_static = json.loads(json.dumps(expected))
+    recorded_records = recorded_static.get("objects")
+    expected_records = expected_static.get("objects")
+    if not isinstance(recorded_records, list) or not isinstance(
+        expected_records, list
+    ) or len(recorded_records) != len(expected_records):
+        raise ValueError("dataset manifest truth_forward_closure mismatch")
+    for recorded_item, expected_item in zip(
+        recorded_records, expected_records, strict=True
+    ):
+        for name in numeric_fields:
+            recorded_value = recorded_item.pop(name, None)
+            expected_value = expected_item.pop(name, None)
+            if (
+                isinstance(recorded_value, bool)
+                or not isinstance(recorded_value, (int, float))
+                or not math.isclose(
+                    float(recorded_value),
+                    float(expected_value),
+                    rel_tol=1e-6,
+                    abs_tol=1e-12,
+                )
+            ):
+                raise ValueError("dataset manifest truth_forward_closure mismatch")
+    if recorded_static != expected_static:
+        raise ValueError("dataset manifest truth_forward_closure mismatch")
+    if expected.get("passed") is not True:
+        raise ValueError("dataset manifest truth_forward_closure did not pass")
+
+
 def execute_training_stage(request: TrainingStageRequest) -> TrainingStageResult:
     """Delegate model construction and training to the shared generic workflow."""
 
@@ -808,6 +966,22 @@ def execute_training_stage(request: TrainingStageRequest) -> TrainingStageResult
         resolved=request.resolved_workflow,
         split="test",
     )
+    artifacts = manifest.get("artifacts")
+    source_name = artifacts.get("source") if isinstance(artifacts, Mapping) else None
+    if not isinstance(source_name, str) or not source_name:
+        raise ValueError("dataset manifest artifacts.source must be a path")
+    _load_verified_source_truth(
+        request.dataset_manifest_path.parent / source_name,
+        manifest=manifest,
+        manifest_path=request.dataset_manifest_path,
+        resolved=request.resolved_workflow,
+    )
+    _verify_truth_forward_closure(
+        manifest=manifest,
+        resolved=request.resolved_workflow,
+        train_path=request.train_path,
+        test_path=request.test_path,
+    )
     from ptycho.workflows.training import TrainingWorkflowRequest
 
     result = _run_shared_training_workflow(
@@ -817,6 +991,12 @@ def execute_training_stage(request: TrainingStageRequest) -> TrainingStageResult
             test_data_file=request.test_path,
             output_dir=request.output_root / "training",
             do_stitching=False,
+            torch_training_seed=(
+                request.resolved_workflow.training.torch_training_seed
+            ),
+            batch_order_recipe=(
+                request.resolved_workflow.training.batch_order_recipe
+            ),
         )
     )
     if result.bundle_path is None:
@@ -842,16 +1022,19 @@ def _load_matching_dataset_manifest(
     manifest_path: Path,
     resolved: ResolvedSyntheticWorkflow,
 ) -> dict[str, Any]:
+    from ptycho.simulation import object_producers
     from ptycho.simulation.flat_acquisition import (
-        OBJECT_PRODUCER_SYMBOLS,
+        _source_seed_lineage,
         derive_seed_lineage,
     )
-    from ptycho.simulation.identity import file_sha256
+    from ptycho.simulation.identity import array_sha256, file_sha256
 
     manifest = _read_json_object(manifest_path, artifact="dataset manifest")
-    if manifest.get("schema_version") != "flat-acquisition-manifest-v1":
+    manifest_schema = manifest.get("schema_version")
+    if manifest_schema not in _FLAT_ACQUISITION_MANIFEST_SCHEMAS:
         raise ValueError(
-            "dataset manifest schema_version must be 'flat-acquisition-manifest-v1'"
+            "dataset manifest schema_version must be one of "
+            f"{sorted(_FLAT_ACQUISITION_MANIFEST_SCHEMAS)!r}"
         )
     if manifest.get("storage_layout") != "flat_acquisition_v1":
         raise ValueError(
@@ -863,10 +1046,29 @@ def _load_matching_dataset_manifest(
         raise ValueError(
             "dataset manifest recipe_version disagrees with resolved workflow"
         )
-    expected_semantic = synthetic_workflow_to_dict(resolved)["simulation"]
-    if manifest.get("simulation") != expected_semantic:
+    expected_semantic = synthetic_simulation_compatibility_identity(
+        synthetic_workflow_to_dict(resolved)["simulation"]
+    )
+    recorded_semantic = synthetic_simulation_compatibility_identity(
+        manifest.get("simulation")
+    )
+    if recorded_semantic != expected_semantic:
         raise ValueError("dataset manifest simulation disagrees with resolved workflow")
-    expected_lineage = derive_seed_lineage(resolved.simulation.train.seed)
+    frozen_source = (
+        resolved.simulation.object_recipe
+        == object_producers.FROZEN_OBJECT_BANK_RECIPE
+    )
+    if (manifest_schema == "flat-acquisition-manifest-v4") != frozen_source:
+        raise ValueError(
+            "flat-acquisition-manifest-v4 is exclusive to "
+            "frozen-object-bank-v1, which requires that schema"
+        )
+    full_seed_lineage = derive_seed_lineage(resolved.simulation.train.seed)
+    expected_lineage = (
+        _source_seed_lineage(full_seed_lineage)
+        if frozen_source
+        else full_seed_lineage
+    )
     if manifest.get("seed_lineage") != expected_lineage:
         raise ValueError(
             "dataset manifest seed_lineage disagrees with resolved workflow"
@@ -884,7 +1086,53 @@ def _load_matching_dataset_manifest(
         raise ValueError("dataset manifest object must be an object")
     if object_record.get("recipe") != resolved.simulation.object_recipe:
         raise ValueError("dataset manifest object.recipe mismatch")
-    if object_record.get("producer_symbols") != list(OBJECT_PRODUCER_SYMBOLS):
+    if (
+        resolved.simulation.object_recipe == object_producers.DEAD_LEAVES_OBJECT_RECIPE
+        and manifest_schema != "flat-acquisition-manifest-v3"
+    ):
+        raise ValueError(
+            "dead-leaves-object-v2 requires flat-acquisition-manifest-v3 "
+            "RNG, phase, and morphology attestations"
+        )
+    expected_frozen_banks = None
+    if frozen_source:
+        if manifest_schema != "flat-acquisition-manifest-v4":
+            raise ValueError(
+                "frozen-object-bank-v1 requires flat-acquisition-manifest-v4 "
+                "source identity"
+            )
+        object_source_path = resolved.simulation.train.object.source_path
+        if object_source_path is None:
+            raise ValueError(
+                "simulation.object.source_path is required for frozen object banks"
+            )
+        expected_frozen_banks, expected_object_source = (
+            object_producers.load_frozen_object_banks(
+                resolved.simulation.train.object.kind,
+                object_source_path,
+                train_count=(
+                    resolved.simulation.train.object.objects_per_probe
+                ),
+                test_count=(
+                    resolved.simulation.test.object.objects_per_probe
+                ),
+                image_size=resolved.simulation.train.object.image_size,
+                shared_object=resolved.simulation.shared_object,
+            )
+        )
+        if manifest.get("object_source") != expected_object_source:
+            raise ValueError("dataset manifest object_source mismatch")
+    elif "object_source" in manifest:
+        raise ValueError(
+            "dataset manifest object_source requires frozen-object-bank-v1"
+        )
+    object_producer = object_producers.validate_object_recipe(
+        resolved.simulation.train.object.kind,
+        resolved.simulation.object_recipe,
+    )
+    if object_record.get("producer_symbols") != list(
+        object_producer.producer_symbols
+    ):
         raise ValueError("dataset manifest object.producer_symbols mismatch")
     source_commit = object_record.get("source_commit")
     if not isinstance(source_commit, str) or not source_commit:
@@ -893,8 +1141,115 @@ def _load_matching_dataset_manifest(
         object_record.get("array_sha256"),
         label="dataset manifest object.array_sha256",
     )
-    if object_record.get("seed") != expected_lineage["object"]:
-        raise ValueError("dataset manifest object.seed mismatch")
+    if manifest_schema == "flat-acquisition-manifest-v1":
+        if object_record.get("seed") != expected_lineage["object"]:
+            raise ValueError("dataset manifest object.seed mismatch")
+    else:
+        from ptycho.simulation.flat_acquisition import _object_bank_seed_records
+
+        objects_record = manifest.get("objects")
+        if not isinstance(objects_record, Mapping):
+            raise ValueError("dataset manifest objects must be an object")
+        for split in ("train", "test"):
+            simulation = getattr(resolved.simulation, split)
+            expected_seeds = _object_bank_seed_records(
+                base_seed=resolved.simulation.train.seed,
+                split=split,
+                count=simulation.object.objects_per_probe,
+                seed_lineage=full_seed_lineage,
+                shared_object=resolved.simulation.shared_object,
+            )
+            records = objects_record.get(split)
+            if not isinstance(records, list) or len(records) != len(expected_seeds):
+                raise ValueError(f"dataset manifest objects.{split} mismatch")
+            for index, (record, seeds) in enumerate(zip(records, expected_seeds)):
+                if not isinstance(record, Mapping):
+                    raise ValueError(
+                        f"dataset manifest objects.{split}[{index}] must be an object"
+                    )
+                for name, expected in (
+                    ("split", split),
+                    ("index", index),
+                    ("recipe", resolved.simulation.object_recipe),
+                    ("producer_symbols", list(object_producer.producer_symbols)),
+                    ("source_commit", source_commit),
+                    ("shape", list(simulation.object.image_size)),
+                    ("dtype", "complex64"),
+                ):
+                    if record.get(name) != expected:
+                        raise ValueError(
+                            f"dataset manifest objects.{split}[{index}].{name} "
+                            "mismatch"
+                        )
+                _require_sha256(
+                    record.get("array_sha256"),
+                    label=(
+                        f"dataset manifest objects.{split}[{index}].array_sha256"
+                    ),
+                )
+                if frozen_source:
+                    assert expected_frozen_banks is not None
+                    expected_object = expected_frozen_banks[split][index]
+                    forbidden = {
+                        "seed",
+                        "object_seed",
+                        "object_seed_records",
+                        "rng_identity",
+                    } & set(record)
+                    if forbidden:
+                        raise ValueError(
+                            f"dataset manifest objects.{split}[{index}] source "
+                            f"identity forbids {sorted(forbidden)!r}"
+                        )
+                    for name, expected in (
+                        ("identity_mode", "source"),
+                        (
+                            "phase_identity",
+                            dict(expected_object.phase_identity),
+                        ),
+                        (
+                            "source_identity",
+                            dict(expected_object.source_identity),
+                        ),
+                        (
+                            "array_sha256",
+                            array_sha256(expected_object.array),
+                        ),
+                    ):
+                        if record.get(name) != expected:
+                            raise ValueError(
+                                f"dataset manifest objects.{split}[{index}]."
+                                f"{name} mismatch"
+                            )
+                else:
+                    if record.get("seed") != seeds["object_seed"]:
+                        raise ValueError(
+                            f"dataset manifest objects.{split}[{index}].seed "
+                            "mismatch"
+                        )
+                if manifest_schema == "flat-acquisition-manifest-v3":
+                    expected_rng_identity = object_producers.rng_identity_for_seed(
+                        resolved.simulation.object_recipe,
+                        seeds["object_seed"],
+                    )
+                    if record.get("rng_identity") != expected_rng_identity:
+                        raise ValueError(
+                            f"dataset manifest objects.{split}[{index}]."
+                            "rng_identity mismatch"
+                        )
+                    expected_phase_identity = (
+                        object_producers.phase_identity_for_recipe(
+                            resolved.simulation.object_recipe
+                        )
+                    )
+                    if record.get("phase_identity") != expected_phase_identity:
+                        raise ValueError(
+                            f"dataset manifest objects.{split}[{index}]."
+                            "phase_identity mismatch"
+                        )
+        test_objects = objects_record["test"]
+        if dict(object_record) != dict(test_objects[0]):
+            raise ValueError("dataset manifest object must identify test object 0")
     probe_record = manifest.get("probe")
     if not isinstance(probe_record, Mapping):
         raise ValueError("dataset manifest probe must be an object")
@@ -926,57 +1281,96 @@ def _load_matching_dataset_manifest(
             probe_record.get(name),
             label=f"dataset manifest probe.{name}",
         )
+    if manifest_schema in _FLAT_ACQUISITION_PROBE_LINEAGE_SCHEMAS:
+        for name in ("training_probe_sha256", "simulation_probe_sha256"):
+            _require_sha256(
+                probe_record.get(name),
+                label=f"dataset manifest probe.{name}",
+            )
+        if probe_record.get("simulation_normalization_scale") != (
+            None
+            if expected_probe.simulation_normalization_scale is None
+            else float(expected_probe.simulation_normalization_scale)
+        ):
+            raise ValueError(
+                "dataset manifest probe.simulation_normalization_scale mismatch"
+            )
+        realized_multiplier = probe_record.get(
+            "simulation_probe_realized_multiplier"
+        )
+        if (
+            isinstance(realized_multiplier, bool)
+            or not isinstance(realized_multiplier, (int, float))
+            or not math.isfinite(float(realized_multiplier))
+            or float(realized_multiplier) <= 0.0
+        ):
+            raise ValueError(
+                "dataset manifest probe.simulation_probe_realized_multiplier "
+                "must be positive and finite"
+            )
     if resolved.simulation.measurement_domain == "count_intensity":
         _require_sha256(
             probe_record.get("physical_probe_sha256"),
             label="dataset manifest probe.physical_probe_sha256",
         )
+        if manifest_schema in _FLAT_ACQUISITION_PROBE_LINEAGE_SCHEMAS:
+            _require_sha256(
+                probe_record.get("physical_simulation_probe_sha256"),
+                label=(
+                    "dataset manifest probe."
+                    "physical_simulation_probe_sha256"
+                ),
+            )
         scale = probe_record.get("count_amplitude_scale")
-        expected_scale_fields = {"value", "split", "nphotons", "method"}
-        if not isinstance(scale, Mapping) or set(scale) != expected_scale_fields:
+        if not isinstance(scale, Mapping):
             raise ValueError(
-                "dataset manifest probe.count_amplitude_scale fields must be "
-                f"{sorted(expected_scale_fields)!r} for the count-intensity contract"
+                "dataset manifest probe.count_amplitude_scale must be an object "
+                "for the count-intensity contract"
             )
         value = scale.get("value")
-        if (
-            isinstance(value, bool)
-            or not isinstance(value, (int, float))
-            or not math.isfinite(float(value))
-            or float(value) <= 0
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(
+                "dataset manifest probe.count_amplitude_scale.value must be a number"
+            )
+        if not (value > 0):
+            raise ValueError(
+                "dataset manifest probe.count_amplitude_scale.value must be positive"
+            )
+        for name, expected in (
+            ("split", "train"),
+            (
+                "nphotons",
+                float(
+                    resolved.simulation.train.detector.photons_per_pattern
+                ),
+            ),
+            ("method", "derive_intensity_scale_from_amplitudes"),
         ):
+            if scale.get(name) != expected:
+                raise ValueError(
+                    f"dataset manifest probe.count_amplitude_scale.{name} mismatch"
+                )
+    else:
+        forbidden = {
+            "physical_probe_sha256",
+            "physical_simulation_probe_sha256",
+            "count_amplitude_scale",
+        } & set(probe_record)
+        if forbidden:
             raise ValueError(
-                "dataset manifest probe.count_amplitude_scale.value must be "
-                "positive and finite"
+                "count-only probe fields require the count-intensity contract: "
+                f"{sorted(forbidden)!r}"
             )
-        expected_nphotons = float(
-            resolved.simulation.train.detector.photons_per_pattern
-        )
-        if scale.get("split") != "train":
-            raise ValueError(
-                "dataset manifest probe.count_amplitude_scale.split must be 'train'"
-            )
-        if scale.get("nphotons") != expected_nphotons:
-            raise ValueError(
-                "dataset manifest probe.count_amplitude_scale.nphotons mismatch"
-            )
-        if scale.get("method") != "derive_intensity_scale_from_amplitudes":
-            raise ValueError(
-                "dataset manifest probe.count_amplitude_scale.method mismatch"
-            )
-    elif any(
-        name in probe_record
-        for name in ("physical_probe_sha256", "count_amplitude_scale")
-    ):
-        raise ValueError(
-            "dataset manifest count-intensity probe fields are only defined "
-            "for the count-intensity contract"
-        )
     return manifest
 
 
 def _stored_probe_digest_field(resolved: ResolvedSyntheticWorkflow) -> str:
-    """Return the manifest digest field for the probe stored in each NPZ."""
+    """Name the manifest field describing the probe actually stored in the NPZ.
+
+    Under the count-intensity contract the stored probe is the calibrated
+    physical probe; ``transformed_probe_sha256`` keeps its meaning everywhere as
+    the digest of the transform-pipeline output.
+    """
 
     if resolved.simulation.measurement_domain == "count_intensity":
         return "physical_probe_sha256"
@@ -1011,30 +1405,6 @@ def _manifest_artifact_path(
         )
 
 
-def _npz_identity(
-    path: Path,
-) -> tuple[dict[str, str], dict[str, list[int]], dict[str, str]]:
-    import numpy as np
-
-    from ptycho.simulation.identity import array_sha256
-
-    hashes: dict[str, str] = {}
-    shapes: dict[str, list[int]] = {}
-    dtypes: dict[str, str] = {}
-    try:
-        with np.load(path, allow_pickle=False) as archive:
-            for name in archive.files:
-                array = np.asarray(archive[name])
-                hashes[name] = array_sha256(array)
-                shapes[name] = list(array.shape)
-                dtypes[name] = array.dtype.name
-    except (OSError, ValueError) as error:
-        raise ValueError(
-            f"invalid flat acquisition artifact at {path}: {error}"
-        ) from error
-    return hashes, shapes, dtypes
-
-
 def _verify_split_artifact(
     path: Path,
     *,
@@ -1043,12 +1413,18 @@ def _verify_split_artifact(
     resolved: ResolvedSyntheticWorkflow,
     split: str,
 ) -> None:
+    import numpy as np
+
     from ptycho.config import simulation_config_sha256, simulation_config_to_dict
     from ptycho.simulation.flat_acquisition import (
         STORAGE_LAYOUT,
+        _acquisition_seed_records,
+        _object_bank_seed_records,
+        _source_seed_lineage,
         derive_seed_lineage,
+        validate_split_manifest_record,
     )
-    from ptycho.simulation.identity import canonical_sha256, file_sha256
+    from ptycho.simulation.identity import canonical_sha256
 
     if split not in {"train", "test"}:
         raise ValueError(f"unsupported flat acquisition split {split!r}")
@@ -1092,28 +1468,154 @@ def _verify_split_artifact(
         raise ValueError(
             f"dataset manifest splits.{split}.measurement_identity mismatch"
         )
-    seed_lineage = derive_seed_lineage(resolved.simulation.train.seed)
+    normalization_method = (
+        expected_simulation.object.patch_amplitude_normalization
+    )
+    normalization_record = record.get("object_amplitude_normalization")
+    if normalization_method == "none":
+        if normalization_record is not None:
+            raise ValueError(
+                f"dataset manifest splits.{split}.object_amplitude_normalization "
+                "requires a non-default normalization method"
+            )
+    else:
+        if not isinstance(normalization_record, Mapping):
+            raise ValueError(
+                f"dataset manifest splits.{split}.object_amplitude_normalization "
+                "is required"
+            )
+        scale = normalization_record.get("scale")
+        if (
+            normalization_record.get("method") != normalization_method
+            or normalization_record.get("scope") != "split"
+            or isinstance(scale, bool)
+            or not isinstance(scale, (int, float))
+            or not math.isfinite(float(scale))
+            or float(scale) <= 0.0
+        ):
+            raise ValueError(
+                f"dataset manifest splits.{split}.object_amplitude_normalization "
+                "mismatch"
+            )
+    full_seed_lineage = derive_seed_lineage(resolved.simulation.train.seed)
+    manifest_schema = manifest.get("schema_version")
+    seed_lineage = (
+        _source_seed_lineage(full_seed_lineage)
+        if manifest_schema == "flat-acquisition-manifest-v4"
+        else full_seed_lineage
+    )
     if record.get("seed_lineage") != seed_lineage:
         raise ValueError(f"dataset manifest splits.{split}.seed_lineage mismatch")
-    for field_name, lineage_name in (
-        ("coordinate_seed", f"{split}_coordinates"),
-        ("detector_seed", f"{split}_noise"),
-    ):
-        if record.get(field_name) != seed_lineage[lineage_name]:
-            raise ValueError(f"dataset manifest splits.{split}.{field_name} mismatch")
+    object_seed_records = None
+    acquisition_seed_records = None
+    if manifest_schema == "flat-acquisition-manifest-v1":
+        for field_name, lineage_name in (
+            ("coordinate_seed", f"{split}_coordinates"),
+            ("detector_seed", f"{split}_noise"),
+        ):
+            if record.get(field_name) != seed_lineage[lineage_name]:
+                raise ValueError(
+                    f"dataset manifest splits.{split}.{field_name} mismatch"
+                )
+    else:
+        private_seed_records = _object_bank_seed_records(
+            base_seed=resolved.simulation.train.seed,
+            split=split,
+            count=expected_simulation.object.objects_per_probe,
+            seed_lineage=full_seed_lineage,
+            shared_object=resolved.simulation.shared_object,
+        )
+        if manifest_schema == "flat-acquisition-manifest-v4":
+            acquisition_seed_records = _acquisition_seed_records(
+                private_seed_records
+            )
+            if "object_seed_records" in record:
+                raise ValueError(
+                    f"dataset manifest splits.{split}.object_seed_records is "
+                    "forbidden for source-backed objects"
+                )
+            if record.get("acquisition_seed_records") != acquisition_seed_records:
+                raise ValueError(
+                    f"dataset manifest splits.{split}."
+                    "acquisition_seed_records mismatch"
+                )
+            effective_seed_records = acquisition_seed_records
+        else:
+            object_seed_records = private_seed_records
+            if record.get("object_seed_records") != object_seed_records:
+                raise ValueError(
+                    f"dataset manifest splits.{split}.object_seed_records mismatch"
+                )
+            effective_seed_records = object_seed_records
+        for field_name, seed_name in (
+            ("coordinate_seed", "coordinate_seed"),
+            ("detector_seed", "detector_seed"),
+        ):
+            if record.get(field_name) != effective_seed_records[0][seed_name]:
+                raise ValueError(f"dataset manifest splits.{split}.{field_name} mismatch")
     object_record = manifest.get("object")
     probe_record = manifest.get("probe")
     if not isinstance(object_record, Mapping) or not isinstance(probe_record, Mapping):
         raise ValueError("dataset manifest object and probe lineage are required")
-    object_identity = {
-        name: object_record.get(name)
-        for name in (
-            "recipe",
-            "producer_symbols",
-            "source_commit",
-            "array_sha256",
+    if manifest_schema == "flat-acquisition-manifest-v1":
+        split_objects = [object_record]
+        object_identity = {
+            name: object_record.get(name)
+            for name in (
+                "recipe",
+                "producer_symbols",
+                "source_commit",
+                "array_sha256",
+            )
+        }
+    else:
+        objects_record = manifest.get("objects")
+        split_objects = (
+            objects_record.get(split)
+            if isinstance(objects_record, Mapping)
+            else None
         )
-    }
+        expected_object_count = (
+            len(acquisition_seed_records)
+            if acquisition_seed_records is not None
+            else len(object_seed_records)
+        )
+        if not isinstance(split_objects, list) or len(split_objects) != (
+            expected_object_count
+        ):
+            raise ValueError(f"dataset manifest objects.{split} mismatch")
+        if len(split_objects) == 1:
+            identity_names = (
+                "recipe",
+                "producer_symbols",
+                "source_commit",
+                "array_sha256",
+            )
+            if manifest_schema == "flat-acquisition-manifest-v3":
+                identity_names = (
+                    "recipe",
+                    "rng_identity",
+                    "phase_identity",
+                    "producer_symbols",
+                    "source_commit",
+                    "array_sha256",
+                )
+            elif manifest_schema == "flat-acquisition-manifest-v4":
+                identity_names = (
+                    "recipe",
+                    "identity_mode",
+                    "source_identity",
+                    "phase_identity",
+                    "producer_symbols",
+                    "source_commit",
+                    "array_sha256",
+                )
+            object_identity = {
+                name: split_objects[0].get(name)
+                for name in identity_names
+            }
+        else:
+            object_identity = {"objects": split_objects}
     expected_recipe_identity = {
         "split": split,
         "storage_layout": STORAGE_LAYOUT,
@@ -1121,10 +1623,24 @@ def _verify_split_artifact(
         "object_identity": object_identity,
         "raw_probe_sha256": probe_record.get("raw_probe_sha256"),
         "transformed_probe_sha256": probe_record.get("transformed_probe_sha256"),
-        "coordinate_seed": seed_lineage[f"{split}_coordinates"],
-        "detector_seed": seed_lineage[f"{split}_noise"],
+        "coordinate_seed": record.get("coordinate_seed"),
+        "detector_seed": record.get("detector_seed"),
         "measurement_identity": expected_measurement,
     }
+    if resolved.simulation.frame_order_recipe != "object-major-v1":
+        expected_recipe_identity["frame_order_recipe"] = (
+            resolved.simulation.frame_order_recipe
+        )
+    if normalization_record is not None:
+        expected_recipe_identity["object_amplitude_normalization"] = dict(
+            normalization_record
+        )
+    if object_seed_records is not None:
+        expected_recipe_identity["object_seed_records"] = object_seed_records
+    if acquisition_seed_records is not None:
+        expected_recipe_identity["acquisition_seed_records"] = (
+            acquisition_seed_records
+        )
     if record.get("split_recipe_identity") != expected_recipe_identity:
         raise ValueError(
             f"dataset manifest splits.{split}.split_recipe_identity mismatch"
@@ -1133,34 +1649,55 @@ def _verify_split_artifact(
     for name in ("split_recipe_sha256", "dataset_recipe_sha256"):
         if record.get(name) != split_recipe_sha256:
             raise ValueError(f"dataset manifest splits.{split}.{name} mismatch")
-    if record.get("npz_sha256") != file_sha256(path):
-        raise ValueError(f"dataset manifest splits.{split}.npz_sha256 mismatch")
-    hashes, shapes, dtypes = _npz_identity(path)
-    for name, computed in (
-        ("array_sha256", hashes),
-        ("shapes", shapes),
-        ("dtypes", dtypes),
-    ):
-        recorded = record.get(name)
-        if not isinstance(recorded, Mapping) or dict(recorded) != computed:
-            raise ValueError(f"dataset manifest splits.{split}.{name} mismatch")
-    if hashes.get("objectGuess") != object_identity["array_sha256"]:
+    hashes, shapes, dtypes = validate_split_manifest_record(
+        path,
+        record,
+        split=split,
+        split_recipe_sha256=split_recipe_sha256,
+    )
+    if normalization_method == "none":
+        if "object_amplitude_scale" in hashes:
+            raise ValueError(
+                f"dataset splits.{split}.object_amplitude_scale requires "
+                "mean_patch_max"
+            )
+    else:
+        if shapes.get("object_amplitude_scale") != [] or dtypes.get(
+            "object_amplitude_scale"
+        ) != "float64":
+            raise ValueError(
+                f"dataset splits.{split}.object_amplitude_scale must be a "
+                "float64 scalar"
+            )
+        with np.load(path, allow_pickle=False) as archive:
+            stored_scale = float(np.asarray(archive["object_amplitude_scale"]))
+        if stored_scale != float(normalization_record["scale"]):
+            raise ValueError(
+                f"dataset splits.{split}.object_amplitude_scale disagrees "
+                "with the manifest normalization scale"
+            )
+    if len(split_objects) == 1:
+        if hashes.get("objectGuess") != object_identity["array_sha256"]:
+            raise ValueError(
+                f"dataset manifest splits.{split}.objectGuess lineage mismatch"
+            )
+    elif "objectGuess" in hashes:
         raise ValueError(
-            f"dataset manifest splits.{split}.objectGuess lineage mismatch"
+            f"dataset manifest splits.{split} must not collapse an object bank"
         )
     stored_probe_field = _stored_probe_digest_field(resolved)
     if hashes.get("probeGuess") != probe_record.get(stored_probe_field):
         raise ValueError(f"dataset manifest splits.{split}.probeGuess lineage mismatch")
-    dataset_identity = {
-        "split_recipe_sha256": split_recipe_sha256,
-        "array_sha256": hashes,
-        "shapes": shapes,
-        "dtypes": dtypes,
-    }
-    if record.get("dataset_identity") != dataset_identity:
-        raise ValueError(f"dataset manifest splits.{split}.dataset_identity mismatch")
-    if record.get("dataset_sha256") != canonical_sha256(dataset_identity):
-        raise ValueError(f"dataset manifest splits.{split}.dataset_sha256 mismatch")
+    if manifest_schema in _FLAT_ACQUISITION_PROBE_LINEAGE_SCHEMAS:
+        simulated_probe_field = (
+            "physical_simulation_probe_sha256"
+            if resolved.simulation.measurement_domain == "count_intensity"
+            else "simulation_probe_sha256"
+        )
+        if hashes.get("probe_simulated") != probe_record.get(simulated_probe_field):
+            raise ValueError(
+                f"dataset manifest splits.{split}.probe_simulated lineage mismatch"
+            )
 
 
 def _load_verified_source_truth(
@@ -1168,6 +1705,7 @@ def _load_verified_source_truth(
     *,
     manifest: Mapping[str, Any],
     manifest_path: Path,
+    resolved: ResolvedSyntheticWorkflow,
 ) -> Any:
     import numpy as np
 
@@ -1189,6 +1727,21 @@ def _load_verified_source_truth(
                 raise ValueError("source artifact is missing probeGuess")
             truth = np.array(source["objectGuess"], copy=True)
             probe = np.array(source["probeGuess"], copy=True)
+            simulated_probe = (
+                np.array(source["probe_simulated"], copy=True)
+                if "probe_simulated" in source.files
+                else None
+            )
+            train_objects = (
+                np.array(source["trainObjectGuess"], copy=True)
+                if "trainObjectGuess" in source.files
+                else None
+            )
+            test_objects = (
+                np.array(source["testObjectGuess"], copy=True)
+                if "testObjectGuess" in source.files
+                else None
+            )
     except OSError as error:
         raise ValueError(f"invalid source artifact at {path}: {error}") from error
     object_record = manifest.get("object")
@@ -1216,6 +1769,107 @@ def _load_verified_source_truth(
     )
     if probe_record.get(stored_probe_field) != array_sha256(probe):
         raise ValueError(f"dataset manifest probe.{stored_probe_field} mismatch")
+    if manifest.get("schema_version") in _FLAT_ACQUISITION_PROBE_LINEAGE_SCHEMAS:
+        if simulated_probe is None:
+            raise ValueError("source artifact is missing probe_simulated")
+        simulated_probe_field = (
+            "physical_simulation_probe_sha256"
+            if domain == "count_intensity"
+            else "simulation_probe_sha256"
+        )
+        if probe_record.get(simulated_probe_field) != array_sha256(simulated_probe):
+            raise ValueError(
+                f"dataset manifest probe.{simulated_probe_field} mismatch"
+            )
+        objects_record = manifest.get("objects")
+        if not isinstance(objects_record, Mapping):
+            raise ValueError("dataset manifest objects must be an object")
+        for split, bank in (
+            ("train", train_objects),
+            ("test", test_objects),
+        ):
+            records = objects_record.get(split)
+            if bank is None or not isinstance(records, list):
+                raise ValueError(f"source artifact is missing {split} object bank")
+            if bank.ndim != 3 or bank.shape[0] != len(records):
+                raise ValueError(f"source {split} object bank shape mismatch")
+            for index, (canvas, record) in enumerate(zip(bank, records, strict=True)):
+                if record.get("array_sha256") != array_sha256(canvas):
+                    raise ValueError(
+                        f"source {split} object bank index {index} hash mismatch"
+                    )
+                if record.get("shape") != list(canvas.shape):
+                    raise ValueError(
+                        f"source {split} object bank index {index} shape mismatch"
+                    )
+                if record.get("dtype") != canvas.dtype.name:
+                    raise ValueError(
+                        f"source {split} object bank index {index} dtype mismatch"
+                    )
+        if not np.array_equal(truth, test_objects[0]):
+            raise ValueError("source objectGuess must equal testObjectGuess[0]")
+
+        if manifest.get("schema_version") in {
+            "flat-acquisition-manifest-v3",
+            "flat-acquisition-manifest-v4",
+        }:
+            from ptycho.simulation.flat_acquisition import _morphology_attestation
+
+            expected_attestation = _morphology_attestation(
+                resolved,
+                {
+                    "train": list(train_objects),
+                    "test": list(test_objects),
+                },
+            )
+            if manifest.get("morphology_attestation") != expected_attestation:
+                raise ValueError("dataset manifest morphology_attestation mismatch")
+
+        from ptycho.simulation.flat_acquisition import (
+            _derive_simulation_probe,
+            _prepare_probe,
+        )
+
+        count_record = probe_record.get("count_amplitude_scale")
+        count_scale = (
+            float(count_record["value"])
+            if domain == "count_intensity" and isinstance(count_record, Mapping)
+            else 1.0
+        )
+        base_probe, _probe_metadata = _prepare_probe(resolved.simulation.train)
+        base_probe = np.ascontiguousarray(base_probe, dtype=np.complex64)
+        expected_simulated, expected_lineage = _derive_simulation_probe(
+            base_probe,
+            resolved.simulation.train,
+        )
+        for name, array in (
+            ("transformed_probe_sha256", base_probe),
+            ("training_probe_sha256", base_probe),
+            ("simulation_probe_sha256", expected_simulated),
+        ):
+            if probe_record.get(name) != array_sha256(array):
+                raise ValueError(f"dataset manifest probe.{name} mismatch")
+        expected_training = np.ascontiguousarray(
+            base_probe * count_scale,
+            dtype=np.complex64,
+        )
+        expected_stored = np.ascontiguousarray(
+            expected_simulated * count_scale,
+            dtype=np.complex64,
+        )
+        if not np.allclose(probe, expected_training, rtol=2e-6, atol=1e-7):
+            raise ValueError("source probeGuess transform lineage mismatch")
+        if not np.allclose(simulated_probe, expected_stored, rtol=2e-6, atol=1e-7):
+            raise ValueError("source probe_simulated normalization mismatch")
+        if not np.isclose(
+            probe_record.get("simulation_probe_realized_multiplier"),
+            expected_lineage["simulation_probe_realized_multiplier"],
+            rtol=2e-6,
+            atol=0.0,
+        ):
+            raise ValueError(
+                "dataset manifest probe.simulation_probe_realized_multiplier mismatch"
+            )
     return truth
 
 
@@ -1234,6 +1888,7 @@ def _json_scalar(value: Mapping[str, Any], *, name: str) -> str:
 def _validated_reconstruction_arrays(
     *,
     complex_canvas: Any,
+    measurement_gauge_canvas: Any,
     amplitude: Any,
     phase: Any,
     prescale_canvas: Any,
@@ -1248,6 +1903,7 @@ def _validated_reconstruction_arrays(
 
     arrays = {
         "complex_canvas": np.asarray(complex_canvas),
+        "measurement_gauge_canvas": np.asarray(measurement_gauge_canvas),
         "amplitude": np.asarray(amplitude),
         "phase": np.asarray(phase),
         "prescale_canvas": np.asarray(prescale_canvas),
@@ -1257,12 +1913,19 @@ def _validated_reconstruction_arrays(
     canvas = arrays["complex_canvas"]
     if canvas.ndim != 2 or not np.issubdtype(canvas.dtype, np.complexfloating):
         raise ValueError("complex_canvas must be a rank-2 complex array")
-    for name in ("amplitude", "phase", "prescale_canvas", "canvas_weights"):
+    for name in (
+        "measurement_gauge_canvas",
+        "amplitude",
+        "phase",
+        "prescale_canvas",
+        "canvas_weights",
+    ):
         array = arrays[name]
         if array.ndim != 2 or array.shape != canvas.shape:
             raise ValueError(f"{name} shape must match complex_canvas")
-    if not np.issubdtype(arrays["prescale_canvas"].dtype, np.complexfloating):
-        raise ValueError("prescale_canvas must be complex")
+    for name in ("measurement_gauge_canvas", "prescale_canvas"):
+        if not np.issubdtype(arrays[name].dtype, np.complexfloating):
+            raise ValueError(f"{name} must be complex")
     for name in ("amplitude", "phase", "canvas_weights"):
         if not np.issubdtype(arrays[name].dtype, np.number) or np.issubdtype(
             arrays[name].dtype, np.complexfloating
@@ -1299,12 +1962,60 @@ def _validated_reconstruction_arrays(
             "canvas_anchor must contain scan_com, canvas_shape, and "
             "canvas_origin_offset"
         )
-    if tuple(anchor["canvas_shape"]) != canvas.shape:
+    shape_value = anchor["canvas_shape"]
+    if (
+        not isinstance(shape_value, (list, tuple))
+        or len(shape_value) != 2
+        or any(
+            isinstance(value, bool) or not isinstance(value, (int, np.integer))
+            for value in shape_value
+        )
+    ):
+        raise ValueError("canvas_anchor canvas_shape must contain two integers")
+    if tuple(int(value) for value in shape_value) != canvas.shape:
         raise ValueError("canvas_anchor canvas_shape must match complex_canvas")
+    anchor["canvas_shape"] = [int(value) for value in shape_value]
+    for name in ("scan_com", "canvas_origin_offset"):
+        try:
+            vector = np.asarray(anchor[name], dtype=np.float64)
+        except (TypeError, ValueError) as error:
+            raise ValueError(
+                f"canvas_anchor {name} must be a finite length-2 vector"
+            ) from error
+        if vector.shape != (2,) or not np.isfinite(vector).all():
+            raise ValueError(
+                f"canvas_anchor {name} must be a finite length-2 vector"
+            )
+        anchor[name] = [float(value) for value in vector]
+    if "truth_origin" in anchor:
+        try:
+            truth_origin = np.asarray(anchor["truth_origin"], dtype=np.float64)
+        except (TypeError, ValueError) as error:
+            raise ValueError(
+                "canvas_anchor truth_origin must contain two nonnegative integers"
+            ) from error
+        if (
+            truth_origin.shape != (2,)
+            or not np.isfinite(truth_origin).all()
+            or np.any(truth_origin < 0)
+            or not np.equal(truth_origin, np.floor(truth_origin)).all()
+        ):
+            raise ValueError(
+                "canvas_anchor truth_origin must contain two nonnegative integers"
+            )
+        anchor["truth_origin"] = [int(value) for value in truth_origin]
+    if "assembly_method" in anchor and (
+        not isinstance(anchor["assembly_method"], str)
+        or not anchor["assembly_method"]
+    ):
+        raise ValueError("canvas_anchor assembly_method must be a nonempty string")
     anchor_json = _json_scalar(anchor, name="canvas_anchor")
     return {
         "schema_version": np.asarray(RECONSTRUCTION_SCHEMA),
         "complex_canvas": np.array(canvas, copy=True),
+        "measurement_gauge_canvas": np.array(
+            arrays["measurement_gauge_canvas"], copy=True
+        ),
         "amplitude": np.array(arrays["amplitude"], copy=True),
         "phase": np.array(arrays["phase"], copy=True),
         "prescale_canvas": np.array(arrays["prescale_canvas"], copy=True),
@@ -1350,6 +2061,102 @@ def _validate_reassembly_channel_handoff(
         raise ValueError("reassembly.used_scan_ids must match channel_indices scan ids")
 
 
+def _validate_reconstruction_method_handoff(
+    resolved: ResolvedSyntheticWorkflow,
+    *,
+    complex_canvas: Any,
+    measurement_gauge_canvas: Any,
+    canvas_weights: Any,
+    canvas_anchor: Mapping[str, Any],
+    reassembly: Mapping[str, Any],
+) -> None:
+    """Bind resolved method, effective geometry, and publication gauge."""
+
+    import numpy as np
+
+    method = resolved.inference.reconstruction_method
+    anchor_method = canvas_anchor.get("assembly_method")
+    diagnostic_method = reassembly.get("assembly_method")
+    if method != "tiled":
+        if anchor_method == "tiled_raster_v1" or diagnostic_method == "tiled_raster_v1":
+            raise ValueError("barycentric workflow cannot consume tiled artifacts")
+        return
+    if anchor_method != "tiled_raster_v1" or diagnostic_method != "tiled_raster_v1":
+        raise ValueError(
+            "tiled workflow requires matching tiled_raster_v1 anchor and diagnostics"
+        )
+    simulation = resolved.simulation.test
+    outer_offset = int(simulation.scan.outer_offset_test)
+    tile_size = outer_offset // 2
+    side = math.isqrt(int(simulation.object.diffractions_per_object))
+    expected_shape = [side * tile_size, side * tile_size]
+    expected_origin = int(math.ceil((int(simulation.N) - tile_size) / 2.0))
+    first_translation = float(int(simulation.N) // 2)
+    expected_scan_com = first_translation + (side - 1) * tile_size / 2.0
+    expected_canvas_offset = expected_shape[0] // 2 - expected_scan_com
+    if canvas_anchor.get("canvas_shape") != expected_shape:
+        raise ValueError("tiled canvas shape disagrees with the fixed raster geometry")
+    if canvas_anchor.get("truth_origin") != [expected_origin, expected_origin]:
+        raise ValueError("tiled truth_origin disagrees with the fixed raster crop")
+    if not np.allclose(
+        canvas_anchor.get("scan_com"),
+        [expected_scan_com, expected_scan_com],
+        rtol=0.0,
+        atol=1e-12,
+    ) or not np.allclose(
+        canvas_anchor.get("canvas_origin_offset"),
+        [expected_canvas_offset, expected_canvas_offset],
+        rtol=0.0,
+        atol=1e-12,
+    ):
+        raise ValueError("tiled canvas anchor disagrees with the fixed raster lattice")
+    weights = np.asarray(canvas_weights)
+    if weights.shape != tuple(expected_shape) or not np.allclose(
+        weights, 1.0, rtol=0.0, atol=1e-6
+    ):
+        raise ValueError("tiled reconstruction requires unit nonoverlapping weights")
+    expected_diagnostics = {
+        "requested_middle_trim": int(resolved.inference.middle_trim),
+        "effective_tile_size": tile_size,
+        "effective_patch_weighting": "uniform",
+        "effective_varpro_scaling": bool(resolved.inference.varpro_scaling),
+        "lattice_shape": [side, side],
+        "lattice_pitch": [float(tile_size), float(tile_size)],
+    }
+    for name, expected in expected_diagnostics.items():
+        if reassembly.get(name) != expected:
+            raise ValueError(
+                f"tiled reassembly.{name} mismatch: expected {expected!r}, "
+                f"got {reassembly.get(name)!r}"
+            )
+    normalization = simulation.object.patch_amplitude_normalization
+    scale = float(reassembly.get("object_amplitude_scale", float("nan")))
+    if not math.isfinite(scale) or scale <= 0.0:
+        raise ValueError("tiled object_amplitude_scale must be positive and finite")
+    if reassembly.get("object_amplitude_scale_applied") != (
+        normalization == "mean_patch_max"
+    ):
+        raise ValueError("tiled object amplitude gauge-application record mismatch")
+    measurement = np.asarray(measurement_gauge_canvas)
+    published = np.asarray(complex_canvas)
+    if measurement.shape != published.shape or not np.allclose(
+        published,
+        measurement * scale,
+        rtol=2e-6,
+        atol=1e-7,
+    ):
+        raise ValueError("published tiled canvas does not match its gauge transform")
+    source_gauge = "split_normalized" if normalization == "mean_patch_max" else "raw_source"
+    expected_gauge = {
+        "inference_canvas_before_publication": source_gauge,
+        "published_canvas": "raw_source",
+        "published_scale_factor": scale,
+        "count_diagnostics_canvas": source_gauge,
+    }
+    if reassembly.get("object_gauge") != expected_gauge:
+        raise ValueError("tiled object-gauge evidence mismatch")
+
+
 def _load_reconstruction_artifact(
     path: Path,
     *,
@@ -1362,6 +2169,7 @@ def _load_reconstruction_artifact(
     expected_fields = {
         "schema_version",
         "complex_canvas",
+        "measurement_gauge_canvas",
         "amplitude",
         "phase",
         "prescale_canvas",
@@ -1392,6 +2200,9 @@ def _load_reconstruction_artifact(
                 raise ValueError("canvas_anchor_json must decode to an object")
             payload = _validated_reconstruction_arrays(
                 complex_canvas=np.array(archive["complex_canvas"], copy=True),
+                measurement_gauge_canvas=np.array(
+                    archive["measurement_gauge_canvas"], copy=True
+                ),
                 amplitude=np.array(archive["amplitude"], copy=True),
                 phase=np.array(archive["phase"], copy=True),
                 prescale_canvas=np.array(archive["prescale_canvas"], copy=True),
@@ -1442,7 +2253,10 @@ def execute_reconstruction_stage(
         raise TypeError("request must be a ReconstructionStageRequest")
     _validate_managed_preflight(request.output_root)
     from ptycho_torch.execution_request import resolve_runtime_execution_request
-    from ptycho_torch.inference import reconstruct_npz_barycentric
+    from ptycho_torch.inference import (
+        reconstruct_npz_barycentric,
+        reconstruct_npz_tiled,
+    )
 
     execution = resolve_runtime_execution_request(
         _execution_request_for_resolved(request.resolved_workflow),
@@ -1450,10 +2264,23 @@ def execute_reconstruction_stage(
     ).config
     if execution.devices != 1:
         raise ValueError(
-            "barycentric reconstruction requires exactly one resolved device"
+            "synthetic reconstruction requires exactly one resolved device"
         )
     device = "cuda" if execution.accelerator == "gpu" else execution.accelerator
-    result = reconstruct_npz_barycentric(
+    reconstruction_method = (
+        request.resolved_workflow.inference.reconstruction_method
+    )
+    reconstruction_adapters = {
+        "barycentric": reconstruct_npz_barycentric,
+        "tiled": reconstruct_npz_tiled,
+    }
+    try:
+        reconstruction_adapter = reconstruction_adapters[reconstruction_method]
+    except KeyError as error:
+        raise ValueError(
+            f"unsupported reconstruction method {reconstruction_method!r}"
+        ) from error
+    result = reconstruction_adapter(
         request.bundle_path,
         request.test_path,
         run_root=request.output_root,
@@ -1468,6 +2295,11 @@ def execute_reconstruction_stage(
     )
     payload = _validated_reconstruction_arrays(
         complex_canvas=result.complex_canvas,
+        measurement_gauge_canvas=getattr(
+            result,
+            "measurement_gauge_canvas",
+            result.complex_canvas,
+        ),
         amplitude=result.amplitude,
         phase=result.phase,
         prescale_canvas=result.prescale_canvas,
@@ -1476,13 +2308,28 @@ def execute_reconstruction_stage(
         channel_indices=result.channel_indices,
         expected_channels=int(request.resolved_workflow.data.gridsize ** 2),
     )
-    reassembly = result.reassembly.to_jsonable()
+    if isinstance(result.reassembly, Mapping):
+        reassembly = dict(result.reassembly)
+    elif hasattr(result.reassembly, "to_jsonable"):
+        reassembly = result.reassembly.to_jsonable()
+    else:
+        raise TypeError(
+            "reassembly must be a mapping or expose to_jsonable()"
+        )
     if not isinstance(reassembly, Mapping):
         raise TypeError("reassembly.to_jsonable() must return a mapping")
     _json_scalar(dict(reassembly), name="reassembly")
     _validate_reassembly_channel_handoff(
         reassembly,
         payload["channel_indices"],
+    )
+    _validate_reconstruction_method_handoff(
+        request.resolved_workflow,
+        complex_canvas=payload["complex_canvas"],
+        measurement_gauge_canvas=payload["measurement_gauge_canvas"],
+        canvas_weights=payload["canvas_weights"],
+        canvas_anchor=result.canvas_anchor,
+        reassembly=reassembly,
     )
     reconstruction_path = request.output_root / "reconstruction" / "reconstruction.npz"
     _write_reconstruction_atomic(reconstruction_path, payload)
@@ -1522,6 +2369,7 @@ def execute_evaluation_stage(
         request.source_path,
         manifest=manifest,
         manifest_path=request.dataset_manifest_path,
+        resolved=request.resolved_workflow,
     )
     if (
         truth.ndim != 2
@@ -1530,6 +2378,14 @@ def execute_evaluation_stage(
     ):
         raise ValueError("source objectGuess must be a finite rank-2 complex array")
     diagnostics = _validate_pending_diagnostics(request.diagnostics_path)
+    _validate_reconstruction_method_handoff(
+        request.resolved_workflow,
+        complex_canvas=reconstruction["complex_canvas"],
+        measurement_gauge_canvas=reconstruction["measurement_gauge_canvas"],
+        canvas_weights=reconstruction["canvas_weights"],
+        canvas_anchor=reconstruction["canvas_anchor"],
+        reassembly=diagnostics["reassembly"],
+    )
     result = evaluate_reconstruction_quality(
         complex_canvas=reconstruction["complex_canvas"],
         prescale_canvas=reconstruction["prescale_canvas"],
@@ -1543,6 +2399,9 @@ def execute_evaluation_stage(
         expected_channels=int(request.resolved_workflow.data.gridsize ** 2),
         measurement_domain=(
             request.resolved_workflow.simulation.measurement_domain
+        ),
+        metric_crop_border=(
+            request.resolved_workflow.inference.metric_crop_border
         ),
     )
     return EvaluationStageResult(

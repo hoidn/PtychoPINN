@@ -277,7 +277,7 @@ class TestExecutionConfigCLI:
             '--no-deterministic',
             '--num-workers=2',
             '--learning-rate', '0.002',
-            '--scheduler=Adaptive',
+            '--scheduler=ReduceLROnPlateau',
             '--accumulate-grad-batches', '3',
             '--logger=none',
             '--quiet',
@@ -341,7 +341,7 @@ class TestExecutionConfigCLI:
             for key in ('learning_rate', 'scheduler', 'accum_steps')
         } == {
             'learning_rate': 0.002,
-            'scheduler': 'Adaptive',
+            'scheduler': 'ReduceLROnPlateau',
             'accum_steps': 3,
         }
 
@@ -916,12 +916,21 @@ class TestPatchStatsCLI:
         # Seed for deterministic non-zero variance (Phase C3 regression guard)
         np.random.seed(12345)
 
+        # Dense 8x8 raster scan over a small object. gridsize=2 grouping needs
+        # 4-candidate neighborhoods, which a handful of random [0,1] positions
+        # cannot supply after x/y percentile bounding drops the outer points.
+        # A regular grid keeps a 6x6 interior of 4-neighbor positions alive.
+        side = 8
+        grid = np.arange(side, dtype=np.float32)
+        xx, yy = np.meshgrid(grid, grid, indexing="ij")
+        n_scans = side * side
+
         train_file = tmp_path / "train.npz"
         np.savez(
             train_file,
-            diff3d=np.random.rand(10, 64, 64).astype(np.float32),
-            xcoords=np.random.rand(10).astype(np.float32),
-            ycoords=np.random.rand(10).astype(np.float32),
+            diff3d=np.random.rand(n_scans, 64, 64).astype(np.float32),
+            xcoords=xx.ravel().astype(np.float32),
+            ycoords=yy.ravel().astype(np.float32),
             probeGuess=np.random.rand(64, 64).astype(np.complex64),
             objectGuess=np.random.rand(200, 200).astype(np.complex64),
         )
@@ -1022,7 +1031,6 @@ class TestPatchStatsCLI:
             '--model_path', str(output_dir),
             '--test_data', test_data_path,
             '--output_dir', str(tmp_path / 'outputs_infer'),
-            '--n_images', '8',
             '--log-patch-stats',
             '--patch-stats-limit', '2',
             '--accelerator', 'cpu',

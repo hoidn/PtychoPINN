@@ -2205,7 +2205,7 @@ def _resolve_pinn_training_config(cfg: Any) -> Any:
 
 def _pinn_intensity_scale(resolved_config: Any) -> float:
     """Evaluate the legacy training normalization from explicit config owners."""
-    nphotons = float(resolved_config.data.nphotons)
+    nphotons = float(resolved_config.nphotons)
     N = int(resolved_config.model.N)
     if not math.isfinite(nphotons) or nphotons <= 0:
         raise ValueError("PtychoPINN comparator nphotons must be finite and positive")
@@ -2286,9 +2286,12 @@ def run_pinn_comparator(
         with configured_params_scope():
             update_legacy_dict(params.cfg, cfg.simulation)
             update_legacy_dict(params.cfg, resolved_config)
-            params.cfg["sim_jitter_scale"] = 0.0
-            params.cfg["intensity_scale"] = intensity_scale
-            params.cfg["h5_path"] = CANONICAL_PINN_H5_PATH
+            # Seal-visible writes: params.set routes through the seal machinery
+            # (intensity_scale is whitelisted; the other two surface loudly if
+            # written post-seal) instead of bypassing it via direct dict access.
+            params.set("sim_jitter_scale", 0.0)
+            params.set("intensity_scale", intensity_scale)
+            params.set("h5_path", CANONICAL_PINN_H5_PATH)
             probe_mod.set_probe_guess(None, train_container.probe)
             model_mod.wt_path = str(checkpoint_dir)
             try:

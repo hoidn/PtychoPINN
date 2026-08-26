@@ -5,10 +5,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from itertools import combinations
 from math import comb
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 from scipy.spatial import KDTree, cKDTree
+
+if TYPE_CHECKING:
+    from ptycho.config.config import TrainingConfig
+    from ptycho.raw_data import RawData
+
 
 
 def _readonly(value: np.ndarray, dtype: np.dtype) -> np.ndarray:
@@ -325,17 +330,16 @@ def group_from_config(
     cannot honor (e.g. K choose C oversampling required but not enabled)
     surface as ``ValueError`` from ``generate_grouped_data``.
     """
-    sampling = config.sampling
     return raw_data.generate_grouped_data(
         N=config.model.N,
-        K=sampling.neighbor_count,
-        nsamples=sampling.training_groups,
+        K=config.neighbor_count,
+        nsamples=config.training_groups,
         dataset_path=dataset_path,
-        seed=sampling.subsample_seed,
-        sequential_sampling=sampling.sequential_sampling,
+        seed=config.subsample_seed,
+        sequential_sampling=config.sequential_sampling,
         gridsize=config.model.gridsize,
-        enable_oversampling=sampling.enable_oversampling,
-        neighbor_pool_size=sampling.neighbor_pool_size,
+        enable_oversampling=config.enable_oversampling,
+        neighbor_pool_size=config.neighbor_pool_size,
     )
 
 
@@ -394,14 +398,6 @@ def plan_sample_then_group(
         )
         policy = "raw_k_choose_c_oversampling"
     else:
-        if enable_oversampling and (
-            group_size <= 1 or effective_neighbors < group_size
-        ):
-            raise ValueError(
-                "enable_oversampling requires group_size>1 and "
-                f"neighbor_pool_size>=group_size; got group_size={group_size!r}, "
-                f"neighbor_pool_size={neighbor_pool_size!r}"
-            )
         neighbors, centers = _sample_then_group(
             xcoords,
             ycoords,

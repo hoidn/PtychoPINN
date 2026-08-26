@@ -57,8 +57,8 @@ Usage Example:
     >>> print(results['backend'])  # 'pytorch'
 
 References:
-    - Phase E plan: plans/active/INTEGRATE-PYTORCH-001/phase_e_integration.md
-    - Backend design: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T180500Z/phase_e_backend_design.md
+    - Phase E plan: docs/findings.md (see git history for the originating plan)
+    - Backend design: docs/findings.md (see git history for the originating plan)
     - Spec §4.1: specs/ptychodus_api_spec.md (Ptychodus reconstructor contract)
 """
 
@@ -104,6 +104,7 @@ def _validate_torch_workflow_inputs(
     resolved_payload: Optional[Any],
     amplitude_physics_gain_record: Optional[Any],
     torch_training_seed: Optional[int],
+    torch_batch_order_recipe: Optional[str],
 ) -> None:
     """Validate mutually exclusive and backend-specific Torch inputs."""
     if resolved_payload is not None and (
@@ -122,10 +123,12 @@ def _validate_torch_workflow_inputs(
         resolved_payload is not None
         or amplitude_physics_gain_record is not None
         or torch_training_seed is not None
+        or torch_batch_order_recipe is not None
     ):
         raise ValueError(
             "torch_resolved_payload and "
-            "torch_amplitude_physics_gain_record and torch_training_seed "
+            "torch_amplitude_physics_gain_record, torch_training_seed, and "
+            "torch_batch_order_recipe "
             "are only valid for the PyTorch backend"
         )
     if torch_training_seed is not None:
@@ -140,6 +143,10 @@ def _validate_torch_workflow_inputs(
             raise ValueError(
                 "torch_training_seed must be a nonnegative integer"
             )
+    if torch_batch_order_recipe is not None:
+        from ptycho_torch.batch_order import validate_batch_order_recipe
+
+        validate_batch_order_recipe(torch_batch_order_recipe)
     _validate_execution_request(execution_config)
 
 
@@ -158,6 +165,7 @@ def run_cdi_example_with_backend(
     torch_resolved_payload: Optional[Any] = None,
     torch_amplitude_physics_gain_record: Optional[Any] = None,
     torch_training_seed: Optional[int] = None,
+    torch_batch_order_recipe: Optional[str] = None,
 ) -> Tuple[Optional[Any], Optional[Any], Dict[str, Any]]:
     """
     Run the complete CDI workflow with automatic backend selection.
@@ -217,6 +225,7 @@ def run_cdi_example_with_backend(
         resolved_payload=torch_resolved_payload,
         amplitude_physics_gain_record=torch_amplitude_physics_gain_record,
         torch_training_seed=torch_training_seed,
+        torch_batch_order_recipe=torch_batch_order_recipe,
     )
 
     # CRITICAL: Update params.cfg only after all request/config validation.
@@ -225,7 +234,7 @@ def run_cdi_example_with_backend(
 
     # Route to backend-specific workflow implementation
     if config.backend == 'tensorflow':
-        logger.info("Backend dispatcher: routing to TensorFlow workflow (ptycho.workflows.workflow_orchestration)")
+        logger.info("Backend dispatcher: routing to TensorFlow workflow (ptycho.workflows.components)")
         from ptycho.workflows.workflow_orchestration import run_cdi_example
 
         # Delegate to TensorFlow run_cdi_example
@@ -234,7 +243,7 @@ def run_cdi_example_with_backend(
         )
 
     elif config.backend == 'pytorch':
-        logger.info("Backend dispatcher: routing to PyTorch workflow (ptycho_torch.workflows.legacy)")
+        logger.info("Backend dispatcher: routing to PyTorch workflow (ptycho_torch.workflows.components)")
 
         # Guarded PyTorch import
         try:
@@ -259,6 +268,7 @@ def run_cdi_example_with_backend(
                 torch_amplitude_physics_gain_record
             ),
             torch_training_seed=torch_training_seed,
+            batch_order_recipe=torch_batch_order_recipe,
         )
 
     # Inject backend metadata into results for traceability
@@ -316,13 +326,13 @@ def train_cdi_model_with_backend(
 
     # Route to backend-specific training implementation
     if config.backend == 'tensorflow':
-        logger.info("Backend dispatcher: routing to TensorFlow training (ptycho.workflows.workflow_orchestration)")
+        logger.info("Backend dispatcher: routing to TensorFlow training (ptycho.workflows.components)")
         from ptycho.workflows.workflow_orchestration import train_cdi_model
 
         results = train_cdi_model(train_data, test_data, config)
 
     elif config.backend == 'pytorch':
-        logger.info("Backend dispatcher: routing to PyTorch training (ptycho_torch.workflows.legacy)")
+        logger.info("Backend dispatcher: routing to PyTorch training (ptycho_torch.workflows.components)")
 
         # Guarded PyTorch import
         try:
@@ -409,14 +419,14 @@ def load_inference_bundle_with_backend(
 
     # Route to backend-specific loader implementation
     if config.backend == 'tensorflow':
-        logger.info("Backend dispatcher: loading TensorFlow model (ptycho.workflows.bundle_loading)")
+        logger.info("Backend dispatcher: loading TensorFlow model (ptycho.workflows.components)")
         from ptycho.workflows.bundle_loading import load_inference_bundle
 
         # TensorFlow load_inference_bundle returns (model, params_dict)
         model, params_dict = load_inference_bundle(bundle_path)
 
     elif config.backend == 'pytorch':
-        logger.info("Backend dispatcher: loading PyTorch model (ptycho_torch.workflows.bundle_io)")
+        logger.info("Backend dispatcher: loading PyTorch model (ptycho_torch.workflows.components)")
 
         # Guarded PyTorch import
         try:

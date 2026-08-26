@@ -49,6 +49,7 @@ def _reassembly(
         "filtered_eligible_scan_ids": (0, 4),
         "s1": 1.2,
         "s2": 0.8,
+        "mask_digest": "a" * 64,
         "effective_precision": precision,
         "count_metrics": count_metrics
         or SimpleNamespace(
@@ -105,6 +106,33 @@ def test_prepare_anchor_aligned_supports_integer_and_half_pixel_sampling():
     )
     np.testing.assert_allclose(half.target, expected, rtol=1e-6, atol=1e-6)
     assert half.common_mask.all()
+
+
+def test_prepare_anchor_aligned_supports_exact_truth_origin_and_metric_crop():
+    from ptycho_torch.reconstruction_evaluation import prepare_anchor_aligned
+
+    truth = _truth((14, 15))
+    reconstruction = np.array(truth[3:11, 4:12], copy=True)
+    weights = np.ones(reconstruction.shape, dtype=np.float32)
+    anchor = _anchor((7.5, 6.5), reconstruction.shape)
+    anchor["truth_origin"] = [4, 3]
+
+    prepared = prepare_anchor_aligned(
+        reconstruction,
+        weights,
+        anchor,
+        truth,
+        metric_crop_border=2,
+    )
+
+    np.testing.assert_array_equal(prepared.target, reconstruction)
+    assert prepared.ssim_bounds.to_jsonable() == {
+        "top": 2,
+        "left": 2,
+        "bottom": 6,
+        "right": 6,
+    }
+    assert int(np.count_nonzero(prepared.common_mask)) == 16
 
 
 def test_global_phase_factor_is_unit_and_wrapped_mae_crosses_phase_boundary():
@@ -642,6 +670,7 @@ def test_renderer_closes_figure_when_panel_rendering_raises(tmp_path, monkeypatc
         values["canvas_anchor"],
         values["truth"],
     )
+    existing_figures = set(plt.get_fignums())
     monkeypatch.setattr(
         matplotlib.axes.Axes,
         "imshow",
@@ -651,8 +680,27 @@ def test_renderer_closes_figure_when_panel_rendering_raises(tmp_path, monkeypatc
     with pytest.raises(RuntimeError, match="imshow failed"):
         render_comparison(prepared, tmp_path / "comparison.png")
 
-    assert plt.get_fignums() == []
+    assert set(plt.get_fignums()) == existing_figures
     assert not (tmp_path / "comparison.png").exists()
+
+
+def test_study_module_reexports_production_formulas_by_identity():
+    from ptycho_torch import reconstruction_evaluation as production
+    from scripts.studies.ablation import metrics as study
+
+    for name in (
+        "Bounds",
+        "PreparedComparison",
+        "AlignmentError",
+        "MetricError",
+        "prepare_anchor_aligned",
+        "global_phase_factor",
+        "absolute_scale_metrics",
+        "image_quality_metrics",
+        "valid_mask_diagnostics",
+        "scan_utilization_metrics",
+    ):
+        assert getattr(study, name) is getattr(production, name)
 
 
 def test_production_metric_import_is_plotting_and_study_independent():
@@ -675,15 +723,18 @@ for prefix in ('scripts.studies', 'matplotlib', 'tensorflow'):
 
 
 def _fitted_count_metrics(**overrides):
+    from ptycho_torch.reassembly_diagnostics import FittedCountMetrics
+
     values = {
         "relative_l2_intensity_error": 0.031,
         "mean_raw_poisson_nll": 1234.5,
         "n_samples": 8,
         "n_pixels": 8 * 16384,
         "effective_mask_digest": "a" * 64,
+        "sample_ids": tuple(range(8)),
     }
     values.update(overrides)
-    return SimpleNamespace(**values)
+    return FittedCountMetrics(**values)
 
 
 def test_count_contract_evaluation_accepts_fitted_count_diagnostics(tmp_path):
@@ -700,13 +751,67 @@ def test_count_contract_evaluation_accepts_fitted_count_diagnostics(tmp_path):
 
     assert Path(result.metrics_path).is_file()
     assert Path(result.comparison_path).is_file()
-    assert result.metric_validity["count_diagnostics"] == {
-        "status": "complete",
-        "relative_l2_intensity_error": 0.031,
-        "mean_raw_poisson_nll": 1234.5,
-        "n_samples": 8,
-        "n_pixels": 8 * 16384,
+
+
+def test_count_contract_tiled_assembly_still_requires_fitted_diagnostics(tmp_path):
+    from ptycho_torch.reconstruction_evaluation import evaluate_reconstruction_quality
+
+    values = _evaluation_inputs()
+    values["canvas_anchor"] = {
+        **values["canvas_anchor"],
+        "truth_origin": [0, 0],
+        "assembly_method": "tiled_raster_v1",
     }
+    values["reassembly"] = _reassembly(
+        count_metrics=_fitted_count_metrics()
+    )
+
+    result = evaluate_reconstruction_quality(
+        **values,
+        output_dir=tmp_path,
+        measurement_domain="count_intensity",
+        metric_crop_border=1,
+    )
+
+    assert result.metric_validity["count_diagnostics"][
+        "relative_l2_intensity_error"
+    ] == pytest.approx(0.031)
+    assert result.metric_validity["quality_gate_canvas"] == (
+        "tiled_source_object_gauge"
+    )
+    metrics = json.loads(Path(result.metrics_path).read_text(encoding="utf-8"))
+    assert metrics["alignment"]["truth_origin"] == [0, 0]
+    assert metrics["alignment"]["metric_crop_border"] == 1
+    assert metrics["alignment"]["aligned_shape"] == [9, 9]
+    bounds = metrics["alignment"]["ssim_bounds"]
+    assert bounds["bottom"] - bounds["top"] == 7
+    assert bounds["right"] - bounds["left"] == 7
+
+
+def test_count_contract_rejects_tiled_not_evaluated_marker(tmp_path):
+    from ptycho_torch.reconstruction_evaluation import (
+        MetricError,
+        evaluate_reconstruction_quality,
+    )
+
+    values = _evaluation_inputs()
+    values["canvas_anchor"] = {
+        **values["canvas_anchor"],
+        "assembly_method": "tiled_raster_v1",
+    }
+    values["reassembly"] = _reassembly(
+        count_metrics={
+            "status": "not_evaluated",
+            "reason": "legacy_tiled_reconstruction",
+        }
+    )
+
+    with pytest.raises(MetricError, match="count"):
+        evaluate_reconstruction_quality(
+            **values,
+            output_dir=tmp_path,
+            measurement_domain="count_intensity",
+        )
 
 
 def test_count_contract_evaluation_rejects_legacy_not_applicable(tmp_path):
@@ -717,7 +822,7 @@ def test_count_contract_evaluation_rejects_legacy_not_applicable(tmp_path):
         evaluate_reconstruction_quality,
     )
 
-    values = _evaluation_inputs()
+    values = _evaluation_inputs()  # default is the legacy not_applicable marker
 
     with pytest.raises(MetricError, match="count"):
         evaluate_reconstruction_quality(
@@ -739,6 +844,57 @@ def test_count_contract_evaluation_rejects_deferred_count_diagnostics(tmp_path):
     )
 
     with pytest.raises(MetricError, match="count"):
+        evaluate_reconstruction_quality(
+            **values,
+            output_dir=tmp_path,
+            measurement_domain="count_intensity",
+        )
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        (lambda record: record.update(sample_ids=list(range(1, 9))), "sample_ids"),
+        (lambda record: record.update(effective_mask_digest="not-a-digest"), "digest"),
+        (lambda record: record.update(relative_l2_intensity_error=-0.1), "nonnegative"),
+    ],
+)
+def test_count_contract_rejects_unbound_fitted_evidence(
+    tmp_path,
+    mutation,
+    message,
+):
+    from ptycho_torch.reconstruction_evaluation import (
+        MetricError,
+        evaluate_reconstruction_quality,
+    )
+
+    values = _evaluation_inputs()
+    record = _fitted_count_metrics().to_jsonable()
+    mutation(record)
+    values["reassembly"] = _reassembly(count_metrics=record)
+
+    with pytest.raises(MetricError, match=message):
+        evaluate_reconstruction_quality(
+            **values,
+            output_dir=tmp_path,
+            measurement_domain="count_intensity",
+        )
+
+
+def test_count_contract_rejects_mask_digest_mismatch(tmp_path):
+    from ptycho_torch.reconstruction_evaluation import (
+        MetricError,
+        evaluate_reconstruction_quality,
+    )
+
+    values = _evaluation_inputs()
+    values["reassembly"] = _reassembly(
+        count_metrics=_fitted_count_metrics(effective_mask_digest="a" * 64),
+        mask_digest="b" * 64,
+    )
+
+    with pytest.raises(MetricError, match="effective_mask_digest.*mask_digest"):
         evaluate_reconstruction_quality(
             **values,
             output_dir=tmp_path,

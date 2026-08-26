@@ -11,7 +11,7 @@ def test_resolve_generator_cnn():
 
 
 def test_resolve_generator_unknown_raises():
-    cfg = TrainingConfig.model_construct(model=ModelConfig(architecture='unknown'))
+    cfg = TrainingConfig(model=ModelConfig(architecture='unknown'))
     with pytest.raises(ValueError):
         resolve_generator(cfg)
 

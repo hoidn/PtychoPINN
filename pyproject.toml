@@ -13,7 +13,7 @@ dependencies = [
     "PyYAML",
     "dill",
     "hydra-core>=1.3.2,<2",
-    "imageio",
+    "imageio", 
     "ipywidgets",
     "jupyter",
     "matplotlib",
@@ -26,7 +26,6 @@ dependencies = [
     "pandas-datareader",
     "pathos",
     "pydantic>=2.12,<3",
-    "pydantic-settings>=2.11,<3",
     "lightning",
     "scikit-image",
     "scikit-learn",
@@ -66,6 +65,7 @@ include = [
     "scripts.training",
     "scripts.inference",
     "scripts.simulation",
+    "scripts.migrate_legacy_bundle",
 ]
 exclude = [
     "ptycho.trash",
@@ -95,7 +95,7 @@ markers = [
     "study: marks tests for study infrastructure (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001)",
     "mini: marks tests as minimal/fast unit tests",
     "integration: marks end-to-end integration smoke tests (project-level alias)",
-    "tf_integration: marks TensorFlow end-to-end workflow integration smoke test",
+    "tf_integration: marks TensorFlow end-to-end workflow integration smoke test"
 ]
 # Configure test collection to handle import errors gracefully
 addopts = [

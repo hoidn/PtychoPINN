@@ -412,17 +412,22 @@ def load_configs_from_checkpoint(
     if artifact_identity_path.exists():
         from ptycho_torch.artifact_schema import (
             CURRENT_ARTIFACT_SCHEMA_VERSION,
+            RUNTIME_SUPPORTED_ARTIFACT_SCHEMA_VERSIONS,
             TORCH_ARTIFACT_BACKEND,
             decode_artifact_identity,
-            encode_artifact_identity,
+            ensure_supported_artifact_schema_version,
             from_json_payload,
             to_json_payload,
         )
 
         with artifact_identity_path.open("r") as stream:
-            decoded = decode_artifact_identity(
-                from_json_payload(json.load(stream))
-            )
+            sidecar_payload = from_json_payload(json.load(stream))
+        ensure_supported_artifact_schema_version(
+            sidecar_payload.get("schema_version"),
+            context="artifact identity sidecar",
+            supported_versions=RUNTIME_SUPPORTED_ARTIFACT_SCHEMA_VERSIONS,
+        )
+        decoded = decode_artifact_identity(sidecar_payload)
         persisted_profile = resolve_scale_contract(
             decoded.data_config.scale_contract_version,
             decoded.data_config.measurement_domain,
@@ -451,8 +456,10 @@ def load_configs_from_checkpoint(
                     f"marker {expected_marker!r}, found {marker!r}."
                 )
             hparams = checkpoint.get("hyper_parameters", {})
-            checkpoint_identity = decode_artifact_identity(
-                {
+            sealed_payload = hparams.get("artifact_identity")
+            if sealed_payload is None:
+                # Old-era (v1/v2) dual-write fallback.
+                sealed_payload = {
                     **marker,
                     "model_spec": hparams.get("model_spec"),
                     "data_config": hparams.get("data_config"),
@@ -460,24 +467,12 @@ def load_configs_from_checkpoint(
                     "inference_config": hparams.get("inference_config"),
                     "ci_statistics": checkpoint.get("ci_statistics"),
                 }
-            )
-            sidecar_identity = encode_artifact_identity(
-                decoded.model_spec,
-                decoded.data_config,
-                decoded.training_config,
-                decoded.inference_config,
-                ci_statistics=decoded.ci_statistics,
-            )
-            checkpoint_payload = encode_artifact_identity(
-                checkpoint_identity.model_spec,
-                checkpoint_identity.data_config,
-                checkpoint_identity.training_config,
-                checkpoint_identity.inference_config,
-                ci_statistics=checkpoint_identity.ci_statistics,
-            )
-            if to_json_payload(sidecar_identity) != to_json_payload(checkpoint_payload):
+            checkpoint_identity = decode_artifact_identity(sealed_payload)
+            if to_json_payload(decoded.model_spec.to_payload()) != to_json_payload(
+                checkpoint_identity.model_spec.to_payload()
+            ):
                 raise ValueError(
-                    "Checkpoint and sidecar contain conflicting artifact identity."
+                    "Checkpoint and sidecar contain conflicting structural model identity."
                 )
 
         datagen_path = config_dir / "datagen_config.json"
@@ -621,7 +616,6 @@ def load_checkpoint_with_configs(checkpoint_path: str,
             "CI checkpoint is missing persisted ci_statistics from the frozen "
             "training split; regenerate the checkpoint before CI inference."
         )
-    
     # Load model from checkpoint
     try:
         model = model_class.load_from_checkpoint(

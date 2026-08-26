@@ -13,7 +13,7 @@ This module tests the overlap metrics pipeline:
 References:
 - specs/overlap_metrics.md (normative spec)
 - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md
-- docs/GRIDSIZE_N_GROUPS_GUIDE.md (unified training_groups semantics)
+- docs/GRIDSIZE_N_GROUPS_GUIDE.md (unified n_groups semantics)
 """
 
 import json
@@ -148,9 +148,9 @@ def test_filter_dataset_by_mask_handles_scalar_metadata():
 def test_form_groups_gs1():
     """Test that gs=1 creates one group per image."""
     coords = np.random.rand(10, 2) * 100
-    training_groups = 10
+    n_groups = 10
 
-    group_assignments = form_groups_gs1(coords, training_groups)
+    group_assignments = form_groups_gs1(coords, n_groups)
 
     assert len(group_assignments) == 10
     assert len(np.unique(group_assignments)) == 10  # All unique
@@ -159,19 +159,19 @@ def test_form_groups_gs1():
 def test_form_groups_gs2():
     """Test that gs=2 creates groups with gridsize^2 members."""
     coords = np.random.rand(50, 2) * 100
-    training_groups = 10
+    n_groups = 10
     gridsize = 2
 
-    coords_expanded, group_assignments = form_groups_gs2(coords, training_groups, gridsize=gridsize)
+    coords_expanded, group_assignments = form_groups_gs2(coords, n_groups, gridsize=gridsize)
 
     # Each group has gridsize^2 members
-    expected_length = training_groups * (gridsize ** 2)
+    expected_length = n_groups * (gridsize ** 2)
     assert len(group_assignments) == expected_length
     assert len(coords_expanded) == expected_length
 
     # Check group ID range
     unique_groups = np.unique(group_assignments)
-    assert len(unique_groups) == training_groups
+    assert len(unique_groups) == n_groups
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -316,13 +316,13 @@ def test_compute_overlap_metrics_gs1():
     """Test compute_overlap_metrics for gridsize=1."""
     coords = np.random.rand(50, 2) * 100
     s_img = 0.8
-    training_groups = 40  # Should match number of retained images
+    n_groups = 40  # Should match number of retained images
 
     metrics = compute_overlap_metrics(
         coords=coords,
         gridsize=1,
         s_img=s_img,
-        training_groups=training_groups,
+        n_groups=n_groups,
         neighbor_count=6,
         probe_diameter_px=38.4,
         rng_seed_subsample=123,
@@ -332,7 +332,7 @@ def test_compute_overlap_metrics_gs1():
     assert metrics.metrics_version == "1.0"
     assert metrics.gridsize == 1
     assert metrics.s_img == s_img
-    assert metrics.training_groups == training_groups
+    assert metrics.n_groups == n_groups
     assert metrics.probe_diameter_px == 38.4
 
     # Metric 1 should be None for gs=1
@@ -351,13 +351,13 @@ def test_compute_overlap_metrics_gs2():
     """Test compute_overlap_metrics for gridsize=2."""
     coords = np.random.rand(100, 2) * 100
     s_img = 0.5
-    training_groups = 20
+    n_groups = 20
 
     metrics = compute_overlap_metrics(
         coords=coords,
         gridsize=2,
         s_img=s_img,
-        training_groups=training_groups,
+        n_groups=n_groups,
         neighbor_count=6,
         probe_diameter_px=38.4,
         rng_seed_subsample=456,
@@ -365,7 +365,7 @@ def test_compute_overlap_metrics_gs2():
 
     # Verify schema
     assert metrics.gridsize == 2
-    assert metrics.training_groups == training_groups
+    assert metrics.n_groups == n_groups
 
     # Metric 1 is not implemented yet (known limitation)
     # assert metrics.metric_1_group_based_avg is None  # TODO: will be implemented
@@ -384,7 +384,7 @@ def test_compute_overlap_metrics_degenerate_s_img():
             coords=coords,
             gridsize=1,
             s_img=0.0,  # Invalid
-            training_groups=10,
+            n_groups=10,
         )
 
 
@@ -397,7 +397,7 @@ def test_compute_overlap_metrics_invalid_gridsize():
             coords=coords,
             gridsize=3,  # Invalid
             s_img=1.0,
-            training_groups=10,
+            n_groups=10,
         )
 
 
@@ -446,7 +446,7 @@ def test_generate_overlap_views_basic(phase_c_npzs, tmp_path):
         output_dir=output_dir,
         gridsize=1,
         s_img=0.8,
-        training_groups=40,
+        n_groups=40,
         neighbor_count=6,
         probe_diameter_px=38.4,
         rng_seed_subsample=789,
@@ -471,7 +471,7 @@ def test_generate_overlap_views_basic(phase_c_npzs, tmp_path):
     assert train_metrics['metrics_version'] == "1.0"
     assert train_metrics['gridsize'] == 1
     assert train_metrics['s_img'] == 0.8
-    assert train_metrics['training_groups'] == 40
+    assert train_metrics['n_groups'] == 40
     assert train_metrics['probe_diameter_px'] == 38.4
 
     # Metric 1 should not be present for gs=1
@@ -500,7 +500,7 @@ def test_overlap_metrics_bundle(phase_c_npzs, tmp_path):
         output_dir=output_dir,
         gridsize=2,
         s_img=0.6,
-        training_groups=15,
+        n_groups=15,
         neighbor_count=6,
         probe_diameter_px=38.4,
         rng_seed_subsample=999,
@@ -524,7 +524,7 @@ def test_overlap_metrics_bundle(phase_c_npzs, tmp_path):
         assert metrics['metrics_version'] == "1.0"
         assert metrics['gridsize'] == 2
         assert metrics['s_img'] == 0.6
-        assert metrics['training_groups'] == 15
+        assert metrics['n_groups'] == 15
         assert metrics['neighbor_count'] == 6
         assert metrics['probe_diameter_px'] == 38.4
         assert metrics['rng_seed_subsample'] == 999
@@ -581,7 +581,7 @@ def test_generate_overlap_views_dense_acceptance_floor(tmp_path):
         output_dir=output_dir,
         gridsize=1,
         s_img=1.0,
-        training_groups=num_points,
+        n_groups=num_points,
         neighbor_count=3,
         probe_diameter_px=probe_diameter,
         rng_seed_subsample=777,

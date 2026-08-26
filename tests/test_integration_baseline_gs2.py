@@ -32,34 +32,17 @@ class TestBaselineGridsize2Integration(unittest.TestCase):
         if not test_data_path.exists():
             self.skipTest(f"Test data not found at {test_data_path}")
         
-        # Numeric and nested values are resolved through a YAML config file;
-        # the dotted CLI surface keeps values as strings (strict int fields reject
-        # them), so the baseline config is supplied as YAML.
-        import yaml
-
-        config_path = Path(self.test_dir) / "baseline_gs2.yaml"
-        config_path.write_text(
-            yaml.safe_dump(
-                {
-                    "model": {"gridsize": 2},
-                    "sampling": {"training_groups": 128},
-                    "nepochs": 2,
-                    "data": {
-                        "train_data_file": str(test_data_path),
-                        "test_data_file": str(test_data_path),
-                    },
-                    "output_dir": str(self.output_dir),
-                }
-            ),
-            encoding="utf-8",
-        )
-
         # Build the command
         cmd = [
             sys.executable,
             str(project_root / "scripts" / "run_baseline.py"),
-            "--config", str(config_path),
-            "--quiet",  # Suppress verbose output
+            "--train_data_file", str(test_data_path),
+            "--test_data_file", str(test_data_path),
+            "--gridsize", "2",
+            "--n_groups", "128",  # Use small number for quick test
+            "--nepochs", "2",  # Quick test with few epochs
+            "--output_dir", str(self.output_dir),
+            "--quiet"  # Suppress verbose output
         ]
         
         # Run the command

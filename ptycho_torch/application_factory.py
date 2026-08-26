@@ -66,8 +66,8 @@ def build_ptychopinn_application(
     if not isinstance(model_spec, ModelSpec):
         raise TypeError("model_spec must be a ModelSpec")
     model_config = model_spec.to_model_config()
-
     desired_loss = "Poisson" if training_config.torch_loss_mode == "poisson" else "MAE"
+
     if model_config.mode == "Supervised":
         if training_config.torch_loss_mode != "mae" or model_config.loss_function != "MAE":
             raise ValueError(
@@ -83,6 +83,20 @@ def build_ptychopinn_application(
         )
 
     validate_scale_contract(data_config, model_config, training_config)
+
+    from ptycho_torch.artifact_schema import encode_artifact_identity
+    from ptycho_torch.checkpoint_decode import decode_checkpoint_hparams
+
+    decode_checkpoint_hparams(
+        {
+            "artifact_identity": encode_artifact_identity(
+                model_spec,
+                data_config,
+                training_config,
+                inference_config,
+            ),
+        }
+    )
 
     from ptycho_torch.model import PtychoPINN_Lightning
 

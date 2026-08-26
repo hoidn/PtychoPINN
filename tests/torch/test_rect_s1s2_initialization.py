@@ -422,7 +422,7 @@ class _RealRectBoundary(torch.nn.Module):
         )
         data_config = DataConfig(
             N=detector_size,
-            gridsize=1 if channels == 1 else (3, 3),
+            gridsize=1 if channels == 1 else 3,
         )
         self.model = torch.nn.Module()
         self.model.forward_model = ForwardModel(model_config, data_config)
@@ -1314,7 +1314,6 @@ _OMIT_INIT_OVERRIDE = object()
 
 def _resolved_training_case(tmp_path, *, mode=_OMIT_INIT_OVERRIDE):
     from ptycho_torch.config_factory import create_training_payload
-    from ptycho_torch.execution_request import ExecutionRequest
 
     detector_size = 64
     patterns = 16
@@ -1346,10 +1345,6 @@ def _resolved_training_case(tmp_path, *, mode=_OMIT_INIT_OVERRIDE):
         train_data_file=train_path,
         output_dir=tmp_path / "output",
         overrides=overrides,
-        execution_config=ExecutionRequest(
-            values={"accelerator": "cpu", "enable_checkpointing": False},
-            explicit_fields=frozenset({"accelerator", "enable_checkpointing"}),
-        ),
         profile="ci",
     )
     return payload.tf_training_config, payload
@@ -1358,13 +1353,21 @@ def _resolved_training_case(tmp_path, *, mode=_OMIT_INIT_OVERRIDE):
 def test_training_entry_initializes_before_fit_and_persists_same_summary_record(
     tmp_path, monkeypatch, caplog
 ):
+    from dataclasses import replace
+
     import lightning.pytorch as L
     from ptycho_torch.workflows import components
 
-    config, payload = _resolved_training_case(tmp_path)
+    _, payload = _resolved_training_case(tmp_path)
+    payload = replace(
+        payload,
+        execution_config=replace(
+            payload.execution_config,
+            enable_checkpointing=False,
+        ),
+    )
     _, loader, _ = _known_gauge_loader()
-    monkeypatch.setattr(
-        "ptycho_torch.workflows.dataloaders._build_lightning_dataloaders",
+    monkeypatch.setattr("ptycho_torch.workflows.dataloaders._build_lightning_dataloaders",
         lambda *args, **kwargs: (loader, None),
     )
     record = _initialization_payload()
@@ -1375,26 +1378,26 @@ def test_training_entry_initializes_before_fit_and_persists_same_summary_record(
         return dict(record)
 
     def fake_fit(self, model, **kwargs):
-        summary_callback = next(
-            callback
-            for callback in self.callbacks
-            if type(callback).__name__ == "_TrainingSummaryCallback"
-        )
-        summary_callback.on_fit_start(self, model)
+        callbacks = {
+            type(callback).__name__: callback for callback in self.callbacks
+        }
+        callbacks["_TrainingSummaryCallback"].on_fit_start(self, model)
+        selection_callback = callbacks["_FinalModelSelectionCallback"]
+        selection_callback.on_fit_start(self, model)
         events.append(("fit", model, kwargs))
+        selection_callback.on_train_end(self, model)
 
     monkeypatch.setattr("ptycho_torch.workflows.rect_s1s2._initialize_rect_s1s2", fake_initialize)
     monkeypatch.setattr(L.Trainer, "fit", fake_fit)
     caplog.set_level("INFO", logger=components.__name__)
 
     results = components._train_with_lightning(
+        payload,
         train_container={
             "rms_input_scale": torch.tensor(1.0),
             "mean_measured_intensity": torch.tensor(1.0),
         },
         test_container=None,
-        config=config,
-        resolved_payload=payload,
     )
 
     assert events[0] == ("initialize", "dose_closure", loader)
@@ -1426,78 +1429,6 @@ def test_explicit_ones_training_resolution_does_not_forward_a_loader(tmp_path):
     )
 
 
-def test_supervised_training_publishes_ones_record_without_rectangular_scaler(
-    tmp_path,
-    monkeypatch,
-):
-    import lightning.pytorch as L
-
-    from ptycho_torch.config_factory import create_training_payload
-    from ptycho_torch.execution_request import ExecutionRequest
-    from ptycho_torch.workflows import components
-
-    train_path = tmp_path / "train.npz"
-    np.savez(
-        train_path,
-        diffraction=np.ones((1, 64, 64), dtype=np.float32),
-        probeGuess=np.ones((64, 64), dtype=np.complex64),
-        xcoords=np.zeros(1, dtype=np.float32),
-        ycoords=np.zeros(1, dtype=np.float32),
-    )
-    payload = create_training_payload(
-        train_data_file=train_path,
-        output_dir=tmp_path / "output",
-        overrides={
-            "training_groups": 1,
-            "batch_size": 1,
-            "gridsize": 1,
-            "architecture": "ffno",
-            "model_type": "Supervised",
-            "torch_loss_mode": "mae",
-            "object_big": False,
-        },
-        execution_config=ExecutionRequest(
-            values={"accelerator": "cpu", "enable_checkpointing": False},
-            explicit_fields=frozenset({"accelerator", "enable_checkpointing"}),
-        ),
-    )
-    train_loader = [
-        (
-            {
-                "label_amp": torch.ones((1, 1, 64, 64)),
-                "label_phase": torch.zeros((1, 1, 64, 64)),
-            },
-        )
-    ]
-    monkeypatch.setattr(
-        "ptycho_torch.workflows.dataloaders._build_lightning_dataloaders",
-        lambda *_args, **_kwargs: (train_loader, None),
-    )
-
-    def fake_fit(self, model, **_kwargs):
-        summary_callback = next(
-            callback
-            for callback in self.callbacks
-            if type(callback).__name__ == "_TrainingSummaryCallback"
-        )
-        summary_callback.on_fit_start(self, model)
-
-    monkeypatch.setattr(L.Trainer, "fit", fake_fit)
-
-    results = components._train_with_lightning(
-        train_container={},
-        test_container=None,
-        config=payload.tf_training_config,
-        resolved_payload=payload,
-    )
-
-    assert results["rect_s1s2_initialization"] == _initialization_payload("ones")
-    summary_path = tmp_path / "output" / "training_summary.json"
-    assert json.loads(summary_path.read_text(encoding="utf-8")) == (
-        _initialization_payload("ones")
-    )
-
-
 def test_training_summary_publication_is_rank_zero_atomic_and_all_rank_barrier(
     tmp_path,
     monkeypatch,
@@ -1520,8 +1451,7 @@ def test_training_summary_publication_is_rank_zero_atomic_and_all_rank_barrier(
         def barrier(self, name):
             events.append(("barrier", self.rank, name, summary_path.exists()))
 
-    monkeypatch.setattr(
-        "ptycho_torch.workflows.rect_s1s2._write_training_summary_atomic",
+    monkeypatch.setattr("ptycho_torch.workflows.rect_s1s2._write_training_summary_atomic",
         observed_write,
     )
 

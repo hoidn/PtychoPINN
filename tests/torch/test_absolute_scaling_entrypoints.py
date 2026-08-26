@@ -292,7 +292,7 @@ def test_ci_checkpoint_rejects_missing_frozen_training_statistics(tmp_path):
         )
 
 
-def test_ci_bundle_recovers_profile_configs_statistics_and_checkpoint_selection(tmp_path):
+def test_ci_bundle_recovers_profile_configs_and_frozen_statistics(tmp_path):
     data_config, model_config, training_config, inference_config, _ = _tiny_configs()
     model = PtychoPINN_Lightning(
         model_config,
@@ -310,19 +310,6 @@ def test_ci_bundle_recovers_profile_configs_statistics_and_checkpoint_selection(
         model=CanonicalModelConfig(N=64, gridsize=1),
         output_dir=tmp_path / "bundle",
     )
-    checkpoint_selection = {
-        "schema_version": "serving-checkpoint-selection-v1",
-        "policy": "best",
-        "weights_source": "checkpoint",
-        "monitor": "poisson_val_loss",
-        "mode": "min",
-        "selected_path": "checkpoints/epoch=03.ckpt",
-        "selected_sha256": "a" * 64,
-        "selected_epoch": 3,
-        "selected_global_step": 1024,
-        "selected_score": 12.5,
-        "recovery_path": "checkpoints/last.ckpt",
-    }
     save_torch_bundle(
         {
             "autoencoder": model,
@@ -334,7 +321,6 @@ def test_ci_bundle_recovers_profile_configs_statistics_and_checkpoint_selection(
     components._persist_bundle_scaling_metadata(
         base_path.with_suffix(".h5.zip"),
         model,
-        checkpoint_selection=checkpoint_selection,
     )
 
     with zipfile.ZipFile(base_path.with_suffix(".h5.zip"), "r") as archive:
@@ -345,10 +331,9 @@ def test_ci_bundle_recovers_profile_configs_statistics_and_checkpoint_selection(
             weights_only=False,
         )
     assert manifest["backend"] == "pytorch"
-    assert manifest["artifact_schema_version"] == "torch-artifact-portable-v4"
-    assert persisted_identity["schema_version"] == "torch-artifact-portable-v4"
-    assert manifest["checkpoint_selection"] == checkpoint_selection
-    assert persisted_identity["model_spec"]["schema_version"] == "torch-model-spec-portable-v3"
+    assert manifest["artifact_schema_version"] == "torch-artifact-v4"
+    assert persisted_identity["schema_version"] == "torch-artifact-v4"
+    assert persisted_identity["model_spec"]["schema_version"] == "torch-model-spec-v3"
 
     models, params = components.load_inference_bundle_torch(tmp_path / "bundle")
 

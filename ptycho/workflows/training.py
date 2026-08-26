@@ -1,15 +1,16 @@
 """Shared generic training workflow used by public training entry points.
 
 The boundary resolves public configuration, selects and groups flat raw
-acquisitions, resolves the Torch factory exactly once, and delegates model and
-Trainer construction to the existing backend implementations.
+acquisitions, resolves the Torch factory exactly once (delegating to
+``ptycho_torch.workflows.orchestration``), and delegates model and Trainer
+construction to the existing backend implementations.
 """
 
 from __future__ import annotations
 
 import argparse
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import logging
 from pathlib import Path
 from typing import Any, Mapping
@@ -42,6 +43,7 @@ class TrainingWorkflowRequest:
     output_dir: Path | None = None
     do_stitching: bool = False
     torch_training_seed: int | None = None
+    batch_order_recipe: str | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "raw_argv", tuple(self.raw_argv))
@@ -57,6 +59,10 @@ class TrainingWorkflowRequest:
                 raise ValueError(
                     "torch_training_seed must be a nonnegative integer"
                 )
+        if self.batch_order_recipe is not None:
+            from ptycho_torch.batch_order import validate_batch_order_recipe
+
+            validate_batch_order_recipe(self.batch_order_recipe)
         legacy = self.legacy_args is not None
         synthetic = self.resolved_synthetic_workflow is not None
         if legacy == synthetic:
@@ -100,22 +106,31 @@ class TrainingWorkflowResult:
     amplitude_physics_gain_record: Any | None
     amplitude_physics_gain_metadata: Mapping[str, Any] | None
     torch_training_seed: int | None
+    batch_order_recipe: str | None
 
 
 def resolve_training_payload(**kwargs):
     """Lazy adapter to the pure Torch training factory."""
 
-    from ptycho_torch.workflows import orchestration
+    from ptycho_torch.config_factory import resolve_training_payload as resolve
 
-    return orchestration.resolve_training_payload(**kwargs)
+    return resolve(**kwargs)
+
+
+def resolve_amplitude_physics_gain(*args, **kwargs):
+    """Lazy adapter to the selected-data scaling contract."""
+
+    from ptycho_torch.scaling_contract import resolve_amplitude_physics_gain as resolve
+
+    return resolve(*args, **kwargs)
 
 
 def load_inference_bundle_torch(*args, **kwargs):
     """Lazy adapter to strict Torch bundle reload."""
 
-    from ptycho_torch.workflows import orchestration
+    from ptycho_torch.workflows.bundle_io import load_inference_bundle_torch as load
 
-    return orchestration.load_inference_bundle_torch(*args, **kwargs)
+    return load(*args, **kwargs)
 
 
 def interpret_n_images_parameter(n_images: int, gridsize: int) -> tuple[int, str]:
@@ -139,40 +154,39 @@ def interpret_sampling_parameters(config: TrainingConfig):
     """Resolve raw selection and exact group counts without side effects."""
 
     gridsize = config.model.gridsize
-    sampling = config.sampling
-    enable_oversampling = sampling.enable_oversampling
-    neighbor_pool_size = sampling.neighbor_pool_size
-    if sampling.train_raw_selection is not None:
-        n_subsample = sampling.train_raw_selection
-        n_groups = sampling.training_groups
+    enable_oversampling = config.enable_oversampling
+    neighbor_pool_size = config.neighbor_pool_size
+    if config.train_raw_selection is not None:
+        raw_selection = config.train_raw_selection
+        group_count = config.training_groups
         if gridsize == 1:
             message = (
-                f"Independent sampling control: subsampling {n_subsample} images, "
-                f"using {n_groups} groups for training"
+                f"Independent sampling control: subsampling {raw_selection} images, "
+                f"using {group_count} groups for training"
             )
         else:
             message = (
-                f"Independent sampling control: subsampling {n_subsample} images, "
-                f"creating {n_groups} groups (approx "
-                f"{n_groups * gridsize * gridsize} patterns from groups)"
+                f"Independent sampling control: subsampling {raw_selection} images, "
+                f"creating {group_count} groups (approx "
+                f"{group_count * gridsize * gridsize} patterns from groups)"
             )
     else:
-        n_subsample = sampling.training_groups
-        n_groups = sampling.training_groups
+        raw_selection = config.training_groups
+        group_count = config.training_groups
         if gridsize == 1:
-            message = f"Legacy mode: using {n_groups} groups (gridsize=1)"
+            message = f"Legacy mode: using {group_count} groups (gridsize=1)"
         else:
             message = (
-                f"Legacy mode: --n-groups={n_groups} refers to neighbor groups "
+                f"Legacy mode: --training-groups={group_count} refers to neighbor groups "
                 f"(gridsize={gridsize}, approx "
-                f"{n_groups * gridsize * gridsize} patterns)"
+                f"{group_count * gridsize * gridsize} patterns)"
             )
     if enable_oversampling:
-        pool = neighbor_pool_size or sampling.neighbor_count
+        pool = neighbor_pool_size or config.neighbor_count
         message += f" [Oversampling enabled: K={pool}]"
     return (
-        n_subsample,
-        n_groups,
+        raw_selection,
+        group_count,
         enable_oversampling,
         neighbor_pool_size,
         message,
@@ -196,25 +210,21 @@ def _metadata_photon_count(path: Path) -> float | None:
 
 
 def _resolve_metadata_photons(config: TrainingConfig) -> TrainingConfig:
-    resolved = _metadata_photon_count(Path(config.data.train_data_file))
+    resolved = _metadata_photon_count(Path(config.train_data_file))
     if resolved is None:
         return config
     logger.info(
         "Overriding nphotons from config (%.1e) with dataset metadata: %.1e",
-        config.data.nphotons,
+        config.nphotons,
         resolved,
     )
-    return config.model_copy(update={
-        "data": config.data.model_copy(update={"nphotons": resolved})
-    })
+    return replace(config, nphotons=resolved)
 
 
-def _public_config_from_synthetic(
-    request: TrainingWorkflowRequest,
-) -> TrainingConfig:
-    from ptycho_torch.workflows import orchestration
+def _torch_model_from_snapshot(resolved: Any):
+    import ptycho_torch.workflows.orchestration as orchestration
 
-    return orchestration._public_config_from_synthetic(request)
+    return orchestration._torch_model_from_snapshot(resolved)
 
 
 def _resolve_public_config(request: TrainingWorkflowRequest) -> TrainingConfig:
@@ -225,7 +235,9 @@ def _resolve_public_config(request: TrainingWorkflowRequest) -> TrainingConfig:
             delattr(args, "train_data_file_path")
         config = setup_configuration(args, getattr(args, "config", None))
     else:
-        config = _public_config_from_synthetic(request)
+        import ptycho_torch.workflows.orchestration as orchestration
+
+        config = orchestration._public_config_from_synthetic(request)
     config = _resolve_metadata_photons(config)
     validate_training_config_structure(config)
     validate_runnable_training_config(config)
@@ -240,18 +252,17 @@ def _group_raw_data(
     require_exact: bool = True,
     group_count: int | None = None,
 ) -> dict:
-    sampling = config.sampling
-    expected_groups = sampling.training_groups if group_count is None else group_count
+    expected_groups = config.training_groups if group_count is None else group_count
     grouped = raw_data.generate_grouped_data(
         N=config.model.N,
-        K=sampling.neighbor_count,
+        K=config.neighbor_count,
         nsamples=expected_groups,
         dataset_path=str(path),
-        seed=sampling.subsample_seed,
-        sequential_sampling=sampling.sequential_sampling,
+        seed=config.subsample_seed,
+        sequential_sampling=config.sequential_sampling,
         gridsize=config.model.gridsize,
-        enable_oversampling=sampling.enable_oversampling,
-        neighbor_pool_size=sampling.neighbor_pool_size,
+        enable_oversampling=config.enable_oversampling,
+        neighbor_pool_size=config.neighbor_pool_size,
     )
     actual = int(np.asarray(grouped["nn_indices"]).shape[0])
     if require_exact and actual != expected_groups:
@@ -265,23 +276,29 @@ def _materialize_backend_container(
     grouped: dict,
     raw_data: Any,
     config: TrainingConfig,
+    *,
+    data_adapter: str | None = None,
 ):
-    if config.backend == "pytorch":
-        from ptycho_torch.workflows import orchestration
+    if config.backend == "tensorflow":
+        from ptycho import loader, params
+        from ptycho.config.config import update_legacy_dict
+        from ptycho.config.legacy_state import legacy_params_scope
 
-        return orchestration._materialize_torch_container(grouped, raw_data, config)
-    from ptycho import loader, params
-    from ptycho.config.config import update_legacy_dict
-    from ptycho.config.legacy_state import legacy_params_scope
+        with legacy_params_scope():
+            update_legacy_dict(params.cfg, config)
+            return loader.load(
+                lambda: grouped,
+                raw_data.probeGuess,
+                which=None,
+                create_split=False,
+            )
+    import ptycho_torch.workflows.orchestration as orchestration
 
-    with legacy_params_scope():
-        update_legacy_dict(params.cfg, config)
-        return loader.load(
-            lambda: grouped,
-            raw_data.probeGuess,
-            which=None,
-            create_split=False,
-        )
+    return orchestration._materialize_torch_container(
+        grouped,
+        raw_data,
+        data_adapter=data_adapter,
+    )
 
 
 @contextmanager
@@ -298,38 +315,80 @@ def _legacy_data_preparation_scope(config: TrainingConfig):
 
 
 def _legacy_execution_and_patch(request: TrainingWorkflowRequest, config):
-    from ptycho_torch.workflows import orchestration
+    import ptycho_torch.workflows.orchestration as orchestration
 
     return orchestration._legacy_execution_and_patch(request, config)
 
 
-def _synthetic_execution_request(resolved: Any):
-    from ptycho_torch.workflows import orchestration
+def _selected_truth_patches(train_raw: Any, *, N: int) -> np.ndarray:
+    """Return one raw truth patch for every finalized selected frame.
 
-    return orchestration._synthetic_execution_request(resolved)
+    ``RawData.Y`` is already frame-aligned after ``load_data`` subsampling.  A
+    flat acquisition may instead carry only the full object; in that case use
+    the same singleton-coordinate convention as ``RawData.from_simulation`` so
+    gain identity is independent of later neighbor grouping.
+    """
 
+    sample_count = int(np.asarray(train_raw.diff3d).shape[0])
+    if getattr(train_raw, "Y", None) is not None:
+        patches = np.asarray(train_raw.Y)
+        if patches.shape[0] != sample_count:
+            raise ValueError(
+                "selected RawData.Y must contain one truth patch per selected "
+                f"frame; got {patches.shape[0]} patches for {sample_count} frames"
+            )
+        return np.ascontiguousarray(patches)
 
-def _base_factory_overrides(config: TrainingConfig) -> dict[str, Any]:
-    from ptycho_torch.workflows import orchestration
+    object_guess = getattr(train_raw, "objectGuess", None)
+    if object_guess is None:
+        raise ValueError(
+            "selected training data requires RawData.Y or objectGuess to derive "
+            "amplitude_physics_gain"
+        )
+    from ptycho.raw_data import get_image_patches, get_relative_coords
 
-    return orchestration._base_factory_overrides(config)
-
-
-def _synthetic_factory_overrides(
-    resolved: Any,
-    config: TrainingConfig,
-) -> dict[str, Any]:
-    from ptycho_torch.workflows import orchestration
-
-    return orchestration._synthetic_factory_overrides(resolved, config)
+    coords = np.zeros((sample_count, 1, 2, 1), dtype=np.float64)
+    coords[:, 0, 0, 0] = np.asarray(train_raw.xcoords)
+    coords[:, 0, 1, 0] = np.asarray(train_raw.ycoords)
+    global_offsets, local_offsets = get_relative_coords(coords)
+    patches = get_image_patches(
+        object_guess,
+        global_offsets,
+        local_offsets,
+        N=N,
+        gridsize=1,
+    )
+    return np.ascontiguousarray(np.asarray(patches))
 
 
 def _resolve_gain(resolved: Any, train_raw: Any):
     """Resolve gain from the finalized raw training selection, never groups."""
 
-    from ptycho_torch.workflows import orchestration
-
-    return orchestration._resolve_gain(resolved, train_raw)
+    model = resolved.model
+    override = (
+        model.amplitude_physics_gain
+        if model.amplitude_physics_gain_provenance == "explicit"
+        else None
+    )
+    needs_truth = (
+        model.physics_forward_mode == "amplitude" and override is None
+    )
+    return resolve_amplitude_physics_gain(
+        np.ascontiguousarray(np.asarray(train_raw.diff3d)),
+        (
+            _selected_truth_patches(train_raw, N=resolved.data.N)
+            if needs_truth
+            else None
+        ),
+        np.ascontiguousarray(np.asarray(train_raw.probeGuess)),
+        probe_scale=resolved.data.probe_scale,
+        probe_mask=model.probe_mask,
+        probe_mask_tensor=model.probe_mask_tensor,
+        probe_mask_sigma=model.probe_mask_sigma,
+        probe_mask_diameter=model.probe_mask_diameter,
+        override=override,
+        physics_forward_mode=model.physics_forward_mode,
+    )
 
 
 def _validate_selected_raw_count(train_raw: Any, *, expected: int) -> None:
@@ -341,36 +400,6 @@ def _validate_selected_raw_count(train_raw: Any, *, expected: int) -> None:
             "synthetic training requested exactly "
             f"{expected} raw frames but selected {actual}"
         )
-
-
-def _validate_payload_selection_identity(
-    selected_config: TrainingConfig,
-    payload_config: TrainingConfig,
-) -> None:
-    """Fail if factory resolution changes fields already used for selection."""
-
-    from ptycho_torch.workflows import orchestration
-
-    return orchestration._validate_payload_selection_identity(
-        selected_config,
-        payload_config,
-    )
-
-
-def _validate_synthetic_payload_identity(
-    resolved: Any,
-    payload: Any,
-    gain_record: Any,
-) -> None:
-    """Check the synthetic data/loss/gain owners agree after factory resolution."""
-
-    from ptycho_torch.workflows import orchestration
-
-    return orchestration._validate_synthetic_payload_identity(
-        resolved,
-        payload,
-        gain_record,
-    )
 
 
 def _persist_tensorflow_outputs(
@@ -390,6 +419,37 @@ def _persist_tensorflow_outputs(
     save_outputs(amplitude, phase, dict(results), str(config.output_dir))
 
 
+def _resolve_workflow_torch_seed(
+    request: TrainingWorkflowRequest,
+    *,
+    subsample_seed: int | None,
+) -> int | None:
+    """Resolve explicit historical seed or the default independent child stream."""
+
+    explicit = request.torch_training_seed
+    if request.resolved_synthetic_workflow is None:
+        return explicit
+
+    from ptycho.simulation.flat_acquisition import derive_seed_lineage
+
+    configured = request.resolved_synthetic_workflow.training.torch_training_seed
+    if explicit is not None and explicit != configured:
+        raise ValueError(
+            "request torch_training_seed conflicts with resolved synthetic "
+            f"identity: expected {configured!r}, got {explicit!r}"
+        )
+    if configured is not None:
+        return configured
+    derived = derive_seed_lineage(
+        request.resolved_synthetic_workflow.simulation.train.seed
+    )["torch"]
+    if derived == subsample_seed:
+        raise ValueError(
+            "the derived synthetic Torch and grouping seed streams must be distinct"
+        )
+    return derived
+
+
 def run_training_workflow(
     request: TrainingWorkflowRequest,
 ) -> TrainingWorkflowResult:
@@ -398,52 +458,47 @@ def run_training_workflow(
     if not isinstance(request, TrainingWorkflowRequest):
         raise TypeError("request must be a TrainingWorkflowRequest")
     config = _resolve_public_config(request)
-    torch_training_seed = request.torch_training_seed
-    if request.resolved_synthetic_workflow is not None:
-        from ptycho.simulation.flat_acquisition import derive_seed_lineage
+    torch_training_seed = _resolve_workflow_torch_seed(
+        request,
+        subsample_seed=config.subsample_seed,
+    )
+    batch_order_recipe = None
+    if config.backend != "tensorflow":
+        import ptycho_torch.workflows.orchestration as orchestration
 
-        seed_lineage = derive_seed_lineage(
-            request.resolved_synthetic_workflow.simulation.train.seed
+        batch_order_recipe = orchestration._resolve_workflow_batch_order_recipe(
+            request
         )
-        derived_torch_seed = seed_lineage["torch"]
-        if (
-            torch_training_seed is not None
-            and torch_training_seed != derived_torch_seed
-        ):
-            raise ValueError(
-                "torch_training_seed disagrees with the synthetic workflow "
-                "Torch child seed"
-            )
-        torch_training_seed = derived_torch_seed
-        if torch_training_seed == config.sampling.subsample_seed:
-            raise ValueError(
-                "the synthetic Torch and grouping seed streams must be distinct"
-            )
-    n_subsample, n_groups, _, _, message = interpret_sampling_parameters(config)
+    raw_selection, group_count, _, _, message = interpret_sampling_parameters(config)
     logger.info(message)
-    config = config.model_copy(update={
-        "sampling": config.sampling.model_copy(update={"training_groups": n_groups})
-    })
+    config = replace(config, training_groups=group_count)
 
     with _legacy_data_preparation_scope(config):
         train_raw = load_data(
-            str(config.data.train_data_file),
-            n_images=n_groups,
-            n_subsample=n_subsample,
-            subsample_seed=config.sampling.subsample_seed,
+            str(config.train_data_file),
+            n_images=group_count,
+            n_subsample=raw_selection,
+            subsample_seed=config.subsample_seed,
         )
     if request.resolved_synthetic_workflow is not None:
-        _validate_selected_raw_count(train_raw, expected=n_subsample)
+        _validate_selected_raw_count(train_raw, expected=raw_selection)
     gain_record = None
     payload = None
     execution_request = None
     factory_overrides = None
-    if config.backend == "pytorch":
+    if config.backend != "tensorflow":
+        import ptycho_torch.workflows.orchestration as orchestration
+
         if request.resolved_synthetic_workflow is not None:
             resolved = request.resolved_synthetic_workflow
             gain_record = _resolve_gain(resolved, train_raw)
-            execution_request = _synthetic_execution_request(resolved)
-            factory_overrides = _synthetic_factory_overrides(resolved, config)
+            execution_request = orchestration._synthetic_execution_request(
+                resolved
+            )
+            factory_overrides = orchestration._synthetic_factory_overrides(
+                resolved,
+                config,
+            )
             factory_overrides.update(gain_record.factory_overrides())
         else:
             execution_request, cli_patch = _legacy_execution_and_patch(
@@ -464,28 +519,32 @@ def run_training_workflow(
                 )
             # Preserve the established precedence: reconstruct the complete
             # public-config baseline, then overlay only explicit CLI aliases.
-            factory_overrides = _base_factory_overrides(config)
+            factory_overrides = orchestration._base_factory_overrides(config)
             factory_overrides.update(cli_patch)
         payload = resolve_training_payload(
-            train_data_file=Path(config.data.train_data_file),
+            train_data_file=Path(config.train_data_file),
             output_dir=Path(config.output_dir),
             overrides=factory_overrides,
             execution_config=execution_request,
             training_baseline=config,
         )
         payload_config = payload.tf_training_config
-        _validate_payload_selection_identity(config, payload_config)
+        orchestration._validate_payload_selection_identity(config, payload_config)
         if request.resolved_synthetic_workflow is not None:
-            _validate_synthetic_payload_identity(resolved, payload, gain_record)
+            orchestration._validate_synthetic_payload_identity(
+                resolved,
+                payload,
+                gain_record,
+            )
         config = payload_config
         validate_training_config_structure(config)
         validate_runnable_training_config(config)
 
     with _legacy_data_preparation_scope(config):
         test_raw = None
-        if config.data.test_data_file is not None:
+        if config.test_data_file is not None:
             test_raw = load_data(
-                str(config.data.test_data_file),
+                str(config.test_data_file),
                 n_images=None,
                 n_subsample=None,
             )
@@ -493,7 +552,7 @@ def run_training_workflow(
         train_grouped = _group_raw_data(
             train_raw,
             config,
-            Path(config.data.train_data_file),
+            Path(config.train_data_file),
             require_exact=request.resolved_synthetic_workflow is not None,
         )
         validation_grouped = None
@@ -501,7 +560,7 @@ def run_training_workflow(
             validation_grouped = _group_raw_data(
                 test_raw,
                 config,
-                Path(config.data.test_data_file),
+                Path(config.test_data_file),
                 require_exact=request.resolved_synthetic_workflow is not None,
                 group_count=(
                     request.resolved_synthetic_workflow.training.validation_groups
@@ -519,6 +578,21 @@ def run_training_workflow(
             if validation_grouped is not None
             else None
         )
+        if request.resolved_synthetic_workflow is not None:
+            import ptycho_torch.workflows.orchestration as orchestration
+
+            adapter_name = resolved.training.data_adapter
+            orchestration._apply_backend_data_adapter(
+                train_container,
+                train_grouped,
+                adapter_name,
+            )
+            if validation_container is not None:
+                orchestration._apply_backend_data_adapter(
+                    validation_container,
+                    validation_grouped,
+                    adapter_name,
+                )
 
     amplitude, phase, backend_results = run_cdi_example_with_backend(
         train_container,
@@ -530,6 +604,7 @@ def run_training_workflow(
         torch_resolved_payload=payload,
         torch_amplitude_physics_gain_record=gain_record,
         torch_training_seed=torch_training_seed,
+        torch_batch_order_recipe=batch_order_recipe,
     )
     if config.backend == "tensorflow":
         _persist_tensorflow_outputs(config, amplitude, phase, backend_results)
@@ -537,7 +612,7 @@ def run_training_workflow(
     bundle_path = backend_results.get("bundle_path")
     if bundle_path is not None:
         bundle_path = Path(bundle_path)
-    elif config.backend == "pytorch":
+    elif config.backend != "tensorflow":
         candidate = Path(config.output_dir) / "wts.h5.zip"
         if candidate.is_file():
             bundle_path = candidate
@@ -550,7 +625,7 @@ def run_training_workflow(
     training_summary_path = backend_results.get("training_summary_path")
     if training_summary_path is not None:
         training_summary_path = Path(training_summary_path)
-    elif config.backend == "pytorch":
+    elif config.backend != "tensorflow":
         candidate = Path(config.output_dir) / "training_summary.json"
         if candidate.is_file():
             training_summary_path = candidate
@@ -594,6 +669,7 @@ def run_training_workflow(
             gain_record.to_metadata() if gain_record is not None else None
         ),
         torch_training_seed=torch_training_seed,
+        batch_order_recipe=batch_order_recipe,
     )
 
 

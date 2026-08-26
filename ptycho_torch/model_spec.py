@@ -10,6 +10,7 @@ from __future__ import annotations
 import copy
 import math
 from dataclasses import dataclass, field, fields
+from types import MappingProxyType
 from typing import Any, Mapping
 
 import torch
@@ -25,216 +26,49 @@ from ptycho_torch.object_compatibility import (
 )
 
 
-MODEL_SPEC_V1_VERSION = "torch-model-spec-portable-v1"
-MODEL_SPEC_V2_VERSION = "torch-model-spec-portable-v2"
-MODEL_SPEC_V3_VERSION = "torch-model-spec-portable-v3"
+MODEL_SPEC_V1_VERSION = "torch-model-spec-v1"
+MODEL_SPEC_V2_VERSION = "torch-model-spec-v2"
+MODEL_SPEC_V3_VERSION = "torch-model-spec-v3"
 CURRENT_MODEL_SPEC_VERSION = MODEL_SPEC_V3_VERSION
 
-# Frozen field order for the family-free Torch model schema carried by main.
-# This is deliberately not derived from ``fields(ModelConfig)``: adding or
-# removing a structural field requires an explicit schema decision and version
-# change rather than silently changing the meaning of an existing identifier.
-PORTABLE_V1_MODEL_FIELDS = (
-    "mode",
-    "architecture",
-    "fno_modes",
-    "fno_width",
-    "fno_blocks",
-    "fno_cnn_blocks",
-    "learned_input_channels",
-    "fno_input_transform",
-    "max_hidden_channels",
-    "resnet_width",
-    "spectral_bottleneck_blocks",
-    "spectral_bottleneck_modes",
-    "spectral_bottleneck_share_weights",
-    "spectral_bottleneck_gate_init",
-    "spectral_bottleneck_gate_mode",
-    "generator_output_mode",
-    "cnn_output_mode",
-    "use_shared_decoder",
-    "intensity_scale_trainable",
-    "intensity_scale",
-    "max_position_jitter",
-    "num_datasets",
-    "C_model",
-    "n_filters_scale",
-    "amp_activation",
-    "batch_norm",
-    "probe_mask",
-    "probe_mask_tensor",
-    "probe_mask_sigma",
-    "probe_mask_diameter",
-    "edge_pad",
-    "decoder_last_c_outer_fraction",
-    "decoder_last_amp_channels",
-    "use_legacy_decoder_channel_override",
-    "eca_encoder",
-    "cbam_encoder",
-    "cbam_bottleneck",
-    "cbam_decoder",
-    "eca_decoder",
-    "spatial_decoder",
-    "decoder_spatial_kernel",
-    "object_big",
-    "probe_big",
-    "offset",
-    "C_forward",
-    "training_patch_weighting",
-    "physics_forward_mode",
-    "rect_s1s2_trainable",
-    "rect_s1s2_init",
-    "amplitude_physics_gain",
-    "pad_object",
-    "gaussian_smoothing_sigma",
-    "loss_function",
-    "amp_loss",
-    "phase_loss",
-    "amp_loss_coeff",
-    "phase_loss_coeff",
+# Permanent cross-stack bridge conversion (docs/findings.md "Cross-stack
+# naming policy"): the torch ``mode`` enum values map to the canonical TF
+# ``model_type`` enum values. The inverse is derived, never hand-written.
+MODE_TO_MODEL_TYPE = MappingProxyType(
+    {"Unsupervised": "pinn", "Supervised": "supervised"}
+)
+MODEL_TYPE_TO_MODE = MappingProxyType(
+    {model_type: mode for mode, model_type in MODE_TO_MODEL_TYPE.items()}
 )
 
-PORTABLE_V2_MODEL_FIELDS = (
-    "mode",
-    "architecture",
-    "fno_modes",
-    "fno_width",
-    "fno_blocks",
-    "fno_cnn_blocks",
-    "learned_input_channels",
-    "fno_input_transform",
-    "max_hidden_channels",
-    "resnet_width",
-    "spectral_bottleneck_blocks",
-    "spectral_bottleneck_modes",
-    "spectral_bottleneck_share_weights",
-    "spectral_bottleneck_gate_init",
-    "spectral_bottleneck_gate_mode",
-    "generator_output_mode",
-    "cnn_output_mode",
-    "use_shared_decoder",
-    "intensity_scale_trainable",
-    "intensity_scale",
-    "max_position_jitter",
-    "num_datasets",
-    "C_model",
-    "n_filters_scale",
-    "amp_activation",
-    "batch_norm",
-    "probe_mask",
-    "probe_mask_tensor",
-    "probe_mask_sigma",
-    "probe_mask_diameter",
-    "edge_pad",
-    "decoder_last_c_outer_fraction",
-    "decoder_last_amp_channels",
-    "use_legacy_decoder_channel_override",
-    "eca_encoder",
-    "cbam_encoder",
-    "cbam_bottleneck",
-    "cbam_decoder",
-    "eca_decoder",
-    "spatial_decoder",
-    "decoder_spatial_kernel",
-    "object_layout",
-    "training_canvas",
-    "probe_big",
-    "offset",
-    "C_forward",
-    "training_patch_weighting",
-    "physics_forward_mode",
-    "rect_s1s2_trainable",
-    "rect_s1s2_init",
-    "amplitude_physics_gain",
-    "pad_object",
-    "gaussian_smoothing_sigma",
-    "loss_function",
-    "amp_loss",
-    "phase_loss",
-    "amp_loss_coeff",
-    "phase_loss_coeff",
+MODEL_SPEC_V1_MODEL_FIELDS = (
+    "mode", "architecture", "fno_modes", "fno_width", "fno_blocks",
+    "fno_cnn_blocks", "learned_input_channels", "fno_input_transform",
+    "max_hidden_channels", "resnet_width", "hybrid_skip_connections",
+    "hybrid_downsample_steps", "hybrid_downsample_op",
+    "hybrid_encoder_conv_hidden_scale",
+    "hybrid_encoder_spectral_hidden_scale",
+    "hybrid_encoder_conv_hidden_channels",
+    "hybrid_encoder_spectral_hidden_channels", "hybrid_skip_style",
+    "hybrid_encoder_fusion_mode", "hybrid_encoder_layerscale_init",
+    "hybrid_encoder_branch_gate_init", "hybrid_encoder_branch_select",
+    "ffno_encoder_blocks", "ffno_encoder_modes",
+    "ffno_encoder_share_weights", "ffno_encoder_gate_init",
+    "ffno_encoder_norm", "ffno_encoder_mlp_ratio",
+    "generator_output_mode", "cnn_output_mode", "use_shared_decoder",
+    "intensity_scale_trainable", "intensity_scale",
+    "max_position_jitter", "num_datasets", "C_model", "n_filters_scale",
+    "amp_activation", "batch_norm", "probe_mask", "probe_mask_tensor",
+    "probe_mask_sigma", "probe_mask_diameter", "edge_pad",
+    "decoder_last_c_outer_fraction", "decoder_last_amp_channels",
+    "use_legacy_decoder_channel_override", "eca_encoder", "cbam_encoder",
+    "cbam_bottleneck", "cbam_decoder", "eca_decoder", "spatial_decoder",
+    "decoder_spatial_kernel", "object_big", "probe_big", "offset",
+    "C_forward", "training_patch_weighting", "physics_forward_mode",
+    "rect_s1s2_trainable", "rect_s1s2_init", "amplitude_physics_gain",
+    "pad_object", "gaussian_smoothing_sigma", "loss_function",
+    "amp_loss", "phase_loss", "amp_loss_coeff", "phase_loss_coeff",
 )
-
-# portable-v3 drops the C-family channel twins carried by v1/v2 (channel
-# identity now derives from DataConfig.gridsize at consumption). Written as an
-# independent frozen literal, NOT derived from PORTABLE_V2_MODEL_FIELDS, so a
-# future edit to one era can never silently rewrite the other (Decision 6).
-PORTABLE_V3_MODEL_FIELDS = (
-    "mode",
-    "architecture",
-    "fno_modes",
-    "fno_width",
-    "fno_blocks",
-    "fno_cnn_blocks",
-    "learned_input_channels",
-    "fno_input_transform",
-    "max_hidden_channels",
-    "resnet_width",
-    "spectral_bottleneck_blocks",
-    "spectral_bottleneck_modes",
-    "spectral_bottleneck_share_weights",
-    "spectral_bottleneck_gate_init",
-    "spectral_bottleneck_gate_mode",
-    "generator_output_mode",
-    "cnn_output_mode",
-    "use_shared_decoder",
-    "intensity_scale_trainable",
-    "intensity_scale",
-    "max_position_jitter",
-    "num_datasets",
-    "n_filters_scale",
-    "amp_activation",
-    "batch_norm",
-    "probe_mask",
-    "probe_mask_tensor",
-    "probe_mask_sigma",
-    "probe_mask_diameter",
-    "edge_pad",
-    "decoder_last_c_outer_fraction",
-    "decoder_last_amp_channels",
-    "use_legacy_decoder_channel_override",
-    "eca_encoder",
-    "cbam_encoder",
-    "cbam_bottleneck",
-    "cbam_decoder",
-    "eca_decoder",
-    "spatial_decoder",
-    "decoder_spatial_kernel",
-    "object_layout",
-    "training_canvas",
-    "probe_big",
-    "offset",
-    "training_patch_weighting",
-    "physics_forward_mode",
-    "rect_s1s2_trainable",
-    "rect_s1s2_init",
-    "amplitude_physics_gain",
-    "pad_object",
-    "gaussian_smoothing_sigma",
-    "loss_function",
-    "amp_loss",
-    "phase_loss",
-    "amp_loss_coeff",
-    "phase_loss_coeff",
-)
-
-MODEL_SPEC_V1_MODEL_FIELDS = PORTABLE_V1_MODEL_FIELDS
-MODEL_SPEC_V2_MODEL_FIELDS = PORTABLE_V2_MODEL_FIELDS
-MODEL_SPEC_V3_MODEL_FIELDS = PORTABLE_V3_MODEL_FIELDS
-
-_RUNTIME_MODEL_FIELDS = tuple(item.name for item in fields(ModelConfig))
-for _schema_fields in (
-    PORTABLE_V1_MODEL_FIELDS,
-    PORTABLE_V2_MODEL_FIELDS,
-    PORTABLE_V3_MODEL_FIELDS,
-):
-    if len(_schema_fields) != len(set(_schema_fields)):
-        raise RuntimeError("portable ModelSpec field declaration contains duplicates")
-if set(_RUNTIME_MODEL_FIELDS) != set(PORTABLE_V3_MODEL_FIELDS) | {"object_big"}:
-    raise RuntimeError(
-        "Torch ModelConfig fields changed without a ModelSpec schema revision: "
-        f"runtime={_RUNTIME_MODEL_FIELDS!r}"
-    )
 
 # Values owned by the public canonical model handshake and represented in the
 # Torch structural config. Keys are Torch ModelConfig field names; values are
@@ -267,8 +101,152 @@ _CANONICAL_TO_TORCH = {
 CANONICAL_MODEL_FIELDS = frozenset(_CANONICAL_TO_TORCH)
 TORCH_COMPATIBILITY_ALIAS_FIELDS = frozenset({"object_big"})
 TORCH_EXTENSION_FIELDS = frozenset(
-    PORTABLE_V3_MODEL_FIELDS
-) - CANONICAL_MODEL_FIELDS
+    {
+        "hybrid_skip_connections",
+        "hybrid_downsample_steps",
+        "hybrid_downsample_op",
+        "hybrid_encoder_conv_hidden_scale",
+        "hybrid_encoder_spectral_hidden_scale",
+        "hybrid_encoder_conv_hidden_channels",
+        "hybrid_encoder_spectral_hidden_channels",
+        "hybrid_skip_style",
+        "hybrid_encoder_fusion_mode",
+        "hybrid_encoder_layerscale_init",
+        "hybrid_encoder_branch_gate_init",
+        "hybrid_encoder_branch_select",
+        "ffno_encoder_blocks",
+        "ffno_encoder_modes",
+        "ffno_encoder_share_weights",
+        "ffno_encoder_gate_init",
+        "ffno_encoder_norm",
+        "ffno_encoder_mlp_ratio",
+        "cnn_output_mode",
+        "use_shared_decoder",
+        "intensity_scale_trainable",
+        "intensity_scale",
+        "max_position_jitter",
+        "num_datasets",
+        "batch_norm",
+        "probe_mask_tensor",
+        "edge_pad",
+        "decoder_last_c_outer_fraction",
+        "decoder_last_amp_channels",
+        "use_legacy_decoder_channel_override",
+        "eca_encoder",
+        "cbam_encoder",
+        "cbam_bottleneck",
+        "cbam_decoder",
+        "eca_decoder",
+        "spatial_decoder",
+        "decoder_spatial_kernel",
+        "offset",
+        "physics_forward_mode",
+        "rect_s1s2_trainable",
+        "rect_s1s2_init",
+        "amplitude_physics_gain",
+        "loss_function",
+        "amp_loss",
+        "phase_loss",
+        "amp_loss_coeff",
+        "phase_loss_coeff",
+    }
+)
+
+# Explicit frozen v2-era schema: a snapshot of today's literal field names,
+# independent of current dataclass reflection (persistence-boundaries rejects
+# "current dataclass fields as the ModelSpec schema" for every era). The v2
+# fixtures pin this tuple; no import-time equality against reflection is
+# permitted for era tuples.
+MODEL_SPEC_V2_MODEL_FIELDS = (
+    "mode", "architecture", "fno_modes", "fno_width", "fno_blocks",
+    "fno_cnn_blocks", "learned_input_channels", "fno_input_transform",
+    "max_hidden_channels", "resnet_width", "hybrid_skip_connections",
+    "hybrid_downsample_steps", "hybrid_downsample_op",
+    "hybrid_encoder_conv_hidden_scale", "hybrid_encoder_spectral_hidden_scale",
+    "hybrid_encoder_conv_hidden_channels",
+    "hybrid_encoder_spectral_hidden_channels", "hybrid_skip_style",
+    "hybrid_encoder_fusion_mode", "hybrid_encoder_layerscale_init",
+    "hybrid_encoder_branch_gate_init", "hybrid_encoder_branch_select",
+    "ffno_encoder_blocks", "ffno_encoder_modes",
+    "ffno_encoder_share_weights", "ffno_encoder_gate_init",
+    "ffno_encoder_norm", "ffno_encoder_mlp_ratio",
+    "generator_output_mode", "cnn_output_mode", "use_shared_decoder",
+    "intensity_scale_trainable", "intensity_scale", "max_position_jitter",
+    "num_datasets", "C_model", "n_filters_scale", "amp_activation",
+    "batch_norm", "probe_mask", "probe_mask_tensor", "probe_mask_sigma",
+    "probe_mask_diameter", "edge_pad", "decoder_last_c_outer_fraction",
+    "decoder_last_amp_channels", "use_legacy_decoder_channel_override",
+    "eca_encoder", "cbam_encoder", "cbam_bottleneck", "cbam_decoder",
+    "eca_decoder", "spatial_decoder", "decoder_spatial_kernel",
+    "object_layout", "training_canvas", "probe_big", "offset", "C_forward",
+    "training_patch_weighting", "physics_forward_mode",
+    "rect_s1s2_trainable", "rect_s1s2_init", "amplitude_physics_gain",
+    "pad_object", "gaussian_smoothing_sigma", "loss_function", "amp_loss",
+    "phase_loss", "amp_loss_coeff", "phase_loss_coeff",
+)
+
+# Declared v3-era schema: stored C_model/C_forward are dropped in favor of
+# gridsize-derived channels (Task 2 materializes the dataclass fields; the
+# artifact layer derives the join from the data section's gridsize).
+MODEL_SPEC_V3_MODEL_FIELDS = (
+    "mode", "architecture", "fno_modes", "fno_width",
+    "fno_blocks", "fno_cnn_blocks", "learned_input_channels",
+    "fno_input_transform", "max_hidden_channels", "resnet_width",
+    "hybrid_skip_connections", "hybrid_downsample_steps",
+    "hybrid_downsample_op", "hybrid_encoder_conv_hidden_scale",
+    "hybrid_encoder_spectral_hidden_scale",
+    "hybrid_encoder_conv_hidden_channels",
+    "hybrid_encoder_spectral_hidden_channels", "hybrid_skip_style",
+    "hybrid_encoder_fusion_mode", "hybrid_encoder_layerscale_init",
+    "hybrid_encoder_branch_gate_init", "hybrid_encoder_branch_select",
+    "ffno_encoder_blocks", "ffno_encoder_modes",
+    "ffno_encoder_share_weights", "ffno_encoder_gate_init",
+    "ffno_encoder_norm", "ffno_encoder_mlp_ratio",
+    "generator_output_mode", "cnn_output_mode", "use_shared_decoder",
+    "intensity_scale_trainable", "intensity_scale", "max_position_jitter",
+    "num_datasets", "n_filters_scale", "amp_activation",
+    "batch_norm", "probe_mask", "probe_mask_tensor", "probe_mask_sigma",
+    "probe_mask_diameter", "edge_pad", "decoder_last_c_outer_fraction",
+    "decoder_last_amp_channels", "use_legacy_decoder_channel_override",
+    "eca_encoder", "cbam_encoder", "cbam_bottleneck", "cbam_decoder",
+    "eca_decoder", "spatial_decoder", "decoder_spatial_kernel",
+    "object_layout", "training_canvas", "probe_big", "offset",
+    "training_patch_weighting", "physics_forward_mode",
+    "rect_s1s2_trainable", "rect_s1s2_init", "amplitude_physics_gain",
+    "pad_object", "gaussian_smoothing_sigma", "loss_function", "amp_loss",
+    "phase_loss", "amp_loss_coeff", "phase_loss_coeff",
+)
+
+# Import-time totality/inverse tripwires for the manual ownership layer.
+# Adding a ModelConfig field without declaring its projection (a
+# _CANONICAL_TO_TORCH entry or a TORCH_EXTENSION_FIELDS entry) fails loudly.
+_MODEL_FIELD_NAMES = frozenset(item.name for item in fields(ModelConfig))
+_CANONICAL_FIELD_NAMES = frozenset(
+    item.name for item in fields(CanonicalModelConfig)
+)
+assert set(_CANONICAL_TO_TORCH) == CANONICAL_MODEL_FIELDS
+assert set(_CANONICAL_TO_TORCH) <= _MODEL_FIELD_NAMES, (
+    "_CANONICAL_TO_TORCH names unknown to ModelConfig: "
+    f"{sorted(set(_CANONICAL_TO_TORCH) - _MODEL_FIELD_NAMES)}"
+)
+assert set(_CANONICAL_TO_TORCH.values()) <= _CANONICAL_FIELD_NAMES, (
+    "_CANONICAL_TO_TORCH projects unknown canonical fields: "
+    f"{sorted(set(_CANONICAL_TO_TORCH.values()) - _CANONICAL_FIELD_NAMES)}"
+)
+assert CANONICAL_MODEL_FIELDS.isdisjoint(TORCH_EXTENSION_FIELDS)
+assert CANONICAL_MODEL_FIELDS.isdisjoint(TORCH_COMPATIBILITY_ALIAS_FIELDS)
+assert TORCH_EXTENSION_FIELDS.isdisjoint(TORCH_COMPATIBILITY_ALIAS_FIELDS)
+_UNDECLARED_MODEL_FIELDS = (
+    _MODEL_FIELD_NAMES
+    - CANONICAL_MODEL_FIELDS
+    - TORCH_EXTENSION_FIELDS
+    - TORCH_COMPATIBILITY_ALIAS_FIELDS
+)
+assert not _UNDECLARED_MODEL_FIELDS, (
+    "ModelConfig fields undeclared in _CANONICAL_TO_TORCH / "
+    f"TORCH_EXTENSION_FIELDS / TORCH_COMPATIBILITY_ALIAS_FIELDS: "
+    f"{sorted(_UNDECLARED_MODEL_FIELDS)}"
+)
 
 _PARITY_SCALE_MODES = frozenset({"off", "tied", "input", "output", "fixed"})
 _PARITY_INIT_SCHEMES = frozenset({"default", "tf_glorot"})
@@ -287,7 +265,7 @@ def _canonical_expected_value(
 ) -> Any:
     value = getattr(canonical, _CANONICAL_TO_TORCH[torch_name])
     if torch_name == "mode":
-        return {"pinn": "Unsupervised", "supervised": "Supervised"}[value]
+        return MODEL_TYPE_TO_MODE[value]
     if torch_name == "probe_mask":
         # The canonical handshake owns boolean enablement. Torch may carry the
         # enabled mask as either a bool or an explicit tensor.
@@ -323,7 +301,7 @@ class ModelSpec:
                 f"unsupported current ModelSpec schema {self.schema_version!r}; "
                 f"expected {CURRENT_MODEL_SPEC_VERSION!r}"
             )
-        expected = set(PORTABLE_V3_MODEL_FIELDS)
+        expected = set(MODEL_SPEC_V3_MODEL_FIELDS)
         received = set(self._model_fields)
         if received != expected:
             missing = sorted(expected - received)
@@ -359,7 +337,7 @@ class ModelSpec:
 
     @property
     def object_compatibility(self):
-        """Return the versioned interpretation of the authoritative object axes."""
+        """Return the versioned interpretation of the authoritative v2 axes."""
         return resolve_model_object_compatibility(self.to_model_config())
 
     def to_model_config(self) -> ModelConfig:
@@ -405,24 +383,22 @@ class ModelSpec:
         if not isinstance(model_fields, Mapping):
             raise ValueError("ModelSpec model_config must be a mapping")
         if schema_version == MODEL_SPEC_V1_VERSION:
-            expected_v1 = set(PORTABLE_V1_MODEL_FIELDS)
+            expected_v1 = set(MODEL_SPEC_V1_MODEL_FIELDS)
             received_v1 = set(model_fields)
             if received_v1 != expected_v1:
                 raise ValueError(
-                    "torch-model-spec-portable-v1 model fields are not exact; "
+                    "torch-model-spec-v1 model fields are not exact; "
                     f"missing={sorted(expected_v1 - received_v1)}, "
                     f"unknown={sorted(received_v1 - expected_v1)}"
-                )
-            legacy_big = model_fields["object_big"]
-            if type(legacy_big) is not bool:
-                raise ValueError(
-                    "torch-model-spec-portable-v1 object_big must be bool"
                 )
             values = {
                 name: _copy_value(value)
                 for name, value in model_fields.items()
                 if name != "object_big"
             }
+            legacy_big = model_fields["object_big"]
+            if type(legacy_big) is not bool:
+                raise ValueError("torch-model-spec-v1 object_big must be bool")
             if legacy_big:
                 values["object_layout"] = "grouped_patches"
                 values["training_canvas"] = "relative_overlap"
@@ -430,21 +406,21 @@ class ModelSpec:
                 values["object_layout"] = "single_patch"
                 values["training_canvas"] = "independent"
         elif schema_version == MODEL_SPEC_V2_VERSION:
-            expected_v2 = set(PORTABLE_V2_MODEL_FIELDS)
+            expected_v2 = set(MODEL_SPEC_V2_MODEL_FIELDS)
             received_v2 = set(model_fields)
             if received_v2 != expected_v2:
                 raise ValueError(
-                    "torch-model-spec-portable-v2 model fields are not exact; "
+                    "torch-model-spec-v2 model fields are not exact; "
                     f"missing={sorted(expected_v2 - received_v2)}, "
                     f"unknown={sorted(received_v2 - expected_v2)}"
                 )
             values = dict(model_fields)
         elif schema_version == MODEL_SPEC_V3_VERSION:
-            expected_v3 = set(PORTABLE_V3_MODEL_FIELDS)
+            expected_v3 = set(MODEL_SPEC_V3_MODEL_FIELDS)
             received_v3 = set(model_fields)
             if received_v3 != expected_v3:
                 raise ValueError(
-                    "torch-model-spec-portable-v3 model fields are not exact; "
+                    "torch-model-spec-v3 model fields are not exact; "
                     f"missing={sorted(expected_v3 - received_v3)}, "
                     f"unknown={sorted(received_v3 - expected_v3)}"
                 )
@@ -465,7 +441,7 @@ class ModelSpec:
                     f"stored C_forward={c_forward}"
                 )
         # v1/v2 eras store the derived C-family; drop it to land on the current
-        # (v3) runtime shape, where channel identity derives from gridsize.
+        # (v3) runtime shape, where C_model/C_forward derive from gridsize.
         values = {
             name: value
             for name, value in values.items()
@@ -533,14 +509,16 @@ def derive_model_spec(
             f"canonical gridsize={canonical_model.gridsize} conflicts with "
             f"data_config.gridsize={data_config.gridsize}"
         )
+
     if not _values_match(canonical_model.probe_scale, data_config.probe_scale):
         raise ValueError(
             f"canonical probe_scale={canonical_model.probe_scale} conflicts with "
             f"data_config.probe_scale={data_config.probe_scale}"
         )
     values = {
-        name: _copy_value(getattr(torch_model, name))
-        for name in PORTABLE_V3_MODEL_FIELDS
+        item.name: _copy_value(getattr(torch_model, item.name))
+        for item in fields(ModelConfig)
+        if item.name != "object_big"
     }
     return ModelSpec(
         schema_version=CURRENT_MODEL_SPEC_VERSION,

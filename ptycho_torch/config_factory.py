@@ -6,7 +6,7 @@ configurations plus PyTorch execution overrides into the objects consumed by the
 backend, eliminating duplicated config construction logic scattered across CLI and workflow
 entry points.
 
-Design documentation: plans/active/ADR-003-BACKEND-API/reports/2025-10-19T232336Z/phase_b_factories/factory_design.md
+Design documentation: docs/findings.md (see git history for the originating plan)
 
 Architecture:
     CLI Args/Workflow Params
@@ -20,23 +20,20 @@ Architecture:
     [Return Payload]
       ↓
     [Optional create_* compatibility entry point]
-      ↓
-    [Populate params.cfg (CONFIG-001 checkpoint)]
 
 Core Functions:
     resolve_training_payload(): Pure training payload resolution
     resolve_inference_payload(): Pure inference payload resolution
-    create_training_payload(): Compatibility resolution plus CONFIG-001
-    create_inference_payload(): Compatibility resolution plus CONFIG-001
+    create_training_payload(): Compatibility resolution (no CONFIG-001 projection)
+    create_inference_payload(): Compatibility resolution (no CONFIG-001 projection)
     infer_probe_size(): Extracts probe size from NPZ metadata
-    populate_legacy_params(): Wrapper around update_legacy_dict with validation
 
 Design Principles:
     - Single Responsibility: Each factory handles one workflow (training vs inference)
     - Bridge Delegation: All TensorFlow dataclass translation delegated to config_bridge.py
-    - CONFIG-001 Compliance: Factories ensure update_legacy_dict() called before data loading
+    - No CONFIG-001 Projection: factories no longer populate legacy params.cfg
     - Override Transparency: Explicit override dict parameter for execution-specific knobs
-    - Test-Driven: RED tests written before implementation (Phase B2.b)
+    - Test-Driven: RED tests written before implementation
 
 Ownership:
     - ``overrides`` contains canonical scientific, model, and training inputs.
@@ -64,18 +61,20 @@ from ptycho_torch.config_params import (
     InferenceConfig as PTInferenceConfig,
 )
 
-# Import PyTorchExecutionConfig (Option A canonical location per ADR-003 Phase C1)
+# Import PyTorchExecutionConfig (canonical location per docs/specs/spec-ptycho-config-bridge.md)
 # Per supervisor decision at 2025-10-19T234458Z (factory_design.md §2.2)
 from ptycho.config.config import PyTorchExecutionConfig
-from ptycho.config.legacy_state import configured_legacy_params
 
-from ptycho import params
 from ptycho_torch.scaling_contract import (
     CI_SCALE_CONTRACT,
     COUNT_INTENSITY,
     resolve_scale_contract,
 )
-from ptycho_torch.model_spec import ModelSpec, derive_model_spec
+from ptycho_torch.model_spec import (
+    MODEL_TYPE_TO_MODE,
+    ModelSpec,
+    derive_model_spec,
+)
 from ptycho_torch.execution_request import (
     ExecutionCapabilities,
     ExecutionRequest,
@@ -87,6 +86,7 @@ from ptycho_torch.execution_request import (
 )
 from ptycho_torch.config_resolution import (
     InferenceObservations,
+    TRAINING_INPUT_RULES,
     TRAINING_OWNER_FIELDS as TRAINING_OWNER_FIELDS,
     TrainingObservations,
     inference_factory_baseline,
@@ -98,7 +98,7 @@ from ptycho_torch.config_resolution import (
     training_factory_baseline,
 )
 
-# Conformance D3 (Theme 3, docs/superpowers/plans/
+# docs/specs/spec-ptycho-conformance.md (D3) (Theme 3, docs/superpowers/plans/
 # 2026-07-14-ci-paper-conformance-audit.md): the paper's "PtychoPINN-CI" as a
 # single named preset. The five CONTRACT fields are fail-closed — an explicit
 # user override contradicting them raises instead of silently mixing profiles.
@@ -216,7 +216,7 @@ class TrainingPayload:
     pt_training_config: PTTrainingConfig  # PyTorch singleton
     pt_inference_config: PTInferenceConfig  # PyTorch singleton (patch-stats, inference defaults)
     model_spec: ModelSpec  # Versioned internal Torch structural identity
-    execution_config: PyTorchExecutionConfig  # Execution knobs (Phase C2)
+    execution_config: PyTorchExecutionConfig  # Execution knobs
     overrides_applied: Dict[str, Any] = field(default_factory=dict)  # Audit trail
 
 
@@ -233,8 +233,44 @@ class InferencePayload:
     tf_inference_config: TFInferenceConfig  # Canonical TensorFlow format
     pt_data_config: PTDataConfig  # PyTorch singleton
     pt_inference_config: PTInferenceConfig  # PyTorch singleton
-    execution_config: PyTorchExecutionConfig  # Execution knobs (Phase C2)
+    execution_config: PyTorchExecutionConfig  # Execution knobs
     overrides_applied: Dict[str, Any] = field(default_factory=dict)  # Audit trail
+
+
+# Import-time totality tripwire (W1): this surface has no target dataclass —
+# its target is the resolver's declared canonical+alias vocabulary. The literal
+# possible-key set below is enumerated adjacent to the function so drift is
+# visible; every key the function can emit must be resolvable.
+_TRAINING_RESOLVER_VOCABULARY = frozenset(
+    name
+    for rule in TRAINING_INPUT_RULES
+    for name in (rule.canonical, *rule.aliases)
+)
+
+_TRAINING_FACTORY_OVERRIDE_KEYS = frozenset({
+    "training_groups", "gridsize", "architecture", "mode", "amp_activation",
+    "n_filters_scale", "object_layout", "training_canvas",
+    "training_patch_weighting", "probe_big", "probe_mask",
+    "probe_mask_sigma", "probe_mask_diameter", "pad_object", "probe_scale",
+    "gaussian_smoothing_sigma", "nphotons", "neighbor_count", "max_epochs",
+    "batch_size", "subsample_seed", "enable_oversampling",
+    "neighbor_pool_size", "sequential_sampling", "test_data_file",
+    "torch_loss_mode", "torch_mae_pred_l2_match_target",
+    "intensity_scale_trainable", "gradient_clip_val",
+    "gradient_clip_algorithm", "optimizer", "momentum", "weight_decay",
+    "adam_beta1", "adam_beta2", "scheduler", "lr_warmup_epochs",
+    "lr_min_ratio", "plateau_factor", "plateau_patience", "plateau_min_lr",
+    "plateau_threshold", "log_grad_norm", "grad_norm_log_freq",
+    "n_raw_frames_selected", "fno_modes", "fno_width", "fno_blocks",
+    "fno_cnn_blocks", "fno_input_transform", "learned_input_channels",
+    "max_hidden_channels", "resnet_width", "generator_output_mode",
+})
+
+assert _TRAINING_FACTORY_OVERRIDE_KEYS <= _TRAINING_RESOLVER_VOCABULARY, (
+    "build_training_factory_overrides can emit keys outside the resolver "
+    "vocabulary: "
+    f"{sorted(_TRAINING_FACTORY_OVERRIDE_KEYS - _TRAINING_RESOLVER_VOCABULARY)}"
+)
 
 
 def build_training_factory_overrides(
@@ -251,21 +287,12 @@ def build_training_factory_overrides(
         backend="torch",
         warn_deprecated=False,
     )
-    mode = {
-        "pinn": "Unsupervised",
-        "supervised": "Supervised",
-    }[model.model_type]
-    data = config.data
-    sampling = config.sampling
-    loss = config.loss
-    gradient_clip = config.gradient_clip
-    optimizer = config.optimizer
-    scheduler = config.scheduler
+    mode = MODEL_TYPE_TO_MODE[model.model_type]
     overrides: Dict[str, Any] = {
-        "training_groups": sampling.training_groups,
+        "training_groups": config.training_groups,
         "gridsize": model.gridsize,
         "architecture": model.architecture,
-        "model_type": mode,
+        "mode": mode,
         "amp_activation": model.amp_activation,
         "n_filters_scale": model.n_filters_scale,
         "object_layout": model.object_layout,
@@ -278,41 +305,43 @@ def build_training_factory_overrides(
         "pad_object": model.pad_object,
         "probe_scale": model.probe_scale,
         "gaussian_smoothing_sigma": model.gaussian_smoothing_sigma,
-        "nphotons": data.nphotons,
-        "neighbor_count": sampling.neighbor_count,
+        "nphotons": config.nphotons,
+        "neighbor_count": config.neighbor_count,
         "max_epochs": config.nepochs,
         "batch_size": config.batch_size,
-        "subsample_seed": sampling.subsample_seed,
-        "enable_oversampling": sampling.enable_oversampling,
-        "neighbor_pool_size": sampling.neighbor_pool_size,
-        "sequential_sampling": sampling.sequential_sampling,
-        "test_data_file": data.test_data_file,
-        "torch_loss_mode": loss.torch_loss_mode,
+        "subsample_seed": config.subsample_seed,
+        "enable_oversampling": config.enable_oversampling,
+        "neighbor_pool_size": config.neighbor_pool_size,
+        "sequential_sampling": config.sequential_sampling,
+        "test_data_file": config.test_data_file,
+        "torch_loss_mode": config.torch_loss_mode,
         "torch_mae_pred_l2_match_target": (
-            loss.torch_mae_pred_l2_match_target
+            config.torch_mae_pred_l2_match_target
         ),
         "intensity_scale_trainable": config.intensity_scale_trainable,
-        "gradient_clip_val": gradient_clip.val,
-        "gradient_clip_algorithm": gradient_clip.algorithm,
-        "optimizer": optimizer.algorithm,
-        "momentum": optimizer.sgd.momentum,
-        "weight_decay": optimizer.weight_decay,
-        "adam_beta1": optimizer.adam.beta1,
-        "adam_beta2": optimizer.adam.beta2,
-        "scheduler": scheduler.kind,
-        "lr_warmup_epochs": scheduler.lr_warmup_epochs,
-        "lr_min_ratio": scheduler.lr_min_ratio,
-        "plateau_factor": scheduler.plateau_factor,
-        "plateau_patience": scheduler.plateau_patience,
-        "plateau_min_lr": scheduler.plateau_min_lr,
-        "plateau_threshold": scheduler.plateau_threshold,
+        "gradient_clip_val": config.gradient_clip_val,
+        "gradient_clip_algorithm": config.gradient_clip_algorithm,
+        "optimizer": config.optimizer,
+        "momentum": config.momentum,
+        "weight_decay": config.weight_decay,
+        "adam_beta1": config.adam_beta1,
+        "adam_beta2": config.adam_beta2,
+        "scheduler": config.scheduler,
+        "lr_warmup_epochs": config.lr_warmup_epochs,
+        "lr_min_ratio": config.lr_min_ratio,
+        "plateau_factor": config.plateau_factor,
+        "plateau_patience": config.plateau_patience,
+        "plateau_min_lr": config.plateau_min_lr,
+        "plateau_threshold": config.plateau_threshold,
         "log_grad_norm": getattr(config, "log_grad_norm", False),
         "grad_norm_log_freq": getattr(config, "grad_norm_log_freq", 1),
     }
     if model.model_type == "supervised":
         overrides["torch_loss_mode"] = "mae"
-    if sampling.train_raw_selection is not None:
-        overrides["n_raw_frames_selected"] = sampling.train_raw_selection
+    if config.train_raw_selection is not None:
+        # Canonical TF config keeps the train_raw_selection spelling; the torch
+        # resolver's honest key is n_raw_frames_selected (v3 field split).
+        overrides["n_raw_frames_selected"] = config.train_raw_selection
     for name in (
         "fno_modes",
         "fno_width",
@@ -327,6 +356,10 @@ def build_training_factory_overrides(
         value = getattr(model, name, None)
         if value is not None:
             overrides[name] = value
+    assert set(overrides) <= _TRAINING_FACTORY_OVERRIDE_KEYS, (
+        "build_training_factory_overrides emitted a key outside "
+        "_TRAINING_FACTORY_OVERRIDE_KEYS"
+    )
     return overrides
 
 
@@ -430,10 +463,10 @@ def _resolve_training_payload(
         ...     ),
         ... )
         >>> assert isinstance(payload.tf_training_config, TrainingConfig)
-        >>> assert payload.tf_training_config.sampling.training_groups == 512
+        >>> assert payload.tf_training_config.training_groups == 512
 
     See also:
-        - Design: plans/active/ADR-003-BACKEND-API/reports/.../factory_design.md §3.1
+        - Design: docs/findings.md (see git history for the originating plan) §3.1
         - Override precedence: .../override_matrix.md §6
         - Integration: .../factory_design.md §3 (CLI/workflow call sites)
     """
@@ -584,6 +617,8 @@ def _resolve_inference_payload(
         overrides: Dict of field overrides (highest precedence). Required keys:
             - inference_groups: Number of grouped samples (no default, raises error if missing)
             Optional keys: gridsize, batch_size, middle_trim, pad_eval, etc.
+            The legacy spelling ``training_groups`` is permanently accepted as
+            a fenced alias for ``inference_groups`` (see docs/specs/spec-ptycho-config-bridge.md §3).
         execution_config: Unresolved runtime request. ``None`` uses request
             defaults. A resolved ``PyTorchExecutionConfig`` is not an input.
 
@@ -755,27 +790,6 @@ def resolve_inference_payload(
     return payload
 
 
-def _project_legacy_config(
-    tf_config: Union[TFTrainingConfig, TFInferenceConfig],
-    deferred_notices: tuple[ResolutionNotice, ...],
-    runtime_notices: tuple[ResolutionNotice, ...],
-) -> None:
-    """Commit one compatibility projection while preserving notice ordering."""
-    params.unseal()
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        populate_legacy_params(tf_config)
-    params.seal()
-    projection_notices = tuple(
-        ResolutionNotice(item.category, str(item.message))
-        for item in caught
-    )
-    _emit_resolution_notices(
-        deferred_notices + projection_notices + runtime_notices
-    )
-
-
-@configured_legacy_params
 def create_training_payload(
     train_data_file: Path,
     output_dir: Path,
@@ -786,7 +800,7 @@ def create_training_payload(
     training_baseline: TFTrainingConfig | PTTrainingConfig | None = None,
     execution_capabilities: ExecutionCapabilities | None = None,
 ) -> TrainingPayload:
-    """Resolve training owners and perform the CONFIG-001 legacy projection."""
+    """Resolve training owners without the CONFIG-001 legacy projection."""
     payload, deferred_notices, runtime_notices = _resolve_training_payload(
         train_data_file=train_data_file,
         output_dir=output_dir,
@@ -796,15 +810,10 @@ def create_training_payload(
         training_baseline=training_baseline,
         execution_capabilities=execution_capabilities,
     )
-    _project_legacy_config(
-        payload.tf_training_config,
-        deferred_notices,
-        runtime_notices,
-    )
+    _emit_resolution_notices(deferred_notices + runtime_notices)
     return payload
 
 
-@configured_legacy_params
 def create_training_payload_from_resolved_configs(
     data_config: PTDataConfig,
     model_config: PTModelConfig,
@@ -859,13 +868,7 @@ def create_training_payload_from_resolved_configs(
         require_group_count=False,
     )
     if training_groups is None:
-        canonical_training = canonical_training.model_copy(
-            update={
-                "sampling": canonical_training.sampling.model_copy(
-                    update={"training_groups": None}
-                )
-            }
-        )
+        canonical_training.training_groups = None
     payload = TrainingPayload(
         tf_training_config=canonical_training,
         pt_data_config=data_config,
@@ -883,11 +886,9 @@ def create_training_payload_from_resolved_configs(
         execution_config=execution_config,
         overrides_applied={"source": "resolved_torch_configs"},
     )
-    _project_legacy_config(payload.tf_training_config, (), ())
     return payload
 
 
-@configured_legacy_params
 def create_inference_payload(
     model_path: Path,
     test_data_file: Path,
@@ -897,7 +898,7 @@ def create_inference_payload(
     *,
     execution_capabilities: ExecutionCapabilities | None = None,
 ) -> InferencePayload:
-    """Resolve inference owners and perform the CONFIG-001 legacy projection."""
+    """Resolve inference owners without the CONFIG-001 legacy projection."""
     payload, deferred_notices, runtime_notices = _resolve_inference_payload(
         model_path=model_path,
         test_data_file=test_data_file,
@@ -906,11 +907,7 @@ def create_inference_payload(
         execution_config=execution_config,
         execution_capabilities=execution_capabilities,
     )
-    _project_legacy_config(
-        payload.tf_inference_config,
-        deferred_notices,
-        runtime_notices,
-    )
+    _emit_resolution_notices(deferred_notices + runtime_notices)
     return payload
 
 
@@ -953,65 +950,3 @@ def infer_probe_size(data_file: Path) -> int:
     return observation.value
 
 
-@configured_legacy_params
-def populate_legacy_params(
-    tf_config: Union[TFTrainingConfig, TFInferenceConfig],
-    force: bool = False,
-) -> None:
-    """
-    Wrapper around update_legacy_dict with validation and logging.
-
-    Ensures CONFIG-001 compliance checkpoint is explicit in factory workflows.
-    Provides audit trail of params.cfg population for debugging and governance.
-
-    This function is the critical compatibility bridge that enables legacy modules
-    (over 20 files dependent on params.cfg) to consume modern structured configs.
-    It MUST be called before any data loading or model construction operations.
-
-    Args:
-        tf_config: TrainingConfig or InferenceConfig (canonical TensorFlow format)
-        force: If True, overwrites existing params.cfg values without warning.
-            If False (default), logs warning if params.cfg already populated.
-
-    Side Effects:
-        - Updates ptycho.params.cfg dictionary via update_legacy_dict()
-        - Logs params.cfg snapshot for audit trail (if logging enabled)
-
-    Raises:
-        ValueError: tf_config validation failed (missing required fields)
-        TypeError: tf_config is not TrainingConfig or InferenceConfig instance
-
-    Example:
-        >>> from ptycho.config.config import TrainingConfig, ModelConfig
-        >>> config = TrainingConfig(
-        ...     model=ModelConfig(N=64, gridsize=2),
-        ...     train_data_file=Path('data.npz'),
-        ...     training_groups=512,
-        ... )
-        >>> populate_legacy_params(config)
-        # params.cfg now contains: {'N': 64, 'gridsize': 2, 'training_groups': 512, ...}
-
-    See also:
-        - Bridge function: ptycho/config/config.py update_legacy_dict()
-        - CONFIG-001: docs/findings.md CONFIG-001 (initialization order requirement)
-        - Key mappings: ptycho/config/config.py KEY_MAPPINGS
-    """
-    from ptycho.config.config import update_legacy_dict
-    import ptycho.params as params
-    import warnings
-
-    # Type validation
-    if not isinstance(tf_config, (TFTrainingConfig, TFInferenceConfig)):
-        raise TypeError(
-            f"tf_config must be TrainingConfig or InferenceConfig instance, got {type(tf_config)}"
-        )
-
-    # Warn if params.cfg already populated (unless force=True)
-    if not force and params.cfg:
-        warnings.warn(
-            "params.cfg already populated. Set force=True to overwrite existing values.",
-            UserWarning
-        )
-
-    # Call the canonical bridge function (CONFIG-001 compliance)
-    update_legacy_dict(params.cfg, tf_config)

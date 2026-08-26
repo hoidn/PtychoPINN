@@ -4,9 +4,10 @@
 
 ## 📋 Quick Navigation
 - [Data Preparation Golden Paths](#data-preparation-golden-paths)
+- [Generic Synthetic PyTorch Workflow](#generic-synthetic-pytorch-workflow)
 - [Training](#training) 
 - [Inference](#inference)
-- [Model Evaluation](#model-evaluation)
+- [Single-Model Inference](#single-model-inference)
 - [Model Comparison](#model-comparison)
 - [Studies](#studies)
 - [Best Practices & Key Guidelines](#best-practices--key-guidelines)
@@ -26,13 +27,13 @@ Choose the path that matches your starting point and goal.
 
 ```bash
 # 1. Canonicalize raw data (REQUIRED FIRST STEP for experimental data)
-#    Why: Converts uint16 intensity to float32 amplitude and renames keys.
+#    Why: Converts uint16 diffraction/intensity arrays to float32 and renames keys.
 python scripts/tools/transpose_rename_convert_tool.py raw_data.npz converted_data.npz
 
 # 2. Shuffle the dataset (OPTIONAL - useful for creating canonical benchmark datasets)
 #    Note: No longer required for gridsize=1 training as of the unified sampling update.
 #    Still useful for creating reproducible, pre-randomized datasets for benchmarking.
-python scripts/tools/shuffle_dataset_tool.py converted_data.npz shuffled_data.npz --seed 42
+python scripts/tools/shuffle_dataset_tool.py --input-file converted_data.npz --output-file shuffled_data.npz --seed 42
 
 # 3. Split into train/test sets (optional, but good practice)
 #    Why: Creates dedicated, non-overlapping sets for training and validation.
@@ -40,7 +41,7 @@ python scripts/tools/split_dataset_tool.py shuffled_data.npz output_dir/ --split
 
 # 4. Always visualize your final dataset to verify its integrity
 #    Why: A quick visual check can catch many common data format errors.
-python scripts/tools/visualize_dataset.py output_dir/train.npz train_set_visualization.png
+python scripts/tools/visualize_dataset.py output_dir/shuffled_data_train.npz train_set_visualization.png
 ```
 
 ### Golden Path 2: Creating a *New* Synthetic Dataset from a Reconstruction
@@ -63,7 +64,7 @@ bash scripts/prepare.sh --input-file synthetic.npz --output-dir studies/photons_
 bash scripts/prepare.sh --help
 ```
 
-**New Parameters (as of latest update):**
+**Parameters:**
 - `--input-file PATH`: Specify input NPZ file (default: tike_outputs/fly001/fly001_reconstructed.npz)
 - `--output-dir DIR`: Organize all outputs in a single directory (default: uses traditional structure)
 - `--sim-images N`: Number of images to simulate (default: 35000)
@@ -77,8 +78,8 @@ DIR/
 │   ├── 02_transposed/
 │   └── ...
 └── dataset/         # Final train/test splits
-    ├── train.npz
-    └── test.npz
+    ├── <input_stem>_train.npz
+    └── <input_stem>_test.npz
 ```
 
 **What `prepare.sh` does internally:**
@@ -89,71 +90,273 @@ DIR/
 
 ---
 
+## Generic Synthetic PyTorch Workflow
+
+Use `ptycho_synthetic` for new synthetic PyTorch work. With no `--stages`
+override it simulates flat train/test acquisitions, trains through the shared
+generic workflow, strictly reloads the saved Torch bundle, reconstructs the
+held-out scan through mmap-backed barycentric assembly, and evaluates raw
+complex arrays.
+
+```bash
+# Complete default profile: N=128, GS1 Hybrid ResNet, ideal probe, 50 epochs
+ptycho_synthetic \
+  --profile hybrid-resnet-lines \
+  --output-root outputs/synthetic_hybrid_resnet_gs1
+
+# Sealed five-epoch Hybrid ResNet GS1/C1 quality recipe
+ptycho_synthetic \
+  --profile hybrid-resnet-lines \
+  --output-root outputs/synthetic_hybrid_resnet_gs1_5ep_quality \
+  --gridsize 1 \
+  --epochs 5 \
+  --batch-size 16 \
+  --seed 3 \
+  --probe-source custom \
+  --probe-path datasets/Run1084_recon3_postPC_shrunk_3.npz \
+  --probe-transform 'pad_extrapolate:128|smooth:0.5' \
+  --train-patterns 4489 \
+  --test-patterns 729 \
+  --train-raw-selection 4489 \
+  --training-groups 4489 \
+  --validation-groups 729 \
+  --neighbor-count 1 \
+  --neighbor-pool-size 1 \
+  --groups-per-center 1 \
+  --accelerator cuda \
+  --devices 1 \
+  --precision 32-true \
+  --workers 0 \
+  --logger csv \
+  --deterministic
+
+# CI count-intensity profile with pre-fit rectangular gauge initialization
+ptycho_synthetic \
+  --profile hybrid-resnet-lines-ci \
+  --rect-s1s2-init dose_closure \
+  --output-root outputs/synthetic_ci
+```
+
+The structured config equivalent accepts JSON, TOML, or YAML. For example,
+`configs/synthetic_gs1.yaml` may contain:
+
+```yaml
+profile: hybrid-resnet-lines
+simulation:
+  gridsize: 1
+  train_patterns: 4489
+  test_patterns: 729
+  probe:
+    source: custom
+    source_path: datasets/Run1084_recon3_postPC_shrunk_3.npz
+    transform_pipeline: "pad_extrapolate:128|smooth:0.5"
+training:
+  epochs: 5
+  train_raw_selection: 4489
+  training_groups: 4489
+  validation_groups: 729
+  neighbor_count: 1
+  neighbor_pool_size: 1
+inference:
+  groups_per_center: 1
+workflow:
+  output_root: outputs/synthetic_hybrid_resnet_gs1_5ep_quality
+  accelerator: cuda
+  devices: 1
+  precision: 32-true
+  num_workers: 0
+  logger_backend: csv
+```
+
+CLI values override this file; file values override the profile. To split one
+run across invocations while preserving its identity:
+
+```bash
+ptycho_synthetic --config configs/synthetic_gs1.yaml \
+  --stages simulate,train
+ptycho_synthetic --config configs/synthetic_gs1.yaml \
+  --stages reconstruct,evaluate
+```
+
+The second command requires the first command's complete, matching
+`resolved_workflow.json`, `stage_manifest.json`, datasets, and bundle under the
+same output root. Configuration mismatches and partial stage artifacts fail
+before expensive work.
+
+### Synthetic Sampling Names
+
+The generated NPZ stays flat regardless of gridsize; the shared loader forms
+`C = gridsize ** 2` channels later.
+
+| Flag | Meaning |
+| --- | --- |
+| `--train-patterns` / `--test-patterns` | Raw frames generated in each split |
+| `--train-raw-selection` | Train frames selected before grouping; persisted as training `DataConfig.n_raw_frames_selected` |
+| `--training-groups` | Exact grouped train samples |
+| `--validation-groups` | Exact grouped validation samples, independently chosen from the complete test acquisition |
+| `--groups-per-center` | Reconstruction-only repeated neighbor groups per valid center |
+
+`--training-groups` and `--validation-groups` are independent. Reconstruction
+starts from the strictly loaded persisted `DataConfig` and threads
+`groups_per_center` to the dataset constructor as an explicit runtime argument
+(no dataclass field round-trip); it never overwrites the saved training
+selection.
+
+The runner deliberately trains with `do_stitching=False`: generic stitching
+reduces grouped predictions at their centers and cannot validate all GS2/C4
+channels. Reconstruction instead starts from strict bundle reload and uses a
+fresh mmap workspace, all channel coordinates, probe-weighted barycentric
+assembly, and the profile's VarPro policy.
+
+Key outputs are `datasets/{train,test}.npz`, `training/wts.h5.zip`,
+`training/training_summary.json`,
+`reconstruction/reconstruction.npz`, `reconstruction/metrics.json`,
+`reconstruction/diagnostics.json`, and `reconstruction/comparison.png`, with
+invocation, resolved-workflow, dataset, and stage manifests at the run root.
+Fresh summaries record a strict `rect-s1s2-initialization-v2` startup result;
+strict v1 reading remains for prefix-era history. The record is not the final
+learned `s1`/`s2` or inference VarPro solve. Current
+`synthetic-stage-manifest-v2` roots validate it on reuse; version-1 manifest
+roots need a new output root or retraining. See the
+[core contract](specs/spec-ptycho-core.md#ci-rectangular-gauge-initialization-normative)
+for record and sampling semantics.
+
+The one-epoch Hybrid GS1, GS2, and C4-CI preflights must pass before
+calibration. Each quality contract has its own immutable fixture,
+two-fit/one-holdout envelope, raw-array metrics, manual image reviews, pytest
+ID, and output variable. Tests never rewrite a sealed fixture and skip outside
+its recorded CUDA/software fingerprint. See the
+[PyTorch workflow guide](workflows/pytorch.md#41-synthetic-generation-through-evaluation-recommended)
+and `docs/TESTING_GUIDE.md` for policy and selectors. C4-CI has a sealed
+five-epoch quality gate in the shared module using
+`PTYCHO_C4_CI_OUTPUT_BASE`; only the CNN one-epoch C4 path remains operational
+smoke coverage.
+
+The live preflight nodes are
+`test_synthetic_hybrid_resnet_gs1_one_epoch_preflight`,
+`test_synthetic_hybrid_resnet_gs2_one_epoch_preflight`, and
+`test_synthetic_hybrid_resnet_c4_ci_one_epoch_preflight`; the sealed C4-CI
+node is `test_synthetic_hybrid_resnet_c4_ci_five_epoch_quality`.
+
+---
+
 ## Training
 
 ```bash
-# Basic training with type defaults
-ptycho_train --data.train_data_file dataset.npz --output_dir my_run
+# Basic training
+ptycho_train --train_data_file dataset.npz --n_groups 2000 --nepochs 50 --output_dir my_run
 
-# Full model and sampling configuration can use nested YAML
+# With configuration file (recommended)
 ptycho_train --config configs/my_config.yaml
+
+# Independent sampling control
+ptycho_train --train_data_file dataset.npz --n_subsample 5000 --n_groups 1000 --nepochs 50 --output_dir my_run
+
+# Reproducible sampling
+ptycho_train --train_data_file dataset.npz --n_subsample 3000 --n_groups 500 --subsample_seed 42 --output_dir my_run
+
+# K choose C oversampling with explicit opt-in
+ptycho_train --train_data_file dataset.npz \
+    --n_subsample 500 --n_groups 2000 \
+    --gridsize 2 --neighbor_count 7 \
+    --enable_oversampling --neighbor_pool_size 7 \
+    --output_dir oversampled_run
 ```
 
-Generated dotted numeric and Boolean overrides are decoded before strict
-Pydantic validation. `ModelConfig` is exposed as the `--model` JSON argument
-rather than per-field dotted flags; use nested YAML for multi-field model
-configuration.
-
-### Native Torch count-intensity profile
-
-The native Torch CLI owns the CI profile and rectangular-gauge flag. Omitting
-the flag authors no override, so the profile resolves to `dose_closure`; an
-explicit `ones` wins:
+The native Torch entry point owns the training-only CI profile and rectangular
+startup override directly:
 
 ```bash
-# Fixed representative dose closure (the ci profile default)
+# Omission keeps the ci profile's dose_closure default
 python -m ptycho_torch.train \
-  --train_data_file counts_train.npz \
-  --output_dir ci_run \
-  --profile ci
+  --profile ci \
+  --train_data_file dataset.npz \
+  --output_dir ci_run
 
-# Keep exact unit initialization instead
+# Explicit unit startup overrides the profile default
 python -m ptycho_torch.train \
-  --train_data_file counts_train.npz \
-  --output_dir ci_unit_init \
-  --profile ci --rect-s1s2-init ones
+  --profile ci \
+  --rect-s1s2-init ones \
+  --train_data_file dataset.npz \
+  --output_dir ci_ones_run
 ```
 
-Do not pass `--rect-s1s2-init` to the unified `ptycho_train` command; it does
-not expose that flag. The
-[configuration guide](CONFIGURATION.md#dose-closure-initialization) defines
-dose-closure sampling and failure behavior.
+`python -m ptycho_torch.train` accepts
+`--rect-s1s2-init {ones,dose_closure}` but not `--config`; omission does not
+author an override. The installed `ptycho_train` command shown above is a
+separate unified/legacy entry point and does accept its YAML `--config`.
 
-### Independent sampling control
+### 📊 Independent Sampling Control
 
-The unified training CLI mirrors the nested public configuration:
+The project now supports **independent control** of data subsampling and neighbor grouping:
 
-- `--sampling.train_raw_selection` selects raw rows before grouping.
-- `--sampling.training_groups` selects the number of grouped samples, independent of
-  grid size.
-- `--sampling.subsample_seed` makes raw-row selection reproducible.
-- `--sampling.n_images` is a deprecated alias for
-  `--sampling.training_groups`; conflicting alias/canonical values fail validation.
+- **`--n_subsample`**: Controls how many images to randomly select from the dataset
+- **`--n_groups`**: Controls how many groups to use for training/inference (regardless of gridsize)
+- **`--subsample_seed`**: Ensures reproducible random selection
 
-Model fields belong under `model` in YAML. For example:
+**Note**: `--n_images` is deprecated but still supported for backward compatibility.
 
-```yaml
-model:
-  gridsize: 2
-sampling:
-  train_raw_selection: 10000
-  training_groups: 500
-  subsample_seed: 3
+**Example Use Cases:**
+```bash
+# Dense grouping: Use most subsampled data
+ptycho_train --n_subsample 1200 --n_groups 1000 --gridsize 2 ...
+
+# Sparse grouping: Large subsample, fewer groups
+ptycho_train --n_subsample 10000 --n_groups 500 --gridsize 2 ...
+
+# Memory-constrained: Limit data loading
+ptycho_train --n_subsample 5000 --n_groups 2000 --gridsize 1 ...
 ```
 
-With `gridsize=1`, each group contains one image. With `gridsize>1`, each
-group contains `gridsize²` neighboring images. `training_groups` always counts groups;
-it never changes meaning based on grid size.
+### ⚠️ CRITICAL: Understanding `gridsize` and `--n_groups`
+
+The `--n_groups` parameter **always** refers to the number of groups to use, regardless of the `gridsize` parameter. This provides consistent behavior and eliminates confusion.
+
+| GridSize | `--n_groups` Refers To... | Total Patterns Used | Subsampling Method |
+|----------|---------------------------|---------------------|--------------------|
+| 1        | **Groups (each with 1 image)**    | `n_groups` × 1      | **Unified Random Sampling.** Each group contains 1 image. |
+| > 1      | **Groups (neighbor groups)**       | `n_groups` × `gridsize`² | **Unified Random Sampling.** Each group contains gridsize² images. |
+
+**Key Insight**: With `--n_groups`, the parameter always means "number of groups" regardless of gridsize. For gridsize=1, each group contains 1 image. For gridsize>1, each group contains multiple neighboring images.
+
+**Log Message Examples to Watch For:**
+```
+# GridSize=1 (Unified group interpretation)
+INFO - Parameter interpretation: --n_groups=1000 refers to 1000 groups of 1 image each (gridsize=1)
+
+# GridSize=2 (Unified group interpretation)
+INFO - Parameter interpretation: --n_groups=250 refers to 250 groups of 4 images each (gridsize=2, total patterns=1000)
+INFO - Using grouping-aware subsampling strategy for gridsize=2
+```
+
+**Backward Compatibility**: The deprecated `--n_images` parameter still works but will show a deprecation warning.
+
+### 🔄 K Choose C Oversampling
+
+**Use case:** When you want to create more training groups than available seed points by sampling multiple combinations from each seed's neighbors.
+
+**Prerequisites (OVERSAMPLING-001):**
+- `gridsize > 1` (so C = gridsize² > 1)
+- `--enable_oversampling` flag (explicit opt-in)
+- `--neighbor_pool_size >= C` (pool size must be at least gridsize²)
+
+**Example:**
+```bash
+# Create 2000 groups from only 500 seed points
+ptycho_train --train_data_file dataset.npz \
+    --n_subsample 500 \
+    --n_groups 2000 \
+    --gridsize 2 \
+    --neighbor_count 7 \
+    --enable_oversampling \
+    --neighbor_pool_size 7 \
+    --output_dir oversampled_run
+```
+
+**Important Notes:**
+- **Overfitting risk:** Oversampling reuses local neighborhoods; monitor using spatial validation splits
+- **Debug logs:** Look for `[OVERSAMPLING DEBUG]` messages showing which branch was taken
+- **Error handling:** Clear error messages guide you if prerequisites aren't met; see OVERSAMPLING-001 in `docs/findings.md`.
 
 ---
 
@@ -164,13 +367,13 @@ it never changes meaning based on grid size.
 ptycho_inference --model_path trained_model/ --test_data test.npz --output_dir inference_out
 
 # With specific number of test groups
-ptycho_inference --model_path trained_model/ --test_data test.npz --inference_groups 500 --output_dir inference_out
+ptycho_inference --model_path trained_model/ --test_data test.npz --n_groups 500 --output_dir inference_out
 
-# Independent sampling control (NEW)
-ptycho_inference --model_path trained_model/ --test_data test.npz --inference_raw_selection 2000 --inference_groups 500 --output_dir inference_out
+# Independent sampling control
+ptycho_inference --model_path trained_model/ --test_data test.npz --n_subsample 2000 --n_groups 500 --output_dir inference_out
 
-# GridSize is restored from the saved model; the test data must match it
-ptycho_inference --model_path gs2_model/ --test_data test.npz --inference_groups 125 --output_dir gs2_inference
+# Inference for a model trained with GridSize=2
+ptycho_inference --model_path gs2_model/ --test_data test.npz --n_groups 125 --output_dir gs2_inference
 ```
 
 ---
@@ -196,21 +399,61 @@ python scripts/reconstruction/run_tike_reconstruction.py \
 
 ```bash
 # Basic pty-chi reconstruction (DM algorithm, 200 epochs)
-python scripts/reconstruction/ptychi_reconstruct_tike.py
+python scripts/reconstruction/ptychi_reconstruct_tike.py \
+    --input-npz input_data.npz \
+    --output-dir ptychi_output/
 
 # High-quality reconstruction with extended convergence
-# Note: Parameters are currently hardcoded in script main() function
-# Modify tike_dataset, algorithm, num_epochs, n_images as needed
+python scripts/reconstruction/ptychi_reconstruct_tike.py \
+    --input-npz input_data.npz \
+    --output-dir ptychi_lsqml_output/ \
+    --algorithm LSQML \
+    --num-epochs 500 \
+    --n-images 2000
 
-# Available algorithms: 'DM', 'LSQML', 'PIE'
-# Default: DM with 200 epochs on 2000 images
+# Available algorithms include 'DM', 'LSQML', and 'PIE'.
 ```
 
 ---
 
-## Model Evaluation
+## Single-Model Inference
 
-Model evaluation is currently performed via the comparison/study scripts (see `scripts/studies/README.md`); there is no `ptycho_evaluate` console command.
+```bash
+# Basic single-model inference
+ptycho_inference --model_path trained_model/ --test_data test.npz --output_dir infer_results
+
+# Inference with sampling control
+ptycho_inference --model_path trained_model/ --test_data test.npz \
+    --n_subsample 2000 --n_groups 500 --output_dir infer_results
+
+# Include comparison plot when ground truth is available
+ptycho_inference --model_path model/ --test_data test.npz \
+    --output_dir infer_with_plot --comparison_plot
+
+# Select backend explicitly
+ptycho_inference --model_path model/ --test_data test.npz \
+    --output_dir infer_torch --backend pytorch
+```
+
+### 📊 Key Features
+
+- **Reconstruction Outputs**: Generates amplitude/phase reconstructions and debug artifacts
+- **Optional GT Plotting**: `--comparison_plot` renders ground-truth comparisons when available
+- **Backend Selection**: Supports TensorFlow and PyTorch backends from the same entrypoint
+- **Independent Sampling**: Control test data subsampling with `--n_subsample` and `--n_groups`
+
+### 📋 When to Use Inference vs Comparison
+
+- **Use `ptycho_inference`** when:
+  - Running a single trained model to produce reconstructions
+  - Doing backend-specific smoke checks
+  - Creating per-model visuals quickly
+
+- **Use `compare_models.py`** when:
+  - Computing quantitative cross-model metrics (MAE/SSIM/MS-SSIM/FRC)
+  - Comparing multiple models head-to-head
+  - Benchmarking PtychoPINN vs Baseline vs Tike
+  - Running systematic model comparisons
 
 ---
 
@@ -259,15 +502,6 @@ python scripts/compare_models.py \
 
 > **Parameter Migration Notice**: The generalization study script now uses `--train-group-sizes` instead of the deprecated `--train-sizes`. The old parameter is still supported but will show deprecation warnings.
 
-### Parameterized Study Composition
-
-`ptycho_study` composes each arm and delegates it to the configured public
-runner; it is not a separate trainer.
-
-```bash
-ptycho_study --help
-```
-
 ```bash
 # Synthetic data generalization study (auto-generates datasets)
 ./scripts/studies/run_complete_generalization_study.sh \
@@ -304,7 +538,48 @@ ptycho_study --help
     --output-dir spatial_bias_study
 
 # Plot results from a completed study
-python scripts/studies/aggregate_and_plot_results.py study_results --output plots/
+python scripts/studies/aggregate_and_plot_results.py study_results --output plots/generalization_plot.png
+```
+
+### Parameterized Study Composition
+
+Use `ptycho_study` for multi-arm studies. Each arm supplies configuration to the
+same public training service as `ptycho_synthetic` or `ptycho_train`; the study
+layer owns comparison and collation, not an alternate trainer.
+
+```bash
+ptycho_study --help
+```
+
+### Hybrid ResNet Schematic Generator (TikZ + DOT)
+
+Generate architecture schematics for `hybrid_resnet` directly from module execution with
+shape capture. This writes source artifacts that are easy to diff and regenerate.
+
+```bash
+python scripts/studies/render_hybrid_resnet_schematics.py \
+    --output-dir .artifacts/hybrid_resnet_schematics/latest \
+    --N 128 \
+    --gridsize 2 \
+    --fno-width 32 \
+    --fno-blocks 4 \
+    --fno-modes 12
+```
+
+Expected artifacts:
+- `.artifacts/hybrid_resnet_schematics/latest/hybrid_resnet_manifest.json`
+- `.artifacts/hybrid_resnet_schematics/latest/hybrid_resnet_high_level.tex`
+- `.artifacts/hybrid_resnet_schematics/latest/hybrid_resnet_module_flow.dot`
+
+Optional rendering (if tools are installed):
+
+```bash
+pdflatex -interaction=nonstopmode \
+    -output-directory .artifacts/hybrid_resnet_schematics/latest \
+    .artifacts/hybrid_resnet_schematics/latest/hybrid_resnet_high_level.tex
+
+dot -Tsvg .artifacts/hybrid_resnet_schematics/latest/hybrid_resnet_module_flow.dot \
+    -o .artifacts/hybrid_resnet_schematics/latest/hybrid_resnet_module_flow.svg
 ```
 
 ---
@@ -315,10 +590,7 @@ python scripts/studies/aggregate_and_plot_results.py study_results --output plot
 -   **Match `gridsize`** between training and inference. A model trained with `gridsize=1` cannot be used for inference with `gridsize=2`.
 -   **Verify your data format** before starting a long training run. Use `scripts/tools/visualize_dataset.py`.
 -   **Unified sampling for all gridsize values:** As of the latest update, the system uses the same efficient random sampling strategy for all gridsize values. Manual shuffling is no longer required.
--   **Set `sampling.sequential_sampling: true` in unified training YAML** to
-    use the first grouping anchors within the already selected raw-row pool.
-    Raw-row subsampling remains random; set `sampling.subsample_seed` to make
-    that pool reproducible.
+-   **Use `--sequential_sampling` flag** if you need the old sequential behavior (first N images) for debugging or specific scan region analysis.
 -   **Monitor training logs** for parameter interpretation messages to confirm the script is behaving as you expect.
 
 ---
@@ -339,5 +611,4 @@ tail -f output_dir/logs/debug.log
 nvidia-smi
 ```
 
-For detailed explanations, see the [Configuration Guide](CONFIGURATION.md) and
-[Troubleshooting Guide](TROUBLESHOOTING.md).
+For detailed explanations, see the <doc-ref type="guide">docs/DEVELOPER_GUIDE.md</doc-ref> and <doc-ref type="guide">docs/WORKFLOW_GUIDE.md</doc-ref>.

@@ -1,10 +1,7 @@
-import lightning as L
-from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
-from ptycho_torch.api.base_api import PtychoModel, PtychoDataLoader, ConfigManager, Trainer, Datagen
+from ptycho_torch.api.base_api import PtychoDataLoader, ConfigManager, Datagen
 from typing import Optional, Dict, Any, Tuple, Union, Protocol
 from ptycho_torch.config_params import TrainingConfig, DatagenConfig, DataConfig, ModelConfig, InferenceConfig
 from ptycho_torch.rect_s1s2_initialization import validate_rect_s1s2_initialization_mode
-from ptycho_torch.train_utils import get_training_strategy
 import mlflow
 import torch
 import os
@@ -40,127 +37,6 @@ def create_new_model(model=None,
         'inference_config': config_manager.inference_config,
         'model': model_instance
     }
-
-def setup_lightning_trainer(ptycho_model: PtychoModel,
-                            training_config: TrainingConfig) -> L.Trainer:
-    
-    val_loss_label = ptycho_model.model.val_loss_name #Nested models because Ptycho
-
-    checkpoint_callback = ModelCheckpoint(
-        monitor = val_loss_label,
-        mode = 'min',
-        save_top_k = 1,
-        filename = 'best-checkpoint'
-    )
-
-    early_stop_callback = EarlyStopping(
-        monitor = val_loss_label,
-        mode='min',
-        patience=100,
-        verbose = True,
-        strict = True
-    )
-
-    #Calculate total epochs
-    if training_config.stage_2_epochs > 0 or training_config.stage_3_epochs > 0:
-        total_epochs = (
-            training_config.stage_1_epochs +
-            training_config.stage_2_epochs + 
-            training_config.stage_3_epochs
-        )
-    else:
-        total_epochs = training_config.epochs
-    
-    #Instantiate lightning trainer
-    trainer = L.Trainer(
-        max_epochs = total_epochs,
-        devices = training_config.n_devices,
-        accelerator = 'gpu',
-        callbacks = [checkpoint_callback, early_stop_callback],
-        strategy = get_training_strategy(training_config.n_devices),
-        check_val_every_n_epoch=1,
-        enable_checkpointing=True,
-        enable_progress_bar=True
-    )
-
-    return trainer
-
-def train_with_mlflow(instance,
-                      experiment_name: str,
-                      ):
-    """
-    Mlflow training script to externalize api call
-    """
-    from ptycho_torch.train_utils import find_learning_rate, is_effectively_global_rank_zero, log_parameters_mlflow, print_auto_logged_info, ModelFineTuner
-    
-    training_config = config_manager.training_config
-    config_manager = instance.config_manager,
-    dataloader = instance.dataloader
-    ptycho_model = instance.ptycho_model
-    trainer = instance.trainer
-
-    exp_name = experiment_name or training_config.experiment_name
-
-    updated_lr = find_learning_rate(
-        training_config.learning_rate,
-        training_config.n_devices,
-        training_config.batch_size
-    )
-
-    ptycho_model.model.lr = updated_lr
-    ptycho_model.model.training = True
-
-    run_ids = {}
-    
-    # Run DDP checks and initialize MLflow run if on main process
-    if is_effectively_global_rank_zero():
-        mlflow.set_experiment(exp_name)
-        mlflow.pytorch.autolog(checkpoint_monitor = ptycho_model.model.val_loss_name)
-
-        with mlflow.start_run() as run:
-            #Log all configs
-            log_parameters_mlflow(
-                dataloader.data_config, 
-                ptycho_model.model_config,
-                training_config,
-                ptycho_model.inference_config,
-                config_manager.datagen_config
-            )
-
-            #Set tags
-            mlflow.set_tag("stage", "training")
-            mlflow.set_tag("encoder_frozen", "False")
-            mlflow.set_tag("model_name", training_config.model_name)
-            if training_config.notes:
-                mlflow.set_tag("notes", training_config.notes)
-
-            #Train
-            print("Beginning model training...")
-            trainer.fit(
-                ptycho_model.model,
-                datamodule = dataloader.data_module
-            )
-
-            print("Training Complete!!")
-            print_auto_logged_info(mlflow.get_run(run_id = run.info.run_id))
-            run_ids['training'] = run.info.run_id
-
-    if training_config.epochs_fine_tune > 0:
-        fine_tuner = ModelFineTuner(
-            ptycho_model.model,
-            dataloader.data_module,
-            training_config
-        )
-        fine_tuning_run_id = fine_tuner.fine_tune(experiment_name = exp_name)
-
-        if is_effectively_global_rank_zero():
-            run_ids['fine_tune'] = fine_tuning_run_id
-        
-    if is_effectively_global_rank_zero():
-        print(f"Training run_id: {run_ids.get('training')}")
-        print(f"Fine tune run_id: {run_ids.get('fine_tune')}")
-
-    return run_ids
 
 def load_with_mlflow(
         run_id: str = None,

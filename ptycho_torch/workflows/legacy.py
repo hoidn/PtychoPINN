@@ -1,20 +1,26 @@
 """Orchestration entry points and reconstruction wrappers.
 
 Holds the public doors (``run_cdi_example_torch``, ``train_cdi_model_torch``)
-plus the stitching/reassembly helpers.
+plus the stitching/reassembly helpers.  Collaborators that tests patch through
+the ``components`` facade are resolved late-bound via ``_components``.
 """
 import logging
+from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Union
 
 from ptycho.config.config import InferenceConfig, PyTorchExecutionConfig, TrainingConfig
 from ptycho.raw_data import RawData
-from ptycho_torch.config_factory import InferencePayload, TrainingPayload
-from ptycho_torch.dataloader import PtychoDataset
 from ptycho_torch.scaling_contract import AmplitudePhysicsGainRecord
+from ptycho_torch.config_factory import InferencePayload, TrainingPayload
+from ptycho_torch.data_container_bridge import PtychoDataContainerTorch
+from ptycho_torch.dataloader import PtychoDataset
+from . import containers, lightning_service
 
-from . import containers, dataloaders, lightning_service
+from .lightning_service import _validate_training_execution_input
+from .dataloaders import _build_inference_dataloader
 
-logger = logging.getLogger("ptycho_torch.workflows.components")
+# Preserves pre-split log provenance: records stay on the components facade logger.
+logger = logging.getLogger('ptycho_torch.workflows.components')
 
 def run_cdi_example_torch(
     train_data: Union[RawData, 'PtychoDataContainerTorch'],
@@ -33,6 +39,7 @@ def run_cdi_example_torch(
         AmplitudePhysicsGainRecord
     ] = None,
     torch_training_seed: Optional[int] = None,
+    batch_order_recipe: Optional[str] = None,
 ) -> Tuple[Optional[Any], Optional[Any], Dict[str, Any]]:
     """
     Run the main CDI example execution flow using PyTorch backend.
@@ -57,10 +64,9 @@ def run_cdi_example_torch(
                          control. The factory resolves it exactly once.
         overrides: Optional torch-only factory overrides forwarded unchanged to
             the Lightning training boundary.
-        amplitude_physics_gain_record: Optional provenance record for the
-            already-resolved scalar persisted in the strict bundle sidecar.
-        torch_training_seed: Optional dedicated seed for Torch parameter and
-            dataloader initialization.
+        amplitude_physics_gain_record: Optional complete provenance record for
+            the already-resolved scalar in ModelConfig/ModelSpec. The record is
+            persisted only in its strict bundle sidecar.
 
     Returns:
         Tuple containing:
@@ -95,7 +101,7 @@ def run_cdi_example_torch(
 
     Contract: docs/architecture_torch.md §Component Contracts.
     """
-    lightning_service._validate_training_execution_input(execution_config, resolved_payload)
+    _validate_training_execution_input(execution_config, resolved_payload)
 
     # Step 1: Train the model through the shared Lightning service.
     logger.info("Invoking PyTorch training orchestration via train_cdi_model_torch")
@@ -111,6 +117,8 @@ def run_cdi_example_torch(
         training_kwargs["resolved_payload"] = resolved_payload
     if torch_training_seed is not None:
         training_kwargs["torch_training_seed"] = torch_training_seed
+    if batch_order_recipe is not None:
+        training_kwargs["batch_order_recipe"] = batch_order_recipe
     train_results = train_cdi_model_torch(
         train_data,
         test_data,
@@ -132,7 +140,7 @@ def run_cdi_example_torch(
     # Mirrors TensorFlow baseline ptycho/workflows/components.py:714-721
     if do_stitching and test_data is not None:
         logger.info("Performing image stitching (do_stitching=True, test_data provided)...")
-        # Phase D2.C: Invoke reassembly helper to stitch reconstructed patches
+        # Invoke reassembly helper to stitch reconstructed patches
         recon_amp, recon_phase, reassemble_results = _reassemble_cdi_image_torch(
             test_data, config, flip_x, flip_y, transpose, M, train_results=train_results
         )
@@ -195,6 +203,8 @@ def _reassemble_cdi_image_torch_mmap(
     
     
     return result.to('cpu')
+    
+
 
 
 def _reassemble_cdi_image_torch(
@@ -246,7 +256,7 @@ def _reassemble_cdi_image_torch(
         raise RuntimeError(
             "PyTorch backend requires torch. "
             "Install with: pip install -e .[torch]\n"
-            "See docs/workflows/pytorch.md for installation guidance."
+            "See docs/findings.md#policy-001 for PyTorch requirement policy."
         ) from e
 
     # Validate train_results contains models
@@ -256,26 +266,27 @@ def _reassemble_cdi_image_torch(
         raise NotImplementedError(
             "PyTorch stitching path not yet fully implemented without train_results. "
             "Must pass train_results from run_cdi_example_torch(..., do_stitching=False) output. "
-            "See plans/active/INTEGRATE-PYTORCH-001/phase_d2_completion.md C3 for implementation status."
+            "See docs/findings.md (see git history for the originating plan) C3 for implementation status."
         )
     if 'models' not in train_results or not train_results['models']:
         raise ValueError("train_results['models'] dict required for inference")
 
     # Step 1: Normalize test_data → PtychoDataContainerTorch
-    test_container = containers._ensure_container(test_data, config)
+    test_container = containers.create_torch_data_container(test_data, config)
 
     # Step 2: Extract trained Lightning module and set to eval mode
-    # Extract Lightning module from dual-model dict (Phase C4.D3 structure)
+    # Extract Lightning module from dual-model dict
     lightning_module = train_results['models']['diffraction_to_obj']
     lightning_module.eval()
 
-    # Step 3: Build inference dataloader from the run's resolved execution.
+    # Step 3: Reuse the run's resolved carrier; do not materialize a second
+    # runtime default at the inference boundary.
     resolved_execution = train_results.get("execution_config")
     if resolved_execution is None:
         raise ValueError(
             "train_results must contain the run's resolved execution_config"
         )
-    infer_loader = dataloaders._build_inference_dataloader(
+    infer_loader = _build_inference_dataloader(
         test_container,
         config,
         execution_config=resolved_execution,
@@ -299,7 +310,7 @@ def _reassemble_cdi_image_torch(
         for batch in infer_loader:
             # batch is (X, coords) from TensorDataset
             X_batch, coords_batch = batch
-            # DTYPE ENFORCEMENT (Phase D1d): Ensure float32 before Lightning forward
+            # DTYPE ENFORCEMENT: Ensure float32 before Lightning forward
             X_batch = X_batch.to(torch.float32)
             coords_batch = coords_batch.to(torch.float32)
 
@@ -351,7 +362,7 @@ def _reassemble_cdi_image_torch(
         obj_tensor_full = torch.mean(obj_tensor_full, dim=-1, keepdim=True)  # (n, H, W, C) → (n, H, W, 1)
 
     # Step 7: Reassemble patches (using TensorFlow helper for MVP parity)
-    # For Phase D2.C, delegate to TensorFlow reassembly to maintain exact parity
+    # For, delegate to TensorFlow reassembly to maintain exact parity
     # Future enhancement: use native PyTorch reassembly from ptycho_torch.reassembly
     from ptycho import tf_helper as hh
     obj_tensor_np = obj_tensor_full.cpu().numpy()
@@ -361,11 +372,10 @@ def _reassemble_cdi_image_torch(
             and global_offsets_np.shape[3] == 1):
         global_offsets_np = np.swapaxes(global_offsets_np, 2, 3)
 
-    obj_image = _reassemble_position_with_legacy_geometry(
+    obj_image = hh.reassemble_position(
         obj_tensor_np,
         global_offsets_np,
         M=M,
-        config=config,
     )
 
     # Squeeze trailing channel dimension if present (reassembly may return (H, W, 1))
@@ -390,36 +400,6 @@ def _reassemble_cdi_image_torch(
     return recon_amp, recon_phase, results
 
 
-def _reassemble_position_with_legacy_geometry(
-    obj_tensor,
-    global_offsets,
-    *,
-    M: int,
-    config: TrainingConfig,
-):
-    """Contain the protected TensorFlow helper's remaining global geometry read.
-
-    Remove this adapter once ``tf_helper.reassemble_position`` accepts its
-    detector size explicitly.
-    """
-    from ptycho import params as legacy_params
-    from ptycho import tf_helper
-    from ptycho.config.config import update_legacy_dict
-    from ptycho.config.legacy_state import (
-        configured_params_scope,
-        legacy_params_scope,
-    )
-
-    with legacy_params_scope():
-        with configured_params_scope():
-            update_legacy_dict(legacy_params.cfg, config)
-            return tf_helper.reassemble_position(
-                obj_tensor,
-                global_offsets,
-                M=M,
-            )
-
-
 def train_cdi_model_torch(
     train_data: Union[RawData, 'PtychoDataContainerTorch', 'PtychoDataset'],
     test_data: Optional[Union[RawData, 'PtychoDataContainerTorch']],
@@ -429,6 +409,7 @@ def train_cdi_model_torch(
     *,
     resolved_payload: Optional[TrainingPayload] = None,
     torch_training_seed: Optional[int] = None,
+    batch_order_recipe: Optional[str] = None,
     persist_bundle: bool = False,
     amplitude_physics_gain_record: Optional[
         AmplitudePhysicsGainRecord
@@ -463,31 +444,48 @@ def train_cdi_model_torch(
         >>> results = train_cdi_model_torch(train_data, test_data, config)
         >>> print(results['history']['train_loss'][-1])
     """
-    lightning_service._validate_training_execution_input(execution_config, resolved_payload)
+    _validate_training_execution_input(execution_config, resolved_payload)
 
     # Step 1: Normalize train_data to PtychoDataContainerTorch
-    logger.info("Normalizing training data via _ensure_container")
-    train_container = containers._ensure_container(train_data, config)
+    logger.info("Normalizing training data via create_torch_data_container")
+    train_container = containers.create_torch_data_container(train_data, config)
 
     # Step 2: Normalize test_data if provided
     test_container = None
     if test_data is not None:
-        logger.info("Normalizing test data via _ensure_container")
-        test_container = containers._ensure_container(test_data, config)
+        logger.info("Normalizing test data via create_torch_data_container")
+        test_container = containers.create_torch_data_container(test_data, config)
 
     # Probe ownership remains with the normalized data/model boundary.
+
+    # Resolve the payload once: an already-resolved payload wins; otherwise
+    # derive the Torch owners from the canonical training baseline plus the
+    # torch-only overrides (the resolution the trainer previously did inline).
+    payload = resolved_payload
+    if payload is None:
+        from ptycho_torch.config_factory import (
+            build_training_factory_overrides,
+            resolve_training_payload,
+        )
+
+        factory_overrides = build_training_factory_overrides(config)
+        if overrides:
+            factory_overrides.update(overrides)
+        payload = resolve_training_payload(
+            train_data_file=Path(config.train_data_file),
+            output_dir=Path(getattr(config, 'output_dir', './outputs')),
+            execution_config=execution_config,
+            overrides=factory_overrides,
+            training_baseline=config,
+        )
 
     # Step 4: Delegate to Lightning trainer
     logger.info("Delegating to Lightning trainer via _train_with_lightning")
     lightning_kwargs = {}
-    if execution_config is not None:
-        lightning_kwargs["execution_config"] = execution_config
-    if overrides is not None:
-        lightning_kwargs["overrides"] = overrides
-    if resolved_payload is not None:
-        lightning_kwargs["resolved_payload"] = resolved_payload
     if torch_training_seed is not None:
         lightning_kwargs["torch_training_seed"] = torch_training_seed
+    if batch_order_recipe is not None:
+        lightning_kwargs["batch_order_recipe"] = batch_order_recipe
     if persist_bundle:
         lightning_kwargs["persist_bundle"] = True
     if amplitude_physics_gain_record is not None:
@@ -503,12 +501,14 @@ def train_cdi_model_torch(
     if intensity_scale is not None:
         lightning_kwargs["intensity_scale"] = intensity_scale
     results = lightning_service._train_with_lightning(
+        payload,
         train_container,
         test_container,
-        config,
         **lightning_kwargs,
     )
     if intensity_scale is not None:
         results['intensity_scale'] = intensity_scale
 
     return results
+
+

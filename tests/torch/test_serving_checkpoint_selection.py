@@ -220,15 +220,13 @@ def test_non_global_rank_training_result_does_not_publish_bundle(
         test_data_file=tmp_path / "test.npz",
         output_dir=tmp_path,
     )
-    monkeypatch.setattr(
-        "ptycho_torch.workflows.legacy.train_cdi_model_torch",
+    monkeypatch.setattr("ptycho_torch.workflows.legacy.train_cdi_model_torch",
         lambda *_args, **_kwargs: {
             "models": {"autoencoder": object(), "diffraction_to_obj": object()},
             "should_persist": False,
         },
     )
-    monkeypatch.setattr(
-        "ptycho_torch.workflows.lightning_service.save_torch_bundle",
+    monkeypatch.setattr("ptycho_torch.model_manager.save_torch_bundle",
         lambda **_kwargs: pytest.fail("non-global rank attempted bundle publication"),
     )
 
@@ -580,7 +578,8 @@ def test_shared_service_cpu_ddp_spawn_returns_parent_artifacts(tmp_path):
                 TrainingConfig,
             )
             from ptycho_torch.train_utils import PrebuiltPtychoDataModule
-            from ptycho_torch.workflows import bundle_io, components, lightning_service
+            from ptycho_torch import model_manager
+            from ptycho_torch.workflows import bundle_io, components
 
 
             class TinyModule(L.LightningModule):
@@ -644,7 +643,8 @@ def test_shared_service_cpu_ddp_spawn_returns_parent_artifacts(tmp_path):
             def main():
                 output_dir = Path(sys.argv[1])
                 data = DataConfig(
-                    N=64,
+                    N=8,
+
                     neighbor_count=1,
                     n_raw_frames_selected=1,
                     gridsize=1,
@@ -652,7 +652,7 @@ def test_shared_service_cpu_ddp_spawn_returns_parent_artifacts(tmp_path):
                     measurement_domain="normalized_amplitude",
                 )
                 model = ModelConfig(
-                    object_big=False,
+                                        object_big=False,
                     cbam_encoder=False,
                     rect_s1s2_trainable=False,
                 )
@@ -703,7 +703,7 @@ def test_shared_service_cpu_ddp_spawn_returns_parent_artifacts(tmp_path):
                     )
                     Path(f"{base_path}.zip").write_bytes(b"selected weights observed")
 
-                lightning_service.save_torch_bundle = save_bundle
+                model_manager.save_torch_bundle = save_bundle
                 bundle_io._persist_bundle_scaling_metadata = lambda *_args, **_kwargs: None
                 data_module = SpawnDataModule(
                     output_dir / "map",
@@ -713,10 +713,9 @@ def test_shared_service_cpu_ddp_spawn_returns_parent_artifacts(tmp_path):
                     execution_config=execution,
                 )
                 result = components._train_with_lightning(
+                    payload,
                     data_module,
                     None,
-                    payload.tf_training_config,
-                    resolved_payload=payload,
                     milestone_epochs=(1, 2),
                     persist_bundle=True,
                 )

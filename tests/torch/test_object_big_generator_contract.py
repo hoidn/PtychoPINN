@@ -469,4 +469,3 @@ def test_oracle_generator_realimag_reproduces_reference_diffraction():
         f"({loss_shifted:.3e} vs {loss_true:.3e})"
     )
 
-

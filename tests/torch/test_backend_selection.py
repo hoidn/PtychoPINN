@@ -75,10 +75,9 @@ class TestBackendSelection:
 
         # Create config without backend parameter (should default to 'tensorflow')
         model_config = ModelConfig(N=64, gridsize=1)
-        from ptycho.config.config import DataConfig
         config = TrainingConfig(
             model=model_config,
-            data=DataConfig(train_data_file=Path('train.npz')),
+            train_data_file=Path('train.npz'),
             batch_size=16,
             nepochs=1
         )
@@ -111,10 +110,9 @@ class TestBackendSelection:
 
         # Create config with explicit PyTorch backend
         model_config = ModelConfig(N=64, gridsize=1)
-        from ptycho.config.config import DataConfig
         config = TrainingConfig(
             model=model_config,
-            data=DataConfig(train_data_file=Path('train.npz')),
+            train_data_file=Path('train.npz'),
             batch_size=16,
             nepochs=1,
             backend='pytorch'  # Explicit backend selection
@@ -155,10 +153,9 @@ class TestBackendSelection:
         model_config = ModelConfig(N=128, gridsize=2)
         train_path = tmp_path / "train.npz"
         train_path.touch()
-        from ptycho.config.config import DataConfig
         config = TrainingConfig(
             model=model_config,
-            data=DataConfig(train_data_file=train_path),
+            train_data_file=train_path,
             batch_size=16,
             nepochs=1,
             backend='pytorch'
@@ -228,10 +225,9 @@ class TestBackendSelection:
         model_config = ModelConfig(N=64, gridsize=1)
         train_path = tmp_path / "train.npz"
         train_path.touch()
-        from ptycho.config.config import DataConfig
         config = TrainingConfig(
             model=model_config,
-            data=DataConfig(train_data_file=train_path),
+            train_data_file=train_path,
             batch_size=16,
             nepochs=1,
             backend='pytorch'
@@ -289,7 +285,7 @@ class TestBackendSelection:
 
         Expected behavior:
         - InferenceConfig(backend='pytorch') → backend field set correctly
-        - Inference workflows route to ptycho_torch.workflows.components.load_inference_bundle_torch()
+        - Inference workflows route to ptycho_torch.workflows.bundle_io.load_inference_bundle_torch()
         - CONFIG-001 gate: params.cfg restored from archive + update_legacy_dict called
 
         Phase: E1.B inference backend test
@@ -326,11 +322,9 @@ class TestBackendSelection:
             "update_legacy_dict",
             lambda *_args: events.append("bridge"),
         )
-
-        from ptycho.config.config import DataConfig
         config = TrainingConfig(
             model=ModelConfig(),
-            data=DataConfig(train_data_file=tmp_path / "missing.npz"),
+            train_data_file=tmp_path / "missing.npz",
             backend="tensorflow",
         )
 
@@ -343,7 +337,7 @@ class TestBackendSelection:
 
         assert events == []
 
-    def test_valid_training_bridge_order_precedes_backend_delegation(
+    def test_valid_training_bridge_precedes_backend_delegation(
         self,
         tmp_path,
         monkeypatch,
@@ -355,10 +349,9 @@ class TestBackendSelection:
 
         train_path = tmp_path / "train.npz"
         train_path.touch()
-        from ptycho.config.config import DataConfig
         config = TrainingConfig(
             model=ModelConfig(),
-            data=DataConfig(train_data_file=train_path),
+            train_data_file=train_path,
             backend="tensorflow",
         )
         events = []
@@ -367,8 +360,7 @@ class TestBackendSelection:
             "update_legacy_dict",
             lambda *_args: events.append("bridge"),
         )
-        monkeypatch.setattr(
-            "ptycho.workflows.workflow_orchestration.run_cdi_example",
+        monkeypatch.setattr("ptycho.workflows.workflow_orchestration.run_cdi_example",
             lambda *_args, **_kwargs: (
                 events.append("delegate") or (None, None, {})
             ),
@@ -391,8 +383,8 @@ class TestBackendSelection:
         from ptycho.config import InferenceConfig, ModelConfig
         from ptycho.workflows import backend_selector
 
-        model_path = tmp_path / "model.zip"
-        model_path.touch()
+        model_path = tmp_path / "model"
+        model_path.mkdir()
         test_path = tmp_path / "test.npz"
         test_path.touch()
         config = InferenceConfig(
@@ -409,14 +401,14 @@ class TestBackendSelection:
 
         with pytest.raises(ValueError, match="bundle_dir.*model_path"):
             backend_selector.load_inference_bundle_with_backend(
-                tmp_path / "other.zip",
+                tmp_path / "other",
                 config,
             )
 
         assert events == []
 
     @pytest.mark.parametrize("backend", ["tensorflow", "pytorch"])
-    def test_inference_unsupported_model_layout_fails_before_bridge(
+    def test_inference_missing_archive_fails_before_bridge(
         self,
         backend,
         tmp_path,
@@ -451,7 +443,7 @@ class TestBackendSelection:
 
         assert events == []
 
-    def test_inference_bridge_order_precedes_loader_and_archive_can_restore(
+    def test_inference_bridge_precedes_loader_and_archive_restore(
         self,
         tmp_path,
         monkeypatch,
@@ -485,11 +477,7 @@ class TestBackendSelection:
             params.cfg["N"] = 64
             return object(), {"N": 64}
 
-        monkeypatch.setattr(
-            backend_selector,
-            "update_legacy_dict",
-            bridge,
-        )
+        monkeypatch.setattr(backend_selector, "update_legacy_dict", bridge)
         monkeypatch.setattr("ptycho.workflows.bundle_loading.load_inference_bundle", loader)
 
         backend_selector.load_inference_bundle_with_backend(
@@ -538,11 +526,7 @@ class TestBackendSelection:
             delegated_paths.append(path)
             return object(), {}
 
-        monkeypatch.setattr(
-            backend_selector,
-            "update_legacy_dict",
-            bridge,
-        )
+        monkeypatch.setattr(backend_selector, "update_legacy_dict", bridge)
         monkeypatch.setattr("ptycho.workflows.bundle_loading.load_inference_bundle", loader)
 
         backend_selector.load_inference_bundle_with_backend(alias, config)
@@ -570,7 +554,7 @@ class TestBackendSelection:
         Phase: E1.B API parity test
         Reference: pytorch_workflow_comparison.md §Summary Table
         """
-        from ptycho.config.config import TrainingConfig, ModelConfig, DataConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig
 
         # Create identical config for both backends
         model_config = ModelConfig(N=64, gridsize=1)
@@ -578,7 +562,7 @@ class TestBackendSelection:
         # TensorFlow config
         tf_config = TrainingConfig(
             model=model_config,
-            data=DataConfig(train_data_file=Path('train.npz')),
+            train_data_file=Path('train.npz'),
             batch_size=16,
             nepochs=1,
             backend='tensorflow'
@@ -587,7 +571,7 @@ class TestBackendSelection:
         # PyTorch config (identical except backend field)
         pt_config = TrainingConfig(
             model=model_config,
-            data=DataConfig(train_data_file=Path('train.npz')),
+            train_data_file=Path('train.npz'),
             batch_size=16,
             nepochs=1,
             backend='pytorch'
@@ -595,7 +579,7 @@ class TestBackendSelection:
 
         # Assert both configs are valid and only differ in backend field
         assert tf_config.model.N == pt_config.model.N
-        assert tf_config.data.train_data_file == pt_config.data.train_data_file
+        assert tf_config.train_data_file == pt_config.train_data_file
         assert tf_config.batch_size == pt_config.batch_size
         assert tf_config.nepochs == pt_config.nepochs
         assert tf_config.backend != pt_config.backend

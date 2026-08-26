@@ -10,6 +10,7 @@ def test_resolve_generator_cnn():
     assert gen.name == 'cnn'
 
 
-def test_training_config_rejects_unknown_generator_architecture():
-    with pytest.raises(ValueError, match="architecture"):
-        TrainingConfig(model=ModelConfig(architecture='unknown'))
+def test_resolve_generator_unknown_raises():
+    cfg = TrainingConfig(model=ModelConfig(architecture='unknown'))
+    with pytest.raises(ValueError):
+        resolve_generator(cfg)

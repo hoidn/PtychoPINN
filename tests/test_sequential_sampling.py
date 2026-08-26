@@ -55,13 +55,15 @@ class TestSequentialSampling(unittest.TestCase):
         result1 = self.raw_data.generate_grouped_data(
             N=64, K=7, nsamples=nsamples, 
             sequential_sampling=False,
-            seed=None  # No seed, so should be random
+            seed=None, # No seed, so should be random
+            gridsize=2,
         )
         
         result2 = self.raw_data.generate_grouped_data(
             N=64, K=7, nsamples=nsamples,
             sequential_sampling=False,
-            seed=None  # No seed, so should be random
+            seed=None, # No seed, so should be random
+            gridsize=2,
         )
         
         # The indices should be different between runs (with high probability)
@@ -78,7 +80,8 @@ class TestSequentialSampling(unittest.TestCase):
         nsamples = 10
         result = self.raw_data.generate_grouped_data(
             N=64, K=7, nsamples=nsamples,
-            sequential_sampling=True
+            sequential_sampling=True,
+            gridsize=2,
         )
         
         # Extract the seed indices used (first index in each group should be related to seed)
@@ -101,12 +104,14 @@ class TestSequentialSampling(unittest.TestCase):
         # Run sequential sampling multiple times
         result1 = self.raw_data.generate_grouped_data(
             N=64, K=7, nsamples=nsamples,
-            sequential_sampling=True
+            sequential_sampling=True,
+            gridsize=2,
         )
         
         result2 = self.raw_data.generate_grouped_data(
             N=64, K=7, nsamples=nsamples,
-            sequential_sampling=True
+            sequential_sampling=True,
+            gridsize=2,
         )
         
         # Results should be identical
@@ -138,7 +143,8 @@ class TestSequentialSampling(unittest.TestCase):
         params.cfg['gridsize'] = 1  # Use gridsize=1 for simplicity
         result = small_raw_data.generate_grouped_data(
             N=64, K=3, nsamples=nsamples,
-            sequential_sampling=True
+            sequential_sampling=True,
+            gridsize=1,
         )
         
         # For gridsize=1, each group should be a single point
@@ -162,7 +168,8 @@ class TestSequentialSampling(unittest.TestCase):
         
         result = self.raw_data.generate_grouped_data(
             N=64, K=7, nsamples=nsamples,
-            sequential_sampling=True
+            sequential_sampling=True,
+            gridsize=2,
         )
         
         # Check shape
@@ -172,7 +179,8 @@ class TestSequentialSampling(unittest.TestCase):
         # Check that it's deterministic
         result2 = self.raw_data.generate_grouped_data(
             N=64, K=7, nsamples=nsamples,
-            sequential_sampling=True
+            sequential_sampling=True,
+            gridsize=2,
         )
         np.testing.assert_array_equal(nn_indices, result2['nn_indices'])
     
@@ -183,14 +191,16 @@ class TestSequentialSampling(unittest.TestCase):
         # Sequential sampling
         seq_result = self.raw_data.generate_grouped_data(
             N=64, K=7, nsamples=nsamples,
-            sequential_sampling=True
+            sequential_sampling=True,
+            gridsize=2,
         )
         
         # Random sampling with seed for reproducibility
         random_result = self.raw_data.generate_grouped_data(
             N=64, K=7, nsamples=nsamples,
             sequential_sampling=False,
-            seed=42
+            seed=42,
+            gridsize=2,
         )
         
         # Get unique indices used
@@ -218,7 +228,8 @@ class TestSequentialSampling(unittest.TestCase):
         try:
             result = self.raw_data.generate_grouped_data(
                 N=64, K=7, nsamples=n_points + 10,  # More than available
-                sequential_sampling=True
+                sequential_sampling=True,
+                gridsize=1,
             )
             
             # With gridsize=1, should cap at available points
@@ -234,7 +245,8 @@ class TestSequentialSampling(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "K choose C oversampling"):
             self.raw_data.generate_grouped_data(
                 N=64, K=K, nsamples=n_points + 10,  # More than available
-                sequential_sampling=True
+                sequential_sampling=True,
+                gridsize=2,
             )
 
         # Explicitly opt-in to the oversampling path per OVERSAMPLING-001.
@@ -243,6 +255,7 @@ class TestSequentialSampling(unittest.TestCase):
             sequential_sampling=True,
             enable_oversampling=True,
             neighbor_pool_size=K,
+            gridsize=2,
         )
 
         # With gridsize=2 (C=4), oversampling should now satisfy the request.
@@ -253,7 +266,8 @@ class TestSequentialSampling(unittest.TestCase):
         # Case 3: Request exactly the number of available points
         result = self.raw_data.generate_grouped_data(
             N=64, K=7, nsamples=n_points,
-            sequential_sampling=True
+            sequential_sampling=True,
+            gridsize=2,
         )
         
         # Should work without issues
@@ -267,13 +281,15 @@ class TestSequentialSampling(unittest.TestCase):
         result1 = self.raw_data.generate_grouped_data(
             N=64, K=7, nsamples=nsamples,
             sequential_sampling=True,
-            seed=42
+            seed=42,
+            gridsize=2,
         )
         
         result2 = self.raw_data.generate_grouped_data(
             N=64, K=7, nsamples=nsamples,
             sequential_sampling=True,
-            seed=123  # Different seed
+            seed=123, # Different seed
+            gridsize=2,
         )
         
         # Should be identical despite different seeds
@@ -289,19 +305,21 @@ class TestIntegrationWithWorkflow(unittest.TestCase):
     
     def test_config_flag_exists(self):
         """Test that TrainingConfig has sequential_sampling field."""
-        from ptycho.config.config import TrainingConfig, ModelConfig, SamplingConfig
-
+        from ptycho.config.config import TrainingConfig, ModelConfig
+        
+        # Create a config with sequential_sampling
         model_config = ModelConfig()
         config = TrainingConfig(
             model=model_config,
-            sampling=SamplingConfig(sequential_sampling=True),
+            sequential_sampling=True  # Should not raise an error
         )
-
-        self.assertTrue(hasattr(config.sampling, 'sequential_sampling'))
-        self.assertTrue(config.sampling.sequential_sampling)
-
+        
+        self.assertTrue(hasattr(config, 'sequential_sampling'))
+        self.assertTrue(config.sequential_sampling)
+        
+        # Test default value
         config_default = TrainingConfig(model=model_config)
-        self.assertFalse(config_default.sampling.sequential_sampling)
+        self.assertFalse(config_default.sequential_sampling)
     
     def test_cli_argument_parsing(self):
         """Test that CLI argument for sequential sampling works."""
@@ -319,16 +337,14 @@ class TestIntegrationWithWorkflow(unittest.TestCase):
         from ptycho.config.config import TrainingConfig, ModelConfig
         
         # This should work without error
-        from ptycho.config.config import SamplingConfig
         config = TrainingConfig(
             model=ModelConfig(),
-            sampling=SamplingConfig(sequential_sampling=True, n_images=100),
+            sequential_sampling=True,
+            n_images=100
         )
-
-        self.assertTrue(config.sampling.sequential_sampling)
-        # n_images is cleared to None by the SamplingConfig validator; n_groups receives the value
-        self.assertIsNone(config.sampling.n_images)
-        self.assertEqual(config.sampling.training_groups, 100)
+        
+        self.assertTrue(config.sequential_sampling)
+        self.assertEqual(config.n_images, 100)
 
 
 if __name__ == '__main__':

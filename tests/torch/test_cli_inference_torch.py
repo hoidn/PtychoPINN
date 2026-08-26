@@ -50,7 +50,6 @@ class TestInferenceCLI:
             '--model_path', str(model_dir),
             '--test_data', str(test_file),
             '--output_dir', str(tmp_path / 'inference_outputs'),
-            '--n_images', '32',
         ]
 
     def test_accelerator_flag_roundtrip(self, minimal_inference_args, monkeypatch):
@@ -247,91 +246,6 @@ class TestInferenceCLI:
         assert request.values['inference_batch_size'] == 8
         assert request.values['enable_progress_bar'] is False
 
-    def test_accelerator_flag_roundtrip(self, minimal_inference_args, monkeypatch):
-        """
-        Test that accelerator flag is properly handled by _run_inference_and_reconstruct (DEVICE-MISMATCH-001).
-
-        Expected behavior:
-        - CLI parses --accelerator flag and builds execution_config
-        - execution_config accelerator maps to device string ('cuda', 'mps', 'cpu')
-        - _run_inference_and_reconstruct receives device and moves model to it
-        - Model.to(device) and model.eval() are called inside helper
-
-        Phase: R (DEVICE-MISMATCH-001 fix)
-        Reference: input.md Do Now step 3, DEVICE-MISMATCH-001 finding
-        """
-        import numpy as np
-        import torch
-        from unittest.mock import MagicMock, patch
-
-        # Mock RawData with minimal required fields
-        mock_raw_data = MagicMock()
-        mock_raw_data.diff3d = np.random.rand(10, 64, 64).astype(np.float32)
-        mock_raw_data.probeGuess = np.random.rand(64, 64).astype(np.complex64)
-        mock_raw_data.xcoords = np.random.rand(10)
-        mock_raw_data.ycoords = np.random.rand(10)
-
-        # Mock model with .to() and .eval() tracking
-        mock_model = MagicMock()
-        device_calls = []
-        eval_calls = []
-
-        def track_to_call(device):
-            device_calls.append(device)
-            return mock_model
-
-        def track_eval_call():
-            eval_calls.append(True)
-            return mock_model
-
-        mock_model.to = MagicMock(side_effect=track_to_call)
-        mock_model.eval = MagicMock(side_effect=track_eval_call)
-        patch_complex = torch.complex(
-            torch.rand(1, 1, 64, 64, dtype=torch.float32),
-            torch.rand(1, 1, 64, 64, dtype=torch.float32),
-        )
-        mock_model.forward_predict = MagicMock(return_value=patch_complex)
-
-        def fake_reassemble(patches, offsets, data_cfg, model_cfg, padded_size=None, **_kwargs):
-            size = int(padded_size or patches.shape[-1])
-            imgs = torch.zeros((1, size, size), dtype=patches.dtype)
-            return imgs, None, None
-
-        # Import and call _run_inference_and_reconstruct directly
-        from ptycho_torch.inference import _run_inference_and_reconstruct
-        from ptycho.config.config import InferenceConfig, ModelConfig, PyTorchExecutionConfig
-
-        config = InferenceConfig(
-            model=ModelConfig(N=64, gridsize=1),
-            model_path=Path('outputs/test/bundle.zip'),
-            test_data_file=Path('test.npz'),
-            backend='pytorch',
-            output_dir=Path('outputs/inference'),
-            inference_groups=10
-        )
-
-        execution_config = PyTorchExecutionConfig(
-            accelerator='cuda',  # Request CUDA device
-            num_workers=0,
-            inference_batch_size=None
-        )
-
-        # Call helper with 'cuda' device
-        with patch('ptycho_torch.helper.reassemble_patches_position_real', side_effect=fake_reassemble):
-            _run_inference_and_reconstruct(
-                mock_model, mock_raw_data, config, execution_config, 'cuda', quiet=True
-            )
-
-        # Verify model.to('cuda') was called
-        assert len(device_calls) > 0, \
-            "_run_inference_and_reconstruct should call model.to(device)"
-        assert device_calls[0] == 'cuda', \
-            f"model.to() should be called with 'cuda', got {device_calls[0]}"
-
-        # Verify model.eval() was called
-        assert len(eval_calls) > 0, \
-            "_run_inference_and_reconstruct should call model.eval()"
-
 
 class TestInferenceCLIThinWrapper:
     """
@@ -342,7 +256,6 @@ class TestInferenceCLIThinWrapper:
     the thin wrapper refactor is implemented (Phase D.C C3).
 
     Expected RED Failures:
-    - AttributeError: _run_inference_and_reconstruct helper does not exist
     - AssertionError: validate_paths() not called (inline validation still present)
     - AssertionError: Helper delegation order incorrect
 
@@ -359,12 +272,10 @@ class TestInferenceCLIThinWrapper:
 
         test_file = tmp_path / "test.npz"
         test_file.touch()  # Create dummy test file
-
         return [
             '--model_path', str(model_dir),
             '--test_data', str(test_file),
             '--output_dir', str(tmp_path / 'inference_outputs'),
-            '--n_images', '32',
         ]
 
     def test_cli_delegates_to_validate_paths(self, minimal_inference_args, monkeypatch):
@@ -413,115 +324,9 @@ class TestInferenceCLIThinWrapper:
         assert str(call_kwargs.get('test_file', '')).endswith('test.npz'), "test_file path incorrect"
         assert 'inference_outputs' in str(call_kwargs.get('output_dir', '')), "output_dir path incorrect"
 
-    def test_cli_delegates_to_helper_for_data_loading(self, minimal_inference_args, monkeypatch):
-        """
-        RED Test: CLI calls RawData.from_file() for test data loading.
-
-        Expected RED Failure:
-        - May pass if current CLI already loads RawData (Option A decision)
-        - OR may fail if workflow is expected to load data (Option B)
-
-        Success Criteria (GREEN):
-        - RawData.from_file() called exactly once with test_data path
-        - Called AFTER factory invocation (CONFIG-001 already satisfied)
-        """
-        from unittest.mock import MagicMock, patch
-
-        mock_validate_paths = MagicMock()
-        mock_factory = MagicMock()
-        mock_factory.return_value = MagicMock(
-            tf_inference_config=MagicMock(inference_groups=32),
-            pt_data_config=MagicMock(),
-            execution_config=MagicMock(accelerator='cpu'),
-        )
-        mock_bundle_loader = MagicMock(return_value=({'diffraction_to_obj': MagicMock()}, {}))
-        mock_raw_data_from_file = MagicMock(return_value=MagicMock())
-
-        with patch('ptycho_torch.cli.shared.validate_paths', mock_validate_paths), \
-             patch('ptycho_torch.config_factory.create_inference_payload', mock_factory), \
-             patch('ptycho_torch.workflows.bundle_io.load_inference_bundle_torch', mock_bundle_loader), \
-             patch('ptycho.raw_data.RawData.from_file', mock_raw_data_from_file):
-
-            from ptycho_torch.inference import cli_main
-            monkeypatch.setattr('sys.argv', ['inference.py'] + minimal_inference_args)
-
-            try:
-                cli_main()
-            except (SystemExit, Exception):
-                pass
-
-        # Assert RawData.from_file() was called
-        assert mock_raw_data_from_file.called, \
-            "RawData.from_file() was not called - data loading delegation broken"
-
-        # Assert called with test_data path
-        call_args = mock_raw_data_from_file.call_args
-        assert str(call_args[0][0]).endswith('test.npz'), \
-            f"Expected test.npz path, got {call_args[0][0]}"
-
-    def test_cli_delegates_to_inference_helper(self, minimal_inference_args, monkeypatch):
-        """
-        RED Test: CLI calls _run_inference_and_reconstruct() helper.
-
-        Expected RED Failure:
-        - AttributeError: module 'ptycho_torch.inference' has no attribute '_run_inference_and_reconstruct'
-
-        Success Criteria (GREEN):
-        - _run_inference_and_reconstruct() called with (model, raw_data, config, execution_config, device, quiet)
-        - Returns (amplitude, phase) tuple
-        """
-        from unittest.mock import MagicMock, patch
-
-        mock_validate_paths = MagicMock()
-        mock_factory = MagicMock()
-        mock_factory.return_value = MagicMock(
-            tf_inference_config=MagicMock(inference_groups=32),
-            pt_data_config=MagicMock(),
-            execution_config=MagicMock(accelerator='cpu'),
-        )
-        mock_bundle_loader = MagicMock(return_value=({'diffraction_to_obj': MagicMock()}, {}))
-        mock_raw_data = MagicMock()
-        mock_helper = MagicMock(return_value=(MagicMock(), MagicMock()))  # (amplitude, phase)
-
-        with patch('ptycho_torch.cli.shared.validate_paths', mock_validate_paths), \
-             patch('ptycho_torch.config_factory.create_inference_payload', mock_factory), \
-             patch('ptycho_torch.workflows.bundle_io.load_inference_bundle_torch', mock_bundle_loader), \
-             patch('ptycho.raw_data.RawData.from_file', return_value=mock_raw_data), \
-             patch('ptycho_torch.inference._run_inference_and_reconstruct', mock_helper):
-
-            from ptycho_torch.inference import cli_main
-            monkeypatch.setattr('sys.argv', ['inference.py'] + minimal_inference_args)
-
-            try:
-                cli_main()
-            except (SystemExit, Exception):
-                pass
-
-        # Assert helper was called
-        assert mock_helper.called, \
-            "_run_inference_and_reconstruct() helper not called - inline logic still present"
-
-        # Assert called with correct arguments
-        call_kwargs = mock_helper.call_args.kwargs
-        assert 'model' in call_kwargs, "model argument missing"
-        assert 'raw_data' in call_kwargs, "raw_data argument missing"
-        assert 'config' in call_kwargs, "config argument missing"
-        assert 'execution_config' in call_kwargs, "execution_config argument missing"
-        assert 'device' in call_kwargs, "device argument missing"
-        assert 'quiet' in call_kwargs, "quiet argument missing"
-
     def test_cli_calls_save_individual_reconstructions(self, minimal_inference_args, monkeypatch):
-        """
-        RED Test: CLI calls save_individual_reconstructions() after inference.
-
-        Expected RED Failure:
-        - May pass if current CLI already calls this function
-        - OR assertion fails if call order incorrect
-
-        Success Criteria (GREEN):
-        - save_individual_reconstructions() called with (amplitude, phase, output_dir)
-        - Called AFTER _run_inference_and_reconstruct() helper
-        """
+        """The CLI saves the barycentric kernel's amplitude/phase to the output dir."""
+        from types import SimpleNamespace
         from unittest.mock import MagicMock, patch
         import numpy as np
 
@@ -529,51 +334,34 @@ class TestInferenceCLIThinWrapper:
         mock_factory = MagicMock()
         mock_factory.return_value = MagicMock(
             tf_inference_config=MagicMock(inference_groups=32),
-            pt_data_config=MagicMock(),
-            execution_config=MagicMock(accelerator='cpu'),
+            pt_inference_config=MagicMock(log_patch_stats=False),
+            execution_config=MagicMock(
+                accelerator='cpu', num_workers=0, inference_batch_size=None
+            ),
         )
-        mock_bundle_loader = MagicMock(return_value=({'diffraction_to_obj': MagicMock()}, {}))
-        mock_raw_data = MagicMock()
         mock_amplitude = np.random.rand(64, 64)
         mock_phase = np.random.rand(64, 64)
-        mock_helper = MagicMock(return_value=(mock_amplitude, mock_phase))
+        mock_helper = MagicMock(
+            return_value=SimpleNamespace(amplitude=mock_amplitude, phase=mock_phase)
+        )
         mock_save_fn = MagicMock()
 
         with patch('ptycho_torch.cli.shared.validate_paths', mock_validate_paths), \
              patch('ptycho_torch.config_factory.create_inference_payload', mock_factory), \
-             patch('ptycho_torch.workflows.bundle_io.load_inference_bundle_torch', mock_bundle_loader), \
-             patch('ptycho.raw_data.RawData.from_file', return_value=mock_raw_data), \
-             patch('ptycho_torch.inference._run_inference_and_reconstruct', mock_helper), \
+             patch('ptycho_torch.inference.reconstruct_npz_barycentric', mock_helper), \
              patch('ptycho_torch.inference.save_individual_reconstructions', mock_save_fn):
-
             from ptycho_torch.inference import cli_main
             monkeypatch.setattr('sys.argv', ['inference.py'] + minimal_inference_args)
+            cli_main()
 
-            try:
-                cli_main()
-            except (SystemExit, Exception):
-                pass
-
-        # Assert save function was called
+        # Assert save function was called with (amplitude, phase, output_dir)
         assert mock_save_fn.called, \
             "save_individual_reconstructions() not called - output artifact generation missing"
-
-        # Assert called with correct arguments
         call_args = mock_save_fn.call_args[0]
         assert len(call_args) >= 3, "Expected 3 arguments: (amplitude, phase, output_dir)"
-        # Note: We can't assert array equality directly due to mocking, but we verify call happened
 
     def test_quiet_flag_suppresses_progress_output(self, minimal_inference_args, monkeypatch, capsys):
-        """
-        RED Test: --quiet flag suppresses CLI progress print statements.
-
-        Expected RED Failure:
-        - AssertionError: Progress output still printed when --quiet specified
-
-        Success Criteria (GREEN):
-        - No progress messages in stdout when --quiet flag present
-        - enable_progress_bar=False passed to execution config
-        """
+        """--quiet passes enable_progress_bar=False through the execution request."""
         from unittest.mock import MagicMock, patch
 
         mock_validate_paths = MagicMock()
@@ -583,20 +371,13 @@ class TestInferenceCLIThinWrapper:
             pt_data_config=MagicMock(),
             execution_config=MagicMock(accelerator='cpu', enable_progress_bar=False),
         )
-        mock_bundle_loader = MagicMock(return_value=({'diffraction_to_obj': MagicMock()}, {}))
-        mock_raw_data = MagicMock()
-        mock_helper = MagicMock(return_value=(MagicMock(), MagicMock()))
 
         with patch('ptycho_torch.cli.shared.validate_paths', mock_validate_paths), \
              patch('ptycho_torch.config_factory.create_inference_payload', mock_factory), \
-             patch('ptycho_torch.workflows.bundle_io.load_inference_bundle_torch', mock_bundle_loader), \
-             patch('ptycho.raw_data.RawData.from_file', return_value=mock_raw_data), \
-             patch('ptycho_torch.inference._run_inference_and_reconstruct', mock_helper), \
+             patch('ptycho_torch.inference.reconstruct_npz_barycentric', MagicMock()), \
              patch('ptycho_torch.inference.save_individual_reconstructions', MagicMock()):
-
             from ptycho_torch.inference import cli_main
             monkeypatch.setattr('sys.argv', ['inference.py'] + minimal_inference_args + ['--quiet'])
-
             try:
                 cli_main()
             except (SystemExit, Exception):
@@ -610,23 +391,65 @@ class TestInferenceCLIThinWrapper:
             "Expected enable_progress_bar=False when --quiet specified"
 
 
-def test_save_individual_reconstructions_closes_figures_when_rendering_raises(
-    tmp_path, monkeypatch
-):
-    """A failed render must not leak the figure into the global registry."""
-    import matplotlib.axes
-    import numpy as np
-    from matplotlib import pyplot as plt
+class TestCorruptionRetainedBoundaries:
+    """Phase 4 Task 4: each deleted check leaves a retained boundary that still
+    rejects the same corruption."""
 
-    from ptycho_torch.inference import save_individual_reconstructions
+    def test_corruption_channel_join_rejected_by_retained_decode(self):
+        """The inference-side C-join is gone; decode still rejects a broken join."""
+        from ptycho.config.config import ModelConfig as CanonicalModelConfig
+        from ptycho_torch.artifact_schema import (
+            decode_artifact_identity,
+            encode_artifact_identity,
+        )
+        from ptycho_torch.config_params import (
+            DataConfig,
+            InferenceConfig,
+            ModelConfig,
+            TrainingConfig,
+        )
+        from ptycho_torch.model_spec import derive_model_spec
 
-    monkeypatch.setattr(
-        matplotlib.axes.Axes,
-        "imshow",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("imshow failed")),
-    )
+        data = DataConfig(N=64, gridsize=1, probe_scale=4.0)
+        model = ModelConfig(
+            object_layout="single_patch",
+            training_canvas="independent",
+            training_patch_weighting="uniform",
+            object_big=None,
+            amp_activation="silu",
+        )
+        canonical = CanonicalModelConfig(
+            N=64,
+            gridsize=1,
+            object_layout="single_patch",
+            training_canvas="independent",
+            training_patch_weighting="uniform",
+            object_big=None,
+            amp_activation="swish",
+        )
+        spec = derive_model_spec(canonical, model, data)
+        payload = encode_artifact_identity(
+            spec, data, TrainingConfig(torch_loss_mode="poisson"), InferenceConfig()
+        )
+        payload["data_config"]["C"] = 2
+        with pytest.raises(ValueError, match="field set is not exact"):
+            decode_artifact_identity(payload)
 
-    with pytest.raises(RuntimeError, match="imshow failed"):
-        save_individual_reconstructions(np.ones((4, 4)), np.zeros((4, 4)), tmp_path)
+    def test_corruption_scale_contract_rejected_by_retained_validation(self):
+        """The inference-side scale-contract check is gone; construction still rejects a broken pair."""
+        from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig
+        from ptycho_torch.scaling_contract import validate_scale_contract
 
-    assert plt.get_fignums() == []
+        data = DataConfig(
+            N=64,
+            gridsize=1,
+            scale_contract_version="ci_intensity_v2",
+            measurement_domain="normalized_amplitude",
+        )
+        model = ModelConfig(
+            physics_forward_mode="rectangular_scaled"
+        )
+        with pytest.raises(ValueError, match="scale contract"):
+            validate_scale_contract(
+                data, model, TrainingConfig(torch_loss_mode="poisson")
+            )

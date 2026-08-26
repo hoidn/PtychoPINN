@@ -245,6 +245,30 @@ def _anchor_values(
     return scan_x, scan_y
 
 
+def _truth_origin_values(anchor: Mapping[str, Any]) -> tuple[int, int] | None:
+    """Return an optional exact ``(x, y)`` source origin from an anchor."""
+
+    if "truth_origin" not in anchor:
+        return None
+    raw = np.asarray(anchor["truth_origin"])
+    if (
+        raw.ndim != 1
+        or raw.size != 2
+        or np.issubdtype(raw.dtype, np.bool_)
+        or not np.issubdtype(raw.dtype, np.number)
+        or not np.isfinite(raw).all()
+    ):
+        raise AlignmentError("anchor truth_origin must be a finite length-2 vector")
+    if (
+        not np.equal(raw, np.floor(raw)).all()
+        or np.any(raw < 0)
+    ):
+        raise AlignmentError(
+            "anchor truth_origin must contain nonnegative integer coordinates"
+        )
+    return int(raw[0]), int(raw[1])
+
+
 def _bilinear_sample(
     truth: NDArray[np.complexfloating[Any, Any]],
     y: NDArray[np.float64],
@@ -332,8 +356,10 @@ def prepare_anchor_aligned(
     canvas_weights: Any,
     anchor: Mapping[str, Any],
     truth: Any,
+    *,
+    metric_crop_border: int = 0,
 ) -> PreparedComparison:
-    """Sample truth into the canonical scan-COM canvas without cropping."""
+    """Align truth to a reconstruction and apply the declared metric border."""
     recon = _complex_2d(reconstruction, name="reconstruction")
     target_source = _complex_2d(truth, name="truth")
     weights = np.asarray(canvas_weights)
@@ -343,11 +369,39 @@ def prepare_anchor_aligned(
         raise AlignmentError("canvas_weights must be finite and nonnegative")
     canvas_shape = (int(recon.shape[0]), int(recon.shape[1]))
     scan_x, scan_y = _anchor_values(anchor, canvas_shape)
-    rows, cols = np.indices(recon.shape, dtype=np.float64)
-    x = cols - math.floor(recon.shape[1] / 2) + scan_x
-    y = rows - math.floor(recon.shape[0] / 2) + scan_y
-    sampled, valid_truth = _bilinear_sample(target_source, y, x)
+    truth_origin = _truth_origin_values(anchor)
+    if truth_origin is None:
+        rows, cols = np.indices(recon.shape, dtype=np.float64)
+        x = cols - math.floor(recon.shape[1] / 2) + scan_x
+        y = rows - math.floor(recon.shape[0] / 2) + scan_y
+        sampled, valid_truth = _bilinear_sample(target_source, y, x)
+    else:
+        origin_x, origin_y = truth_origin
+        bottom = origin_y + recon.shape[0]
+        right = origin_x + recon.shape[1]
+        if bottom > target_source.shape[0] or right > target_source.shape[1]:
+            raise AlignmentError("anchor truth_origin slice exceeds truth bounds")
+        sampled = np.asarray(
+            target_source[origin_y:bottom, origin_x:right]
+        )
+        valid_truth = np.ones(recon.shape, dtype=bool)
     common = (weights > 0) & valid_truth
+    if (
+        isinstance(metric_crop_border, (bool, np.bool_))
+        or not isinstance(metric_crop_border, (int, np.integer))
+        or int(metric_crop_border) < 0
+    ):
+        raise AlignmentError("metric_crop_border must be a nonnegative integer")
+    metric_crop_border = int(metric_crop_border)
+    if metric_crop_border:
+        if 2 * metric_crop_border >= min(recon.shape):
+            raise AlignmentError("metric_crop_border leaves no comparison pixels")
+        border_mask = np.zeros(recon.shape, dtype=bool)
+        border_mask[
+            metric_crop_border : recon.shape[0] - metric_crop_border,
+            metric_crop_border : recon.shape[1] - metric_crop_border,
+        ] = True
+        common &= border_mask
     rectangle = largest_true_rectangle(common)
     square = centered_square_bounds(rectangle)
     return PreparedComparison(
@@ -774,8 +828,47 @@ def _count_diagnostics_are_legacy_not_applicable(record: Any) -> bool:
     return status == "not_applicable" and reason == "legacy_normalized_amplitude"
 
 
-def _validate_fitted_count_diagnostics(record: Any) -> dict[str, Any]:
-    """Require and summarize fitted count evidence for CI evaluation."""
+def _count_diagnostics_record(record: Any) -> dict[str, Any]:
+    """Copy one validated count-diagnostics record into JSON-ready evidence."""
+
+    if isinstance(record, Mapping):
+        return dict(record)
+    if hasattr(record, "to_jsonable"):
+        value = record.to_jsonable()
+        if isinstance(value, Mapping):
+            return dict(value)
+    if hasattr(record, "__dataclass_fields__"):
+        return asdict(record)
+    return {
+        name: getattr(record, name)
+        for name in _FITTED_COUNT_FIELDS
+        if hasattr(record, name)
+    }
+
+
+_FITTED_COUNT_FIELDS = (
+    "relative_l2_intensity_error",
+    "mean_raw_poisson_nll",
+    "n_samples",
+    "n_pixels",
+    "effective_mask_digest",
+    "sample_ids",
+    "sample_identity_digest",
+)
+
+
+def _validate_fitted_count_diagnostics(
+    record: Any,
+    *,
+    expected_sample_ids: Any,
+    expected_mask_digest: Any,
+) -> Any:
+    """Require real fitted count evidence under the CI count-intensity profile.
+
+    ``FittedCountMetrics`` carries no ``status`` field, so the legacy marker
+    check cannot be reused.  A ``not_applicable``/``not_evaluated`` marker here
+    would mean the CI diagnostics silently never ran, which must fail closed.
+    """
 
     def value(name: str) -> Any:
         if isinstance(record, Mapping):
@@ -792,23 +885,58 @@ def _validate_fitted_count_diagnostics(record: Any) -> dict[str, Any]:
             )
         return getattr(record, name)
 
-    float_values: dict[str, float] = {}
-    for name in ("relative_l2_intensity_error", "mean_raw_poisson_nll"):
-        number = float(value(name))
-        if not math.isfinite(number):
-            raise MetricError(f"count_intensity diagnostics {name} must be finite")
-        float_values[name] = number
-    int_values: dict[str, int] = {}
-    for name in ("n_samples", "n_pixels"):
-        number = int(value(name))
-        if number <= 0:
-            raise MetricError(f"count_intensity diagnostics {name} must be positive")
-        int_values[name] = number
-    return {
-        "status": "complete",
-        **float_values,
-        **int_values,
-    }
+    from ptycho_torch.reassembly_diagnostics import FittedCountMetrics
+
+    try:
+        fitted = FittedCountMetrics(
+            **{name: value(name) for name in _FITTED_COUNT_FIELDS}
+        )
+    except (TypeError, ValueError) as error:
+        raise MetricError(f"invalid count_intensity diagnostics: {error}") from error
+    if fitted.relative_l2_intensity_error < 0.0:
+        raise MetricError(
+            "count_intensity diagnostics relative_l2_intensity_error must be "
+            "nonnegative"
+        )
+    if (
+        len(fitted.effective_mask_digest) != 64
+        or any(
+            character not in "0123456789abcdef"
+            for character in fitted.effective_mask_digest.lower()
+        )
+    ):
+        raise MetricError(
+            "count_intensity diagnostics effective_mask_digest must be SHA-256"
+        )
+    if (
+        not isinstance(expected_mask_digest, str)
+        or len(expected_mask_digest) != 64
+        or any(
+            character not in "0123456789abcdef"
+            for character in expected_mask_digest.lower()
+        )
+    ):
+        raise MetricError("reassembly mask_digest must be SHA-256")
+    if fitted.effective_mask_digest.lower() != expected_mask_digest.lower():
+        raise MetricError(
+            "count_intensity diagnostics effective_mask_digest must match "
+            "reassembly mask_digest"
+        )
+    expected_ids = tuple(
+        int(item) for item in np.asarray(expected_sample_ids).reshape(-1)
+    )
+    if fitted.n_samples != len(expected_ids) or sorted(fitted.sample_ids) != sorted(
+        expected_ids
+    ):
+        raise MetricError(
+            "count_intensity diagnostics sample_ids must match channel_indices"
+        )
+    if fitted.n_pixels <= 0 or fitted.n_pixels % fitted.n_samples:
+        raise MetricError(
+            "count_intensity diagnostics n_pixels must be a positive whole "
+            "detector-frame multiple"
+        )
+    return fitted
 
 
 def _validate_channel_indices(
@@ -1139,6 +1267,7 @@ def evaluate_reconstruction_quality(
     output_dir: str | os.PathLike[str],
     expected_channels: int = 4,
     measurement_domain: str = "normalized_amplitude",
+    metric_crop_border: int = 0,
 ) -> ReconstructionEvaluationResult:
     """Score raw arrays, render diagnostics, and publish two stage artifacts."""
     if measurement_domain not in {"normalized_amplitude", "count_intensity"}:
@@ -1178,30 +1307,38 @@ def evaluate_reconstruction_quality(
     if _record_field(reassembly, "effective_precision") != "32-true":
         raise MetricError("quality evaluation requires effective precision 32-true")
     count_record = _record_field(reassembly, "count_metrics")
+    assembly_method = canvas_anchor.get("assembly_method")
+    validated_count_record = count_record
     if measurement_domain == "count_intensity":
-        count_diagnostics = _validate_fitted_count_diagnostics(count_record)
+        validated_count_record = _validate_fitted_count_diagnostics(
+            count_record,
+            expected_sample_ids=normalized_channel_indices,
+            expected_mask_digest=_record_field(reassembly, "mask_digest"),
+        )
     elif not _count_diagnostics_are_legacy_not_applicable(count_record):
         raise MetricError("legacy count diagnostics must be explicitly not_applicable")
-    else:
-        count_diagnostics = {
-            "status": "not_applicable",
-            "reason": "legacy_normalized_amplitude",
-        }
 
-    prepared = prepare_anchor_aligned(canvas, weights, canvas_anchor, target)
+    prepared = prepare_anchor_aligned(
+        canvas,
+        weights,
+        canvas_anchor,
+        target,
+        metric_crop_border=metric_crop_border,
+    )
     prescale_prepared = prepare_anchor_aligned(
         prescale,
         weights,
         canvas_anchor,
         target,
+        metric_crop_border=metric_crop_border,
     )
     if min(prepared.ssim_bounds.height, prepared.ssim_bounds.width) < 7:
         raise MetricError("SSIM rectangle must be at least 7-by-7")
     collapse = valid_mask_diagnostics(canvas, prepared.common_mask)
     if collapse.amplitude_variance <= 0.0:
-        raise MetricError("post-VarPro amplitude variance must be positive")
+        raise MetricError("reconstruction amplitude variance must be positive")
     if collapse.amplitude_dynamic_range <= 0.0:
-        raise MetricError("post-VarPro amplitude dynamic range must be positive")
+        raise MetricError("reconstruction amplitude dynamic range must be positive")
     utilization = scan_utilization_metrics(
         used_scan_ids,
         _record_field(reassembly, "used_center_scan_ids"),
@@ -1228,13 +1365,23 @@ def evaluate_reconstruction_quality(
         prepared.common_mask,
     )
     valid_pixel_count = int(np.count_nonzero(prepared.common_mask))
+    truth_origin = _truth_origin_values(canvas_anchor)
     alignment = {
-        "method": "scan_com_bilinear_complex_v1",
+        "method": (
+            "truth_origin_slice_v1"
+            if truth_origin is not None
+            else "scan_com_bilinear_complex_v1"
+        ),
         "translation_registration": "none",
         "object_center_crop": False,
-        "valid_mask_policy": "positive_weights_and_in_bounds_truth",
+        "valid_mask_policy": (
+            "positive_weights_and_in_bounds_truth_then_symmetric_metric_crop"
+            if metric_crop_border
+            else "positive_weights_and_in_bounds_truth"
+        ),
         "aligned_shape": [int(size) for size in prepared.reconstruction.shape],
         "valid_pixel_count": valid_pixel_count,
+        "metric_crop_border": int(metric_crop_border),
         "ssim_bounds": prepared.ssim_bounds.to_jsonable(),
         "frc_bounds": prepared.frc_bounds.to_jsonable(),
         "canvas_anchor": {
@@ -1246,6 +1393,8 @@ def evaluate_reconstruction_quality(
         },
         "truth_shape": [int(size) for size in target.shape],
     }
+    if truth_origin is not None:
+        alignment["truth_origin"] = [int(item) for item in truth_origin]
     gauge = {
         "method": "unit_global_complex_phase",
         "real": float(factor.real),
@@ -1268,7 +1417,11 @@ def evaluate_reconstruction_quality(
         "prescale_metrics": dict(prescale_metrics),
         "prescale_metrics_status": prescale_status,
         "prescale_role": "diagnostic_only",
-        "quality_gate_canvas": "post_varpro",
+        "quality_gate_canvas": (
+            "tiled_source_object_gauge"
+            if assembly_method == "tiled_raster_v1"
+            else "post_varpro"
+        ),
         "valid_mask": asdict(collapse),
         "scan_utilization": asdict(utilization),
         "channel_groups": channel_record,
@@ -1277,7 +1430,7 @@ def evaluate_reconstruction_quality(
         "groups_per_center": groups_per_center,
         "effective_precision": "32-true",
         "varpro": {"s1": s1, "s2": s2},
-        "count_diagnostics": count_diagnostics,
+        "count_diagnostics": _count_diagnostics_record(validated_count_record),
     }
     output_root = Path(output_dir)
     output_root.mkdir(parents=True, exist_ok=True)

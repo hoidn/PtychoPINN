@@ -753,7 +753,7 @@ def translate_core(images: tf.Tensor, translations: tf.Tensor, interpolation: st
     # Issue FIX-PYTORCH-FORWARD-PARITY-001/C1d: When gridsize > 1,
     # images may be flattened (b*c, H, W, 1) but translations remain (b, 2),
     # causing shape mismatch in tf.stack. Skip fast path if mismatch detected.
-    # Reference: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/reports/.../tf_baseline/phase_c1/red/blocked_20251114T074039Z_tf_non_xla_shape_error.md
+    # Reference: docs/findings.md (see git history for the originating plan)
     images_batch = tf.shape(images)[0]
     trans_batch = tf.shape(translations)[0]
     batches_match = tf.equal(images_batch, trans_batch)
@@ -1192,6 +1192,7 @@ def shift_and_sum(
     global_offsets: np.ndarray,
     M: int = 10,
     chunk_size: int = 32,
+    N: Optional[int] = None,
 ) -> tf.Tensor:
     """
     New batched implementation of shift-and-sum for efficient patch reassembly.
@@ -1204,6 +1205,9 @@ def shift_and_sum(
         global_offsets: Position offsets with shape (num_patches, 1, 1, 2)
         M: Size of central region to crop from each patch
         chunk_size: Number of translated patches processed per streaming chunk.
+        N: Detector size (patch side length). Appended after ``chunk_size`` to
+           preserve the all-positional call form. When ``None`` (default),
+           falls back to ``params()['N']`` for backward compatibility.
     
     Returns:
         Assembled result tensor after batched shift-and-sum
@@ -1215,7 +1219,8 @@ def shift_and_sum(
     assert global_offsets.dtype == np.float64
     
     # Extract necessary parameters
-    N = params()['N']
+    if N is None:
+        N = params()['N']
     
     # 1. Crop the central M x M region of obj_tensor
     cropped_obj = obj_tensor[:, N // 2 - M // 2: N // 2 + M // 2, N // 2 - M // 2: N // 2 + M // 2, :]
@@ -1356,9 +1361,13 @@ def reassemble_position(
     Returns:
         Assembled and normalized result tensor
     """
+    # Detector size is the patch side length; thread it explicitly so the
+    # frozen shift_and_sum no longer needs its own params()['N'] read on this
+    # path (W3.4).
+    N = int(obj_tensor.shape[1])
     ones = tf.ones_like(obj_tensor)
-    return shift_and_sum(obj_tensor, global_offsets, M=M, chunk_size=chunk_size) /\
-        (1e-9 + shift_and_sum(ones, global_offsets, M=M, chunk_size=chunk_size))
+    return shift_and_sum(obj_tensor, global_offsets, M=M, chunk_size=chunk_size, N=N) /\
+        (1e-9 + shift_and_sum(ones, global_offsets, M=M, chunk_size=chunk_size, N=N))
 
 #@debug
 def mk_reassemble_position_real(input_positions: tf.Tensor, **outer_kwargs: Any) -> Callable[[tf.Tensor], tf.Tensor]:

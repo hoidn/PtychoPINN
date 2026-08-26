@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 from pathlib import Path
 
-from ptycho.config.config import TrainingConfig, ModelConfig, DataConfig, SamplingConfig
+from ptycho.config.config import TrainingConfig, ModelConfig
 
 
 class TestTFWorkflowGeneratorIntegration:
@@ -16,8 +16,8 @@ class TestTFWorkflowGeneratorIntegration:
         model_config = ModelConfig(N=64, gridsize=1, architecture='cnn')
         return TrainingConfig(
             model=model_config,
-            data=DataConfig(train_data_file=Path("/tmp/dummy.npz")),
-            sampling=SamplingConfig(training_groups=10),
+            train_data_file=Path("/tmp/dummy.npz"),
+            training_groups=10,
             nepochs=1,
         )
 
@@ -29,7 +29,7 @@ class TestTFWorkflowGeneratorIntegration:
         mock_generator.build_models.return_value = (MagicMock(), MagicMock())
 
         # Patch resolve_generator
-        with patch('ptycho.workflows.workflow_orchestration.resolve_generator', return_value=mock_generator) as mock_resolve:
+        with patch('ptycho.generators.registry.resolve_generator', return_value=mock_generator) as mock_resolve:
             # Patch train_pinn at the source module (it's imported inside the function)
             with patch('ptycho.train_pinn.train_eval') as mock_train_eval:
                 mock_train_eval.return_value = {'history': {}}
@@ -50,7 +50,6 @@ class TestTFWorkflowGeneratorIntegration:
                         except Exception:
                             pass  # May fail due to mocking, but we just want to verify resolve_generator was called
 
-                        # Verify resolve_generator was called once (with the resolved config)
                         mock_resolve.assert_called_once()
                         resolved_config = mock_resolve.call_args.args[0]
                         assert resolved_config.model.architecture == "cnn"

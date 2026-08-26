@@ -253,7 +253,7 @@ class TestCoordinateGrouping(unittest.TestCase):
         # Test with gridsize=2
         params.cfg['gridsize'] = 2
         result = self.raw_data.generate_grouped_data(
-            N=N, K=K, nsamples=nsamples, seed=42
+            N=N, K=K, nsamples=nsamples, seed=42, gridsize=2
         )
         
         # Check that all expected keys are present
@@ -279,7 +279,7 @@ class TestCoordinateGrouping(unittest.TestCase):
         # Test with gridsize=1
         params.cfg['gridsize'] = 1
         result = self.raw_data.generate_grouped_data(
-            N=N, K=K, nsamples=nsamples, seed=42
+            N=N, K=K, nsamples=nsamples, seed=42, gridsize=1
         )
         
         # Check shapes for gridsize=1
@@ -377,7 +377,7 @@ class TestCoordinateGrouping(unittest.TestCase):
             # Run generate_grouped_data
             params.cfg['gridsize'] = 2
             result = self.raw_data.generate_grouped_data(
-                N=64, K=7, nsamples=50, dataset_path=dataset_path
+                N=64, K=7, nsamples=50, dataset_path=dataset_path, gridsize=2
             )
             
             # Check that no cache files were created
@@ -391,7 +391,7 @@ class TestCoordinateGrouping(unittest.TestCase):
         params.cfg['gridsize'] = 2
         result = self.raw_data.generate_grouped_data(
             N=64, K=7, nsamples=50, 
-            dataset_path="/some/fake/path.npz"  # Should not cause error
+            dataset_path="/some/fake/path.npz", gridsize=2  # Should not cause error
         )
         
         self.assertIsNotNone(result)

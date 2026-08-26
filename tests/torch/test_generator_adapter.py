@@ -10,8 +10,6 @@ from pathlib import Path
 import numpy as np
 import torch
 import torch.nn as nn
-import math
-
 import pytest
 
 FNO_REAL_IMAG_FIXTURE = (
@@ -237,7 +235,7 @@ def test_fno_real_imag_tensor_path_byte_identical():
     generator = _DeterministicTensorGenerator(H, W, C)
 
     model_config = ModelConfig(architecture='fno', mode='Unsupervised')
-    data_config = DataConfig(N=64, gridsize=math.isqrt(C))
+    data_config = DataConfig(N=64, gridsize=1)
     training_config = TrainingConfig()
 
     model = PtychoPINN(

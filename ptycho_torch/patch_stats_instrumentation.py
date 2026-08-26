@@ -16,7 +16,7 @@ Usage:
     logger.finalize()  # Write JSON + PNG
 
 References:
-    - Phase A plan: plans/active/FIX-PYTORCH-FORWARD-PARITY-001/implementation.md §A1
+    - Phase A plan: docs/findings.md (see git history for the originating plan) §A1
     - Brief: input.md (2025-11-16)
 """
 

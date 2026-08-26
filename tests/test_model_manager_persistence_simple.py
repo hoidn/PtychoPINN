@@ -27,10 +27,11 @@ def test_model_persistence():
     p.set('probe.type', 'gaussian')
     p.set('probe.photons', 1e10)
     p.set('nphotons', 1e8)
+    p.set('intensity_scale', 1.0)
     
     # Set probe
     probe = get_default_probe(64)
-    p.params()['probe'] = probe
+    p.set('probe', probe)
     
     # Now import model-related modules
     from ptycho.model_manager import ModelManager

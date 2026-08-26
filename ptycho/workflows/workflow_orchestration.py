@@ -1,10 +1,13 @@
 """TensorFlow CDI orchestration: container factory, training, reassembly.
 
 Holds the public doors (``train_cdi_model``, ``run_cdi_example``) and the
-stitching/output helpers.
+stitching/output helpers.  Collaborators that tests patch through the
+``components`` facade (``resolve_generator``, ``create_ptycho_data_container``,
+``probe``) are resolved late-bound via ``_components``.
 """
 import logging
 import os
+from dataclasses import replace
 from typing import Any, Dict, Optional, Tuple, Union
 
 import matplotlib.pyplot as plt
@@ -19,20 +22,21 @@ from ptycho.config.config import (
 from ptycho.config.legacy_state import scoped_legacy_params
 from ptycho.grouping import group_from_config
 from ptycho.loader import PtychoDataContainer, RawData
-from ptycho.generators.registry import resolve_generator
+from ptycho.generators import registry
 
-# Preserves pre-split log provenance.
-logger = logging.getLogger("ptycho.workflows.components")
+# Preserves pre-split log provenance: records stay on the components facade logger.
+logger = logging.getLogger('ptycho.workflows.components')
 
 def _resolve_tensorflow_training_config(config: TrainingConfig) -> TrainingConfig:
     """Validate and materialize the public policy for TensorFlow entrypoints."""
-    return config.model_copy(update={
-        "model": resolve_model_object_policy(
+    return replace(
+        config,
+        model=resolve_model_object_policy(
             config.model,
             backend="tensorflow",
             warn_deprecated=False,
-        )
-    })
+        ),
+    )
 
 
 def create_ptycho_data_container(data: Union[RawData, PtychoDataContainer], config: TrainingConfig) -> PtychoDataContainer:
@@ -52,19 +56,16 @@ def create_ptycho_data_container(data: Union[RawData, PtychoDataContainer], conf
     if isinstance(data, PtychoDataContainer):
         return data
     elif isinstance(data, RawData):
+        # Grouping semantics (seed/oversampling/pool/count) live once in
+        # ptycho.grouping.group_from_config; both mirrors delegate here.
         dataset = group_from_config(
             data,
             config,
-            dataset_path=(
-                str(config.data.train_data_file)
-                if config.data.train_data_file
-                else None
-            ),
+            dataset_path=str(config.train_data_file) if config.train_data_file else None,
         )
         return loader.load(lambda: dataset, data.probeGuess, which=None, create_split=False)
     else:
         raise TypeError("data must be either RawData or PtychoDataContainer")
-
 
 @scoped_legacy_params
 def train_cdi_model(
@@ -103,7 +104,7 @@ def train_cdi_model(
 
     # Resolve generator from config and build model
     # See ptycho/generators/README.md for adding new generators
-    generator = resolve_generator(config)
+    generator = registry.resolve_generator(config)
     logger.info(f"Using generator: {generator.name}")
     model_instance, diffraction_to_obj = generator.build_models()
 
@@ -135,7 +136,6 @@ def train_cdi_model(
     #history = train_pinn.train(train_container)
     
     return results
-
 
 def reassemble_cdi_image(
     test_data: Union[RawData, PtychoDataContainer],
@@ -201,7 +201,6 @@ def reassemble_cdi_image(
     }
     
     return recon_amp, recon_phase, results
-
 
 @scoped_legacy_params
 def run_cdi_example(

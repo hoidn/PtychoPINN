@@ -1,5 +1,5 @@
 # tests/torch/test_fno_generators.py
-"""Tests for FNO generator implementations."""
+"""Tests for FNO/Hybrid generator implementations."""
 import math
 import pytest
 import torch
@@ -9,7 +9,11 @@ from ptycho_torch.generators.fno import (
     SpatialLifter,
     PtychoBlock,
     StablePtychoBlock,
+    HybridUNOGenerator,
+    StableHybridUNOGenerator,
     CascadedFNOGenerator,
+    HybridGenerator,
+    StableHybridGenerator,
     FnoGenerator,
 )
 from ptycho_torch.generators.fno_vanilla import FnoVanillaGeneratorModule
@@ -75,6 +79,58 @@ class TestPtychoBlock:
         assert torch.allclose(out, x, atol=1e-5)
 
 
+class TestHybridUNOGenerator:
+    """Tests for the HybridUNOGenerator model."""
+
+    def test_output_shape(self):
+        """Generator should produce correct output shape."""
+        model = HybridUNOGenerator(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=16,
+            n_blocks=2,
+            modes=8,
+            C=4,
+        )
+        x = torch.randn(2, 4, 64, 64)  # (B, C, H, W)
+        out = model(x)
+        # Expected: (B, H, W, C, 2)
+        assert out.shape == (2, 64, 64, 4, 2)
+
+    def test_output_contract_real_imag(self):
+        """Output should have real/imag in last dimension."""
+        model = HybridUNOGenerator(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=16,
+            n_blocks=2,
+            modes=8,
+            C=1,
+        )
+        x = torch.randn(2, 1, 64, 64)
+        out = model(x)
+        # Last dim should be 2 (real, imag)
+        assert out.shape[-1] == 2
+
+
+    def test_max_hidden_channel_cap(self):
+        """HybridUNOGenerator with max_hidden_channels=512 keeps all layers ≤512 channels."""
+        gen = HybridUNOGenerator(
+            in_channels=1, out_channels=2, hidden_channels=32,
+            n_blocks=6, modes=4, C=1, max_hidden_channels=512,
+        )
+        # Without cap, 6 blocks would reach 32*2^5=1024; cap should keep ≤512
+        for ch in gen._encoder_channels:
+            assert ch <= 512, f"Encoder channel {ch} exceeds cap 512"
+        for name, module in gen.named_modules():
+            if isinstance(module, (torch.nn.Conv2d, torch.nn.ConvTranspose2d)):
+                assert module.out_channels <= 512, f"{name} out_channels={module.out_channels} exceeds cap"
+                assert module.in_channels <= 1024, f"{name} in_channels={module.in_channels} exceeds 2*cap (skip concat)"
+        x = torch.randn(2, 1, 64, 64)
+        y = gen(x)
+        assert y.shape == (2, 64, 64, 1, 2), f"Output shape {y.shape} != expected (2, 64, 64, 1, 2)"
+
+
 class TestCascadedFNOGenerator:
     """Tests for the CascadedFNOGenerator model."""
 
@@ -87,6 +143,7 @@ class TestCascadedFNOGenerator:
             fno_blocks=2,
             cnn_blocks=1,
             modes=8,
+            C=4,
         )
         x = torch.randn(2, 4, 64, 64)
         out = model(x)
@@ -121,6 +178,7 @@ class TestFnoVanillaGenerator:
             hidden_channels=16,
             n_blocks=2,
             modes=8,
+            C=4,
         )
         x = torch.randn(2, 4, 32, 32)
         out = model(x)
@@ -128,7 +186,7 @@ class TestFnoVanillaGenerator:
 
 
 class TestGeneratorRegistry:
-    """Tests for generator registry with FNO generators."""
+    """Tests for generator registry with FNO/Hybrid generators."""
 
     @pytest.fixture
     def fno_config(self):
@@ -137,11 +195,24 @@ class TestGeneratorRegistry:
             model=ModelConfig(architecture='fno', N=64, gridsize=1)
         )
 
+    @pytest.fixture
+    def hybrid_config(self):
+        """Create config for Hybrid generator."""
+        return TrainingConfig(
+            model=ModelConfig(architecture='hybrid', N=64, gridsize=1)
+        )
+
     def test_resolve_fno_generator(self, fno_config):
         """Registry should resolve FNO generator."""
         gen = resolve_generator(fno_config)
         assert gen.name == 'fno'
         assert isinstance(gen, FnoGenerator)
+
+    def test_resolve_hybrid_generator(self, hybrid_config):
+        """Registry should resolve Hybrid generator."""
+        gen = resolve_generator(hybrid_config)
+        assert gen.name == 'hybrid'
+        assert isinstance(gen, HybridGenerator)
 
     def test_fno_generator_builds_model(self, fno_config):
         """FNO generator should build a model."""
@@ -162,6 +233,37 @@ class TestGeneratorRegistry:
         model = gen.build_model(pt_configs)
         assert isinstance(model, PtychoPINN_Lightning)
         assert isinstance(model.model.generator, CascadedFNOGenerator)
+
+    def test_hybrid_generator_builds_model(self, hybrid_config):
+        """Hybrid generator should build a model."""
+        from ptycho_torch.config_params import DataConfig, ModelConfig as PTModelConfig, TrainingConfig as PTTrainingConfig
+
+        gen = resolve_generator(hybrid_config)
+
+        from ptycho_torch.config_params import InferenceConfig as PTInferenceConfig
+        from ptycho_torch.model import PtychoPINN_Lightning
+
+        pt_configs = {
+            "data_config": DataConfig(N=64, gridsize=2),
+            "model_config": PTModelConfig(architecture='hybrid'),
+            "training_config": PTTrainingConfig(),
+            "inference_config": PTInferenceConfig(),
+        }
+
+        model = gen.build_model(pt_configs)
+        assert isinstance(model, PtychoPINN_Lightning)
+        assert isinstance(model.model.generator, HybridUNOGenerator)
+
+
+    def test_resolve_stable_hybrid_generator(self):
+        """Registry should resolve stable_hybrid generator."""
+        config = TrainingConfig(
+            model=ModelConfig(architecture='stable_hybrid', N=64, gridsize=1)
+        )
+        gen = resolve_generator(config)
+        assert gen.name == 'stable_hybrid'
+        assert isinstance(gen, StableHybridGenerator)
+
 
 class TestStablePtychoBlock:
     """Tests for the StablePtychoBlock module.
@@ -210,5 +312,26 @@ class TestStablePtychoBlock:
         loss.backward()
         assert block.layerscale.grad is not None
         assert block.layerscale.grad.norm().item() > 0
+
+
+class TestStableHybridUNOGenerator:
+    """Tests for the StableHybridUNOGenerator model.
+
+    Task ID: FNO-STABILITY-OVERHAUL-001 Task 2.2
+    """
+
+    def test_stable_hybrid_generator_output_shape(self):
+        """StableHybridUNOGenerator should produce (B, H, W, C, 2) output."""
+        model = StableHybridUNOGenerator(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=16,
+            n_blocks=2,
+            modes=8,
+            C=4,
+        )
+        x = torch.randn(2, 4, 64, 64)
+        out = model(x)
+        assert out.shape == (2, 64, 64, 4, 2)
 
 

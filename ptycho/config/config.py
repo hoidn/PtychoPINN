@@ -1,5 +1,5 @@
 """
-Structured configuration system for PtychoPINN.
+Modern dataclass-based configuration system for PtychoPINN.
 
 This module defines the type-safe, structured configuration architecture that replaces
 the legacy params.cfg dictionary pattern. It serves as the single source of truth for
@@ -7,22 +7,21 @@ all configuration while maintaining backward compatibility with 20+ legacy modul
 through a one-way data flow translation system.
 
 Architecture & Data Flow:
-    Modern configuration → update_legacy_dict() → Legacy params.cfg dictionary
+    Modern dataclass → update_legacy_dict() → Legacy params.cfg dictionary
     
-    The data flow is strictly one-way: configuration originates in structured records
+    The data flow is strictly one-way: configuration originates in structured dataclasses
     and flows to the legacy dictionary via update_legacy_dict(). This function serves
     as the critical compatibility bridge, using KEY_MAPPINGS to translate between
     modern field names (object_big) and legacy parameter names (object.big).
 
 Configuration Classes:
     ModelConfig: Core architecture (N, gridsize, model_type, activations, etc.)
-    TrainingConfig: Nested Pydantic training workflow
-    DataConfig/SamplingConfig/etc.: Pydantic training sub-configurations
+    TrainingConfig: Training workflow (epochs, loss weights, data paths, sampling)
     InferenceConfig: Inference workflow (model paths, output settings, debug flags)
 
 Core Functions:
-    update_legacy_dict(cfg, config_obj): THE compatibility bridge function
-        - Translates supported config fields to legacy parameter names
+    update_legacy_dict(cfg, dataclass_obj): THE compatibility bridge function
+        - Translates dataclass fields to legacy parameter names via KEY_MAPPINGS
         - Updates params.cfg dictionary for consumption by legacy modules
         - Handles Path object conversion and nested model configurations
     
@@ -41,10 +40,7 @@ Workflow Integration:
     # 1. Modern configuration creation
     config = TrainingConfig(
         model=ModelConfig(N=128, model_type='pinn'),
-        data=DataConfig(train_data_file='data.npz'),
-        sampling=SamplingConfig(training_groups=512),
-        nepochs=100,
-    )
+        train_data_file='data.npz', nepochs=100)
     
     # 2. Enable legacy module compatibility (CRITICAL STEP)
     import ptycho.params as params  
@@ -57,7 +53,7 @@ Workflow Integration:
     ```
 
 Migration Pattern:
-    - New code: Uses structured configuration records directly
+    - New code: Uses dataclasses directly (TrainingConfig, ModelConfig, etc.)
     - Legacy modules: Continue using params.get('key') unchanged
     - Compatibility: Maintained via update_legacy_dict() calling dataclass_to_legacy_dict()
     - Translation: KEY_MAPPINGS handles all field name conversions automatically
@@ -79,17 +75,13 @@ try:
 except ModuleNotFoundError:  # pragma: no cover - exercised on Python 3.10
     import tomli as tomllib
 from pydantic import (
-    BaseModel,
     BeforeValidator,
     ConfigDict,
-    Field,
     TypeAdapter,
     ValidationError,
     ValidationInfo,
-    model_validator,
     with_config,
 )
-from pydantic_settings import BaseSettings, SettingsConfigDict
 import yaml
 import warnings
 
@@ -107,21 +99,12 @@ from .strict_types import (
     _StrictPositiveInt,
 )
 
-# Export list for public API (ADR-003 Phase C3.A1)
-# Restores exports removed during Phase C2; ensures PyTorchExecutionConfig is discoverable
+# Export list for public API (config-factory contract; docs/specs/spec-ptycho-config-bridge.md)
+# Ensures PyTorchExecutionConfig is discoverable from the canonical config module
 __all__ = [
     # Dataclass configurations
     'ModelConfig',
     'TrainingConfig',
-    'DataConfig',
-    'SamplingConfig',
-    'LossConfig',
-    'TFLossConfig',
-    'GradientClipConfig',
-    'AdamConfig',
-    'SgdConfig',
-    'OptimizerConfig',
-    'SchedulerConfig',
     'InferenceConfig',
     'PyTorchExecutionConfig',
     'ProbeSimulationConfig',
@@ -183,12 +166,32 @@ _ScanKind = Annotated[
     Literal["grid", "nongrid"],
     BeforeValidator(_require_exact_str),
 ]
+_ScanPositionLayout = Annotated[
+    Literal["uniform_random", "raster", "fixed_pitch_raster"],
+    BeforeValidator(_require_exact_str),
+]
+_PatchAmplitudeNormalization = Annotated[
+    Literal["none", "mean_patch_max"],
+    BeforeValidator(_require_exact_str),
+]
+#: Elided from recipe digests when unchanged so that adding the field does not
+#: move the identity of any dataset generated before it existed.
+DEFAULT_SCAN_POSITION_LAYOUT = "uniform_random"
 
 _DATACLASS_ADAPTER_CONFIG = ConfigDict(
     extra="forbid",
     revalidate_instances="always",
     validate_default=True,
 )
+
+
+# --- Gauge constants (single stated home, TF backend) -----------------------
+# Normative owner: docs/specs/spec-ptycho-core.md (probe/object gauge) and
+# docs/specs/spec-ptycho-torch-probe-layout.md (torch mirror). These pins fix
+# the probe normalization gauge; changing either value is a scientific gauge
+# change requiring its own reviewed decision, never a refactor.
+PROBE_SCALE_DEFAULT = 4.0
+PROBE_NORMALIZE_DEFAULT = True
 
 
 @with_config(_DATACLASS_ADAPTER_CONFIG)
@@ -209,6 +212,7 @@ class ProbeSimulationConfig:
     ] = "pad_preserve:64"
     mask_diameter: _StrictFinitePositiveNumber | None = None
     ideal_scale: _StrictFinitePositiveNumber = 0.7
+    simulation_normalization_scale: _StrictFinitePositiveNumber | None = None
 
 
 @with_config(_DATACLASS_ADAPTER_CONFIG)
@@ -221,6 +225,10 @@ class SyntheticObjectConfig:
     objects_per_probe: _StrictPositiveInt = 4
     diffractions_per_object: _StrictPositiveInt = 7000
     set_phi: _StrictBool = False
+    # Appended last so existing positional construction keeps working.
+    patch_amplitude_normalization: _PatchAmplitudeNormalization = "none"
+    # Used only by registered source-backed object recipes.
+    source_path: Path | None = None
 
 
 @with_config(_DATACLASS_ADAPTER_CONFIG)
@@ -236,6 +244,8 @@ class ScanSimulationConfig:
     train_groups: _StrictPositiveInt = 2
     test_groups: _StrictPositiveInt = 2
     buffer: _StrictNonNegativeInt = 0
+    # Appended last so existing positional construction keeps working.
+    position_layout: _ScanPositionLayout = DEFAULT_SCAN_POSITION_LAYOUT
 
 
 @with_config(_DATACLASS_ADAPTER_CONFIG)
@@ -311,29 +321,41 @@ def simulation_config_to_dict(config: SimulationConfig) -> Dict[str, Any]:
     """Return the stable JSON-compatible canonical simulation recipe."""
 
     validate_simulation_config(config)
+    probe = {
+        "source": config.probe.source,
+        "source_path": (
+            str(config.probe.source_path)
+            if config.probe.source_path is not None
+            else None
+        ),
+        "transform_pipeline": config.probe.transform_pipeline,
+        "mask_diameter": config.probe.mask_diameter,
+        "ideal_scale": config.probe.ideal_scale,
+    }
+    if config.probe.simulation_normalization_scale is not None:
+        probe["simulation_normalization_scale"] = (
+            config.probe.simulation_normalization_scale
+        )
+    object_config = {
+        "kind": config.object.kind,
+        "image_size": list(config.object.image_size),
+        "objects_per_probe": int(config.object.objects_per_probe),
+        "diffractions_per_object": int(config.object.diffractions_per_object),
+        "set_phi": bool(config.object.set_phi),
+        "patch_amplitude_normalization": (
+            config.object.patch_amplitude_normalization
+        ),
+    }
+    if config.object.source_path is not None:
+        object_config["source_path"] = str(config.object.source_path)
     return {
         "N": int(config.N),
         "seed": int(config.seed) if config.seed is not None else None,
-        "probe": {
-            "source": config.probe.source,
-            "source_path": (
-                str(config.probe.source_path)
-                if config.probe.source_path is not None
-                else None
-            ),
-            "transform_pipeline": config.probe.transform_pipeline,
-            "mask_diameter": config.probe.mask_diameter,
-            "ideal_scale": config.probe.ideal_scale,
-        },
-        "object": {
-            "kind": config.object.kind,
-            "image_size": list(config.object.image_size),
-            "objects_per_probe": int(config.object.objects_per_probe),
-            "diffractions_per_object": int(config.object.diffractions_per_object),
-            "set_phi": bool(config.object.set_phi),
-        },
+        "probe": probe,
+        "object": object_config,
         "scan": {
             "kind": config.scan.kind,
+            "position_layout": config.scan.position_layout,
             "grid_size": list(config.scan.grid_size),
             "offset": int(config.scan.offset),
             "outer_offset_train": int(config.scan.outer_offset_train),
@@ -349,11 +371,31 @@ def simulation_config_to_dict(config: SimulationConfig) -> Dict[str, Any]:
     }
 
 
+def simulation_config_digest_input(config: SimulationConfig) -> Dict[str, Any]:
+    """Return the canonical recipe reduced to its identity-bearing fields.
+
+    ``scan.position_layout`` is dropped when it holds its default so that every
+    recipe authored before the field existed keeps its historical digest; a
+    non-default layout changes positions and therefore must change identity.
+    """
+
+    payload = simulation_config_to_dict(config)
+    scan = payload["scan"]
+    if scan.get("position_layout") == DEFAULT_SCAN_POSITION_LAYOUT:
+        scan.pop("position_layout")
+    object_recipe = payload["object"]
+    if object_recipe.get("patch_amplitude_normalization") == "none":
+        object_recipe.pop("patch_amplitude_normalization")
+    if object_recipe.get("source_path") is None:
+        object_recipe.pop("source_path", None)
+    return payload
+
+
 def simulation_config_sha256(config: SimulationConfig) -> str:
     """Return the canonical SHA-256 identity of one resolved simulation recipe."""
 
     encoded = json.dumps(
-        simulation_config_to_dict(config),
+        simulation_config_digest_input(config),
         sort_keys=True,
         separators=(",", ":"),
         allow_nan=False,
@@ -512,12 +554,11 @@ class ModelConfig:
     ] = 64
     gridsize: _StrictPositiveInt = 1
     n_filters_scale: _StrictPositiveInt = 2
-    model_type: Annotated[
-        Literal['pinn', 'supervised'],
-        BeforeValidator(_require_exact_str),
-    ] = 'pinn'
+    model_type: Annotated[Literal['pinn', 'supervised'], BeforeValidator(_require_exact_str)] = 'pinn'
     architecture: Annotated[
-        Literal['cnn', 'ffno', 'fno', 'fno_vanilla', 'neuralop_uno'],
+        Literal[
+            'cnn', 'ffno', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'neuralop_uno'
+        ],
         BeforeValidator(_require_exact_str),
     ] = 'cnn'
     fno_modes: _StrictPositiveInt = 12
@@ -539,7 +580,7 @@ class ModelConfig:
     probe_mask_sigma: _StrictFiniteNonNegativeNumber = 1.0
     probe_mask_diameter: _StrictFinitePositiveNumber | None = None
     pad_object: _StrictBool = True
-    probe_scale: _StrictFinitePositiveNumber = 4.
+    probe_scale: _StrictFinitePositiveNumber = PROBE_SCALE_DEFAULT
     gaussian_smoothing_sigma: _StrictFiniteNonNegativeNumber = 0.0
 
 
@@ -572,239 +613,66 @@ def resolve_model_object_policy(
         training_patch_weighting=policy.training_patch_weighting,
     )
 
-_SUB_CONFIG_DICT = ConfigDict(
-    extra="forbid",
-    revalidate_instances="always",
-    validate_default=True,
-)
-
-
-class DataConfig(BaseModel):
-    """Data source and physics scaling settings."""
-    model_config = _SUB_CONFIG_DICT
-    train_data_file: _PublicPath | None = None
-    test_data_file: _PublicPath | None = None
-    nphotons: _StrictFiniteNonNegativeNumber = 1e9
-
-
-class SamplingConfig(BaseModel):
-    """Group sampling and neighbor selection settings."""
-    model_config = _SUB_CONFIG_DICT
-    training_groups: _StrictNonNegativeInt | None = None
-    n_images: _StrictNonNegativeInt | None = None  # DEPRECATED: use training_groups
-    train_raw_selection: _StrictNonNegativeInt | None = None
-    subsample_seed: _StrictNonNegativeInt | None = None
-    neighbor_count: _StrictPositiveInt = 4
-    enable_oversampling: _StrictBool = False
-    neighbor_pool_size: _StrictPositiveInt | None = None
-    sequential_sampling: _StrictBool = False
-
-    @model_validator(mode='before')
-    @classmethod
-    def _handle_n_images(cls, values: Any) -> Any:
-        if not isinstance(values, Mapping):
-            return values
-        n_images = values.get('n_images')
-        training_groups = values.get('training_groups')
-        if n_images is not None:
-            if training_groups is None:
-                warnings.warn(
-                    "Parameter 'n_images' is deprecated and will be removed in a future version. "
-                    "Use 'training_groups' instead, which always means the number of groups regardless of gridsize.",
-                    DeprecationWarning,
-                    stacklevel=2,
-                )
-                values = {**values, 'training_groups': n_images, 'n_images': None}
-            elif n_images != training_groups:
-                raise ValueError(
-                    f"'n_images' ({n_images}) conflicts with canonical 'training_groups' ({training_groups})"
-                )
-            else:
-                warnings.warn(
-                    "Parameter 'n_images' is deprecated and will be removed in a future version. "
-                    "Use 'training_groups' instead, which always means the number of groups regardless of gridsize.",
-                    DeprecationWarning,
-                    stacklevel=2,
-                )
-                values = {**values, 'n_images': None}
-        if values.get('training_groups') is None:
-            values = {**values, 'training_groups': 512}
-        return values
-
-
-class LossConfig(BaseModel):
-    """PyTorch-specific loss settings."""
-    model_config = _SUB_CONFIG_DICT
-    torch_loss_mode: Annotated[Literal['poisson', 'mae'], BeforeValidator(_require_exact_str)] = 'poisson'
-    torch_mae_pred_l2_match_target: _StrictBool = False
-
-
-class TFLossConfig(BaseModel):
-    """TensorFlow-only loss weights. Will be removed when TF is phased out."""
-    model_config = _SUB_CONFIG_DICT
+@with_config(_DATACLASS_ADAPTER_CONFIG)
+@dataclass
+class TrainingConfig:
+    """Training specific configuration."""
+    model: ModelConfig
+    train_data_file: _PublicPath | None = None  # Made optional for simulation scripts
+    test_data_file: _PublicPath | None = None  # Added
+    batch_size: _StrictPositiveInt = 16
+    nepochs: _StrictNonNegativeInt = 50
     mae_weight: _StrictClosedUnitNumber = 0.0
     nll_weight: _StrictClosedUnitNumber = 1.0
     realspace_mae_weight: _StrictClosedUnitNumber = 0.0
     realspace_weight: _StrictClosedUnitNumber = 0.0
-
-
-class GradientClipConfig(BaseModel):
-    """Gradient clipping settings."""
-    model_config = _SUB_CONFIG_DICT
-    val: _StrictFiniteNonNegativeNumber | None = None
-    algorithm: Annotated[Literal['norm', 'value', 'agc'], BeforeValidator(_require_exact_str)] = 'norm'
-
-
-class AdamConfig(BaseModel):
-    """Adam/AdamW optimizer hyperparameters."""
-    model_config = _SUB_CONFIG_DICT
-    beta1: _StrictHalfOpenUnitNumber = 0.9
-    beta2: _StrictHalfOpenUnitNumber = 0.999
-
-
-class SgdConfig(BaseModel):
-    """SGD optimizer hyperparameters."""
-    model_config = _SUB_CONFIG_DICT
-    momentum: _StrictClosedUnitNumber = 0.9
-
-
-class OptimizerConfig(BaseModel):
-    """Optimizer algorithm and hyperparameter settings."""
-    model_config = _SUB_CONFIG_DICT
-    algorithm: Annotated[Literal['adam', 'adamw', 'sgd'], BeforeValidator(_require_exact_str)] = 'adam'
-    weight_decay: _StrictFiniteNonNegativeNumber = 0.0
-    sgd: SgdConfig = Field(default_factory=SgdConfig)
-    adam: AdamConfig = Field(default_factory=AdamConfig)
-
-
-class SchedulerConfig(BaseModel):
-    """Learning rate scheduler settings."""
-    model_config = _SUB_CONFIG_DICT
-    kind: Annotated[Literal['Default', 'Exponential', 'WarmupCosine', 'ReduceLROnPlateau'], BeforeValidator(_require_exact_str)] = 'Default'
-    lr_warmup_epochs: _StrictNonNegativeInt = 0
-    lr_min_ratio: _StrictClosedUnitNumber = 0.1
+    nphotons: _StrictFiniteNonNegativeNumber = 1e9
+    training_groups: _StrictNonNegativeInt | None = None  # Number of groups to generate (always means groups, regardless of gridsize)
+    n_images: _StrictNonNegativeInt | None = None  # DEPRECATED: Use training_groups instead (kept for backward compatibility)
+    train_raw_selection: _StrictNonNegativeInt | None = None  # Number of images to subsample before grouping (independent control)
+    subsample_seed: _StrictNonNegativeInt | None = None  # Random seed for reproducible subsampling
+    neighbor_count: _StrictPositiveInt = 4  # K value: number of nearest neighbors for grouping (use higher values like 7 for K choose C oversampling)
+    enable_oversampling: _StrictBool = False  # Explicit opt-in for K choose C oversampling (requires gridsize>1 and neighbor_pool_size>=C)
+    neighbor_pool_size: _StrictPositiveInt | None = None  # Pool size for K choose C oversampling (if None, defaults to neighbor_count)
+    positions_provided: _StrictBool = True
+    probe_trainable: _StrictBool = False
+    intensity_scale_trainable: _StrictBool = True  # Changed default
+    output_dir: _PublicPath = Path("training_outputs")
+    sequential_sampling: _StrictBool = False  # Use sequential sampling instead of random
+    backend: Annotated[Literal['tensorflow', 'pytorch'], BeforeValidator(_require_exact_str)] = 'tensorflow'  # Backend selection: defaults to TensorFlow for backward compatibility
+    torch_loss_mode: Annotated[Literal['poisson', 'mae'], BeforeValidator(_require_exact_str)] = 'poisson'  # Backend-specific loss mode selector
+    torch_mae_pred_l2_match_target: _StrictBool = False  # Optional Torch MAE prediction scaling mode
+    gradient_clip_val: _StrictFiniteNonNegativeNumber | None = None  # Gradient clipping threshold (None = disabled)
+    gradient_clip_algorithm: Annotated[Literal['norm', 'value', 'agc'], BeforeValidator(_require_exact_str)] = 'norm'  # Gradient clipping algorithm: norm, value, or agc
+    optimizer: Annotated[Literal['adam', 'adamw', 'sgd'], BeforeValidator(_require_exact_str)] = 'adam'  # Optimizer algorithm
+    momentum: _StrictClosedUnitNumber = 0.9  # SGD momentum (ignored for Adam/AdamW)
+    weight_decay: _StrictFiniteNonNegativeNumber = 0.0  # Weight decay (L2 penalty)
+    adam_beta1: _StrictHalfOpenUnitNumber = 0.9  # Adam/AdamW beta1
+    adam_beta2: _StrictHalfOpenUnitNumber = 0.999  # Adam/AdamW beta2
+    scheduler: Annotated[Literal['Default', 'Exponential', 'WarmupCosine', 'ReduceLROnPlateau'], BeforeValidator(_require_exact_str)] = 'Default'  # LR scheduler type
+    lr_warmup_epochs: _StrictNonNegativeInt = 0  # Number of warmup epochs for WarmupCosine scheduler
+    lr_min_ratio: _StrictClosedUnitNumber = 0.1  # Minimum LR ratio for WarmupCosine scheduler (eta_min = base_lr * ratio)
     plateau_factor: _StrictOpenUnitNumber = 0.5
     plateau_patience: _StrictNonNegativeInt = 2
     plateau_min_lr: _StrictFiniteNonNegativeNumber = 5e-5
     plateau_threshold: _StrictFiniteNonNegativeNumber = 0.0
 
-
-_LEGACY_TRAINING_ROOT_ALIASES: dict[str, tuple[str, str]] = {
-    'train_data_file': ('data', 'train_data_file'),
-    'test_data_file': ('data', 'test_data_file'),
-    'nphotons': ('data', 'nphotons'),
-    'mae_weight': ('tf_loss', 'mae_weight'),
-    'nll_weight': ('tf_loss', 'nll_weight'),
-    'realspace_mae_weight': ('tf_loss', 'realspace_mae_weight'),
-    'realspace_weight': ('tf_loss', 'realspace_weight'),
-    'training_groups': ('sampling', 'training_groups'),
-    'n_images': ('sampling', 'n_images'),
-    'train_raw_selection': ('sampling', 'train_raw_selection'),
-    'subsample_seed': ('sampling', 'subsample_seed'),
-    'neighbor_count': ('sampling', 'neighbor_count'),
-    'enable_oversampling': ('sampling', 'enable_oversampling'),
-    'neighbor_pool_size': ('sampling', 'neighbor_pool_size'),
-    'sequential_sampling': ('sampling', 'sequential_sampling'),
-}
-
-
-def _legacy_alias_values_equal(left: Any, right: Any) -> bool:
-    """Report whether a duplicated flat/nested pair is unambiguously the same value.
-
-    Mixed types, values whose comparison raises, and comparisons that return
-    anything other than a built-in ``bool`` (e.g. arrays) all count as unequal,
-    so an ambiguous duplicate is reported as a conflict rather than silently
-    accepted.
-    """
-    if type(left) is not type(right):
-        return False
-    try:
-        result = left == right
-    except Exception:
-        return False
-    return type(result) is bool and result
-
-
-class TrainingConfig(BaseSettings):
-    """Training specific configuration."""
-    model_config = SettingsConfigDict(
-        extra="forbid",
-        revalidate_instances="always",
-        validate_default=True,
-    )
-
-    @classmethod
-    def settings_customise_sources(cls, settings_cls, init_settings, **_):
-        return (init_settings,)
-
-    model: ModelConfig = Field(default_factory=ModelConfig)
-    batch_size: _StrictNonNegativeInt = 16
-    nepochs: _StrictNonNegativeInt = 50
-    positions_provided: _StrictBool = True
-    probe_trainable: _StrictBool = False
-    intensity_scale_trainable: _StrictBool = True
-    output_dir: _PublicPath = Path("training_outputs")
-    backend: Annotated[Literal['tensorflow', 'pytorch'], BeforeValidator(_require_exact_str)] = 'tensorflow'
-    data: DataConfig = Field(default_factory=DataConfig)
-    sampling: SamplingConfig = Field(default_factory=SamplingConfig)
-    loss: LossConfig = Field(default_factory=LossConfig)
-    tf_loss: TFLossConfig = Field(default_factory=TFLossConfig)
-    gradient_clip: GradientClipConfig = Field(default_factory=GradientClipConfig)
-    optimizer: OptimizerConfig = Field(default_factory=OptimizerConfig)
-    scheduler: SchedulerConfig = Field(default_factory=SchedulerConfig)
-
-    @model_validator(mode='before')
-    @classmethod
-    def _lift_legacy_flat_fields(cls, values: Any) -> Any:
-        """Accept the historical flat root spellings as deprecated aliases.
-
-        Each key in ``_LEGACY_TRAINING_ROOT_ALIASES`` is moved into its nested
-        owner so ``extra="forbid"`` still rejects everything else. A flat key
-        duplicated by an already-supplied nested value is accepted only when
-        both spellings agree.
-        """
-        if not isinstance(values, Mapping):
-            return values
-        aliases = [name for name in _LEGACY_TRAINING_ROOT_ALIASES if name in values]
-        if not aliases:
-            return values
-
-        lifted = dict(values)
-        for alias in aliases:
-            section_name, field_name = _LEGACY_TRAINING_ROOT_ALIASES[alias]
-            has_section = section_name in lifted
-            section = lifted.get(section_name)
-            if has_section and not isinstance(section, (Mapping, BaseModel)):
-                # Malformed section: leave the input untouched and let normal
-                # validation report it.
-                continue
-
-            alias_value = lifted.pop(alias)
+    def __post_init__(self):
+        """Handle backward compatibility for n_images → training_groups migration."""
+        # Handle the deprecated n_images parameter
+        if self.n_images is not None and self.training_groups is None:
             warnings.warn(
-                f"Flat TrainingConfig field {alias!r} is deprecated and will be removed "
-                f"in a future version. Use {section_name}.{field_name} instead.",
+                "Parameter 'n_images' is deprecated and will be removed in a future version. "
+                "Use 'training_groups' instead, which always means the number of groups regardless of gridsize.",
                 DeprecationWarning,
-                stacklevel=2,
+                stacklevel=2
             )
-            conflict = ValueError(
-                f"training field {alias!r} has conflicting flat {alias!r} and "
-                f"{section_name}.{field_name} values"
-            )
+            # Use object.__setattr__ to modify dataclass (not frozen anymore)
+            object.__setattr__(self, 'training_groups', self.n_images)
 
-            if isinstance(section, BaseModel):
-                if not _legacy_alias_values_equal(alias_value, getattr(section, field_name)):
-                    raise conflict
-                continue
-
-            section_values = dict(section) if has_section else {}
-            if field_name in section_values:
-                if not _legacy_alias_values_equal(alias_value, section_values[field_name]):
-                    raise conflict
-            else:
-                section_values[field_name] = alias_value
-            lifted[section_name] = section_values
-        return lifted
-
+        # Set default if neither was provided
+        if self.training_groups is None:
+            object.__setattr__(self, 'training_groups', 512)
 
 @with_config(_DATACLASS_ADAPTER_CONFIG)
 @dataclass
@@ -868,6 +736,7 @@ def _validate_execution_pre_environment_values(
             "Torch-XLA TPU execution is unsupported by this PyTorch runtime. "
             "Use accelerator='cpu', 'gpu'/'cuda', or 'mps'."
         )
+
     valid_accelerators = {"auto", "cpu", "gpu", "cuda", "mps"}
     if accelerator not in valid_accelerators:
         raise ValueError(
@@ -889,14 +758,22 @@ def _validate_execution_post_environment_values(
         raise ValueError(
             f"num_workers must be non-negative, got {values['num_workers']}"
         )
+
     if values["persistent_workers"] and values["num_workers"] <= 0:
         raise ValueError(
             "persistent_workers=True requires num_workers > 0"
         )
-    if values["logger_backend"] not in {"csv", "tensorboard", "mlflow", None}:
+
+    if values["logger_backend"] not in {
+        "csv",
+        "tensorboard",
+        "mlflow",
+        None,
+    }:
         raise ValueError(
             "logger_backend must be 'csv', 'tensorboard', 'mlflow', or None"
         )
+
     if (
             values["inference_batch_size"] is not None
             and (
@@ -909,6 +786,7 @@ def _validate_execution_post_environment_values(
             "inference_batch_size must be positive, "
             f"got {values['inference_batch_size']}"
         )
+
     if (
         isinstance(values["checkpoint_save_top_k"], bool)
         or not isinstance(values["checkpoint_save_top_k"], int)
@@ -918,6 +796,7 @@ def _validate_execution_post_environment_values(
             "checkpoint_save_top_k must be non-negative, "
             f"got {values['checkpoint_save_top_k']}"
         )
+
     if (
         isinstance(values["early_stop_patience"], bool)
         or not isinstance(values["early_stop_patience"], int)
@@ -927,12 +806,14 @@ def _validate_execution_post_environment_values(
             "early_stop_patience must be positive, "
             f"got {values['early_stop_patience']}"
         )
+
     valid_checkpoint_modes = {"min", "max"}
     if values["checkpoint_mode"] not in valid_checkpoint_modes:
         raise ValueError(
             f"Invalid checkpoint_mode: '{values['checkpoint_mode']}'. "
             f"Expected one of {sorted(valid_checkpoint_modes)}."
         )
+
 
 def _validate_execution_resolved_environment_values(
     values: Mapping[str, Any],
@@ -1032,6 +913,8 @@ def validate_model_config(config: ModelConfig) -> None:
         'cnn',
         'ffno',
         'fno',
+        'hybrid',
+        'stable_hybrid',
         'fno_vanilla',
         'neuralop_uno',
     }
@@ -1056,12 +939,12 @@ def validate_training_config(config: TrainingConfig) -> None:
         raise ValueError(f"batch_size must be positive power of 2, got {config.batch_size}")
     if config.nepochs <= 0:
         raise ValueError(f"nepochs must be positive, got {config.nepochs}")
-    if not (0 <= config.tf_loss.mae_weight <= 1):
-        raise ValueError(f"mae_weight must be in [0,1], got {config.tf_loss.mae_weight}")
-    if not (0 <= config.tf_loss.nll_weight <= 1):
-        raise ValueError(f"nll_weight must be in [0,1], got {config.tf_loss.nll_weight}")
-    if config.data.nphotons <= 0:
-        raise ValueError(f"nphotons must be positive, got {config.data.nphotons}")
+    if not (0 <= config.mae_weight <= 1):
+        raise ValueError(f"mae_weight must be in [0,1], got {config.mae_weight}")
+    if not (0 <= config.nll_weight <= 1):
+        raise ValueError(f"nll_weight must be in [0,1], got {config.nll_weight}")
+    if config.nphotons <= 0:
+        raise ValueError(f"nphotons must be positive, got {config.nphotons}")
 
 def validate_inference_config(config: InferenceConfig) -> None:
     """Validate inference configuration."""
@@ -1104,8 +987,31 @@ def load_yaml_config(path: Path) -> Dict[str, Any]:
     except (OSError, yaml.YAMLError) as e:
         raise type(e)(f"Failed to load config from {path}: {str(e)}")
 
+# Key mappings from dataclass field names to legacy param names. Module-level
+# (referenced as a module symbol by the module docstring and
+# docs/specs/spec-ptycho-config-bridge.md); consumers import it instead of
+# re-deriving the translation table.
+KEY_MAPPINGS: Dict[str, str] = {
+    'object_big': 'object.big',
+    'probe_big': 'probe.big',
+    'probe_mask': 'probe.mask',
+    'probe_trainable': 'probe.trainable',
+    'intensity_scale_trainable': 'intensity_scale.trainable',
+    'positions_provided': 'positions.provided',
+    'output_dir': 'output_prefix',
+    'train_data_file': 'train_data_file_path',
+    'test_data_file': 'test_data_file_path',
+}
+
 def dataclass_to_legacy_dict(obj: Any) -> Dict[str, Any]:
-    """Convert dataclass to legacy dictionary format with key mappings."""
+    """Convert dataclass to legacy dictionary format with key mappings.
+    
+    Args:
+        obj: Dataclass instance to convert
+        
+    Returns:
+        Dictionary with legacy parameter names and values
+    """
     if isinstance(obj, SimulationConfig):
         validate_simulation_config(obj)
         return {
@@ -1141,117 +1047,28 @@ def dataclass_to_legacy_dict(obj: Any) -> Dict[str, Any]:
 
     if isinstance(obj, ModelConfig):
         obj = resolve_model_object_policy(obj)
-        d = asdict(obj)
-        _apply_model_key_mappings(d)
-        return d
-
-    if isinstance(obj, TrainingConfig):
-        obj = obj.model_copy(update={"model": resolve_model_object_policy(obj.model)})
-        return _training_config_to_legacy_dict(obj)
-
-    # Generic fallback for other dataclasses (e.g., InferenceConfig)
-    if hasattr(obj, "model") and isinstance(obj.model, ModelConfig):
+    elif hasattr(obj, "model") and isinstance(obj.model, ModelConfig):
         obj = replace(obj, model=resolve_model_object_policy(obj.model))
+
+
+    # Convert dataclass to dict
     d = asdict(obj)
+
+    # Handle nested ModelConfig
     if 'model' in d:
         model_dict = d.pop('model')
-        _apply_model_key_mappings(model_dict)
         d.update(model_dict)
-    # Apply legacy key renames for InferenceConfig and other config types
-    _apply_workflow_key_mappings(d)
-    return d
 
-
-def _apply_model_key_mappings(d: Dict[str, Any]) -> None:
-    """Apply legacy key renames for ModelConfig fields in-place."""
-    MODEL_KEY_MAPPINGS = {
-        'object_big': 'object.big',
-        'probe_big': 'probe.big',
-        'probe_mask': 'probe.mask',
-    }
-    for old_key, new_key in MODEL_KEY_MAPPINGS.items():
-        if old_key in d:
-            d[new_key] = d.pop(old_key)
-
-
-def _apply_workflow_key_mappings(d: Dict[str, Any]) -> None:
-    """Apply legacy key renames for InferenceConfig and similar workflow configs."""
-    WORKFLOW_KEY_MAPPINGS = {
-        'probe_trainable': 'probe.trainable',
-        'intensity_scale_trainable': 'intensity_scale.trainable',
-        'positions_provided': 'positions.provided',
-        'output_dir': 'output_prefix',
-        'train_data_file': 'train_data_file_path',
-        'test_data_file': 'test_data_file_path',
-    }
-    for old_key, new_key in WORKFLOW_KEY_MAPPINGS.items():
+    # Apply key mappings and convert Path objects to strings
+    for old_key, new_key in KEY_MAPPINGS.items():
         if old_key in d:
             value = d.pop(old_key)
-            d[new_key] = str(value) if isinstance(value, Path) else value
+            # Convert Path objects to strings
+            if isinstance(value, Path):
+                d[new_key] = str(value)
+            else:
+                d[new_key] = value
 
-
-def _training_config_to_legacy_dict(obj: TrainingConfig) -> Dict[str, Any]:
-    """Flatten a nested TrainingConfig into a legacy-compatible dict."""
-    d: Dict[str, Any] = {}
-
-    # Flat TrainingConfig fields
-    d['batch_size'] = obj.batch_size
-    d['nepochs'] = obj.nepochs
-    d['probe.trainable'] = obj.probe_trainable
-    d['intensity_scale.trainable'] = obj.intensity_scale_trainable
-    d['positions.provided'] = obj.positions_provided
-    d['output_prefix'] = str(obj.output_dir)
-    d['backend'] = obj.backend
-
-    # ModelConfig fields (with key mappings)
-    model_dict = asdict(obj.model)
-    _apply_model_key_mappings(model_dict)
-    d.update(model_dict)
-
-    # DataConfig fields
-    d['nphotons'] = obj.data.nphotons
-    d['train_data_file_path'] = str(obj.data.train_data_file) if obj.data.train_data_file is not None else None
-    d['test_data_file_path'] = str(obj.data.test_data_file) if obj.data.test_data_file is not None else None
-
-    # SamplingConfig fields
-    d['training_groups'] = obj.sampling.training_groups
-    d['n_images'] = obj.sampling.n_images
-    d['train_raw_selection'] = obj.sampling.train_raw_selection
-    d['subsample_seed'] = obj.sampling.subsample_seed
-    d['neighbor_count'] = obj.sampling.neighbor_count
-    d['enable_oversampling'] = obj.sampling.enable_oversampling
-    d['neighbor_pool_size'] = obj.sampling.neighbor_pool_size
-    d['sequential_sampling'] = obj.sampling.sequential_sampling
-
-    # LossConfig fields
-    d['torch_loss_mode'] = obj.loss.torch_loss_mode
-    d['torch_mae_pred_l2_match_target'] = obj.loss.torch_mae_pred_l2_match_target
-
-    # TFLossConfig fields
-    d['mae_weight'] = obj.tf_loss.mae_weight
-    d['nll_weight'] = obj.tf_loss.nll_weight
-    d['realspace_mae_weight'] = obj.tf_loss.realspace_mae_weight
-    d['realspace_weight'] = obj.tf_loss.realspace_weight
-
-    # GradientClipConfig fields (renamed)
-    d['gradient_clip_val'] = obj.gradient_clip.val
-    d['gradient_clip_algorithm'] = obj.gradient_clip.algorithm
-
-    # OptimizerConfig fields (renamed/flattened)
-    d['optimizer'] = obj.optimizer.algorithm
-    d['weight_decay'] = obj.optimizer.weight_decay
-    d['momentum'] = obj.optimizer.sgd.momentum
-    d['adam_beta1'] = obj.optimizer.adam.beta1
-    d['adam_beta2'] = obj.optimizer.adam.beta2
-
-    # SchedulerConfig fields (renamed/flattened)
-    d['scheduler'] = obj.scheduler.kind
-    d['lr_warmup_epochs'] = obj.scheduler.lr_warmup_epochs
-    d['lr_min_ratio'] = obj.scheduler.lr_min_ratio
-    d['plateau_factor'] = obj.scheduler.plateau_factor
-    d['plateau_patience'] = obj.scheduler.plateau_patience
-    d['plateau_min_lr'] = obj.scheduler.plateau_min_lr
-    d['plateau_threshold'] = obj.scheduler.plateau_threshold
 
     return d
 

@@ -34,7 +34,65 @@ Input patches → Border clipping → Grid reassembly → Output full image(s)
 
 **Dependencies**: NumPy only (no TensorFlow dependencies for CPU-based processing)
 """
+import math
+
 import numpy as np
+
+
+def stitch_raster_patches(
+    patches,
+    *,
+    outer_offset: int,
+    normalization: float = 1.0,
+) -> np.ndarray:
+    """Crop and tile a complete square raster of complex object patches.
+
+    Input rows must already be in canonical row-major raster order.  Callers
+    that load grouped or shuffled data are responsible for restoring that
+    order from authenticated scan identity before invoking this pure NumPy
+    assembly helper.
+    """
+
+    array = np.asarray(patches)
+    if array.ndim != 3 or array.shape[0] == 0 or array.shape[1] != array.shape[2]:
+        raise ValueError("patches must have nonempty shape (M, N, N)")
+    if not np.issubdtype(array.dtype, np.number) or not np.isfinite(array).all():
+        raise ValueError("patches must contain only finite numeric values")
+    side = math.isqrt(array.shape[0])
+    if side * side != array.shape[0]:
+        raise ValueError("raster patch count must be a perfect square")
+    if (
+        isinstance(outer_offset, (bool, np.bool_))
+        or not isinstance(outer_offset, (int, np.integer))
+        or int(outer_offset) <= 0
+        or int(outer_offset) % 2
+    ):
+        raise ValueError("outer_offset must be a positive even integer")
+    outer_offset = int(outer_offset)
+    N = int(array.shape[1])
+    if outer_offset > 2 * N:
+        raise ValueError("outer_offset produces an invalid patch crop")
+    normalization = float(normalization)
+    if not np.isfinite(normalization) or normalization <= 0.0:
+        raise ValueError("normalization must be positive and finite")
+
+    border_size = (N - outer_offset / 2.0) / 2.0
+    border_left = int(np.ceil(border_size))
+    border_right = int(np.floor(border_size))
+    end = N - border_right
+    if border_left < 0 or end <= border_left:
+        raise ValueError("outer_offset leaves an empty raster tile")
+    scaled = array * normalization
+    if not np.isfinite(scaled).all():
+        raise ValueError("normalization produced nonfinite raster patches")
+    cropped = scaled[:, border_left:end, border_left:end]
+    tile_height, tile_width = cropped.shape[1:]
+    tiled = (
+        cropped.reshape(side, side, tile_height, tile_width)
+        .transpose(0, 2, 1, 3)
+        .reshape(side * tile_height, side * tile_width)
+    )
+    return np.ascontiguousarray(tiled)
 
 def stitch_patches(patches, config, *, 
                   norm_Y_I: float = 1.0,

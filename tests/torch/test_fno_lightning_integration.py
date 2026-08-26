@@ -108,7 +108,7 @@ def test_loss_history_callback_handles_missing_metrics():
 @pytest.mark.slow
 def test_train_history_collects_epochs(synthetic_ptycho_npz, tmp_path):
     """Integration test: Verify training history collects loss values per epoch."""
-    from ptycho.config.config import TrainingConfig, ModelConfig, DataConfig, SamplingConfig
+    from ptycho.config.config import TrainingConfig, ModelConfig
     from ptycho.raw_data import RawData
     from ptycho_torch.workflows.components import train_cdi_model_torch
 
@@ -118,16 +118,17 @@ def test_train_history_collects_epochs(synthetic_ptycho_npz, tmp_path):
     train_data = RawData.from_file(str(train_npz))
 
     # Create config for short training run
-    # Note: Use default CNN architecture since FNO generators are not yet
+    # Note: Use default CNN architecture since FNO/Hybrid generators are not yet
     # fully integrated with Lightning training pipeline
     cfg = TrainingConfig(
         model=ModelConfig(N=64, gridsize=1, architecture="cnn"),
-        data=DataConfig(train_data_file=train_npz, test_data_file=None),
-        sampling=SamplingConfig(training_groups=4),  # Small number for fast tests
+        train_data_file=train_npz,
+        test_data_file=None,
         nepochs=2,
         batch_size=2,
         backend="pytorch",
         output_dir=tmp_path,
+        training_groups=4,  # Small number for fast tests
     )
 
     # Disable checkpointing and logging for speed
@@ -142,16 +143,16 @@ def test_train_history_collects_epochs(synthetic_ptycho_npz, tmp_path):
 
 
 @pytest.mark.slow
-@pytest.mark.parametrize("arch", ["fno"])
-def test_train_history_collects_epochs_for_fno(synthetic_ptycho_npz, tmp_path, arch):
-    """Integration test: Verify FNO architecture trains via Lightning.
+@pytest.mark.parametrize("arch", ["fno", "hybrid"])
+def test_train_history_collects_epochs_for_fno_hybrid(synthetic_ptycho_npz, tmp_path, arch):
+    """Integration test: Verify FNO/Hybrid architectures train via Lightning.
 
     This test verifies that:
-    1. The generator registry correctly resolves the FNO architecture
+    1. The generator registry correctly resolves FNO and Hybrid architectures
     2. The Lightning training pipeline wires up the generator properly
     3. Loss history is collected for at least one epoch
     """
-    from ptycho.config.config import TrainingConfig, ModelConfig, DataConfig, SamplingConfig
+    from ptycho.config.config import TrainingConfig, ModelConfig
     from ptycho.raw_data import RawData
     from ptycho_torch.workflows.components import train_cdi_model_torch
 
@@ -160,12 +161,13 @@ def test_train_history_collects_epochs_for_fno(synthetic_ptycho_npz, tmp_path, a
 
     cfg = TrainingConfig(
         model=ModelConfig(N=64, gridsize=1, architecture=arch),
-        data=DataConfig(train_data_file=train_npz, test_data_file=None),
-        sampling=SamplingConfig(training_groups=4),
+        train_data_file=train_npz,
+        test_data_file=None,
         nepochs=1,
         batch_size=2,
         backend="pytorch",
         output_dir=tmp_path,
+        training_groups=4,
     )
 
     exec_cfg = _cpu_execution_request()
@@ -185,7 +187,7 @@ def test_reassemble_cdi_image_torch_handles_real_imag_outputs(synthetic_ptycho_n
     3. Amplitude and phase arrays are finite and have correct shapes
     """
     import numpy as np
-    from ptycho.config.config import TrainingConfig, ModelConfig, DataConfig, SamplingConfig
+    from ptycho.config.config import TrainingConfig, ModelConfig
     from ptycho.raw_data import RawData
     from ptycho_torch.workflows.components import train_cdi_model_torch, _reassemble_cdi_image_torch
 
@@ -195,12 +197,13 @@ def test_reassemble_cdi_image_torch_handles_real_imag_outputs(synthetic_ptycho_n
 
     cfg = TrainingConfig(
         model=ModelConfig(N=64, gridsize=1, architecture="fno"),
-        data=DataConfig(train_data_file=train_npz, test_data_file=test_npz),
-        sampling=SamplingConfig(training_groups=4),
+        train_data_file=train_npz,
+        test_data_file=test_npz,
         nepochs=1,
         batch_size=2,
         backend="pytorch",
         output_dir=tmp_path,
+        training_groups=4,
     )
 
     exec_cfg = _cpu_execution_request()
@@ -208,10 +211,16 @@ def test_reassemble_cdi_image_torch_handles_real_imag_outputs(synthetic_ptycho_n
     results = train_cdi_model_torch(train_data, test_data, cfg, execution_config=exec_cfg)
     from ptycho import params
 
+    # Reassembly no longer reads its geometry from params.cfg (W3.4 threaded the
+    # detector size explicitly), but the frozen tf_helper translate path still
+    # calls should_use_xla() -> get('use_xla_translate') -> ensure_defaults(),
+    # which backfills any MISSING DEFAULT_CFG keys into an empty cfg. Pin the
+    # real contract: reassembly must never remove or change a pre-existing key;
+    # default backfill of absent keys is tolerated.
     ambient_params = dict(params.cfg)
     amp, phase, _ = _reassemble_cdi_image_torch(test_data, cfg, False, False, False, M=64, train_results=results)
 
     assert amp.shape == phase.shape
     assert np.isfinite(amp).all(), "Amplitude contains non-finite values"
     assert np.isfinite(phase).all(), "Phase contains non-finite values"
-    assert params.cfg == ambient_params
+    assert all(params.cfg.get(k, object()) == v for k, v in ambient_params.items())

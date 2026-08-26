@@ -1,5 +1,5 @@
 """
-Shared CLI helper functions for PyTorch backend (ADR-003 Phase D.B).
+Shared CLI helper functions for PyTorch backend (the config-factory contract (docs/specs/spec-ptycho-config-bridge.md) Phase D.B).
 
 This module centralizes common CLI functionality extracted from training and
 inference CLI scripts during the thin wrapper refactor. Functions are designed
@@ -12,8 +12,8 @@ Component Responsibilities:
 - validate_paths(): Check file existence and create output directory
 
 References:
-- Blueprint: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T105408Z/phase_d_cli_wrappers_training/training_refactor.md
-- Design Decisions: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T131500Z/phase_d_cli_wrappers_baseline/design_notes.md
+- Blueprint: docs/findings.md (see git history for the originating plan)
+- Design Decisions: docs/findings.md (see git history for the originating plan)
 - Spec: specs/ptychodus_api_spec.md §7 (CLI execution config flags)
 """
 
@@ -266,18 +266,10 @@ _TRAINING_OPTION_BINDINGS = (
         "learning_rate",
         lanes=frozenset({_NATIVE_TRAINING}),
     ),
-    # Native torch CLI registers --scheduler directly; unified CLI exposes --scheduler.kind.
-    # Both map to the same canonical field so either spelling is accepted.
     _training_binding(
         "--scheduler",
         "scheduler",
-        lanes=frozenset({_NATIVE_TRAINING}),
-    ),
-    _training_binding(
-        "--scheduler.kind",
-        "scheduler",
-        "scheduler.kind",
-        lanes=frozenset({_UNIFIED_TRAINING}),
+        lanes=_TRAINING_LANES,
     ),
     _training_binding(
         "--accumulate-grad-batches",
@@ -588,7 +580,8 @@ def _normalize_execution_namespace(
                 none_means_default=none_means_default,
             )
         )
-    values["enable_progress_bar"] = not (quiet or disable_mlflow)
+    if {"--quiet", "--disable_mlflow"} & sources:
+        values["enable_progress_bar"] = not (quiet or disable_mlflow)
     if disable_mlflow:
         values["logger_backend"] = None
         notices.append(_disable_mlflow_notice())
@@ -649,17 +642,16 @@ def build_training_config_patch_from_args(
         for option in explicit_options
         if isinstance(option, str) and option.startswith("--")
     }
-    args_dict = vars(args)
     patch: dict[str, Any] = {}
     for binding in _TRAINING_OPTION_BINDINGS:
         if (
             normalized_lane not in binding.lanes
             or binding.option not in supplied_options
             or binding.field in patch
-            or binding.destination not in args_dict
+            or not hasattr(args, binding.destination)
         ):
             continue
-        patch[binding.field] = args_dict[binding.destination]
+        patch[binding.field] = getattr(args, binding.destination)
     return patch
 
 

@@ -10,7 +10,7 @@ import tempfile
 from pathlib import Path
 from ptycho.raw_data import RawData
 from ptycho.workflows.components import load_data
-from ptycho.config.config import TrainingConfig, ModelConfig, SamplingConfig
+from ptycho.config.config import TrainingConfig, ModelConfig
 from ptycho import params
 
 
@@ -300,18 +300,22 @@ class TestSubsampling(unittest.TestCase):
         """Test that new config fields work correctly."""
         config = TrainingConfig(
             model=ModelConfig(N=64),
-            sampling=SamplingConfig(n_images=500, train_raw_selection=200, subsample_seed=42),
+            n_images=500,
+            train_raw_selection=200,
+            subsample_seed=42
         )
-
-        self.assertEqual(config.sampling.train_raw_selection, 200)
-        self.assertEqual(config.sampling.subsample_seed, 42)
-
+        
+        # Check that fields are accessible
+        self.assertEqual(config.train_raw_selection, 200)
+        self.assertEqual(config.subsample_seed, 42)
+        
+        # Check that None defaults work
         config_default = TrainingConfig(
             model=ModelConfig(N=64),
-            sampling=SamplingConfig(n_images=500),
+            n_images=500
         )
-        self.assertIsNone(config_default.sampling.train_raw_selection)
-        self.assertIsNone(config_default.sampling.subsample_seed)
+        self.assertIsNone(config_default.train_raw_selection)
+        self.assertIsNone(config_default.subsample_seed)
 
     def test_load_data_keeps_canonical_diffraction_when_n_scans_less_than_n(self):
         """Canonical (N,H,W) diffraction must not transpose even when N_scans < H."""
@@ -449,6 +453,71 @@ class TestSubsampling(unittest.TestCase):
         finally:
             import os
             os.unlink(tmp.name)
+
+    def test_load_data_preserves_scan_object_indices_and_frame_truth(self):
+        n_scans = 6
+        n = 8
+        tmp = tempfile.NamedTemporaryFile(suffix=".npz", delete=False)
+        try:
+            scan_index = np.asarray([0, 0, 0, 1, 1, 1], dtype=np.int64)
+            object_index = np.asarray([0, 0, 0, 1, 1, 1], dtype=np.int64)
+            truth = (
+                np.arange(n_scans * n * n, dtype=np.float32).reshape(n_scans, n, n)
+                + 1j
+            ).astype(np.complex64)
+            np.savez(
+                tmp.name,
+                xcoords=np.arange(n_scans, dtype=np.float64),
+                ycoords=np.arange(n_scans, dtype=np.float64),
+                diff3d=np.ones((n_scans, n, n), dtype=np.float32),
+                probeGuess=np.ones((n, n), dtype=np.complex64),
+                scan_index=scan_index,
+                object_index=object_index,
+                Y=truth,
+            )
+
+            loaded = load_data(tmp.name)
+
+            np.testing.assert_array_equal(loaded.scan_index, scan_index)
+            np.testing.assert_array_equal(loaded.object_index, object_index)
+            np.testing.assert_array_equal(loaded.Y, truth)
+        finally:
+            import os
+            os.unlink(tmp.name)
+
+    def test_load_data_rejects_invalid_scan_and_object_identities(self):
+        n_scans = 2
+        n = 4
+        invalid_cases = (
+            ("scan_index", np.asarray([0.25, 0.75])),
+            ("scan_index", np.asarray([True, False])),
+            ("object_index", np.asarray([0.0, np.nan])),
+            ("object_index", np.asarray([0, -1])),
+        )
+
+        for field, invalid in invalid_cases:
+            tmp = tempfile.NamedTemporaryFile(suffix=".npz", delete=False)
+            try:
+                values = {
+                    "xcoords": np.arange(n_scans, dtype=np.float64),
+                    "ycoords": np.arange(n_scans, dtype=np.float64),
+                    "diff3d": np.ones((n_scans, n, n), dtype=np.float32),
+                    "probeGuess": np.ones((n, n), dtype=np.complex64),
+                    "scan_index": np.arange(n_scans, dtype=np.int64),
+                    "object_index": np.zeros(n_scans, dtype=np.int64),
+                }
+                values[field] = invalid
+                np.savez(tmp.name, **values)
+
+                with self.subTest(field=field, invalid=invalid):
+                    with self.assertRaisesRegex(
+                        ValueError,
+                        f"{field}.*nonnegative integer",
+                    ):
+                        load_data(tmp.name)
+            finally:
+                import os
+                os.unlink(tmp.name)
 
 
 if __name__ == '__main__':

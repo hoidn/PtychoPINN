@@ -30,7 +30,7 @@ def _build_model_and_batch(*, use_legacy_decoder_channel_override=False):
     model = PtychoPINN_Lightning(model_cfg, data_cfg, train_cfg, infer_cfg)
     model.eval()
 
-    B, C, N = 2, (data_cfg.gridsize ** 2), data_cfg.N
+    B, C, N = 2, data_cfg.gridsize ** 2, data_cfg.N
     gen = torch.Generator().manual_seed(SEED)
 
     images = torch.rand((B, C, N, N), generator=gen, dtype=torch.float32)

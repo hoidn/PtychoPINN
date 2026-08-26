@@ -51,7 +51,7 @@ def run_worker(request_path: str | Path, output_root: str | Path):
 
     request = _load_request(Path(request_path))
     resolved = resolve_synthetic_workflow(
-        profile=request.get("profile", "synthetic-lines"),
+        profile=request.get("profile", "hybrid-resnet-lines"),
         file_values=request.get("file_values"),
         cli_values=request.get("cli_values"),
     )

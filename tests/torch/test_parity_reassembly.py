@@ -12,11 +12,21 @@ def test_reassembly_parity_simple_case():
     from ptycho_torch.helper import reassemble_patches_position_real
 
     N = 4
-    patches = np.zeros((2, N, N, 1), dtype=np.complex64)
+    patches = np.zeros((4, N, N, 1), dtype=np.complex64)
     patches[0, 1, 1, 0] = 1.0 + 0.0j
     patches[1, 1, 1, 0] = 1.0 + 0.0j
+    patches[2, 1, 1, 0] = 1.0 + 0.0j
+    patches[3, 1, 1, 0] = 1.0 + 0.0j
 
-    offsets = np.array([[[[0.0, 0.0]]], [[[1.0, 0.0]]]], dtype=np.float64)
+    offsets = np.array(
+        [
+            [[[0.0, 0.0]]],
+            [[[1.0, 0.0]]],
+            [[[0.0, 1.0]]],
+            [[[1.0, 1.0]]],
+        ],
+        dtype=np.float64,
+    )
 
     old_n = params.get("N")
     try:
@@ -25,10 +35,10 @@ def test_reassembly_parity_simple_case():
     finally:
         params.set("N", old_n)
 
-    torch_patches = torch.from_numpy(patches[..., 0]).unsqueeze(0)  # (1, 2, N, N)
-    torch_offsets = torch.from_numpy(offsets.astype(np.float32)).permute(1, 0, 2, 3)  # (1, 2, 1, 2)
+    torch_patches = torch.from_numpy(patches[..., 0]).unsqueeze(0)  # (1, 4, N, N)
+    torch_offsets = torch.from_numpy(offsets.astype(np.float32)).permute(1, 0, 2, 3)  # (1, 4, 1, 2)
 
-    data_cfg = DataConfig(N=N, gridsize=1)
+    data_cfg = DataConfig(N=N, gridsize=2)
     model_cfg = ModelConfig()
 
     torch_out, _, _ = reassemble_patches_position_real(

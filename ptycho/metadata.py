@@ -59,16 +59,16 @@ class MetadataManager:
                 "ptychopinn_version": "2.0.0"  # TODO: Get from package version
             },
             "physics_parameters": {
-                "nphotons": config.data.nphotons,
+                "nphotons": config.nphotons,
                 "gridsize": config.model.gridsize,
                 "N": config.model.N,
                 "probe_trainable": config.probe_trainable,
                 "intensity_scale_trainable": config.intensity_scale_trainable,
-                "nll_weight": config.tf_loss.nll_weight,
+                "nll_weight": config.nll_weight,
                 "model_type": config.model.model_type
             },
             "training_parameters": {
-                "n_images": config.sampling.n_images,
+                "n_images": config.n_images,
                 "batch_size": config.batch_size,
                 "nepochs": config.nepochs
             },
@@ -187,10 +187,10 @@ class MetadataManager:
         # Check critical parameters
         if "nphotons" in physics_params:
             stored_nphotons = physics_params["nphotons"]
-            if abs(stored_nphotons - current_config.data.nphotons) > 1e-9:
+            if abs(stored_nphotons - current_config.nphotons) > 1e-9:
                 warnings_list.append(
                     f"nphotons mismatch: dataset={stored_nphotons}, "
-                    f"config={current_config.data.nphotons}"
+                    f"config={current_config.nphotons}"
                 )
         
         if "N" in physics_params:

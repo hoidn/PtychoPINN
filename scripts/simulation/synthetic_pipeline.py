@@ -21,7 +21,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-_PROFILE = "synthetic-lines"
+from ptycho.simulation import object_producers as _object_producers  # noqa: E402
+
+_PROFILE = "hybrid-resnet-lines"
 _STAGE_ORDER = ("simulate", "train", "reconstruct", "evaluate")
 
 
@@ -65,11 +67,26 @@ def build_parser() -> argparse.ArgumentParser:
     simulation.add_argument("--seed", type=int)
     simulation.add_argument("--train-patterns", type=int)
     simulation.add_argument("--test-patterns", type=int)
+    simulation.add_argument("--train-objects", type=int)
+    simulation.add_argument("--test-objects", type=int)
+    simulation.add_argument("--shared-object", action=argparse.BooleanOptionalAction)
     simulation.add_argument(
-        "--object-kind", choices=("lines", "dead_leaves", "natural_patch")
+        "--frame-order-recipe",
+        choices=("object-major-v1", "coordinate-major-interleaved-v1"),
+    )
+    simulation.add_argument(
+        "--object-kind", choices=_object_producers.registered_object_kinds()
     )
     simulation.add_argument("--object-size", type=int)
     simulation.add_argument("--scan-buffer", type=int)
+    simulation.add_argument(
+        "--scan-position-layout",
+        choices=("uniform_random", "raster", "fixed_pitch_raster"),
+        help=(
+            "Scan position rule; 'raster' spans the canvas and "
+            "'fixed_pitch_raster' uses outer_offset/2 pitch"
+        ),
+    )
     simulation.add_argument("--scan-offset", type=int)
     simulation.add_argument("--outer-offset-train", type=int)
     simulation.add_argument("--outer-offset-test", type=int)
@@ -79,20 +96,29 @@ def build_parser() -> argparse.ArgumentParser:
         "--scale-contract-version",
         choices=("legacy_v1", "ci_intensity_v2"),
         help=(
-            "Measurement units contract; pair with --measurement-domain and "
-            "--physics-forward-mode"
+            "Measurement units contract; must pair with --measurement-domain "
+            "and --physics-forward-mode"
         ),
     )
     simulation.add_argument(
         "--measurement-domain",
         choices=("normalized_amplitude", "count_intensity"),
-        help="Domain stored in the simulated detector arrays",
+        help="Domain of the simulated detector arrays",
     )
     simulation.add_argument("--probe-source", choices=("ideal", "custom"))
     simulation.add_argument("--probe-path", type=Path)
     simulation.add_argument("--probe-transform")
     simulation.add_argument("--simulation-probe-mask-diameter", type=float)
     simulation.add_argument("--ideal-probe-scale", type=float)
+    simulation.add_argument("--simulation-probe-normalization-scale", type=float)
+    simulation.add_argument(
+        "--patch-amplitude-normalization",
+        choices=("none", "mean_patch_max"),
+        help=(
+            "Split-wide object gauge; mean_patch_max divides truth and "
+            "diffraction amplitude by the mean per-frame patch maximum"
+        ),
+    )
 
     model = parser.add_argument_group("model")
     model.add_argument("--architecture")
@@ -106,21 +132,34 @@ def build_parser() -> argparse.ArgumentParser:
     model.add_argument("--fno-width", type=int)
     model.add_argument("--fno-blocks", type=int)
     model.add_argument("--fno-cnn-blocks", type=int)
+    model.add_argument(
+        "--hybrid-skip-connections",
+        action=argparse.BooleanOptionalAction,
+    )
+    model.add_argument("--hybrid-downsample-steps", type=int)
+    model.add_argument("--hybrid-downsample-op")
+    model.add_argument("--hybrid-resnet-blocks", type=int)
+    model.add_argument("--hybrid-skip-style")
+    model.add_argument("--hybrid-encoder-fusion-mode")
+    model.add_argument("--hybrid-encoder-branch-select")
     model.add_argument("--generator-output-mode")
     model.add_argument(
         "--physics-forward-mode",
         choices=("amplitude", "rectangular_scaled"),
-        help="Training forward model; rectangular_scaled requires CI counts",
+        help=(
+            "Training forward model; 'rectangular_scaled' requires the "
+            "count-intensity contract and Poisson loss"
+        ),
     )
     model.add_argument(
         "--cnn-output-mode",
         choices=("amp_phase", "real_imag"),
-        help="CNN complex-output parameterization",
+        help="Complex-output parameterization; 'rectangular_scaled' needs real_imag",
     )
     model.add_argument(
         "--rect-s1s2-init",
         choices=("ones", "dose_closure"),
-        help="Rectangular-forward startup gauge initialization",
+        help="Initialize rectangular scales at one or by dose closure.",
     )
 
     training = parser.add_argument_group("training")
@@ -135,6 +174,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     training.add_argument("--epochs", type=int)
     training.add_argument("--batch-size", type=int)
+    training.add_argument("--torch-training-seed", type=int)
+    training.add_argument(
+        "--batch-order-recipe",
+        choices=("torch-generator-v1", "torch-implicit-july2026-v1"),
+        help="Versioned training-example order; the July recipe is single-device only",
+    )
     training.add_argument("--optimizer", choices=("adam", "adamw", "sgd"))
     training.add_argument("--learning-rate", type=float)
     training.add_argument("--momentum", type=float)
@@ -157,17 +202,38 @@ def build_parser() -> argparse.ArgumentParser:
     training.add_argument(
         "--torch-loss-mode",
         choices=("mae", "poisson"),
-        help="Primary Torch loss; also resolves model.loss_function and nll",
+        help=(
+            "Primary training objective; also sets the coupled "
+            "model.loss_function and training.nll identity"
+        ),
     )
 
     inference = parser.add_argument_group("inference")
     inference.add_argument("--groups-per-center", type=int)
     inference.add_argument("--inference-batch-size", type=int)
-    inference.add_argument("--varpro", action=argparse.BooleanOptionalAction)
-    inference.add_argument("--patch-weighting", choices=("uniform", "probe"))
+    inference.add_argument(
+        "--varpro",
+        action=argparse.BooleanOptionalAction,
+        help="Fit the reconstruction to the acquisition/count gauge",
+    )
+    inference.add_argument(
+        "--patch-weighting",
+        choices=("uniform", "probe"),
+        help="Patch assembly weights; tiled reconstruction requires uniform",
+    )
     inference.add_argument("--pad-eval", action=argparse.BooleanOptionalAction)
     inference.add_argument("--middle-trim", type=int)
     inference.add_argument("--window", type=int)
+    inference.add_argument(
+        "--reconstruction-method",
+        choices=("barycentric", "tiled"),
+        help="Coordinate-aware barycentric assembly or strict fixed-raster tiling",
+    )
+    inference.add_argument(
+        "--metric-crop-border",
+        type=int,
+        help="Symmetric border removed only from the aligned metric mask",
+    )
 
     execution = parser.add_argument_group("execution")
     execution.add_argument(
@@ -240,8 +306,13 @@ _ARG_PATHS: dict[str, tuple[str, ...]] = {
     "seed": ("simulation", "seed"),
     "train_patterns": ("simulation", "train_patterns"),
     "test_patterns": ("simulation", "test_patterns"),
+    "train_objects": ("simulation", "train_objects"),
+    "test_objects": ("simulation", "test_objects"),
+    "shared_object": ("simulation", "shared_object"),
+    "frame_order_recipe": ("simulation", "frame_order_recipe"),
     "object_kind": ("simulation", "object", "kind"),
     "scan_buffer": ("simulation", "scan", "buffer"),
+    "scan_position_layout": ("simulation", "scan", "position_layout"),
     "scan_offset": ("simulation", "scan", "offset"),
     "outer_offset_train": ("simulation", "scan", "outer_offset_train"),
     "outer_offset_test": ("simulation", "scan", "outer_offset_test"),
@@ -254,6 +325,16 @@ _ARG_PATHS: dict[str, tuple[str, ...]] = {
     "probe_transform": ("simulation", "probe", "transform_pipeline"),
     "simulation_probe_mask_diameter": ("simulation", "probe", "mask_diameter"),
     "ideal_probe_scale": ("simulation", "probe", "ideal_scale"),
+    "simulation_probe_normalization_scale": (
+        "simulation",
+        "probe",
+        "simulation_normalization_scale",
+    ),
+    "patch_amplitude_normalization": (
+        "simulation",
+        "object",
+        "patch_amplitude_normalization",
+    ),
     "architecture": ("model", "architecture"),
     "model_probe_mask": ("model", "probe_mask"),
     "model_probe_mask_diameter": ("model", "probe_mask_diameter"),
@@ -262,6 +343,12 @@ _ARG_PATHS: dict[str, tuple[str, ...]] = {
     "fno_width": ("model", "fno_width"),
     "fno_blocks": ("model", "fno_blocks"),
     "fno_cnn_blocks": ("model", "fno_cnn_blocks"),
+    "hybrid_skip_connections": ("model", "hybrid_skip_connections"),
+    "hybrid_downsample_steps": ("model", "hybrid_downsample_steps"),
+    "hybrid_downsample_op": ("model", "hybrid_downsample_op"),
+    "hybrid_skip_style": ("model", "hybrid_skip_style"),
+    "hybrid_encoder_fusion_mode": ("model", "hybrid_encoder_fusion_mode"),
+    "hybrid_encoder_branch_select": ("model", "hybrid_encoder_branch_select"),
     "generator_output_mode": ("model", "generator_output_mode"),
     "physics_forward_mode": ("model", "physics_forward_mode"),
     "cnn_output_mode": ("model", "cnn_output_mode"),
@@ -275,6 +362,8 @@ _ARG_PATHS: dict[str, tuple[str, ...]] = {
     "sequential_sampling": ("training", "sequential_sampling"),
     "epochs": ("training", "epochs"),
     "batch_size": ("training", "batch_size"),
+    "torch_training_seed": ("training", "torch_training_seed"),
+    "batch_order_recipe": ("training", "batch_order_recipe"),
     "optimizer": ("training", "optimizer"),
     "learning_rate": ("training", "learning_rate"),
     "momentum": ("training", "momentum"),
@@ -299,6 +388,8 @@ _ARG_PATHS: dict[str, tuple[str, ...]] = {
     "pad_eval": ("inference", "pad_eval"),
     "middle_trim": ("inference", "middle_trim"),
     "window": ("inference", "window"),
+    "reconstruction_method": ("inference", "reconstruction_method"),
+    "metric_crop_border": ("inference", "metric_crop_border"),
     "stages": ("workflow", "stages"),
     "output_root": ("workflow", "output_root"),
     "accelerator": ("workflow", "accelerator"),
@@ -330,6 +421,8 @@ def _cli_values(args: argparse.Namespace) -> dict[str, Any]:
         size = values["object_size"]
         _put(patch, ("simulation", "object", "image_size"), (size, size))
     if "torch_loss_mode" in values:
+        # The three loss fields are one identity (_validate_loss_identity);
+        # expand here so the CLI cannot author a contradiction.
         loss_function, nll = {
             "mae": ("MAE", False),
             "poisson": ("Poisson", True),

@@ -7,7 +7,7 @@ from dataclasses import dataclass, field, fields
 import math
 from pathlib import Path
 from types import MappingProxyType
-from typing import Literal
+from typing import Literal, get_args, get_type_hints
 
 from ptycho.config.config import TrainingConfig as PublicTrainingConfig
 from ptycho_torch.config_params import (
@@ -69,15 +69,13 @@ TRAINING_OWNER_FIELDS = frozenset(
     }
 )
 
+# Closed value domain derived from the authoritative Literal annotation (a
+# resolver-layer twin, not an era schema). Divergence is impossible by
+# construction; the Literal is the single source.
 SUPPORTED_TORCH_ARCHITECTURES = frozenset(
-    {
-        "cnn",
-        "ffno",
-        "fno",
-        "fno_vanilla",
-        "neuralop_uno",
-    }
+    get_args(get_type_hints(ModelConfig)["architecture"])
 )
+
 
 @dataclass(frozen=True)
 class InputRule:
@@ -211,6 +209,38 @@ class InferenceObservations:
         object.__setattr__(self, "notices", tuple(self.notices))
 
 
+def _path_field_names(config_type) -> frozenset[str]:
+    """Path-typed field names derived from the dataclass type hints."""
+    hints = get_type_hints(config_type)
+    return frozenset(
+        f.name for f in fields(config_type) if hints.get(f.name) is Path
+    )
+
+
+TRAINING_OBSERVATION_PATH_FIELDS = _path_field_names(TrainingObservations)
+INFERENCE_OBSERVATION_PATH_FIELDS = _path_field_names(InferenceObservations)
+
+
+def _freeze_mapping_values(values: Mapping[str, object]) -> Mapping[str, object]:
+    return MappingProxyType(
+        {
+            name: _snapshot_mutable_value(value)
+            for name, value in sorted(values.items())
+        }
+    )
+
+
+def _freeze_aliases(
+    aliases: Mapping[str, tuple[str, ...]],
+) -> Mapping[str, tuple[str, ...]]:
+    return MappingProxyType(
+        {
+            name: tuple(sources)
+            for name, sources in sorted(aliases.items())
+        }
+    )
+
+
 @dataclass(frozen=True)
 class ResolvedTrainingBundle:
     """Fresh, validated Torch training records and deterministic audit."""
@@ -225,36 +255,9 @@ class ResolvedTrainingBundle:
     notices: tuple[ResolutionNotice, ...]
 
     def __post_init__(self) -> None:
-        object.__setattr__(
-            self,
-            "bridge",
-            MappingProxyType(
-                {
-                    name: _snapshot_mutable_value(value)
-                    for name, value in self.bridge.items()
-                }
-            ),
-        )
-        object.__setattr__(
-            self,
-            "audit",
-            MappingProxyType(
-                {
-                    name: _snapshot_mutable_value(value)
-                    for name, value in sorted(self.audit.items())
-                }
-            ),
-        )
-        object.__setattr__(
-            self,
-            "aliases",
-            MappingProxyType(
-                {
-                    name: tuple(sources)
-                    for name, sources in sorted(self.aliases.items())
-                }
-            ),
-        )
+        object.__setattr__(self, "bridge", _freeze_mapping_values(self.bridge))
+        object.__setattr__(self, "audit", _freeze_mapping_values(self.audit))
+        object.__setattr__(self, "aliases", _freeze_aliases(self.aliases))
         object.__setattr__(self, "notices", tuple(self.notices))
 
 
@@ -271,36 +274,9 @@ class ResolvedInferenceBundle:
     notices: tuple[ResolutionNotice, ...]
 
     def __post_init__(self) -> None:
-        object.__setattr__(
-            self,
-            "bridge",
-            MappingProxyType(
-                {
-                    name: _snapshot_mutable_value(value)
-                    for name, value in self.bridge.items()
-                }
-            ),
-        )
-        object.__setattr__(
-            self,
-            "audit",
-            MappingProxyType(
-                {
-                    name: _snapshot_mutable_value(value)
-                    for name, value in sorted(self.audit.items())
-                }
-            ),
-        )
-        object.__setattr__(
-            self,
-            "aliases",
-            MappingProxyType(
-                {
-                    name: tuple(sources)
-                    for name, sources in sorted(self.aliases.items())
-                }
-            ),
-        )
+        object.__setattr__(self, "bridge", _freeze_mapping_values(self.bridge))
+        object.__setattr__(self, "audit", _freeze_mapping_values(self.audit))
+        object.__setattr__(self, "aliases", _freeze_aliases(self.aliases))
         object.__setattr__(self, "notices", tuple(self.notices))
 
 
@@ -345,11 +321,24 @@ _TRAINING_INPUTS_BY_OWNER: tuple[
             "fno_input_transform",
             "max_hidden_channels",
             "resnet_width",
-            "spectral_bottleneck_blocks",
-            "spectral_bottleneck_modes",
-            "spectral_bottleneck_share_weights",
-            "spectral_bottleneck_gate_init",
-            "spectral_bottleneck_gate_mode",
+            "hybrid_skip_connections",
+            "hybrid_downsample_steps",
+            "hybrid_downsample_op",
+            "hybrid_encoder_conv_hidden_scale",
+            "hybrid_encoder_spectral_hidden_scale",
+            "hybrid_encoder_conv_hidden_channels",
+            "hybrid_encoder_spectral_hidden_channels",
+            "hybrid_skip_style",
+            "hybrid_encoder_fusion_mode",
+            "hybrid_encoder_layerscale_init",
+            "hybrid_encoder_branch_gate_init",
+            "hybrid_encoder_branch_select",
+            "ffno_encoder_blocks",
+            "ffno_encoder_modes",
+            "ffno_encoder_share_weights",
+            "ffno_encoder_gate_init",
+            "ffno_encoder_norm",
+            "ffno_encoder_mlp_ratio",
             "generator_output_mode",
             "cnn_output_mode",
             "use_shared_decoder",
@@ -468,6 +457,37 @@ _TRAINING_INPUTS_BY_OWNER: tuple[
     ),
 )
 
+_TRAINING_ALIASES = MappingProxyType(
+    {
+        "model_type": "mode",
+        "max_epochs": "epochs",
+    }
+)
+
+
+def _declare_rules(
+    inputs_by_owner: tuple[tuple[InputOwner, tuple[str, ...]], ...],
+    aliases: Mapping[str, str],
+) -> tuple[InputRule, ...]:
+    aliases_by_canonical: dict[str, list[str]] = {}
+    for alias, canonical in aliases.items():
+        aliases_by_canonical.setdefault(canonical, []).append(alias)
+    return tuple(
+        InputRule(
+            canonical=name,
+            owner=owner,
+            aliases=tuple(aliases_by_canonical.get(name, ())),
+        )
+        for owner, names in inputs_by_owner
+        for name in names
+    )
+
+
+TRAINING_INPUT_RULES = _declare_rules(
+    _TRAINING_INPUTS_BY_OWNER,
+    _TRAINING_ALIASES,
+)
+
 _INFERENCE_INPUTS_BY_OWNER: tuple[
     tuple[InputOwner, tuple[str, ...]], ...
 ] = (
@@ -529,46 +549,16 @@ _INFERENCE_INPUTS_BY_OWNER: tuple[
     ),
 )
 
-_TRAINING_ALIASES = MappingProxyType(
-    {
-        "model_type": "mode",
-        "max_epochs": "epochs",
-    }
-)
 _INFERENCE_ALIASES = MappingProxyType(
     {
+        "model_type": "mode",
         # Documented external-contract fence (not a fallback): the legacy
         # inference-group-count spelling "training_groups" is permanently
-        # accepted; specs/ptychodus_api_spec.md and config_factory docstrings
-        # historically named this key for the inference patch. Normalization
-        # maps it to the canonical "inference_groups".
+        # accepted; specs/ptychodus_api_spec.md §4.6 and config_factory.py
+        # docstrings historically named this key for the inference patch.
+        # Normalization maps it to the canonical "inference_groups".
         "training_groups": "inference_groups",
-        "model_type": "mode",
     }
-)
-
-
-def _declare_rules(
-    inputs_by_owner: tuple[tuple[InputOwner, tuple[str, ...]], ...],
-    aliases: Mapping[str, str],
-) -> tuple[InputRule, ...]:
-    aliases_by_canonical: dict[str, list[str]] = {}
-    for alias, canonical in aliases.items():
-        aliases_by_canonical.setdefault(canonical, []).append(alias)
-    return tuple(
-        InputRule(
-            canonical=name,
-            owner=owner,
-            aliases=tuple(aliases_by_canonical.get(name, ())),
-        )
-        for owner, names in inputs_by_owner
-        for name in names
-    )
-
-
-TRAINING_INPUT_RULES = _declare_rules(
-    _TRAINING_INPUTS_BY_OWNER,
-    _TRAINING_ALIASES,
 )
 INFERENCE_INPUT_RULES = _declare_rules(
     _INFERENCE_INPUTS_BY_OWNER,
@@ -577,6 +567,47 @@ INFERENCE_INPUT_RULES = _declare_rules(
 
 EXECUTION_OWNED_TRAINING_FIELDS = frozenset(
     {"device", "strategy", "n_devices", "num_workers"}
+)
+
+# --- Import-time ownership tripwires (W1) ----------------------------------
+# The owner tables are the resolver's "retain manual" surface. A torch
+# dataclass field must be owned by exactly one InputOwner: a name claimed by
+# two owners would resolve through two precedence paths and silently corrupt
+# the patch; a non-execution torch field missing from the training table would
+# silently never resolve. Name-set tripwire idiom, precedented at
+# ptycho_torch/model_spec.py:239-268.
+_TORCH_RESOLVED_FIELDS = frozenset(
+    field.name
+    for config_type in (DataConfig, ModelConfig, TrainingConfig, InferenceConfig)
+    for field in fields(config_type)
+)
+
+
+def _assert_single_ownership(
+    table: tuple[tuple[InputOwner, tuple[str, ...]], ...],
+    label: str,
+) -> None:
+    """Fail import if any name is owned by more than one InputOwner."""
+    owner_by_name: dict[str, InputOwner] = {}
+    for owner, names in table:
+        for name in names:
+            previous = owner_by_name.setdefault(name, owner)
+            assert previous == owner, (
+                f"{label}: {name!r} is owned by both "
+                f"{previous!r} and {owner!r}"
+            )
+
+
+_assert_single_ownership(_TRAINING_INPUTS_BY_OWNER, "_TRAINING_INPUTS_BY_OWNER")
+_assert_single_ownership(_INFERENCE_INPUTS_BY_OWNER, "_INFERENCE_INPUTS_BY_OWNER")
+
+_TRAINING_RESOLVER_NAMES = frozenset(
+    name for _, names in _TRAINING_INPUTS_BY_OWNER for name in names
+)
+assert _TORCH_RESOLVED_FIELDS - EXECUTION_OWNED_TRAINING_FIELDS <= _TRAINING_RESOLVER_NAMES, (
+    "torch dataclass fields the training resolver can set are undeclared in "
+    "_TRAINING_INPUTS_BY_OWNER: "
+    f"{sorted(_TORCH_RESOLVED_FIELDS - EXECUTION_OWNED_TRAINING_FIELDS - _TRAINING_RESOLVER_NAMES)}"
 )
 
 
@@ -589,15 +620,13 @@ def _canonicalize_value(
     return value
 
 
+
 def _normalize_raw_patch(
     patch: Mapping[str, object],
     *,
     phase: Literal["training", "inference"],
     rules: tuple[InputRule, ...],
-) -> tuple[
-    dict[str, object],
-    dict[str, tuple[str, ...]],
-]:
+) -> tuple[dict[str, object], dict[str, tuple[str, ...]]]:
     copied_patch = dict(patch)
     if phase == "training":
         execution_owned = sorted(
@@ -611,6 +640,7 @@ def _normalize_raw_patch(
                 "ExecutionRequest instead of the scientific configuration "
                 "patch"
             )
+
     canonical_names = {rule.canonical for rule in rules}
     alias_names = {alias for rule in rules for alias in rule.aliases}
     unknown = sorted(set(copied_patch) - canonical_names - alias_names)
@@ -653,7 +683,7 @@ def _normalize_raw_patch(
                 raise ValueError(
                     f"compatibility alias {alias_name!r} for canonical "
                     f"{rule.canonical!r} conflicts with the supplied "
-                    f"canonical value"
+                    "canonical value"
                 )
         values[rule.canonical] = selected_value
         used_aliases = tuple(
@@ -761,49 +791,15 @@ def training_factory_baseline(
                 "training_baseline must be a public TrainingConfig, "
                 "Torch TrainingConfig, or None"
             )
-        if isinstance(training_baseline, PublicTrainingConfig):
-            # Extract TRAINING_OWNER_FIELDS from the nested public TrainingConfig.
-            # The public config uses sub-configs (e.g. scheduler.kind, optimizer.algorithm)
-            # while the torch-internal TrainingConfig still uses flat fields.
-            _public_field_map = {
-                "scheduler": lambda c: c.scheduler.kind,
-                "lr_warmup_epochs": lambda c: c.scheduler.lr_warmup_epochs,
-                "lr_min_ratio": lambda c: c.scheduler.lr_min_ratio,
-                "plateau_factor": lambda c: c.scheduler.plateau_factor,
-                "plateau_patience": lambda c: c.scheduler.plateau_patience,
-                "plateau_min_lr": lambda c: c.scheduler.plateau_min_lr,
-                "plateau_threshold": lambda c: c.scheduler.plateau_threshold,
-                "gradient_clip_val": lambda c: c.gradient_clip.val,
-                "gradient_clip_algorithm": lambda c: c.gradient_clip.algorithm,
-                "optimizer": lambda c: c.optimizer.algorithm,
-                "weight_decay": lambda c: c.optimizer.weight_decay,
-                "momentum": lambda c: c.optimizer.sgd.momentum,
-                "adam_beta1": lambda c: c.optimizer.adam.beta1,
-                "adam_beta2": lambda c: c.optimizer.adam.beta2,
-            }
-            baseline_changes: dict[str, object] = {}
-            for name in TRAINING_OWNER_FIELDS:
-                if name in _public_field_map:
-                    try:
-                        baseline_changes[name] = _snapshot_mutable_value(
-                            _public_field_map[name](training_baseline)
-                        )
-                    except AttributeError:
-                        pass
-                elif hasattr(training_baseline, name):
-                    baseline_changes[name] = _snapshot_mutable_value(
-                        getattr(training_baseline, name)
-                    )
-        else:
-            available = {
-                field_info.name for field_info in fields(training_baseline)
-            }
-            baseline_changes = {
-                name: _snapshot_mutable_value(
-                    getattr(training_baseline, name)
-                )
-                for name in TRAINING_OWNER_FIELDS & available
-            }
+        available = {
+            field_info.name for field_info in fields(training_baseline)
+        }
+        baseline_changes = {
+            name: _snapshot_mutable_value(
+                getattr(training_baseline, name)
+            )
+            for name in TRAINING_OWNER_FIELDS & available
+        }
         training = _fresh_config(training, baseline_changes)
         training_provenance.update(
             {
@@ -825,14 +821,13 @@ def inference_factory_baseline() -> TorchConfigBaseline:
 
     data = DataConfig(
         N=64,
-        gridsize=1,
         neighbor_count=4,
+        gridsize=1,
         scale_contract_version="ci_intensity_v2",
         measurement_domain="count_intensity",
     )
     model = resolve_torch_model_object_policy(
-        ModelConfig(
-        )
+        ModelConfig()
     )
     return TorchConfigBaseline(
         data=data,
@@ -887,8 +882,21 @@ def _owned_values(
 
 
 def _derive_channel_count(gridsize: object) -> tuple[int, int]:
-    """Single derivation site: C = gridsize**2 (channel identity stated once)."""
-    if isinstance(gridsize, bool) or not isinstance(gridsize, int) or gridsize <= 0:
+    """Derive ``(gridsize, channels)`` with ``channels = gridsize**2``.
+
+    Audit note (Task 3.3): this is the SINGLE derivation site for the
+    C-channel count in the Torch config resolver — both the training and
+    inference resolution paths call it. ``C`` is never stored on a resolved
+    owner; it is re-derived from ``gridsize`` at consumption. The stored
+    ``C_model``/``C_forward`` family survives only in the artifact-era
+    decode (``ModelSpec.from_payload`` and the ``artifact_schema`` upgrade),
+    never on a current-era dataclass.
+    """
+    if (
+        isinstance(gridsize, bool)
+        or not isinstance(gridsize, int)
+        or gridsize <= 0
+    ):
         raise ValueError(
             f"gridsize must be a positive integer, got {gridsize!r}"
         )
@@ -1161,14 +1169,14 @@ def _required_group_count(
     normalized: NormalizedPatch,
     baseline_value: int | None,
     *,
-    canonical_name: str,
+    key: str,
 ) -> int:
-    value = normalized.values.get(canonical_name, baseline_value)
+    value = normalized.values.get(key, baseline_value)
     if value is None:
         raise ValueError(
-            f"{canonical_name} is required in the phase patch (no default)"
+            f"{key} is required in the phase patch (no default)"
         )
-    return _require_positive_integer(value, canonical_name)
+    return _require_positive_integer(value, key)
 
 
 def _resolve_training_owner_precedence(
@@ -1207,11 +1215,7 @@ def resolve_training_bundle(
     """Construct and validate a fresh training candidate without side effects."""
 
     if not isinstance(baseline, TorchConfigBaseline):
-        raise TypeError("baseline must be a TorchConfigBaseline")
-    if baseline.training is None:
-        raise ValueError("training resolution requires a training baseline")
-    if not isinstance(normalized, NormalizedPatch):
-        raise TypeError("normalized must be a NormalizedPatch")
+        raise TypeError("baseline must be TorchConfigBaseline")
     if normalized.phase != "training":
         raise ValueError(
             f"{normalized.phase} NormalizedPatch cannot be used for "
@@ -1219,16 +1223,12 @@ def resolve_training_bundle(
         )
     if not isinstance(observations, TrainingObservations):
         raise TypeError("observations must be TrainingObservations")
-    _check_path_constraint(
-        normalized,
-        "train_data_file",
-        observations.train_data_file,
-    )
-    _check_path_constraint(
-        normalized,
-        "output_dir",
-        observations.output_dir,
-    )
+    for field_name in sorted(TRAINING_OBSERVATION_PATH_FIELDS):
+        _check_path_constraint(
+            normalized,
+            field_name,
+            getattr(observations, field_name),
+        )
 
     data_changes = _owned_values(normalized, TRAINING_INPUT_RULES, "data")
     model_changes = _owned_values(normalized, TRAINING_INPUT_RULES, "model")
@@ -1246,6 +1246,7 @@ def resolve_training_bundle(
     gridsize, channels = _derive_channel_count(
         data_changes.get("gridsize", baseline.data.gridsize)
     )
+
 
     if "N" in normalized.values:
         resolved_N = normalized.values["N"]
@@ -1289,7 +1290,7 @@ def resolve_training_bundle(
     training_groups = _required_group_count(
         normalized,
         baseline.training.training_groups,
-        canonical_name="training_groups",
+        key="training_groups",
     )
     candidate_training = _fresh_config(
         candidate_training,
@@ -1314,12 +1315,12 @@ def resolve_training_bundle(
     )
     _validate_training_owner_domains(candidate_training)
 
-    del channels  # channel identity is derived at consumption (C = gridsize**2)
     model_changes.update(
         {
             "loss_function": loss_function,
         }
     )
+
     model = resolve_torch_model_object_policy(
         _fresh_config(baseline.model, model_changes)
     )
@@ -1343,6 +1344,7 @@ def resolve_training_bundle(
         bridge["test_data_file"] = candidate_training.test_data_file
     if "n_raw_frames_selected" in normalized.values:
         bridge["train_raw_selection"] = data.n_raw_frames_selected
+
     if "subsample_seed" in normalized.values:
         bridge["subsample_seed"] = data.subsample_seed
     bridge_values = {
@@ -1424,12 +1426,12 @@ def resolve_inference_bundle(
     if not isinstance(observations, InferenceObservations):
         raise TypeError("observations must be InferenceObservations")
 
-    for field_name, observed in (
-        ("model_path", observations.model_path),
-        ("test_data_file", observations.test_data_file),
-        ("output_dir", observations.output_dir),
-    ):
-        _check_path_constraint(normalized, field_name, observed)
+    for field_name in sorted(INFERENCE_OBSERVATION_PATH_FIELDS):
+        _check_path_constraint(
+            normalized,
+            field_name,
+            getattr(observations, field_name),
+        )
 
     data_changes = _owned_values(normalized, INFERENCE_INPUT_RULES, "data")
     model_changes = _owned_values(
@@ -1448,6 +1450,7 @@ def resolve_inference_bundle(
         data_changes.get("gridsize", baseline.data.gridsize)
     )
 
+
     if "N" in normalized.values:
         resolved_N = normalized.values["N"]
         N_source = "explicit"
@@ -1455,14 +1458,15 @@ def resolve_inference_bundle(
         resolved_N = observations.inferred_probe_size
         N_source = "observation"
     resolved_N = _require_positive_integer(resolved_N, "N")
-    del channels  # channel identity is derived at consumption (C = gridsize**2)
     data_changes.update(
         {
             "gridsize": gridsize,
             "N": resolved_N,
         }
     )
+
     data = _fresh_config(baseline.data, data_changes)
+
 
     model = resolve_torch_model_object_policy(
         _fresh_config(baseline.model, model_changes)
@@ -1472,11 +1476,8 @@ def resolve_inference_bundle(
     _validate_data_and_model(data, model)
     _validate_inference_domains(inference)
 
-    baseline_group_count = None
     inference_groups = _required_group_count(
-        normalized,
-        baseline_group_count,
-        canonical_name="inference_groups",
+        normalized, None, key="inference_groups"
     )
     bridge: dict[str, object] = {
         "model_path": observations.model_path,
@@ -1486,6 +1487,7 @@ def resolve_inference_bundle(
     }
     if "n_raw_frames_selected" in normalized.values:
         bridge["inference_raw_selection"] = normalized.values["n_raw_frames_selected"]
+
     if "subsample_seed" in normalized.values:
         bridge["subsample_seed"] = data.subsample_seed
 

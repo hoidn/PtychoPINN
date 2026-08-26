@@ -187,6 +187,28 @@ class TestReassemblePosition(unittest.TestCase):
         
         print("✅ Different patch values blend test passed.")
 
+    def test_positional_call_form_binds_stitch_size_to_M(self):
+        """Regression (W3.4): ``ptycho/image/cropping.py`` documents the
+        all-positional call ``reassemble_position(pinn_patches, coords,
+        stitch_size)``.  Any new parameter must be appended AFTER
+        ``chunk_size`` (never inserted mid-signature) so ``stitch_size`` keeps
+        binding to the third positional ``M``."""
+        import inspect
+
+        # Third positional arg is M ("stitch_size"); chunk_size is the last
+        # positional today.  This guards the append-only constraint.
+        param_order = list(inspect.signature(reassemble_position).parameters)
+        self.assertEqual(param_order[2], "M")
+        self.assertEqual(param_order[3], "chunk_size")
+
+        N = 32
+        M = 8
+        p.set('N', N)
+        patch = tf.constant(1.0 + 2.0j, shape=(1, N, N, 1), dtype=tf.complex64)
+        offsets = np.zeros((1, 1, 1, 2), dtype=np.float64)
+        out = reassemble_position(patch, offsets, M)  # all-positional
+        self.assertEqual(tuple(out.shape), (M, M, 1))
+
 class TestTranslateFunction(unittest.TestCase):
     """
     Test suite for the translate_core function and its integration with the translate wrapper.

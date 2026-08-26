@@ -207,7 +207,7 @@ def build_index() -> str:
 
 
 def main() -> None:
-    print(build_index())
+    print(build_index(), end="")
 
 
 if __name__ == "__main__":

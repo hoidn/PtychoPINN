@@ -204,7 +204,7 @@ Some workflows may embed the source dataset alongside the product in a single fi
 
 - **Group:** `/raw_data` (extension; optional)
 - **Required (if present):**
-  - `diffraction`: canonical NHW array, shape `[N, H, W]`, dtype float32/float64 — amplitude (sqrt of counts), consistent with the standalone-NPZ contract in `docs/data_contracts.md`
+  - `diffraction`: canonical NHW array, shape `[N, H, W]`, dtype float32/float64 — amplitude (sqrt of counts), consistent with the standalone-NPZ `diff3d` contract in docs/specs/spec-ptycho-core.md
     - Attributes:
       - `axis_canonical = 'NHW'`
       - `original_axis_order` (optional): original axis tag (`'NHW'|'HNW'|'HWN'`)

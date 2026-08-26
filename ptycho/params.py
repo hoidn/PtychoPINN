@@ -1,7 +1,7 @@
 """Legacy global configuration system for PtychoPINN.
 
 ⚠️  DEPRECATED: This module implements a global dictionary-based parameter management
-system that is being phased out in favor of the modern structured configuration system
+system that is being phased out in favor of the modern dataclass configuration system
 in `ptycho.config.config`. Despite its deprecated status, this module remains CRITICAL
 for backward compatibility as it is the most imported module in the codebase (23+ consumers).
 
@@ -25,7 +25,7 @@ Core Functions:
     - validate(): Ensure parameter consistency and valid combinations
 
 Migration Strategy:
-    Modern workflows should use the configuration types from `ptycho.config.config`.
+    Modern workflows should use the dataclass system from `ptycho.config.config`.
     The modern system updates this legacy `cfg` dictionary at initialization to
     maintain compatibility with existing modules that still use `params.get()`.
 
@@ -36,13 +36,13 @@ Usage Examples:
         batch_size = p.get('batch_size')
     
     Modern pattern (preferred):
-        from ptycho.config.config import ModelConfig, TrainingConfig, update_legacy_dict
-        config = TrainingConfig(model=ModelConfig(N=128), batch_size=32)
-        update_legacy_dict(p.cfg, config)  # explicit compatibility boundary
+        from ptycho.config.config import TrainingConfig
+        config = TrainingConfig(N=128, batch_size=32)
+        # Modern config automatically updates legacy params.cfg
 
 Deprecation Timeline:
     This module will remain until all 23+ consumer modules are migrated to accept
-    structured configuration records directly. Current high-priority consumers requiring
+    configuration dataclasses directly. Current high-priority consumers requiring
     migration include: baselines, diffsim, evaluation, loader, model, train_pinn,
     and workflows.components.
 

@@ -2,85 +2,70 @@
 
 For new synthetic PyTorch work, use `ptycho_synthetic`. It is the supported
 generic runner for simulation, grouping, training, strict model reload,
-reconstruction, and evaluation. For anything that runs the workflow more than
-once — ablations, architecture comparisons, sweeps — drive this runner with
-the `ptycho_study` layer instead of hand-rolled loops (see
-[Multi-Arm Studies](#multi-arm-studies) below). The lower-level simulation
-tools remain useful when only a prepared dataset is needed.
+reconstruction, and evaluation. The lower-level simulation tools remain useful
+when only a prepared dataset is needed.
 
 ## Supported Generic PyTorch Runner
 
 ### Default full workflow
 
 The shortest complete invocation resolves the coherent
-`synthetic-lines` profile and runs all four stages:
+`hybrid-resnet-lines` profile and runs all four stages:
 
 ```bash
-ptycho_synthetic --output-root outputs/synthetic-cnn
+ptycho_synthetic --output-root outputs/synthetic-hybrid-resnet
 ```
 
 The equivalent source-tree entry point is:
 
 ```bash
 python -m scripts.simulation.synthetic_pipeline \
-  --output-root outputs/synthetic-cnn
+  --output-root outputs/synthetic-hybrid-resnet
 ```
 
 The default is a real 50-epoch run, not a smoke test.
 
 ### Profile selection and precedence
 
-A profile is a resolver-registered named starting bundle, expanded before
-ordinary configuration objects are constructed and validated. The runner
-registers two profiles:
+A profile is a resolver-registered named starting bundle. It is expanded before
+ordinary configuration objects are constructed and validated. "Preset" is an
+informal description that may also refer to an unregistered combination of
+configuration controls; there is no separate generic preset registry or
+resolver.
+The runner registers two profiles:
 
 | Profile | Recipe | Purpose |
 |---|---|---|
-| `synthetic-lines` | `synthetic-lines-v1` | Default legacy normalized-amplitude lines workflow |
-| `cnn-lines-ci` | `cnn-lines-ci-v1` | Count-intensity lines workflow with the CNN/Poisson contract |
+| `hybrid-resnet-lines` | `hybrid-resnet-lines-v2` | Default legacy normalized-amplitude Hybrid ResNet lines workflow |
+| `hybrid-resnet-lines-ci` | `hybrid-resnet-lines-ci-v2` | Count-intensity Poisson Hybrid ResNet lines workflow with dose-closure startup |
 
-With no selection, the runner uses `synthetic-lines`. A YAML, TOML, or JSON
-workflow may select a profile with the root `profile` field; an explicit
-`--profile` overrides that field. Value precedence is:
+With no selection, the runner uses `hybrid-resnet-lines`. A YAML, TOML, or JSON
+workflow may select either profile with the root `profile` field; explicit
+`--profile` wins. Value precedence is:
 
 ```text
 selected profile < --config file values < explicit CLI values
 ```
 
-This precedence applies to overrideable fields. A selected profile's locked
-fields may only be restated with equal values; any contradiction fails closed.
+The profiles are overrideable starting bundles with no profile-specific lock
+set; final values still pass the coherent scaling, measurement, forward-model,
+and loss validators. The config filename and path never select a profile.
 
-The config filename and path never select a profile. The workflow file passed
-to `ptycho_synthetic` is named `--config`; this differs from the simulation-only
+The workflow file passed to `ptycho_synthetic` is named `--config` and may be
+YAML, TOML, or JSON. This is different from the simulation-only
 `simulate_and_save.py --simulation-config` interface described later.
-
-A complete count-intensity CNN run is:
-
-```bash
-ptycho_synthetic --profile cnn-lines-ci \
-  --output-root outputs/synthetic-cnn-ci
-```
-
-### Public integration smokes
-
-The runner-level GPU gates cover the CNN/C4 count-intensity path and the
-FFNO/GS1 equivalent through all four stages:
-
-```bash
-python -m pytest -q \
-  tests/torch/test_synthetic_cnn_c4_ci_integration.py \
-  tests/torch/test_synthetic_ffno_gs1_ci_integration.py
-```
 
 ### GS2/custom-probe example
 
-This five-epoch example selects grid size 2 (`C=4`), the established legacy
-custom-probe transform, all 4,096 train frames, and independent train and
-validation group counts:
+This ordinary five-epoch example selects grid size 2 (`C=4`), the established
+legacy custom-probe transform, all 4,096 train frames, and independent train
+and validation group counts. It is not one of the sealed quality gates; those
+are Hybrid ResNet GS1/C1, GS2/C4, and C4-CI (count-intensity), documented in
+`docs/TESTING_GUIDE.md`.
 
 ```bash
 ptycho_synthetic \
-  --output-root outputs/synthetic-cnn-gs2 \
+  --output-root outputs/synthetic-hybrid-resnet-gs2 \
   --gridsize 2 \
   --epochs 5 \
   --probe-source custom \
@@ -108,7 +93,7 @@ The same recipe can be authored as a structured workflow document:
 
 ```yaml
 # configs/synthetic-gs2.yaml
-profile: synthetic-lines
+profile: hybrid-resnet-lines
 
 simulation:
   N: 128
@@ -132,7 +117,7 @@ inference:
   groups_per_center: 1
 
 workflow:
-  output_root: outputs/synthetic-cnn-gs2
+  output_root: outputs/synthetic-hybrid-resnet-gs2
   accelerator: auto
   devices: 1
 ```
@@ -159,62 +144,122 @@ ptycho_synthetic --config configs/synthetic-gs2.yaml \
 to be complete under the selected output root, even when that predecessor is
 not selected in the current command.
 
-### Profile contracts and defaults
+### Profile semantics and defaults
 
-This is an operational summary of the profile contract and its public flags.
-The [configuration guide](../../docs/CONFIGURATION.md#profiles-are-starting-bundles)
-is the conceptual authority for profile/preset semantics, locks, and defaults.
-
-`cnn-lines-ci` locks the fields that define its count-intensity CNN contract:
-
-| Namespace | Locked values |
-|---|---|
-| Simulation | `scale_contract_version=ci_intensity_v2`, `measurement_domain=count_intensity` |
-| Model | `architecture=cnn`, `physics_forward_mode=rectangular_scaled`, `cnn_output_mode=real_imag`, `loss_function=Poisson` |
-| Training | `torch_loss_mode=poisson`, `nll=true` |
-
-The public CI contract and initialization flags are:
-
-| Flag | Value allowed with `cnn-lines-ci` |
-|---|---|
-| `--scale-contract-version` | `ci_intensity_v2` |
-| `--measurement-domain` | `count_intensity` |
-| `--physics-forward-mode` | `rectangular_scaled` |
-| `--cnn-output-mode` | `real_imag` |
-| `--torch-loss-mode` | `poisson`; also resolves `model.loss_function=Poisson` and `training.nll=true` |
-| `--rect-s1s2-init` | `dose_closure` (default) or `ones` |
-
-For `cnn-lines-ci`, the first five flags may only restate the locked values
-shown above; a contradiction fails closed. `--rect-s1s2-init` selects either
-supported initialization without changing the locked contract. Equal values in
-a workflow file are accepted for the same reason.
-
-The profile's gradient-clipping defaults
-(`gradient_clip_val=1.0`, `gradient_clip_algorithm=norm`) are ordinary
-overrideable defaults. `dose_closure` solves a shared startup gauge from the
-training data; `ones` starts `s1=s2=1`. The
-[configuration guide](../../docs/CONFIGURATION.md#dose-closure-initialization)
-owns the naming, selection identity, and retirement rules.
-
-For this profile, NPZ diffraction (`diff3d`) is Poisson-realized detector
-counts, not square-root intensity. `probeGuess` is the CI-scaled physical
-forward probe in the same count convention.
-
-`synthetic-lines` has no named profile locks, although every final resolved
-configuration still passes the normal cross-field validators. Its main
-user-facing defaults are:
+This section is the operational profile summary. The
+[configuration guide](../../docs/CONFIGURATION.md#profiles-and-presets) owns the
+profile-versus-preset semantics. The default named profile is
+`hybrid-resnet-lines`, recipe
+`hybrid-resnet-lines-v2`. A second profile, `hybrid-resnet-lines-ci`
+(recipe `hybrid-resnet-lines-ci-v2`), selects the count-intensity Poisson
+contract and `model.rect_s1s2_init=dose_closure`. The amplitude profile keeps
+`rect_s1s2_init=ones`. Every resolved field is written to
+`resolved_workflow.json`; this
+table highlights the user-facing defaults:
 
 | Area | Default |
 |---|---|
-| Simulation | `N=128`, `gridsize=1`, seed 3, nongrid scan, buffer 64 |
-| Object | Shared 392×392 `lines-object-v1`, `set_phi=true` |
+| Simulation | `N=128`, `gridsize=1`, seed 3, nongrid scan, buffer 64, `position_layout=uniform_random` |
+| Object | Shared 392×392 registered object producer; default `lines` / `lines-object-v1`, `set_phi=true` |
 | Probe | Ideal source, scale 0.7, `smooth:0.5|pad_preserve:128`; simulation mask off |
 | Raw frames | 4,096 train, 1,024 test; normalized-amplitude `legacy_v1` |
-| Sampling | 4,096 selected train frames; 1,024 train groups; 1,024 validation groups; neighbor/pool size 4; oversampling off |
-| Model | Unsupervised `cnn`, amplitude/phase output, amplitude forward, model mask off, geometry-derived layout, derived amplitude physics gain |
+| Sampling | `dictionary_parity` adapter; 4,096 selected train frames; 1,024 train groups; 1,024 validation groups; neighbor/pool size 4; oversampling off |
+| Model | Unsupervised `cnn`, real/imaginary output, model mask off, geometry-derived layout, derived amplitude physics gain |
 | Training | 50 epochs, batch 16, Adam `2e-4`, plateau scheduler, MAE with prediction-L2 matching |
 | Inference | Batch 16, probe-weighted barycentric assembly, VarPro on, `groups_per_center=1` |
 | Execution | One auto-selected device, deterministic FP32, zero workers, CSV logger, one best checkpoint |
+
+### Scan position layout
+
+`--scan-position-layout` selects how scan positions are placed inside the
+buffered object extent:
+
+| Value | Behavior |
+|---|---|
+| `uniform_random` (default) | Positions drawn uniformly at random from the split's coordinate seed stream. |
+| `raster` | Span-filling square grid: `pitch = (extent - 2*buffer) / (side - 1)`, row-major, no jitter, no randomness consumed. |
+| `fixed_pitch_raster` | Exact-slice row-major square lattice: legacy translation origin `N // 2`, split pitch `outer_offset_train/2` or `outer_offset_test/2`, no jitter or position randomness. |
+
+Both raster modes require a perfect-square pattern count per object (`side =
+sqrt(M)`), at least 4 positions, and full patch fit in the source canvas. The
+sealed 4,489 / 729 per-object counts qualify (67² and 27²); a non-square count
+is rejected up front with the nearest squares named. Both splits must share the
+layout. For even `N`, the geometric pixel center corresponding to the first
+`fixed_pitch_raster` translation is `N / 2 - 0.5`; persisted flat coordinates
+remain in the translation frame.
+
+The layout is default-elided from recipe and workflow digests, so adding it
+did not move any pre-existing identity; a `raster` workflow gets its own
+digest. The dataset manifest records the layout and, for `raster`, the
+realized per-axis pitch under `scan_geometry`.
+
+```bash
+ptycho_synthetic \
+  --profile hybrid-resnet-lines-ci \
+  --scan-position-layout raster \
+  --train-patterns 4489 --test-patterns 729 \
+  --output-root outputs/raster-ci
+```
+
+This is the nongrid simulation pipeline emitting a grid layout; it is
+distinct from the TensorFlow grid simulation pipeline described in
+`docs/DATA_GENERATION_GUIDE.md`.
+
+### Count-intensity contract flags
+
+`--scale-contract-version`, `--measurement-domain`, `--physics-forward-mode`,
+`--cnn-output-mode`, and `--torch-loss-mode` select the measurement/objective
+contract. The units triple is inseparable: `ci_intensity_v2` +
+`count_intensity` + `rectangular_scaled` must be selected together with
+Poisson loss, and any partial combination is rejected naming the offending
+field. `--profile hybrid-resnet-lines-ci` selects the whole coherent set.
+
+### CI rectangular gauge initialization
+
+The CI profile also initializes rectangular `s1`/`s2` from the fixed
+representative sample of exactly 256 logical detector slots before fitting:
+
+```bash
+ptycho_synthetic \
+  --profile hybrid-resnet-lines-ci \
+  --rect-s1s2-init dose_closure \
+  --output-root outputs/ci-dose-closure
+```
+
+`--rect-s1s2-init ones` restores exact unit initialization. Bare Torch
+`ModelConfig` defaults to `ones`; this synthetic CI profile and the
+training-only `ci` profile opt into
+`dose_closure`. The solve runs the actual resolved forward with a unit complex
+object. It is named *dose closure* because it computes
+`c* = sum(measured counts) / sum(predicted unit-object intensity)` and sets
+`s1=s2=sqrt(c*)`, closing the sampled predicted/observed count totals at
+startup. It improves conditioning but does not calibrate the stored probe or
+identify physical object units. The
+[core contract](../../docs/specs/spec-ptycho-core.md#ci-rectangular-gauge-initialization-normative)
+owns the fixed seed/draw policy, logical population, no-fallback behavior, and
+record compatibility.
+
+#### Result persistence and historical evidence
+
+Each invocation records its command in `OUTPUT/invocation.sh`. The training
+stage writes the startup gauge to `OUTPUT/training/training_summary.json`, and
+the evaluation stage writes `OUTPUT/reconstruction/metrics.json`. Fresh
+summaries use
+`rect-s1s2-initialization-v2`; dose closure records the positive finite gauge,
+method `dose_closure_seeded_uniform_unit_object`, and exactly 256 sampled
+slots. `ones` records the unit no-solve result. Strict v1 reading is retained
+only for prefix-era artifacts.
+
+Post-training learned `s1`/`s2` and reconstruction-time VarPro are separate
+values. On the grid-lines path, the CI adapter derives
+`ci_count_amplitude_scale` independently; the legacy-only `count_scale_mode`
+flag is ignored when CI is active.
+
+The original five-epoch Phase 1 metrics and command used the v1 prefix policy.
+They remain available as historical evidence in the
+[preserved plan](../../docs/plans/2026-08-04-ci-gauge-invariant-scaling.md) and
+[durable finding](../../docs/findings.md#ci-gauge-initialization-001---dose-closure-selects-a-startup-gauge-not-physical-calibration),
+not as a current v2 quality gate or runnable reproduction recipe.
 
 Probe transform defaults are source-aware:
 
@@ -228,11 +273,13 @@ Probe transform defaults are source-aware:
 
 Simulation persists canonical flat acquisitions. Each train/test NPZ contains
 `diff3d` with shape `(M, N, N)`, one `xcoords`/`ycoords` value per frame, the
-contract-appropriate `probeGuess`, shared `objectGuess`, and one
-acquisition/probe `scan_index` value per row. For legacy normalized-amplitude
-data, `probeGuess` is the transformed simulation probe; for CI count data, it
-is the scaled physical forward probe described above. `scan_index` may repeat;
-the manifest's array digests and row order pin acquisition identity. Flat
+transformed training `probeGuess`, the exact acquisition illumination
+`probe_simulated`, per-frame truth `Y`, and `scan_index` plus `object_index`
+vectors. `scan_index` retains its acquisition/probe meaning and may repeat;
+`object_index` identifies the independent object canvas for grouping. A
+single-object split also stores `objectGuess`; a multi-object split binds its
+rows to the source object bank instead of collapsing that bank into one array.
+The manifest's array digests and row order pin acquisition identity. Flat
 storage does **not** imply `gridsize=1`.
 
 The shared loader is the only owner that groups these rows for the model. For
@@ -251,10 +298,30 @@ The sampling flags name separate lifecycle decisions:
 | `--neighbor-pool-size` | Candidate pool for explicit oversampling |
 | `--groups-per-center` | Reconstruction-only repeated groups per eligible center |
 
+Structured configuration also accepts `simulation.train_objects` and
+`simulation.test_objects`. Pattern counts are split totals and must divide
+evenly by the corresponding object count. `shared_object=true` requires the
+default 1/1 bank. Reconstruction/evaluation currently require one test object.
+
+The legacy profile's `training.data_adapter=dictionary_parity` supplies raw
+stored amplitudes and `probeGuess` with unit RMS/physics factors. The CI profile
+uses `data_adapter=loader`. A positive
+`simulation.probe.simulation_normalization_scale` creates a distinct
+`probe_simulated` with the versioned legacy rule, while
+`training.torch_training_seed` pins Torch initialization independently of the
+simulation seed.
+
+`simulation.object.patch_amplitude_normalization=mean_patch_max` computes one
+scale independently per split as `mean_i(max_xy(abs(Y_i)))`, pooling all frames
+and objects. It divides `Y` and diffraction amplitude before count conversion
+and persists the positive float64 `object_amplitude_scale`. This option requires
+`fixed_pitch_raster` and strict tiled reconstruction.
+
 The persisted training `DataConfig.n_raw_frames_selected` records
-`train_raw_selection` (4,096 in the profile). Reconstruction receives
-`groups_per_center` (default 1) as an explicit runtime argument; it is neither
-persisted back into the model bundle nor interpreted as raw train selection.
+`train_raw_selection` (4,096 in the profile). Reconstruction starts from the
+strictly loaded persisted `DataConfig` and threads `groups_per_center` to the
+dataset constructor as an explicit runtime argument (default 1, no dataclass
+field round-trip); it never rewrites the saved train selection.
 
 ### Stage identity and reuse
 
@@ -264,6 +331,8 @@ Completed stages are reusable by default. Reuse is fail-closed:
 - simulation compares the resolved `simulation` namespace;
 - training compares `simulation`, `model`, and `training`;
 - reconstruction/evaluation also compare `inference`;
+- evaluation additionally checks
+  `metric_contract_version=synthetic-quality-metrics-v1`;
 - the `workflow` namespace, including execution controls, is excluded from
   stage identity;
 - each required stage-manifest entry and artifact path must be complete;
@@ -271,34 +340,43 @@ Completed stages are reusable by default. Reuse is fail-closed:
 - a required identity mismatch or a partial artifact requires a new output
   root rather than an in-place overwrite.
 
-The resolved `ResolvedSyntheticWorkflow` is persisted as
-`resolved_workflow.json`, including `profile`, `recipe_version`, and every
-resolved simulation, model, training, inference, and workflow value. Reuse
-compares the stage-specific portions listed above, not the spelling of the
-invocation or config path.
+The complete `ResolvedSyntheticWorkflow` is persisted as
+`resolved_workflow.json`, including `schema_version`, `profile`,
+`recipe_version`, the derived `data` namespace, and every resolved simulation,
+model, training, inference, and workflow value. Reuse compares the
+stage-specific portions listed above, not the spelling of the invocation or
+config path.
 
 Stage selection, output-root spelling, and the reuse switch itself are not
 scientific identity. Downstream-only settings therefore do not redefine an
 already complete simulation, but an exact replay must retain the complete
 identity required by every selected stage.
 
-Fresh training writes the strict `rect-s1s2-initialization-v2` record to
-`OUTPUT/training/training_summary.json`; dose closure records method
-`dose_closure_seeded_uniform_unit_object`. The current
-`synthetic-stage-manifest-v2` training entry requires that file alongside the
-model bundle. Reuse reparses the record and requires its mode to match the
-resolved workflow. Strict historical prefix-era v1 initialization records
-remain readable and reusable without being rewritten. Historical
-`synthetic-stage-manifest-v1` roots lack the initialization-record contract;
-use a new output root or retrain them.
+The current manifest schema is `synthetic-stage-manifest-v2`; its completed
+training entry requires both `training/wts.h5.zip` and
+`training/training_summary.json`. Reuse strictly parses the initialization
+record and requires its mode to match the resolved workflow. Historical
+`synthetic-stage-manifest-v1` roots do not contain this contract: use a new
+output root or retrain rather than trying to reuse them.
 
 ### Reconstruction and stitching
 
 The workflow always disables the older generic `do_stitching` route. That path
-reduces multiple predicted channels at group centers and is not a valid GS2
-quality reconstruction. Instead, the public mmap-backed barycentric workflow
-retains all `C` channel indices, places every accepted patch in global
-coordinates, applies probe weighting, and records reassembly diagnostics.
+reduces multiple predicted channels at group centers and is not a valid
+multi-channel reconstruction. `inference.reconstruction_method` selects one of two
+public mmap-backed adapters:
+
+- `barycentric` is the general coordinate-aware path. It retains all `C`
+  channel indices and supports probe or uniform weights.
+- `tiled` requires GS1, one test object, `fixed_pitch_raster`, one group per
+  center, uniform weights, and complete source-row coverage. Its tile size and
+  pitch are `outer_offset_test/2`; `outer_offset_test` must be divisible by four
+  and no larger than `2*N`.
+
+CI requires VarPro for both methods. Tiled output stores
+`measurement_gauge_canvas` for fitted count diagnostics and publishes
+`complex_canvas` in the raw-source object gauge after applying any split object
+scale exactly once. `metric_crop_border` affects only the aligned metric mask.
 
 ### Output tree
 
@@ -322,12 +400,13 @@ OUTPUT/
     wts.h5.zip
     training_summary.json
     effective_runtime.json
+    checkpoint_selection.json
     checkpoints/
       <monitored-best>.ckpt
       last.ckpt
     lightning_logs/
   reconstruction/
-    reconstruction.npz
+    reconstruction.npz   # complex_canvas + measurement_gauge_canvas
     metrics.json
     diagnostics.json
     comparison.png
@@ -337,88 +416,6 @@ Invocation and resolved-input records are written before expensive work.
 Stage and dataset manifests use relative artifact paths and are updated
 atomically. The runner owns managed descendants beneath `--output-root`; it
 does not recursively delete an arbitrary caller directory.
-
-For a fitted count-intensity reconstruction,
-`reconstruction/diagnostics.json` records
-`metric_validity.count_diagnostics.status="complete"` with
-`relative_l2_intensity_error`, `mean_raw_poisson_nll`, `n_samples`, and
-`n_pixels`. The two floating-point metrics must be finite and both counts must
-be positive. A legacy normalized-amplitude reconstruction instead records
-`status="not_applicable"` with reason
-`legacy_normalized_amplitude`; it does not fabricate count-domain metrics.
-
-## Multi-Arm Studies
-
-Best practice for any multi-run experiment is one config tree plus one
-command, not a shell loop or a bespoke driver script. A study factors the
-experiment into a base `config.yaml` (everything shared) and its ablation
-axes; `ptycho_study` composes base + axis values + CLI overrides per arm and
-invokes the generic runner once per arm.
-
-A minimal complete study — a two-arm architecture comparison — is one file:
-
-```yaml
-# studies/arch_compare/conf/config.yaml
-profile: synthetic-lines
-
-model:
-  architecture: cnn        # swept axis; the base value must exist to override
-
-simulation:
-  train_patterns: 512
-  test_patterns: 256
-
-training:
-  epochs: 5
-  train_raw_selection: 512
-  training_groups: 512
-  validation_groups: 256
-
-study:                     # study-layer node; removed before arm.yaml is written
-  name: arch_compare
-  output_root: .artifacts/studies/arch_compare
-  runner_script: scripts/simulation/synthetic_pipeline.py
-  sentinel: reconstruction/metrics.json
-
-hydra:
-  run:
-    dir: ${study.output_root}/adhoc/${now:%Y%m%d_%H%M%S}
-  sweep:
-    dir: ${study.output_root}
-    subdir: arch_${model.architecture}
-  job:
-    chdir: false
-```
-
-Everything outside the `study`/`hydra` nodes is ordinary runner schema — the
-same document you would pass to `ptycho_synthetic --config`. Run the matrix:
-
-```bash
-ptycho_study --config-dir studies/arch_compare/conf --config-name config -m \
-    model.architecture=cnn,fno
-```
-
-This writes `.artifacts/studies/arch_compare/arch_cnn/` and `arch_fno/`.
-Every swept key must appear in `hydra.sweep.subdir`, or arms collide on one
-directory. Axes that change several keys at once live in per-axis delta
-files instead of a dotted override; the study guide linked below covers
-that layout.
-
-Each arm's output root receives `arm.yaml` — a complete, self-contained
-workflow document in this runner's `--config` schema, directly replayable
-with `ptycho_synthetic --config <arm>/arm.yaml` — plus `runner.log` and
-`study_provenance.json`. All validation still happens in the runner, on the
-composed document; the study layer holds no schema of its own.
-
-Rerunning the same sweep command resumes it: arms whose sentinel
-(`reconstruction/metrics.json` by default) exists are skipped, and the
-fail-closed stage identity described above still governs any per-arm reuse.
-Cross-arm collation comes from `scripts/studies/collate_study_metrics.py`.
-
-The [study workflow guide](../../docs/workflows/hydra_studies.md) owns the
-config-tree structure, delta-file conventions, failure semantics, shared
-datasets, and how to define a new study. Until the package is reinstalled,
-invoke the layer as `python -m ptycho.workflows.study_runner`.
 
 ## Retained Simulation-Only Tools
 
@@ -439,7 +436,6 @@ competing owner.
 | Entry point | Status and purpose |
 |---|---|
 | `ptycho_synthetic` / `synthetic_pipeline.py` | **Supported default:** complete generic PyTorch synthetic workflow |
-| `ptycho_study` / `ptycho.workflows.study_runner` | **Supported study layer:** composes per-arm configs and runs the generic runner once per arm |
 | `simulate_and_save.py` | **Supported low-level tool:** simulate from a prepared object/probe NPZ |
 
 The simulation-only CLI keeps its own canonical simulation-file flag:
@@ -452,16 +448,18 @@ python scripts/simulation/simulate_and_save.py \
 ```
 
 `simulate_and_save.py` consumes the `objectGuess` already present in
-`--input-file`; it does not synthesize a requested object family. Prepare
-`dead_leaves` or `natural_patch` inputs with their dedicated producer first.
+`--input-file`; it does not synthesize a requested object family. This
+restriction applies to that low-level tool, not to the registered object
+producers in `ptycho_synthetic`. Prepare unsupported kinds such as
+`natural_patch` with their dedicated producer first.
 `grf` is not a supported `SyntheticObjectConfig.kind` and must not be recorded
 under another label.
 
 ### SimulationConfig example and probe transforms
 
 This complete low-level configuration uses the available boundary-matched
-probe transform. It is a distinct dataset recipe, not the locked GS2 recipe
-shown earlier:
+probe transform. It is a distinct dataset recipe, not the GS2 example shown
+earlier:
 
 ```toml
 [simulation]
@@ -514,6 +512,53 @@ output path.
 ## Output Data Contract
 
 Generated NPZ files conform to the project's standalone data contract. See the
-[data contracts](../../docs/data_contracts.md) for required keys and shapes.
-The retained simulation-only tools above cover the grid and nongrid
-programmatic APIs available on this branch.
+[data contracts](../../specs/data_contracts.md) for required keys and shapes,
+and the [Data Generation Guide](../../docs/DATA_GENERATION_GUIDE.md) for grid
+versus nongrid programmatic APIs.
+
+### Object producer selection
+
+Synthetic object generation is selected by the pair
+`simulation.object.kind` and `simulation.object_recipe`. The runner dispatches
+that pair through one producer registry. Generated recipes receive explicit
+seed-derived NumPy streams; a source-backed recipe receives a validated object
+bank. An unsupported or mismatched pair fails before simulation.
+
+Registered recipes are:
+
+| Object kind | Recipe |
+|---|---|
+| `lines` | `lines-object-v1` |
+| `dead_leaves` | `dead-leaves-object-v2` |
+| `lines` or `dead_leaves` | `frozen-object-bank-v1` |
+
+`--object-kind` derives the current default recipe for that kind. A structured
+workflow may state both fields explicitly:
+
+```yaml
+profile: hybrid-resnet-lines
+
+simulation:
+  object_recipe: dead-leaves-object-v2
+  object:
+    kind: dead_leaves
+
+workflow:
+  output_root: outputs/synthetic-dead-leaves
+```
+
+Dead Leaves v2 derives independent named geometry and material RNG streams and
+uses a fixed phase law (`max=1.1`, `mean=0.95`), so one object's phase does not
+depend on its split or bank companions. The backend-qualified v1 recipe remains
+available for seeded compatibility work, but it cannot recover a historical
+caller that left Python geometry randomness unseeded. Dataset manifest v3 records RNG and phase identities,
+the realized hash, and fixed-raster morphology diagnostics. The diagnostics do
+not replace the reconstruction quality preflight.
+
+For an unreconstructible historical canvas, use `frozen-object-bank-v1` and
+set `simulation.object.source_path` to an NPZ containing exactly finite
+complex64 `trainObjectGuess` and `testObjectGuess` banks. Manifest v4 binds the
+input byte snapshot, both ordered banks, and every selected canvas; cache reuse
+rereads the external file. It records coordinate/noise acquisition streams but
+forbids fictional object-seed lineage. Diffraction, coordinates, detector
+noise, truth-forward closure, and output NPZs are still produced by this runner.

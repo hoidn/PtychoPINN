@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -29,6 +30,7 @@ def _request(
     root: Path,
     stages: tuple[str, ...],
     *,
+    profile: str = "hybrid-resnet-lines",
     extra_file_values: dict[str, object] | None = None,
 ) -> SyntheticPipelineRequest:
     file_values: dict[str, object] = {
@@ -43,7 +45,7 @@ def _request(
         assert isinstance(values, dict)
         current.update(values)
     return SyntheticPipelineRequest(
-        profile="synthetic-lines",
+        profile=profile,
         file_values=file_values,
         raw_argv=("--output-root", str(root), "--stages", ",".join(stages)),
         script_path="ptycho_synthetic",
@@ -261,7 +263,7 @@ def test_invocation_and_resolution_exist_before_first_expensive_stage(tmp_path):
             resolved_path = request.output_root / "resolved_workflow.json"
             assert resolved_path.is_file()
             persisted = json.loads(resolved_path.read_text(encoding="utf-8"))
-            assert persisted["profile"] == "synthetic-lines"
+            assert persisted["profile"] == "hybrid-resnet-lines"
             assert not (request.output_root / "stage_manifest.json").exists()
             return super().simulate(request)
 
@@ -289,6 +291,43 @@ def test_complete_matching_stages_are_reused_without_executor_calls(tmp_path):
     assert second.calls == []
     assert result.reused_stages == ("simulate", "train")
     assert result.completed_stages == ("simulate", "train")
+
+
+def test_pre_frame_order_default_stage_identity_remains_reusable(tmp_path):
+    _run(_request(tmp_path, ("simulate",)), _Executors())
+    resolved_path = tmp_path / "resolved_workflow.json"
+    historical = json.loads(resolved_path.read_text(encoding="utf-8"))
+    historical["simulation"].pop("frame_order_recipe")
+    resolved_path.write_text(json.dumps(historical), encoding="utf-8")
+    replay = _Executors()
+
+    result = _run(_request(tmp_path, ("simulate",)), replay)
+
+    assert replay.calls == []
+    assert result.reused_stages == ("simulate",)
+
+
+def test_absent_historical_frame_order_does_not_alias_coordinate_major(tmp_path):
+    from ptycho.workflows.synthetic_pipeline import _assert_stage_identity
+
+    _run(_request(tmp_path, ("simulate",)), _Executors())
+    current = json.loads(
+        (tmp_path / "resolved_workflow.json").read_text(encoding="utf-8")
+    )
+    historical = json.loads(json.dumps(current))
+    historical["simulation"].pop("frame_order_recipe")
+    coordinate_major = json.loads(json.dumps(historical))
+    coordinate_major["simulation"]["frame_order_recipe"] = (
+        "coordinate-major-interleaved-v1"
+    )
+
+    with pytest.raises(ValueError, match="simulation.frame_order_recipe"):
+        _assert_stage_identity(
+            "simulate",
+            historical,
+            coordinate_major,
+            {"metric_contract_version": METRIC_CONTRACT_VERSION},
+        )
 
 
 def test_matching_historical_v1_initialization_record_remains_reusable(tmp_path):
@@ -380,6 +419,47 @@ def test_fresh_training_rejects_malformed_summary_before_manifest_completion(
 
     with pytest.raises(ValueError, match=message):
         _run(_request(tmp_path, ("train",)), Malformed())
+
+    manifest = json.loads((tmp_path / "stage_manifest.json").read_text())
+    assert list(manifest["stages"]) == ["simulate"]
+
+
+def test_fresh_training_rejects_backend_and_persisted_record_mismatch(tmp_path):
+    _run(
+        _request(
+            tmp_path,
+            ("simulate",),
+            profile="hybrid-resnet-lines-ci",
+        ),
+        _Executors(),
+    )
+
+    class Mismatched(_Executors):
+        def train(self, request):
+            self.calls.append("train")
+            return TrainingStageResult(
+                bundle_path=_write(
+                    request.output_root / "training" / "wts.h5.zip"
+                ),
+                training_summary_path=_write_initialization_summary(
+                    request.output_root / "training" / "training_summary.json",
+                    _initialization_payload("dose_closure", gauge=3.25),
+                ),
+                rect_s1s2_initialization=_initialization_payload(
+                    "dose_closure",
+                    gauge=4.0,
+                ),
+            )
+
+    with pytest.raises(ValueError, match="does not match backend"):
+        _run(
+            _request(
+                tmp_path,
+                ("train",),
+                profile="hybrid-resnet-lines-ci",
+            ),
+            Mismatched(),
+        )
 
     manifest = json.loads((tmp_path / "stage_manifest.json").read_text())
     assert list(manifest["stages"]) == ["simulate"]
@@ -876,7 +956,7 @@ def test_default_simulation_adapter_launches_only_the_cuda_hidden_worker(
         file_values={"workflow": {"output_root": tmp_path}}
     )
     request = synthetic_pipeline.SimulationStageRequest(
-        profile="synthetic-lines",
+        profile="hybrid-resnet-lines",
         file_values={"workflow": {"output_root": tmp_path}},
         cli_values=None,
         resolved_workflow=resolved,
@@ -913,7 +993,7 @@ def test_default_simulation_adapter_bounds_failed_subprocess_log(tmp_path, monke
         file_values={"workflow": {"output_root": tmp_path}}
     )
     request = synthetic_pipeline.SimulationStageRequest(
-        profile="synthetic-lines",
+        profile="hybrid-resnet-lines",
         file_values={"workflow": {"output_root": tmp_path}},
         cli_values=None,
         resolved_workflow=resolved,
@@ -945,7 +1025,13 @@ def test_default_training_adapter_uses_shared_training_workflow(tmp_path, monkey
     from ptycho.workflows.synthetic_config import resolve_synthetic_workflow
 
     resolved = resolve_synthetic_workflow(
-        file_values={"workflow": {"output_root": tmp_path}}
+        file_values={
+            "training": {
+                "torch_training_seed": 3,
+                "batch_order_recipe": "torch-implicit-july2026-v1",
+            },
+            "workflow": {"output_root": tmp_path},
+        }
     )
     dataset_root = tmp_path / "datasets"
     dataset_root.mkdir(parents=True)
@@ -990,6 +1076,8 @@ def test_default_training_adapter_uses_shared_training_workflow(tmp_path, monkey
     assert shared.test_data_file == request.test_path
     assert shared.output_dir == tmp_path / "training"
     assert shared.do_stitching is False
+    assert shared.torch_training_seed == 3
+    assert shared.batch_order_recipe == "torch-implicit-july2026-v1"
     assert result.bundle_path == bundle
     assert result.training_summary_path == summary
     assert result.rect_s1s2_initialization.to_jsonable() == initialization
@@ -1157,6 +1245,34 @@ def _resolved_gs2(root: Path):
     )
 
 
+def _resolved_tiled(root: Path):
+    from ptycho.workflows.synthetic_config import resolve_synthetic_workflow
+
+    return resolve_synthetic_workflow(
+        file_values={
+            "simulation": {
+                "train_patterns": 9,
+                "test_patterns": 4,
+                "scan": {"position_layout": "fixed_pitch_raster"},
+            },
+            "training": {
+                "train_raw_selection": 4,
+                "training_groups": 4,
+                "validation_groups": 4,
+                "neighbor_count": 1,
+                "neighbor_pool_size": 1,
+            },
+            "inference": {
+                "reconstruction_method": "tiled",
+                "patch_weighting": "uniform",
+                "varpro_scaling": False,
+                "metric_crop_border": 2,
+            },
+            "workflow": {"accelerator": "cpu", "output_root": root},
+        }
+    )
+
+
 def _write_source_manifest(source_path: Path, resolved) -> Path:
     from ptycho.simulation.flat_acquisition import (
         OBJECT_PRODUCER_SYMBOLS,
@@ -1246,6 +1362,8 @@ def _write_training_manifest(train_path: Path, test_path: Path, resolved) -> Pat
     }
     probe_config = resolved.simulation.train.probe
     probe_hash = array_sha256(probe)
+    source_path = train_path.parent / "source.npz"
+    np.savez(source_path, objectGuess=truth, probeGuess=probe)
     probe_record = {
         "source_kind": probe_config.source,
         "source_path": (
@@ -1321,7 +1439,12 @@ def _write_training_manifest(train_path: Path, test_path: Path, resolved) -> Pat
                 "storage_layout": "flat_acquisition_v1",
                 "profile": resolved.profile,
                 "recipe_version": resolved.recipe_version,
-                "artifacts": {"train": train_path.name, "test": test_path.name},
+                "artifacts": {
+                    "source": source_path.name,
+                    "train": train_path.name,
+                    "test": test_path.name,
+                },
+                "source_npz_sha256": file_sha256(source_path),
                 "simulation": synthetic_workflow_to_dict(resolved)["simulation"],
                 "seed_lineage": lineage,
                 "measurement_identity": {
@@ -1412,6 +1535,7 @@ def test_default_reconstruction_adapter_persists_raw_c4_evidence_atomically(
         assert set(archive.files) == {
             "schema_version",
             "complex_canvas",
+            "measurement_gauge_canvas",
             "amplitude",
             "phase",
             "prescale_canvas",
@@ -1425,6 +1549,84 @@ def test_default_reconstruction_adapter_persists_raw_c4_evidence_atomically(
         np.testing.assert_array_equal(archive["canvas_weights"], weights)
         np.testing.assert_array_equal(archive["channel_indices"], channel_indices)
         assert json.loads(archive["canvas_anchor_json"].item()) == anchor
+
+
+def test_tiled_reconstruction_dispatches_to_the_strict_mmap_tiled_adapter(
+    tmp_path,
+    monkeypatch,
+):
+    from ptycho.workflows import synthetic_pipeline
+    from ptycho_torch import inference
+
+    resolved = _resolved_tiled(tmp_path)
+    request = synthetic_pipeline.ReconstructionStageRequest(
+        resolved_workflow=resolved,
+        output_root=tmp_path,
+        test_path=_write(tmp_path / "datasets" / "test.npz"),
+        dataset_manifest_path=_write(tmp_path / "datasets" / "manifest.json", b"{}"),
+        bundle_path=_write(tmp_path / "training" / "wts.h5.zip"),
+    )
+    canvas = np.ones((20, 20), dtype=np.complex64)
+    channel_indices = np.arange(4, dtype=np.int64).reshape(-1, 1)
+    reassembly = _default_adapter_reassembly(channel_count=4)
+    reassembly["used_center_scan_ids"] = list(range(4))
+    reassembly["filtered_eligible_scan_ids"] = list(range(4))
+    reassembly.update(
+        {
+            "assembly_method": "tiled_raster_v1",
+            "requested_middle_trim": 32,
+            "effective_tile_size": 10,
+            "effective_patch_weighting": "uniform",
+            "effective_varpro_scaling": False,
+            "lattice_shape": [2, 2],
+            "lattice_pitch": [10.0, 10.0],
+            "object_amplitude_scale": 1.0,
+            "object_amplitude_scale_applied": False,
+            "object_gauge": {
+                "inference_canvas_before_publication": "raw_source",
+                "published_canvas": "raw_source",
+                "published_scale_factor": 1.0,
+                "count_diagnostics_canvas": "raw_source",
+            },
+        }
+    )
+    captured = {}
+
+    def fake_tiled(*args, **kwargs):
+        captured["args"] = args
+        captured["kwargs"] = kwargs
+        return SimpleNamespace(
+            complex_canvas=canvas,
+            amplitude=np.abs(canvas),
+            phase=np.angle(canvas),
+            prescale_canvas=canvas,
+            canvas_weights=np.ones(canvas.shape, dtype=np.float32),
+            canvas_anchor={
+                "scan_com": [69.0, 69.0],
+                "canvas_shape": [20, 20],
+                "canvas_origin_offset": [-59.0, -59.0],
+                "truth_origin": [59, 59],
+                "assembly_method": "tiled_raster_v1",
+            },
+            channel_indices=channel_indices,
+            reassembly=reassembly,
+        )
+
+    monkeypatch.setattr(inference, "reconstruct_npz_tiled", fake_tiled, raising=False)
+    monkeypatch.setattr(
+        inference,
+        "reconstruct_npz_barycentric",
+        lambda *_args, **_kwargs: pytest.fail("barycentric adapter was called"),
+    )
+
+    result = execute_reconstruction_stage(request)
+
+    assert captured["args"] == (request.bundle_path, request.test_path)
+    assert captured["kwargs"]["expected_workflow"] is resolved
+    assert result.reassembly == reassembly
+    with np.load(result.reconstruction_path, allow_pickle=False) as archive:
+        anchor = json.loads(archive["canvas_anchor_json"].item())
+    assert anchor["truth_origin"] == [59, 59]
 
 
 def test_default_reconstruction_rejects_channel_reassembly_disagreement(
@@ -1478,6 +1680,10 @@ def test_default_evaluation_adapter_reloads_raw_artifact_and_source_truth(
     from ptycho_torch import inference, reconstruction_evaluation
 
     resolved = _resolved_gs2(tmp_path)
+    resolved = replace(
+        resolved,
+        inference=replace(resolved.inference, metric_crop_border=2),
+    )
     canvas = np.full((10, 10), 1.0 + 0.5j, dtype=np.complex64)
     truth = np.full((12, 12), 2.0 - 0.25j, dtype=np.complex64)
     reassembly = _default_adapter_reassembly()
@@ -1566,6 +1772,7 @@ def test_default_evaluation_adapter_reloads_raw_artifact_and_source_truth(
     )
     assert captured["reassembly"] == reassembly
     assert captured["groups_per_center"] == 1
+    assert captured["metric_crop_border"] == 2
     assert captured["output_dir"] == tmp_path / "reconstruction"
     assert result.metrics_path == metrics_path
     assert result.comparison_path == comparison_path
@@ -1597,6 +1804,7 @@ def test_default_evaluation_rejects_corrupt_reconstruction_before_scoring(
     payload = {
         "schema_version": np.asarray(RECONSTRUCTION_SCHEMA),
         "complex_canvas": canvas,
+        "measurement_gauge_canvas": canvas,
         "amplitude": np.abs(canvas),
         "phase": np.angle(canvas),
         "prescale_canvas": canvas,
@@ -1678,6 +1886,7 @@ def test_default_evaluation_rejects_source_truth_drift_before_scoring(
         reconstruction_path,
         schema_version=np.asarray(RECONSTRUCTION_SCHEMA),
         complex_canvas=canvas,
+        measurement_gauge_canvas=canvas,
         amplitude=np.abs(canvas),
         phase=np.angle(canvas),
         prescale_canvas=canvas,
@@ -1783,7 +1992,7 @@ def test_no_stage_selection_uses_real_default_adapters_in_complete_order(
     def reconstruct(*_args, **kwargs):
         calls.append("reconstruct")
         canvas = np.full((10, 10), 1.0 + 0.25j, dtype=np.complex64)
-        channels = int(kwargs["expected_workflow"].data.gridsize) ** 2
+        channels = int(kwargs["expected_workflow"].data.gridsize ** 2)
         return SimpleNamespace(
             complex_canvas=canvas,
             amplitude=np.abs(canvas),

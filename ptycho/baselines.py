@@ -70,7 +70,7 @@ np.random.seed(123)
 # Model dimensions will be set dynamically in build_model()
 wt_path = 'wts4' #Where to store network weights
 
-n_filters_scale = params.params()['n_filters_scale']
+# n_filters_scale is read from params inside build_model (no import-time read).
 
 #Keras modules
 from tensorflow.keras.layers import UpSampling2D
@@ -95,6 +95,7 @@ def Conv_Up_block(x0,nfilters,w1=3,w2=3,p1=2,p2=2,padding='same', data_format='c
 
 def build_model(X_train, Y_I_train, Y_phi_train):
     tf.keras.backend.clear_session()
+    n_filters_scale = params.params()['n_filters_scale']
     # Baseline model is fundamentally a single-channel operator
     # Always use c=1 regardless of input data shape, as multi-channel data
     # should be flattened to independent samples before training

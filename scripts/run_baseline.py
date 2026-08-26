@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import sys
 from contextlib import contextmanager
@@ -24,14 +25,12 @@ from ptycho.config.config import (
 )
 from ptycho.image.cropping import align_for_evaluation
 from ptycho.loader import PtychoDataset
-import logging
-
-from ptycho.workflows.config_cli import (
+from ptycho.workflows.components import (
+    create_ptycho_data_container,
     load_data,
     parse_arguments,
     setup_configuration,
 )
-from ptycho.workflows.workflow_orchestration import create_ptycho_data_container
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +89,8 @@ def _baseline_tensorflow_scope(
         with configured_params_scope():
             update_legacy_dict(params.cfg, config)
             if intensity_scale is not None:
-                params.cfg["intensity_scale"] = intensity_scale
+                # Seal-visible write (whitelisted key) instead of a direct dict write.
+                params.set("intensity_scale", intensity_scale)
             yield
 
 
@@ -145,19 +145,18 @@ def _load_baseline_dataset(config: TrainingConfig):
         from ptycho import probe as probe_module
 
         probe_module.set_default_probe()
-        if not (config.data.train_data_file and config.data.test_data_file):
+        if not (config.train_data_file and config.test_data_file):
             from ptycho import generate_data
 
-            return generate_data.ptycho_dataset, generate_data.YY_ground_truth
+            legacy = generate_data.run()
+            return legacy.ptycho_dataset, legacy.YY_ground_truth
 
-    logger.info("Loading from .npz files: %s", config.data.train_data_file)
+    logger.info("Loading from .npz files: %s", config.train_data_file)
     train_data_raw = load_data(
-        str(config.data.train_data_file),
-        n_images=config.sampling.training_groups,
-        n_subsample=config.sampling.train_raw_selection,
-        subsample_seed=config.sampling.subsample_seed,
+        str(config.train_data_file),
+        n_images=config.n_images,
     )
-    test_data_raw = load_data(str(config.data.test_data_file))
+    test_data_raw = load_data(str(config.test_data_file))
     train_container = create_ptycho_data_container(train_data_raw, config)
     test_container = create_ptycho_data_container(test_data_raw, config)
     dataset = PtychoDataset(train_container, test_container)
@@ -197,17 +196,15 @@ def _train_baseline_and_predict(
     ):
         from ptycho import baselines
 
-        previous_filter_scale = baselines.n_filters_scale
-        baselines.n_filters_scale = config.model.n_filters_scale
-        try:
-            model, history = baselines.train(
-                X_train,
-                Y_I_train,
-                Y_phi_train,
-            )
-            pred_I_patches, pred_phi_patches = model.predict(X_test)
-        finally:
-            baselines.n_filters_scale = previous_filter_scale
+        # n_filters_scale flows through update_legacy_dict -> params.cfg and is
+        # read by baselines.build_model at call time (W3.2); the old module-
+        # global projection/restore dance existed only for the import-time read.
+        model, history = baselines.train(
+            X_train,
+            Y_I_train,
+            Y_phi_train,
+        )
+        pred_I_patches, pred_phi_patches = model.predict(X_test)
     return model, history, pred_I_patches, pred_phi_patches
 
 
@@ -254,7 +251,8 @@ def _save_reconstructions_legacy(
     from ptycho.export import save_recons
 
     with legacy_params_scope():
-        params.cfg["output_prefix"] = output_prefix
+        # Seal-visible write instead of a direct dict write (W3.1 convergence).
+        params.set("output_prefix", output_prefix)
         save_recons(
             model_type="supervised",
             stitched_obj=stitched_obj,
@@ -401,10 +399,16 @@ def run_baseline(
 
 def main():
     """Resolve CLI configuration and execute the supervised baseline."""
+    # The facade's import-time basicConfig side effect was deleted (Phase 1);
+    # this CLI owns its logging configuration now.
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    )
     args = parse_arguments()
     config = setup_configuration(args, args.config)
-    config = config.model_copy(
-        update={"model": replace(config.model, model_type="supervised")},
+    config = replace(
+        config,
+        model=replace(config.model, model_type="supervised"),
     )
     return run_baseline(config)
 

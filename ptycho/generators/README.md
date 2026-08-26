@@ -9,7 +9,7 @@ The generator registry enables architecture selection via the `config.model.arch
 - `cnn` (default): U-Net based CNN generator from `ptycho/model.py`
 
 This README covers the TensorFlow generator registry. Other architecture
-strings (e.g., `fno`) are handled by the
+strings (e.g., `fno`, `hybrid`) are handled by the
 PyTorch stack under `ptycho_torch/` and are not registered here—attempting
 to resolve them in the TensorFlow registry will raise a ValueError.
 
@@ -65,7 +65,7 @@ _REGISTRY = {
 Update the `ModelConfig.architecture` type hint and `validate_model_config()`:
 
 ```python
-architecture: Literal['cnn', 'fno', 'my_arch'] = 'cnn'
+architecture: Literal['cnn', 'fno', 'hybrid', 'my_arch'] = 'cnn'
 ```
 
 4. **Add tests** in `tests/test_generator_registry.py`:

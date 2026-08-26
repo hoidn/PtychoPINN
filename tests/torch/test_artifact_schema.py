@@ -21,7 +21,7 @@ def _identity_parts(*, tensor_mask=False):
     data = DataConfig(N=64, gridsize=1, probe_scale=4.0)
     mask = torch.arange(16, dtype=torch.float32).reshape(4, 4) if tensor_mask else None
     model = ModelConfig(
-        object_big=False,
+                object_big=False,
         probe_big=False,
         probe_mask=bool(tensor_mask),
         probe_mask_tensor=mask,
@@ -31,97 +31,6 @@ def _identity_parts(*, tensor_mask=False):
     canonical = to_model_config(data, model)
     spec = derive_model_spec(canonical, model, data)
     return spec, data, training, inference
-
-
-def _legacy_data_payload(data) -> dict:
-    """Project a live (v4) DataConfig onto the historical unversioned wire shape."""
-    payload = asdict(data)
-    gridsize = payload.pop("gridsize")
-    payload["C"] = gridsize * gridsize
-    payload["grid_size"] = (gridsize, gridsize)
-    payload["n_subsample"] = payload.pop("n_raw_frames_selected")
-    payload["K"] = payload.pop("neighbor_count")
-    return payload
-
-
-def _legacy_artifact_payload(*, era, c_model, c_forward, data_c, grid_size):
-    """Build a legacy artifact payload with chosen model twins and data grid.
-
-    The model section stores ``C_model``/``C_forward`` and the data section
-    stores ``C``/``grid_size``; callers may make the two sides disagree to pin
-    the cross-section channel-faithfulness rejection.
-    """
-    from ptycho_torch.artifact_schema import encode_artifact_identity
-
-    spec, data, training, inference = _identity_parts()
-    payload = encode_artifact_identity(spec, data, training, inference)
-
-    spec_version = (
-        "torch-model-spec-portable-v1"
-        if era == "torch-artifact-portable-v1"
-        else "torch-model-spec-portable-v2"
-    )
-    model_fields = dict(payload["model_spec"]["model_config"])
-    model_fields["C_model"] = c_model
-    model_fields["C_forward"] = c_forward
-    if era == "torch-artifact-portable-v1":
-        grouped = model_fields.pop("object_layout") == "grouped_patches"
-        model_fields.pop("training_canvas")
-        model_fields["object_big"] = grouped
-    payload["model_spec"] = {
-        **payload["model_spec"],
-        "schema_version": spec_version,
-        "model_config": model_fields,
-    }
-    payload["schema_version"] = era
-
-    data_section = _legacy_data_payload(data)
-    data_section["C"] = data_c
-    data_section["grid_size"] = grid_size
-    payload["data_config"] = data_section
-    return payload
-
-
-@pytest.mark.parametrize(
-    "era",
-    ["torch-artifact-portable-v1", "torch-artifact-portable-v2"],
-)
-def test_legacy_artifact_rejects_model_data_channel_disagreement(era):
-    from ptycho_torch.artifact_schema import decode_artifact_identity
-
-    payload = _legacy_artifact_payload(
-        era=era,
-        c_model=1,
-        c_forward=1,
-        data_c=4,
-        grid_size=(2, 2),
-    )
-    with pytest.raises(
-        ValueError,
-        match=r"C_model=1 conflicts with data section grid product 4",
-    ):
-        decode_artifact_identity(payload)
-
-
-def test_unversioned_upgrade_rejects_model_data_channel_disagreement():
-    from ptycho_torch.artifact_schema import upgrade_unversioned_sections
-
-    spec, data, training, inference = _identity_parts()
-    data_payload = _legacy_data_payload(data)
-    data_payload["C"] = 4
-    data_payload["grid_size"] = (2, 2)
-    model_payload = dict(spec.to_payload()["model_config"], C_model=1, C_forward=1)
-
-    with pytest.raises(
-        ValueError,
-        match=r"C_model=1 conflicts with data section grid product 4",
-    ):
-        upgrade_unversioned_sections(
-            data_config=data_payload,
-            model_config=model_payload,
-            training_config=asdict(training),
-            inference_config=asdict(inference),
-        )
 
 
 def test_current_artifact_roundtrip_preserves_model_spec_and_tensor_values():
@@ -160,7 +69,6 @@ def test_current_artifact_roundtrip_preserves_model_spec_and_tensor_values():
     [
         ("backend", "tensorflow", r"backend.*tensorflow"),
         ("schema_version", "torch-artifact-v999", r"schema.*v999"),
-        ("schema_version", "torch-artifact-v1", r"schema.*torch-artifact-v1"),
     ],
 )
 def test_current_artifact_rejects_unknown_backend_or_schema(field, value, message):
@@ -195,12 +103,12 @@ def test_unversioned_current_sections_require_exact_field_sets():
     from ptycho_torch.artifact_schema import upgrade_unversioned_sections
 
     spec, data, training, inference = _identity_parts()
-    model_payload = dict(spec.to_payload()["model_config"], object_big=False)
+    model_payload = spec.to_payload()["model_config"]
     model_payload.pop("fno_width")
 
     with pytest.raises(ValueError, match=r"unversioned.*model_config.*missing.*fno_width"):
         upgrade_unversioned_sections(
-            data_config=_legacy_data_payload(data),
+            data_config=asdict(data),
             model_config=model_payload,
             training_config=asdict(training),
             inference_config=asdict(inference),
@@ -211,13 +119,13 @@ def test_known_metadata_free_legacy_upgrade_adds_only_explicit_profile():
     from ptycho_torch.artifact_schema import upgrade_unversioned_sections
 
     spec, data, training, inference = _identity_parts()
-    data_payload = _legacy_data_payload(data)
+    data_payload = asdict(data)
     data_payload.pop("scale_contract_version")
     data_payload.pop("measurement_domain")
 
     decoded = upgrade_unversioned_sections(
         data_config=data_payload,
-        model_config=dict(spec.to_payload()["model_config"], object_big=False),
+        model_config=spec.to_payload()["model_config"],
         training_config=asdict(training),
         inference_config=asdict(inference),
         explicit_profile=(LEGACY_SCALE_CONTRACT, NORMALIZED_AMPLITUDE),
@@ -240,9 +148,9 @@ def test_bundle_manifest_is_checked_before_construction():
     current = {
         **valid,
         "backend": "pytorch",
-        "artifact_schema_version": "torch-artifact-portable-v2",
+        "artifact_schema_version": "torch-artifact-v1",
     }
-    assert validate_torch_bundle_manifest(current) == "torch-artifact-portable-v2"
+    assert validate_torch_bundle_manifest(current) == "torch-artifact-v1"
 
     with pytest.raises(ValueError, match=r"backend.*tensorflow"):
         validate_torch_bundle_manifest({**current, "backend": "tensorflow"})
@@ -278,8 +186,8 @@ def test_current_application_checkpoint_dual_writes_identity_and_reloads(tmp_pat
         "backend": "pytorch",
         "schema_version": CURRENT_ARTIFACT_SCHEMA_VERSION,
     }
-    assert checkpoint["hyper_parameters"]["model_spec"]["schema_version"] == (
-        "torch-model-spec-portable-v3"
+    assert checkpoint["hyper_parameters"]["artifact_identity"]["model_spec"]["schema_version"] == (
+        "torch-model-spec-v3"
     )
 
     loaded = PtychoPINN_Lightning.load_from_checkpoint(
@@ -309,7 +217,7 @@ def test_checkpoint_model_spec_unknown_schema_fails_before_state_load(tmp_path):
     checkpoint_path = tmp_path / "unsupported.ckpt"
     trainer.save_checkpoint(checkpoint_path)
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
-    checkpoint["hyper_parameters"]["model_spec"]["schema_version"] = (
+    checkpoint["hyper_parameters"]["artifact_identity"]["model_spec"]["schema_version"] = (
         "torch-model-spec-v999"
     )
     torch.save(checkpoint, checkpoint_path)
@@ -343,8 +251,12 @@ def test_checkpoint_historical_data_identity_fails_before_state_restoration(
     trainer.strategy._lightning_module = model
     checkpoint_path = tmp_path / "historical-data.ckpt"
     trainer.save_checkpoint(checkpoint_path)
-    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
-    checkpoint["hyper_parameters"]["model_spec"]["model_config"][
+    checkpoint = torch.load(
+        checkpoint_path,
+        map_location="cpu",
+        weights_only=False,
+    )
+    checkpoint["hyper_parameters"]["artifact_identity"]["model_spec"]["model_config"][
         "rect_s1s2_init"
     ] = "data"
     torch.save(checkpoint, checkpoint_path)
@@ -354,7 +266,9 @@ def test_checkpoint_historical_data_identity_fails_before_state_restoration(
     def fail_if_state_restoration_starts(self, *args, **kwargs):
         nonlocal state_restoration_started
         state_restoration_started = True
-        raise AssertionError("state restoration started before identity validation")
+        raise AssertionError(
+            "state restoration started before identity validation"
+        )
 
     monkeypatch.setattr(
         PtychoPINN_Lightning,
@@ -393,7 +307,7 @@ def test_current_checkpoint_rejects_missing_dual_written_config_field(tmp_path):
     checkpoint_path = tmp_path / "missing-field.ckpt"
     trainer.save_checkpoint(checkpoint_path)
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
-    checkpoint["hyper_parameters"]["data_config"].pop("N")
+    checkpoint["hyper_parameters"]["artifact_identity"]["data_config"].pop("N")
     torch.save(checkpoint, checkpoint_path)
 
     from ptycho_torch.checkpoint_decode import decode_checkpoint_hparams
@@ -490,7 +404,7 @@ def test_transitional_ci_entrypoints_bundle_upgrades_and_strict_loads(tmp_path):
     )
     transitional = {
         "schema_version": "ci-entrypoints-v1",
-        "data_config": _legacy_data_payload(data),
+        "data_config": asdict(data),
         "model_config": asdict(model.model_config),
         "training_config": asdict(training),
         "inference_config": asdict(inference),
@@ -510,3 +424,135 @@ def test_transitional_ci_entrypoints_bundle_upgrades_and_strict_loads(tmp_path):
             loaded["diffraction_to_obj"].state_dict()[key],
             value,
         )
+
+
+def _read_frozen_v1():
+    import json
+    from pathlib import Path
+
+    fixture = (
+        Path(__file__).parents[1]
+        / "fixtures"
+        / "config"
+        / "pydantic_pre_migration_torch_artifact_v1.json"
+    )
+    return json.loads(fixture.read_text(encoding="utf-8"))
+
+
+def test_unfaithful_legacy_data_channel_identity_rejects_typed():
+    from ptycho_torch.artifact_schema import (
+        decode_artifact_identity,
+        from_json_payload,
+    )
+
+    raw = _read_frozen_v1()
+    raw["data_config"]["C"] = 7  # faithful gridsize**2 == 4
+
+    with pytest.raises(ValueError, match=r"C=7.*gridsize\*\*2=4"):
+        decode_artifact_identity(from_json_payload(raw))
+
+
+def test_unfaithful_legacy_model_channel_identity_rejects_typed():
+    from ptycho_torch.artifact_schema import (
+        decode_artifact_identity,
+        from_json_payload,
+    )
+
+    raw = _read_frozen_v1()
+    raw["model_spec"]["model_config"]["C_model"] = 9  # faithful gridsize**2 == 4
+    raw["model_spec"]["model_config"]["C_forward"] = 9
+
+    with pytest.raises(ValueError, match=r"C_model=9.*gridsize\*\*2=4"):
+        decode_artifact_identity(from_json_payload(raw))
+
+
+def test_ensure_supported_artifact_schema_version_accepts_every_supported_era():
+    from ptycho_torch.artifact_schema import (
+        SUPPORTED_ARTIFACT_SCHEMA_VERSIONS,
+        ensure_supported_artifact_schema_version,
+    )
+
+    for version in SUPPORTED_ARTIFACT_SCHEMA_VERSIONS:
+        ensure_supported_artifact_schema_version(version, context="test")
+
+
+def test_ensure_supported_artifact_schema_version_rejects_unknown_naming_migrator():
+    from ptycho_torch.artifact_schema import (
+        ensure_supported_artifact_schema_version,
+    )
+
+    with pytest.raises(ValueError, match=r"migrate_bundle"):
+        ensure_supported_artifact_schema_version(
+            "metadata-free-legacy", context="test"
+        )
+
+
+def test_runtime_supported_versions_are_exactly_v3_v4():
+    from ptycho_torch.artifact_schema import (
+        ARTIFACT_SCHEMA_V3_VERSION,
+        ARTIFACT_SCHEMA_V4_VERSION,
+        RUNTIME_SUPPORTED_ARTIFACT_SCHEMA_VERSIONS,
+        SUPPORTED_ARTIFACT_SCHEMA_VERSIONS,
+    )
+
+    assert RUNTIME_SUPPORTED_ARTIFACT_SCHEMA_VERSIONS == (
+        ARTIFACT_SCHEMA_V3_VERSION,
+        ARTIFACT_SCHEMA_V4_VERSION,
+    )
+    # The runtime set is a strict suffix of the full historical list the
+    # migrator keeps; it never admits an era the migrator cannot.
+    assert set(RUNTIME_SUPPORTED_ARTIFACT_SCHEMA_VERSIONS) <= set(
+        SUPPORTED_ARTIFACT_SCHEMA_VERSIONS
+    )
+
+
+def test_runtime_gate_rejects_v1_v2_naming_migrator():
+    from ptycho_torch.artifact_schema import (
+        ARTIFACT_SCHEMA_V1_VERSION,
+        ARTIFACT_SCHEMA_V2_VERSION,
+        RUNTIME_SUPPORTED_ARTIFACT_SCHEMA_VERSIONS,
+        ensure_supported_artifact_schema_version,
+    )
+
+    for version in (ARTIFACT_SCHEMA_V1_VERSION, ARTIFACT_SCHEMA_V2_VERSION):
+        with pytest.raises(ValueError, match=r"migrate_bundle"):
+            ensure_supported_artifact_schema_version(
+                version,
+                context="test runtime",
+                supported_versions=RUNTIME_SUPPORTED_ARTIFACT_SCHEMA_VERSIONS,
+            )
+
+
+def test_current_artifact_schema_version_literal_appears_in_ptychodus_spec():
+    from pathlib import Path
+
+    from ptycho_torch.artifact_schema import CURRENT_ARTIFACT_SCHEMA_VERSION
+
+    spec_path = Path(__file__).resolve().parents[2] / "specs" / "ptychodus_api_spec.md"
+    spec_text = spec_path.read_text(encoding="utf-8")
+    assert CURRENT_ARTIFACT_SCHEMA_VERSION in spec_text, (
+        "specs/ptychodus_api_spec.md has drifted from "
+        f"CURRENT_ARTIFACT_SCHEMA_VERSION ({CURRENT_ARTIFACT_SCHEMA_VERSION!r}); "
+        "the spec must name the current write-era literal or the same-diff "
+        "discipline will silently diverge again."
+    )
+
+
+def test_bundle_metadata_decode_rejects_v2_naming_migrator():
+    import json
+    from pathlib import Path
+
+    import pytest
+
+    from ptycho_torch.workflows.bundle_io import _decode_bundle_metadata
+
+    fixture = (
+        Path(__file__).parents[1]
+        / "fixtures"
+        / "config"
+        / "pydantic_pre_migration_torch_artifact_v2.json"
+    )
+    raw = json.loads(fixture.read_text(encoding="utf-8"))
+
+    with pytest.raises(ValueError, match=r"migrate_bundle"):
+        _decode_bundle_metadata(raw)

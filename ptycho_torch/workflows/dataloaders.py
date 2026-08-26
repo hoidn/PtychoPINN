@@ -1,34 +1,35 @@
 """Lightning and inference dataloader builders for the Torch training service.
 
 Builds the one native RAM/mmap loader path and the deterministic inference
-loader.
+loader.  Configuration->primitive unpacking happens here exactly once per phase.
 """
-import logging
 from typing import Dict, Optional, Union
 
 from ptycho.config.config import PyTorchExecutionConfig, TrainingConfig
 from ptycho_torch.config_factory import TrainingPayload
-from ptycho_torch.dataloader import (
-    PtychoDataset,
-    _PtychoContainerDataset,
-    build_ptycho_loader,
-)
+from ptycho_torch.data_container_bridge import PtychoDataContainerTorch
+from ptycho_torch.dataloader import PtychoDataset, _PtychoContainerDataset
 from ptycho_torch.train_utils import PrebuiltPtychoDataModule, is_spawn_strategy
-from ptycho_torch.scaling_contract import CI_SCALE_CONTRACT, validate_scale_contract
+from ptycho_torch.model_spec import MODEL_TYPE_TO_MODE
+from ptycho_torch.scaling_contract import CI_SCALE_CONTRACT
+from ptycho_torch.batch_order import (
+    DEFAULT_BATCH_ORDER_RECIPE,
+    JULY2026_BATCH_ORDER_RECIPE,
+    July2026BatchOrderSampler,
+    validate_batch_order_loader_schedule,
+)
+from ptycho_torch import dataloader, scaling_contract
 
-from . import containers
-
-logger = logging.getLogger("ptycho_torch.workflows.components")
+from .containers import _adapt_container_for_ci
 
 def _resolve_torch_training_seed(
     config: Optional[TrainingConfig],
     torch_training_seed: Optional[int],
 ) -> int:
-    """Resolve the dedicated Torch stream or the direct-call fallback."""
+    """Resolve the dedicated Torch stream or the historical direct-call fallback."""
 
     if torch_training_seed is None:
-        sampling = getattr(config, "sampling", None)
-        configured_seed = getattr(sampling, "subsample_seed", None)
+        configured_seed = getattr(config, "subsample_seed", None)
         torch_training_seed = 42 if configured_seed is None else configured_seed
     if (
         isinstance(torch_training_seed, bool)
@@ -49,6 +50,7 @@ def _build_lightning_dataloaders(
     payload: Optional[TrainingPayload] = None,
     *,
     torch_training_seed: Optional[int] = None,
+    batch_order_recipe: str = DEFAULT_BATCH_ORDER_RECIPE,
 ):
     """Build the one native RAM/mmap loader path for Lightning training."""
 
@@ -56,6 +58,10 @@ def _build_lightning_dataloaders(
     import torch
     from dataclasses import replace
 
+    batch_order_recipe = validate_batch_order_loader_schedule(
+        batch_order_recipe,
+        has_validation_loader=test_container is not None,
+    )
     if payload is not None and config is None:
         config = getattr(payload, "tf_training_config", None)
 
@@ -67,7 +73,7 @@ def _build_lightning_dataloaders(
 
     data_config = getattr(payload, "pt_data_config", None) if payload else None
     if data_config is None:
-        data_source = getattr(config, "data", config)
+        data_source = getattr(config, "data_config", config)
         data_config = PTDataConfig(
             **{
                 name: getattr(data_source, name)
@@ -78,22 +84,13 @@ def _build_lightning_dataloaders(
 
     model_config = getattr(payload, "pt_model_config", None) if payload else None
     if model_config is None:
-        from ptycho.config.config import resolve_model_object_policy
-
-        source = resolve_model_object_policy(
-            getattr(config, "model", None),
-            backend="torch",
-            warn_deprecated=False,
+        source = getattr(config, "model", None)
+        mode = getattr(source, "mode", None) or MODEL_TYPE_TO_MODE.get(
+            getattr(source, "model_type", None), "Unsupervised"
         )
-        mode = getattr(source, "mode", None) or {
-            "pinn": "Unsupervised",
-            "supervised": "Supervised",
-        }.get(getattr(source, "model_type", None), "Unsupervised")
         model_config = PTModelConfig(
             mode=mode,
-            object_big=source.object_big,
-            object_layout=source.object_layout,
-            training_canvas=source.training_canvas,
+            object_big=bool(getattr(source, "object_big", True)),
             physics_forward_mode=getattr(
                 source, "physics_forward_mode", "amplitude"
             ),
@@ -103,13 +100,12 @@ def _build_lightning_dataloaders(
         getattr(payload, "pt_training_config", None) if payload else None
     )
     if training_config is None:
-        public_loss = getattr(config, "loss", None)
         training_config = PTTrainingConfig(
             batch_size=getattr(config, "batch_size", PTTrainingConfig().batch_size),
-            torch_loss_mode=getattr(public_loss, "torch_loss_mode", "poisson"),
+            torch_loss_mode=getattr(config, "torch_loss_mode", "poisson"),
         )
 
-    scale_contract = validate_scale_contract(
+    scale_contract = scaling_contract.validate_scale_contract(
         data_config, model_config, training_config
     )
     ci_active = (
@@ -117,13 +113,13 @@ def _build_lightning_dataloaders(
         and scale_contract.version == CI_SCALE_CONTRACT
     )
     if ci_active and not isinstance(train_container, PtychoDataset):
-        statistics = containers._adapt_container_for_ci(
+        statistics = _adapt_container_for_ci(
             train_container,
             data_config=data_config,
             model_config=model_config,
         )
         if statistics is not None:
-            containers._adapt_container_for_ci(
+            _adapt_container_for_ci(
                 test_container,
                 data_config=data_config,
                 model_config=model_config,
@@ -131,10 +127,18 @@ def _build_lightning_dataloaders(
             )
 
     seed = _resolve_torch_training_seed(config, torch_training_seed)
+    # LOAD-BEARING RE-SEED: _construct_application builds the model AFTER this
+    # function returns (Phase 2 seam order). Model-init RNG equivalence with the
+    # pre-split coordinator depends on this being the LAST global-RNG operation
+    # here — everything downstream uses private generators. Do not delete as
+    # "redundant" with the coordinator's earlier seed_everything.
     L.seed_everything(seed)
-    shuffle = not bool(
-        getattr(getattr(config, "sampling", config), "sequential_sampling", False)
-    )
+    shuffle = not bool(getattr(config, "sequential_sampling", False))
+    if not shuffle and batch_order_recipe == JULY2026_BATCH_ORDER_RECIPE:
+        raise ValueError(
+            "sequential_sampling=True conflicts with the historical "
+            f"batch_order_recipe={JULY2026_BATCH_ORDER_RECIPE!r}"
+        )
 
     execution_config = getattr(payload, "execution_config", None)
     strategy = (
@@ -145,6 +149,12 @@ def _build_lightning_dataloaders(
     distributed = strategy == "ddp" or is_spawn_strategy(strategy)
 
     if isinstance(train_container, PtychoDataset) and distributed:
+        if batch_order_recipe == JULY2026_BATCH_ORDER_RECIPE:
+            raise ValueError(
+                f"batch_order_recipe={JULY2026_BATCH_ORDER_RECIPE!r} is a "
+                "single-device historical reproduction contract; Lightning "
+                "DDP replaces custom samplers and is not supported"
+            )
         runtime_training = training_config
         if execution_config is not None:
             runtime_training = replace(
@@ -207,6 +217,10 @@ def _build_lightning_dataloaders(
             else None
         )
 
+    sampler = None
+    if shuffle and batch_order_recipe == JULY2026_BATCH_ORDER_RECIPE:
+        sampler = July2026BatchOrderSampler(train_dataset, seed=seed)
+
     if execution_config is None:
         worker_settings = {
             "num_workers": 0,
@@ -222,15 +236,16 @@ def _build_lightning_dataloaders(
             "prefetch_factor": execution_config.prefetch_factor,
         }
 
-    train_loader = build_ptycho_loader(
+    train_loader = dataloader.build_ptycho_loader(
         train_dataset,
         batch_size=training_config.batch_size,
         shuffle=shuffle,
+        sampler=sampler,
         seed=seed,
         **worker_settings,
     )
     validation_loader = (
-        build_ptycho_loader(
+        dataloader.build_ptycho_loader(
             validation_dataset,
             batch_size=training_config.batch_size,
             shuffle=False,
@@ -257,7 +272,7 @@ def _build_inference_dataloader(
     Args:
         container: Inference data container (PtychoDataContainerTorch or dict)
         config: TrainingConfig with batch_size setting
-        execution_config: Optional PyTorchExecutionConfig with runtime knobs (Phase C3.B1)
+        execution_config: Optional PyTorchExecutionConfig with runtime knobs
 
     Returns:
         DataLoader: Sequential loader for inference predictions
@@ -265,7 +280,7 @@ def _build_inference_dataloader(
     Notes:
         - Always uses shuffle=False for deterministic stitching order
         - drop_last=False ensures all samples are processed
-        - Batch size can be overridden via execution_config.inference_batch_size (Phase C3.B2)
+        - Batch size can be overridden via execution_config.inference_batch_size
         - num_workers and pin_memory controlled by execution_config
         - Compatible with _build_lightning_dataloaders duck-typing pattern
     """
@@ -277,7 +292,7 @@ def _build_inference_dataloader(
         raise RuntimeError(
             "PyTorch backend requires torch. "
             "Install with: pip install -e .[torch]\n"
-            "See docs/workflows/pytorch.md for installation guidance."
+            "See docs/findings.md#policy-001 for PyTorch requirement policy."
         ) from e
 
     # Extract tensors using same helper pattern as training loader
@@ -308,7 +323,7 @@ def _build_inference_dataloader(
         batch_size = infer_X.size(0) if isinstance(infer_X, torch.Tensor) else 5
         infer_coords = torch.randn(batch_size, 2)
 
-    # DTYPE ENFORCEMENT (Phase D1d): Cast to float32 to prevent Lightning Conv2d dtype mismatch
+    # DTYPE ENFORCEMENT: Cast to float32 to prevent Lightning Conv2d dtype mismatch
     # Requirement: specs/data_contracts.md §1 mandates diffraction arrays be float32
     # Root cause: torch.from_numpy preserves dtype; legacy/checkpoint data may be float64
     # Symptom: RuntimeError "Input type (double) and bias type (float)" in Lightning forward
@@ -323,13 +338,13 @@ def _build_inference_dataloader(
 
     infer_dataset = TensorDataset(infer_X, infer_coords)
 
-    # Import execution config defaults if not provided (Phase C3.B1)
     if execution_config is None:
-        from ptycho.config.config import PyTorchExecutionConfig
-        execution_config = PyTorchExecutionConfig()
-        logger.info(f"PyTorchExecutionConfig auto-instantiated for inference dataloader (accelerator resolved to '{execution_config.accelerator}')")
+        raise ValueError(
+            "inference dataloader requires the run's resolved "
+            "PyTorchExecutionConfig"
+        )
 
-    # Determine batch size: execution_config.inference_batch_size overrides config.batch_size (Phase C3.B2)
+    # Determine batch size: execution_config.inference_batch_size overrides config.batch_size
     batch_size = execution_config.inference_batch_size or getattr(config, 'batch_size', 1)
 
     # Create deterministic loader with execution config knobs
@@ -341,3 +356,5 @@ def _build_inference_dataloader(
         num_workers=execution_config.num_workers,  # Controlled by execution_config
         pin_memory=execution_config.pin_memory  # GPU-only flag, CPU-safe default False
     )
+
+

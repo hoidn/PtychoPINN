@@ -51,8 +51,7 @@ Usage Example:
     
     # Generate grouped data and convert to tensors
     def data_callback():
-        gridsize = params.get('gridsize', 1)
-        return raw_data.generate_grouped_data(N=64, K=7, gridsize=gridsize)
+        return raw_data.generate_grouped_data(N=64, K=7, gridsize=2)
     
     train_container = load(data_callback, probe_tensor, 'train', True)
     test_container = load(data_callback, probe_tensor, 'test', True)
@@ -80,9 +79,8 @@ Coordinate Semantics:
 
 import numpy as np
 import tensorflow as tf
-from typing import Callable
+from typing import Callable, Optional
 
-from .params import params, get
 from .autotest.debug import debug
 from . import diffsim as datasets
 from . import tf_helper as hh
@@ -254,7 +252,7 @@ class PtychoDataContainer:
         """Return number of samples in the container."""
         return len(self._X_np)
 
-    def as_tf_dataset(self, batch_size: int, shuffle: bool = True) -> tf.data.Dataset:
+    def as_tf_dataset(self, batch_size: int, shuffle: bool = True, intensity_scale: Optional[float] = None) -> tf.data.Dataset:
         """Create a tf.data.Dataset for memory-efficient batched access.
 
         This is the preferred method for large datasets as it streams data
@@ -268,11 +266,13 @@ class PtychoDataContainer:
             tf.data.Dataset yielding (inputs, outputs) tuples compatible
             with model.fit()
         """
-        from . import params as p
         from . import tf_helper as hh
 
         n_samples = len(self._X_np)
-        intensity_scale = p.get('intensity_scale')
+        if intensity_scale is None:
+            raise ValueError(
+                "intensity_scale is required for as_tf_dataset; pass it explicitly."
+            )
 
         def generator():
             indices = np.arange(n_samples)
@@ -324,7 +324,7 @@ class PtychoDataContainer:
 
     @staticmethod
     @debug
-    def from_raw_data_without_pc(xcoords, ycoords, diff3d, probeGuess, scan_index, objectGuess=None, N=None, K=7, nsamples=1):
+    def from_raw_data_without_pc(xcoords, ycoords, diff3d, probeGuess, scan_index, objectGuess=None, N=None, K=7, nsamples=1, gridsize=None):
         """
         Static method constructor that composes a call to RawData.from_coords_without_pc() and loader.load,
         then initializes attributes.
@@ -336,19 +336,23 @@ class PtychoDataContainer:
             probeGuess (np.ndarray): initial guess of the probe function.
             scan_index (np.ndarray): array indicating the scan index for each diffraction pattern.
             objectGuess (np.ndarray, optional): initial guess of the object. Defaults to None.
-            N (int, optional): The size of the image. Defaults to None.
+            N (int): The size of the image. Required.
             K (int, optional): The number of nearest neighbors. Defaults to 7.
             nsamples (int, optional): The number of samples. Defaults to 1.
+            gridsize (int): Grid size for grouping. Required.
 
         Returns:
             PtychoDataContainer: An instance of the PtychoDataContainer class.
         """
-        from . import params as cfg
         if N is None:
-            N = cfg.get('N')
+            raise ValueError(
+                "N is required for from_raw_data_without_pc; pass it explicitly."
+            )
+        if gridsize is None:
+            raise ValueError(
+                "gridsize is required for from_raw_data_without_pc; pass it explicitly."
+            )
         train_raw = RawData.from_coords_without_pc(xcoords, ycoords, diff3d, probeGuess, scan_index, objectGuess)
-        
-        gridsize = cfg.get('gridsize', 1)
         dset_train = train_raw.generate_grouped_data(N, K=K, nsamples=nsamples, gridsize=gridsize)
 
         # Use loader.load() to handle the conversion to PtychoData

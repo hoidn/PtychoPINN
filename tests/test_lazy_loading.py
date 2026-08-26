@@ -321,8 +321,7 @@ class TestStreamingTraining:
         batch_size = 16
 
         # Set up minimal params for as_tf_dataset (use cfg directly)
-        # These are needed for center_channels() which reads from global params
-        p.cfg['intensity_scale'] = 1.0
+        # N and gridsize are needed for center_channels() which reads from global params
         p.cfg['N'] = N
         p.cfg['gridsize'] = gridsize
 
@@ -347,7 +346,7 @@ class TestStreamingTraining:
         )
 
         # Get a tf.data.Dataset from the container
-        dataset = container.as_tf_dataset(batch_size=batch_size, shuffle=False)
+        dataset = container.as_tf_dataset(batch_size=batch_size, shuffle=False, intensity_scale=1.0)
 
         # Verify dataset yields correct structure
         for inputs, outputs in dataset.take(1):
@@ -402,8 +401,7 @@ class TestStreamingTraining:
         batch_size = 16
 
         # Set up minimal params (use cfg directly)
-        # These are needed for center_channels() which reads from global params
-        p.cfg['intensity_scale'] = 1.0
+        # N and gridsize are needed for center_channels() which reads from global params
         p.cfg['N'] = N
         p.cfg['gridsize'] = gridsize
 
@@ -427,7 +425,7 @@ class TestStreamingTraining:
             probeGuess=probe,
         )
 
-        dataset = container.as_tf_dataset(batch_size=batch_size, shuffle=False)
+        dataset = container.as_tf_dataset(batch_size=batch_size, shuffle=False, intensity_scale=1.0)
 
         # Count batches
         batch_count = 0
@@ -520,14 +518,14 @@ class TestCompareModelsChunking:
         Finding: PINN-CHUNKED-001
         """
         from ptycho.workflows.components import create_ptycho_data_container
-        from ptycho.config.config import TrainingConfig, ModelConfig, SamplingConfig, DataConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig
 
         # Create minimal config (gridsize=1 means C=1 channels)
         model_config = ModelConfig(N=64, gridsize=1)
         config = TrainingConfig(
             model=model_config,
-            sampling=SamplingConfig(n_images=100),
-            data=DataConfig(train_data_file=None),
+            n_images=100,
+            train_data_file=None,
         )
 
         # Create synthetic data matching compare_models inference path

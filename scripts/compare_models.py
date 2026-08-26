@@ -22,13 +22,11 @@ if project_root not in sys.path:
 # This CLI follows `specs/compare_models_spec.md` for interface and behavior.
 
 # Import ptycho components
-import logging
-
-from ptycho.workflows.bundle_loading import load_inference_bundle_explicit
-from ptycho.workflows.config_cli import load_data
-from ptycho.workflows.workflow_orchestration import create_ptycho_data_container
-
-logger = logging.getLogger(__name__)
+from ptycho.workflows.components import (
+    create_ptycho_data_container,
+    load_data,
+    load_inference_bundle_explicit,
+)
 from ptycho.config.config import TrainingConfig, ModelConfig
 from ptycho.tf_helper import reassemble_position, _channel_to_flat
 from ptycho.evaluation import eval_reconstruction_explicit
@@ -36,6 +34,9 @@ from ptycho.image.cropping import align_for_evaluation
 from ptycho.image.registration import find_translation_offset, apply_shift_and_crop, register_and_align
 from ptycho.cli_args import add_logging_arguments, get_logging_config
 from ptycho.log_config import setup_logging
+import logging
+
+logger = logging.getLogger(__name__)
 
 # NOTE: nbutils import is delayed until after models are loaded to prevent KeyError
 
@@ -1187,10 +1188,10 @@ def main():
             # Slice raw data for this chunk
             chunk_raw_data = slice_raw_data(test_data_raw, chunk_start, chunk_end)
 
-            # Create chunk-scoped config with correct n_groups
+            # Create chunk-scoped config with correct training_groups
             import dataclasses
             chunk_n_groups = chunk_end - chunk_start
-            chunk_config = dataclasses.replace(final_config, n_groups=chunk_n_groups)
+            chunk_config = dataclasses.replace(final_config, training_groups=chunk_n_groups)
 
             # Create container for this chunk
             chunk_container = create_ptycho_data_container(chunk_raw_data, chunk_config)

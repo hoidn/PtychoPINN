@@ -214,7 +214,7 @@ mkdir -p "$BASELINE_DIR"
 CONFIG_FILE="configs/comparison_config.yaml"
 
 # Extract gridsize from config file for baseline training
-GRIDSIZE_OVERRIDE=$(python -c "import yaml; print(yaml.safe_load(open('$CONFIG_FILE'))['model']['gridsize'])")
+GRIDSIZE_OVERRIDE=$(python -c "import yaml; print(yaml.safe_load(open('$CONFIG_FILE'))['gridsize'])")
 
 # Extract stitch_crop_size from config file for comparison
 M_STITCH_SIZE=$(python -c "import yaml; print(yaml.safe_load(open('$CONFIG_FILE')).get('stitch_crop_size', 20))")
@@ -235,7 +235,7 @@ if [[ -n "$N_TRAIN_GROUPS" ]]; then
     echo "Training groups: $N_TRAIN_GROUPS"
 else
     # Extract default from config file
-    DEFAULT_N_GROUPS=$(python -c "import yaml; config=yaml.safe_load(open('$CONFIG_FILE')); sampling=config.get('sampling', {}); print(sampling.get('training_groups', sampling.get('n_images', 512)))" 2>/dev/null || echo "512")
+    DEFAULT_N_GROUPS=$(python -c "import yaml; config=yaml.safe_load(open('$CONFIG_FILE')); print(config.get('n_groups', config.get('n_images', 512)))" 2>/dev/null || echo "512")
     echo "Training groups: $DEFAULT_N_GROUPS (from config)"
 fi
 
@@ -271,22 +271,22 @@ else
     echo "----------------------------------------"
 
     # Build PtychoPINN training command
-    PINN_CMD="python scripts/training/train.py \
-        --config \"$CONFIG_FILE\" \
-        --data.train_data_file \"$TRAIN_DATA\" \
-        --data.test_data_file \"$TEST_DATA\" \
-        --output_dir \"$PINN_DIR\" \
-        --model '{\"model_type\":\"pinn\"}'"
+    PINN_CMD="python scripts/training/train.py \\
+        --config \"$CONFIG_FILE\" \\
+        --train_data_file \"$TRAIN_DATA\" \\
+        --test_data_file \"$TEST_DATA\" \\
+        --output_dir \"$PINN_DIR\" \\
+        --model_type pinn"
 
     # Add training sampling parameters
     if [[ -n "$N_TRAIN_SUBSAMPLE" ]]; then
-        PINN_CMD="$PINN_CMD --sampling.train_raw_selection $N_TRAIN_SUBSAMPLE"
+        PINN_CMD="$PINN_CMD --n_subsample $N_TRAIN_SUBSAMPLE"
     fi
     if [[ -n "$N_TRAIN_GROUPS" ]]; then
-        PINN_CMD="$PINN_CMD --sampling.training_groups $N_TRAIN_GROUPS"
+        PINN_CMD="$PINN_CMD --n_groups $N_TRAIN_GROUPS"
     fi
     if [[ -n "$NEIGHBOR_COUNT" ]]; then
-        PINN_CMD="$PINN_CMD --sampling.neighbor_count $NEIGHBOR_COUNT"
+        PINN_CMD="$PINN_CMD --neighbor_count $NEIGHBOR_COUNT"
     fi
 
     # Execute PtychoPINN training
@@ -301,22 +301,22 @@ else
     echo "------------------------------------"
 
     # Build baseline training command
-    BASELINE_CMD="python scripts/run_baseline.py \
-        --config \"$CONFIG_FILE\" \
-        --data.train_data_file \"$TRAIN_DATA\" \
-        --data.test_data_file \"$TEST_DATA\" \
-        --output_dir \"$BASELINE_DIR\" \
-        --model '{\"gridsize\": $GRIDSIZE_OVERRIDE}'"
+    BASELINE_CMD="python scripts/run_baseline.py \\
+        --config \"$CONFIG_FILE\" \\
+        --train_data_file \"$TRAIN_DATA\" \\
+        --test_data_file \"$TEST_DATA\" \\
+        --output_dir \"$BASELINE_DIR\" \\
+        --gridsize \"$GRIDSIZE_OVERRIDE\""
 
     # Add training sampling parameters for baseline
     if [[ -n "$N_TRAIN_SUBSAMPLE" ]]; then
-        BASELINE_CMD="$BASELINE_CMD --sampling.train_raw_selection $N_TRAIN_SUBSAMPLE"
+        BASELINE_CMD="$BASELINE_CMD --n_subsample $N_TRAIN_SUBSAMPLE"
     fi
     if [[ -n "$N_TRAIN_GROUPS" ]]; then
-        BASELINE_CMD="$BASELINE_CMD --sampling.training_groups $N_TRAIN_GROUPS"
+        BASELINE_CMD="$BASELINE_CMD --n_groups $N_TRAIN_GROUPS"
     fi
     if [[ -n "$NEIGHBOR_COUNT" ]]; then
-        BASELINE_CMD="$BASELINE_CMD --sampling.neighbor_count $NEIGHBOR_COUNT"
+        BASELINE_CMD="$BASELINE_CMD --neighbor_count $NEIGHBOR_COUNT"
     fi
 
     # Execute baseline training

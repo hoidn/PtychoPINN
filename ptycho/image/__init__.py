@@ -1,4 +1,4 @@
-from .stitching import stitch_patches, reassemble_patches
+from .stitching import reassemble_patches, stitch_patches, stitch_raster_patches
 from .cropping import (
     center_crop_spatial,
     center_crop_spatial_by_border,

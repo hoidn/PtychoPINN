@@ -75,7 +75,7 @@ def test_memory_map_survives_extra_coordinates(tmp_path):
     x, y = _line_scan(25)
     _write_npz(tmp_path / "npz" / "a.npz", 20, x, y)
 
-    data_config = DataConfig(N=N_PIX, gridsize=1, neighbor_count=4, n_raw_frames_selected=1,
+    data_config = DataConfig(N=N_PIX, gridsize=1, neighbor_count=4,
                              x_bounds=(0.0, 1.0), y_bounds=(0.0, 1.0))
     model_config = ModelConfig()
     with pytest.warns(RuntimeWarning, match="dropping the trailing 5 positions"):
@@ -94,7 +94,7 @@ def test_dataset_rejects_fewer_positions_with_file_context(tmp_path):
     _write_npz(tmp_path / "npz" / "a.npz", 20, x, y)
 
     data_config = DataConfig(N=N_PIX, gridsize=1, neighbor_count=4,
-                             n_raw_frames_selected=1, x_bounds=(0.0, 1.0),
+                             x_bounds=(0.0, 1.0),
                              y_bounds=(0.0, 1.0))
     model_config = ModelConfig(object_big=False)
 
@@ -112,7 +112,7 @@ def test_dataset_rejects_non_1d_coordinates_before_allocation(tmp_path):
     _write_npz(tmp_path / "npz" / "bad_coords.npz", 20, xcoords, ycoords)
 
     data_config = DataConfig(N=N_PIX, gridsize=1, neighbor_count=4,
-                             n_raw_frames_selected=1, x_bounds=(0.0, 1.0),
+                             x_bounds=(0.0, 1.0),
                              y_bounds=(0.0, 1.0))
     model_config = ModelConfig(object_big=False)
 
@@ -139,7 +139,7 @@ def test_dataset_rejects_non_3d_diffraction_before_allocation(tmp_path):
     )
 
     data_config = DataConfig(N=N_PIX, gridsize=1, neighbor_count=4,
-                             n_raw_frames_selected=1, x_bounds=(0.0, 1.0),
+                             x_bounds=(0.0, 1.0),
                              y_bounds=(0.0, 1.0))
     model_config = ModelConfig(object_big=False)
 
@@ -164,7 +164,7 @@ def test_dataset_rejects_missing_probe_before_allocation(tmp_path):
     )
 
     data_config = DataConfig(N=N_PIX, gridsize=1, neighbor_count=4,
-                             n_raw_frames_selected=1, x_bounds=(0.0, 1.0),
+                             x_bounds=(0.0, 1.0),
                              y_bounds=(0.0, 1.0))
     model_config = ModelConfig(object_big=False)
 
@@ -188,7 +188,7 @@ def test_dataset_rejects_incompatible_probe_shape_before_allocation(tmp_path):
     )
 
     data_config = DataConfig(N=N_PIX, gridsize=1, neighbor_count=4,
-                             n_raw_frames_selected=1, x_bounds=(0.0, 1.0),
+                             x_bounds=(0.0, 1.0),
                              y_bounds=(0.0, 1.0))
     model_config = ModelConfig(object_big=False)
 
@@ -205,7 +205,7 @@ def test_supervised_dataset_rejects_missing_label_before_allocation(tmp_path):
     _write_npz(tmp_path / "npz" / "missing_label.npz", 20, x, y)
 
     data_config = DataConfig(N=N_PIX, gridsize=1, neighbor_count=4,
-                             n_raw_frames_selected=1, x_bounds=(0.0, 1.0),
+                             x_bounds=(0.0, 1.0),
                              y_bounds=(0.0, 1.0))
     model_config = ModelConfig(mode="Supervised",
                                object_big=False)
@@ -231,7 +231,7 @@ def test_supervised_dataset_rejects_malformed_label_before_allocation(tmp_path):
     )
 
     data_config = DataConfig(N=N_PIX, gridsize=1, neighbor_count=4,
-                             n_raw_frames_selected=1, x_bounds=(0.0, 1.0),
+                             x_bounds=(0.0, 1.0),
                              y_bounds=(0.0, 1.0))
     model_config = ModelConfig(mode="Supervised",
                                object_big=False)
@@ -258,7 +258,7 @@ def test_dataset_rejects_non_2d_object_guess_before_allocation(tmp_path):
     )
 
     data_config = DataConfig(N=N_PIX, gridsize=1, neighbor_count=4,
-                             n_raw_frames_selected=1, x_bounds=(0.0, 1.0),
+                             x_bounds=(0.0, 1.0),
                              y_bounds=(0.0, 1.0))
     model_config = ModelConfig(object_big=False)
 
@@ -278,7 +278,7 @@ def test_dataset_rejects_cross_file_image_shape_mismatch(tmp_path):
     _write_npz(tmp_path / "npz" / "b.npz", 20, x, y, pattern_size=16)
 
     data_config = DataConfig(N=N_PIX, gridsize=1, neighbor_count=4,
-                             n_raw_frames_selected=1, x_bounds=(0.0, 1.0),
+                             x_bounds=(0.0, 1.0),
                              y_bounds=(0.0, 1.0))
     model_config = ModelConfig(object_big=False)
 
@@ -306,7 +306,7 @@ def test_nonzero_rank_rejects_invalid_headers_before_barrier(tmp_path, monkeypat
     monkeypatch.setattr("ptycho_torch.dataloader.dist.barrier", barrier_must_not_run)
 
     data_config = DataConfig(N=N_PIX, gridsize=1, neighbor_count=4,
-                             n_raw_frames_selected=1, x_bounds=(0.0, 1.0),
+                             x_bounds=(0.0, 1.0),
                              y_bounds=(0.0, 1.0))
     model_config = ModelConfig(object_big=False)
 
@@ -334,7 +334,7 @@ def test_nonzero_rank_rejects_zero_length_before_barrier(tmp_path, monkeypatch):
     monkeypatch.setattr("ptycho_torch.dataloader.dist.barrier", barrier_must_not_run)
 
     data_config = DataConfig(N=N_PIX, gridsize=1, neighbor_count=4,
-                             n_raw_frames_selected=1, x_bounds=(0.0, 1.0),
+                             x_bounds=(0.0, 1.0),
                              y_bounds=(0.0, 1.0))
     model_config = ModelConfig(object_big=False)
 
@@ -359,8 +359,7 @@ def test_legacy_five_value_length_result_recovers_all_source_scan_ids(
         N=N_PIX,
         gridsize=1,
         neighbor_count=4,
-        n_raw_frames_selected=1,
-        x_bounds=(0.25, 0.75),
+                x_bounds=(0.25, 0.75),
         y_bounds=(0.0, 1.0),
     )
     model_config = ModelConfig(object_big=False)
@@ -419,13 +418,11 @@ def test_asymmetric_legacy_group_does_not_fabricate_centroid_center(
     tmp_path, monkeypatch
 ):
     (tmp_path / "npz").mkdir()
-    x = np.asarray([0.0, 10.0, 20.0, 30.0, 40.0])
-    y = np.zeros(5)
-    _write_npz(tmp_path / "npz" / "asymmetric.npz", 5, x, y)
-    nn_indices = np.asarray([[0, 2, 3, 4]], dtype=np.int64)
-    coords_nn = np.asarray(
-        [[[[0.0, 0.0]], [[20.0, 0.0]], [[30.0, 0.0]], [[40.0, 0.0]]]]
-    )
+    x = np.asarray([0.0, 10.0, 20.0])
+    y = np.zeros(3)
+    _write_npz(tmp_path / "npz" / "asymmetric.npz", 3, x, y)
+    nn_indices = np.asarray([[0, 2, 0, 2]], dtype=np.int64)
+    coords_nn = np.asarray([[[[0.0, 0.0]], [[20.0, 0.0]], [[0.0, 0.0]], [[20.0, 0.0]]]])
 
     monkeypatch.setattr(
         PtychoDataset,
@@ -434,7 +431,7 @@ def test_asymmetric_legacy_group_does_not_fabricate_centroid_center(
             1,
             (N_PIX, N_PIX),
             [0, 1],
-            [np.asarray([0, 1, 2, 3, 4])],
+            [np.asarray([0, 1, 2])],
             [(nn_indices, coords_nn)],
         ),
     )
@@ -450,11 +447,11 @@ def test_asymmetric_legacy_group_does_not_fabricate_centroid_center(
     participating, centers, available, filtered, source = (
         reassembly._scan_identity_evidence(dataset, dataset, 0)
     )
-    assert participating == (0, 2, 3, 4)
+    assert participating == (0, 2)
     assert centers == ()
     assert available is False
-    assert filtered == (0, 1, 2, 3, 4)
-    assert source == (0, 1, 2, 3, 4)
+    assert filtered == (0, 1, 2)
+    assert source == (0, 1, 2)
 
 
 def test_stale_v1_mmap_without_center_scan_id_requires_rebuild(tmp_path):
@@ -489,7 +486,7 @@ def test_memory_map_loads_legacy_hwn_layout(tmp_path):
                pattern_size=32, legacy_hwn=True)
 
     data_config = DataConfig(N=32, gridsize=1, neighbor_count=4,
-                             n_raw_frames_selected=1, x_bounds=(0.0, 1.0),
+                             x_bounds=(0.0, 1.0),
                              y_bounds=(0.0, 1.0))
     model_config = ModelConfig(object_big=False)
     dataset = _build(tmp_path, data_config, model_config)
@@ -506,7 +503,7 @@ def test_memory_map_loads_legacy_hwn_layout_when_n_is_not_largest_axis(tmp_path)
                pattern_size=32, legacy_hwn=True)
 
     data_config = DataConfig(N=32, gridsize=1, neighbor_count=4,
-                             n_raw_frames_selected=1, x_bounds=(0.0, 1.0),
+                             x_bounds=(0.0, 1.0),
                              y_bounds=(0.0, 1.0))
     model_config = ModelConfig(object_big=False)
     dataset = _build(tmp_path, data_config, model_config)
@@ -592,25 +589,25 @@ def test_square_plane_transposes_legacy_stack_despite_coordinate_collision(tmp_p
 # Group-count / allocation consistency
 # ---------------------------------------------------------------------------
 
-def _quadrant_configs():
+def _quadrant_configs(n_subsample):
     data_config = DataConfig(N=N_PIX, gridsize=2, neighbor_count=6,
                              neighbor_function="4_quadrant",
                              scan_pattern="Isotropic",
                              x_bounds=(0.0, 1.0), y_bounds=(0.0, 1.0))
     model_config = ModelConfig()
-    return data_config, model_config
+    return data_config, model_config, n_subsample
 
 
-@pytest.mark.parametrize("groups_per_center", [1, 3])
-def test_quadrant_grouping_allocates_true_group_count(tmp_path, groups_per_center):
+@pytest.mark.parametrize("n_subsample", [1, 3])
+def test_quadrant_grouping_allocates_true_group_count(tmp_path, n_subsample):
     """8x8 raster: only the 6x6 interior forms complete quadrant groups."""
     (tmp_path / "npz").mkdir()
     x, y = _raster(8)
     _write_npz(tmp_path / "npz" / "b.npz", len(x), x, y)
 
-    dataset = _build(tmp_path, *_quadrant_configs(), groups_per_center=groups_per_center)
+    dataset = _build(tmp_path, *_quadrant_configs(n_subsample))
 
-    expected_groups = 36 * groups_per_center  # 6x6 interior centers, times groups per center
+    expected_groups = 36 * n_subsample  # 6x6 interior centers, times subsampling
     assert len(dataset) == expected_groups
     assert dataset.cum_length == [0, expected_groups]
     for key, shape in (("images", (expected_groups, 4, N_PIX, N_PIX)),
@@ -626,7 +623,7 @@ def test_quadrant_grouping_writes_every_allocated_row(tmp_path):
     x, y = _raster(8)
     _write_npz(tmp_path / "npz" / "b.npz", len(x), x, y)
 
-    dataset = _build(tmp_path, *_quadrant_configs())
+    dataset = _build(tmp_path, *_quadrant_configs(1))
 
     # nn_indices are global scan indices; an unwritten MemoryMappedTensor row
     # would be an all-zero group, which a real quadrant group never is.
@@ -655,8 +652,7 @@ def test_mmap_grouping_matches_owner_plan_across_object_banks(tmp_path):
         N=N_PIX,
         gridsize=2,
         neighbor_count=4,
-        n_raw_frames_selected=1,
-        subsample_seed=5,
+                subsample_seed=5,
         neighbor_function="Nearest",
         x_bounds=(0.0, 1.0),
         y_bounds=(0.0, 1.0),
@@ -693,7 +689,7 @@ def test_mmap_coords_relative_uses_tf_sign(tmp_path):
     _write_npz(tmp_path / "npz" / "sign.npz", len(x), x, y)
 
     np.random.seed(123)
-    dataset = _build(tmp_path, *_quadrant_configs())
+    dataset = _build(tmp_path, *_quadrant_configs(1))
 
     coords_global = dataset.mmap_ptycho["coords_global"]
     coords_center = dataset.mmap_ptycho["coords_center"]
@@ -710,7 +706,7 @@ def test_quadrant_grouping_is_not_redrawn_on_write(tmp_path):
     x, y = _raster(8)
     _write_npz(tmp_path / "npz" / "b.npz", len(x), x, y)
 
-    dataset = _build(tmp_path, *_quadrant_configs())
+    dataset = _build(tmp_path, *_quadrant_configs(1))
 
     # Recompute the group centroid from the stored global coords and compare
     # against the stored center; a regrouped write pass would desync these.
@@ -721,7 +717,7 @@ def test_quadrant_grouping_is_not_redrawn_on_write(tmp_path):
 
 
 def test_nearest_gs1_length_unchanged(tmp_path):
-    """Default 'Nearest' gs1 path keeps n_valid * groups_per_center, as before."""
+    """Default 'Nearest' gs1 path keeps n_valid * n_subsample, as before."""
     (tmp_path / "npz").mkdir()
     x, y = _line_scan(40)
     _write_npz(tmp_path / "npz" / "c.npz", 40, x, y)
@@ -751,7 +747,7 @@ def test_supervised_object_big_sizes_without_subsampling(tmp_path):
              objectGuess=(rng.random((N_PIX, N_PIX)) + 1j * rng.random((N_PIX, N_PIX))),
              label=label)
 
-    data_config = DataConfig(N=N_PIX, gridsize=1, neighbor_count=4, n_raw_frames_selected=7,
+    data_config = DataConfig(N=N_PIX, gridsize=1, neighbor_count=4,
                              x_bounds=(0.0, 1.0), y_bounds=(0.0, 1.0))
     model_config = ModelConfig(mode='Supervised')
     dataset = _build(tmp_path, data_config, model_config)
@@ -778,8 +774,7 @@ def test_group_coords_uses_dataconfig_seed_without_ambient_numpy_state():
     config = DataConfig(
         N=N_PIX,
         neighbor_count=8,
-        n_raw_frames_selected=3,
-        subsample_seed=1447,
+                subsample_seed=1447,
         gridsize=2,
         neighbor_function="Nearest",
         x_bounds=(0.0, 1.0),
@@ -827,7 +822,7 @@ def test_group_coords_matches_scan_centered_owner_with_object_identity(policy):
         N=N_PIX,
         neighbor_count=8,
         K_quadrant=20,
-        subsample_seed=23,
+                subsample_seed=23,
         gridsize=2,
         neighbor_function=policy,
         min_neighbor_distance=0.0,
@@ -888,8 +883,7 @@ def test_nearest_group_coords_can_repair_complete_participant_coverage():
     config = DataConfig(
         N=N_PIX,
         neighbor_count=4,
-        n_raw_frames_selected=1,
-        subsample_seed=523213049,
+                subsample_seed=523213049,
         gridsize=2,
         neighbor_function="Nearest",
         x_bounds=(0.0, 1.0),
@@ -948,7 +942,7 @@ def test_nearest_group_coords_can_repair_complete_participant_coverage():
 
 
 def test_complete_coverage_accepts_boolean_mask_and_small_k_equals_c():
-    """Boolean masks and neighbor_count=C=N must not create -1/sentinel participants."""
+    """Boolean masks and K=C=N must not create -1/sentinel participants."""
     from ptycho_torch.patch_generator import get_neighbor_indices, group_coords
 
     xcoords, ycoords = _raster(2, spacing=1.0)
@@ -956,8 +950,7 @@ def test_complete_coverage_accepts_boolean_mask_and_small_k_equals_c():
     config = DataConfig(
         N=N_PIX,
         neighbor_count=4,
-        n_raw_frames_selected=1,
-        subsample_seed=9,
+                subsample_seed=9,
         gridsize=2,
         neighbor_function="Nearest",
         x_bounds=(0.0, 1.0),
@@ -996,8 +989,7 @@ def test_real_mmap_persists_and_identifies_complete_group_coverage(tmp_path):
     data_config = DataConfig(
         N=N_PIX,
         neighbor_count=4,
-        n_raw_frames_selected=1,
-        subsample_seed=523213049,
+                subsample_seed=523213049,
         gridsize=2,
         neighbor_function="Nearest",
         x_bounds=(0.0, 1.0),
@@ -1063,7 +1055,7 @@ def test_fresh_mmap_builds_replay_grouping_without_ambient_numpy_state(
     source_dir.mkdir()
     xcoords, ycoords = _raster(8)
     _write_npz(source_dir / "scan.npz", len(xcoords), xcoords, ycoords)
-    data_config, model_config = _quadrant_configs()
+    data_config, model_config, groups_per_center = _quadrant_configs(n_subsample=3)
 
     def build(map_name):
         return PtychoDataset(
@@ -1073,6 +1065,7 @@ def test_fresh_mmap_builds_replay_grouping_without_ambient_numpy_state(
             training_config=TrainingConfig(batch_size=8),
             data_dir=str(tmp_path / map_name),
             remake_map=True,
+            groups_per_center=groups_per_center,
         )
 
     np.random.seed(8347)
@@ -1105,8 +1098,7 @@ def test_quadrant_grouping_uses_global_center_identity_and_local_rng(monkeypatch
         N=N_PIX,
         neighbor_count=8,
         K_quadrant=30,
-        n_raw_frames_selected=2,
-        subsample_seed=909,
+                subsample_seed=909,
         gridsize=2,
         neighbor_function="4_quadrant",
         min_neighbor_distance=0.0,

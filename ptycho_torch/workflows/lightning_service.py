@@ -1,40 +1,47 @@
 """Lightning Trainer service: checkpoint selection, callbacks, and training.
 
 Owns the serving-checkpoint-selection state machine, the Lightning callbacks,
-and ``_train_with_lightning``.
+and ``_train_with_lightning``.  Cross-module collaborators that tests patch
+through the ``components`` facade are resolved late-bound via ``_components``.
 """
 import dataclasses
 import hashlib
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+import types
+from typing import Any, Dict, Mapping, NamedTuple, Optional, Tuple, Union
 import uuid
 
-from ptycho.config.config import TrainingConfig
+from ptycho.config.config import PyTorchExecutionConfig, TrainingConfig
 from ptycho_torch.config_factory import TrainingPayload
-from ptycho_torch.model_manager import save_torch_bundle
-from ptycho_torch.rect_s1s2_initialization import RectS1S2InitializationRecord
-from ptycho_torch.runtime_provenance import (
-    build_effective_runtime as _build_effective_runtime,
-    write_effective_runtime_json,
-)
 from ptycho_torch.scaling_contract import (
     AmplitudePhysicsGainRecord,
     CI_SCALE_CONTRACT,
-    validate_scale_contract,
 )
-from ptycho_torch.train_utils import PrebuiltPtychoDataModule
+from ptycho_torch.rect_s1s2_initialization import RectS1S2InitializationRecord
+from ptycho_torch.train_utils import PrebuiltPtychoDataModule, get_training_strategy
+from ptycho_torch.batch_order import (
+    DEFAULT_BATCH_ORDER_RECIPE,
+    JULY2026_BATCH_ORDER_RECIPE,
+    batch_order_provenance,
+    validate_batch_order_distribution,
+    validate_batch_order_loader_schedule,
+    validate_batch_order_recipe,
+    validate_july2026_runtime_conformance,
+)
+import lightning.pytorch as L
 from lightning.pytorch.callbacks import (
     Callback as _LightningCallback,
     ModelCheckpoint as _LightningModelCheckpoint,
 )
+from ptycho_torch import model_manager, runtime_provenance, scaling_contract
 
 from . import bundle_io, containers, dataloaders, rect_s1s2
 
-logger = logging.getLogger("ptycho_torch.workflows.components")
+# Preserves pre-split log provenance: records stay on the components facade logger.
+logger = logging.getLogger('ptycho_torch.workflows.components')
 
 _CHECKPOINT_SELECTION_SCHEMA = "serving-checkpoint-selection-v1"
-
 def _checkpoint_artifact_path(path, output_root):
     """Return one checkpoint path relative to its training artifact root."""
 
@@ -457,173 +464,66 @@ def _validate_training_execution_input(
     normalize_execution_input(execution_config, mode="training")
 
 
-_OMIT_FIELD = object()
+def _is_global_zero(trainer) -> bool:
+    """True on the rank that owns global-side-effect writes."""
+    return bool(getattr(trainer, "is_global_zero", True))
 
 
 @dataclasses.dataclass(frozen=True)
-class _TrainerAssembly:
-    """Frozen Trainer construction record (typed seam; mutation raises)."""
+class _PreparedTrainingData:
+    """Explicit product of the data-preparation seam."""
 
-    max_epochs: int
-    accelerator: Any
-    strategy: Any
-    deterministic: Any
-    gradient_clip_val: Any
-    accumulate_grad_batches: Any
-    enable_progress_bar: Any
-    enable_checkpointing: Any
-    callbacks: list
-    devices: Any
-    precision: Any
-    log_every_n_steps: Any
-    default_root_dir: Any
-    logger: Any
-    gradient_clip_algorithm: Any = _OMIT_FIELD
-
-def _trainer_kwargs_as_dict(record: "_TrainerAssembly") -> dict:
-    """Shallow field projection; never deepcopies callbacks/strategy objects.
-
-    Fields set to _OMIT_FIELD are excluded entirely, preserving the historical
-    kwargs contract (gradient_clip_algorithm present iff automatic optimization).
-    """
-    return {
-        field.name: getattr(record, field.name)
-        for field in dataclasses.fields(record)
-        if getattr(record, field.name) is not _OMIT_FIELD
-    }
+    kind: str
+    data_module: Optional[PrebuiltPtychoDataModule]
+    train_loader: Any
+    val_loader: Any
+    dataset_size: Optional[int]
+    effective_seed: int
+    batch_order_recipe: str
+    resolved_scale_contract: Any
+    datagen_config: Any
+    pt_configs: Tuple[Any, Any, Any, Any]
+    execution_config: Any
 
 
-def _train_with_lightning(
-    train_container: Union[
-        'PtychoDataContainerTorch',
-        'PtychoDataset',
-        'PrebuiltPtychoDataModule',
-    ],
+def _prepare_training_data(
+    payload: TrainingPayload,
+    train_container: Any,
     test_container: Optional['PtychoDataContainerTorch'],
-    config: TrainingConfig,
-    execution_config: Optional[Any] = None,
-    overrides: Optional[dict] = None,
-    *,
-    resolved_payload: Optional[TrainingPayload] = None,
-    torch_training_seed: Optional[int] = None,
-    datagen_config: Optional[Any] = None,
-    milestone_epochs: tuple[int, ...] = (),
-    persist_bundle: bool = False,
-    intensity_scale: Optional[float] = None,
-    amplitude_physics_gain_record: Optional[
-        AmplitudePhysicsGainRecord
-    ] = None,
-) -> Dict[str, Any]:
-    """
-    Orchestrate Lightning trainer execution for PyTorch model training.
-
-    This is the maintained Lightning training implementation. It consumes one
-    resolved payload, accepts either the RAM rail or a selected prebuilt mmap
-    DataModule, constructs the module/callbacks/Trainer, restores the declared
-    serving checkpoint, publishes history and sidecars, and optionally saves a
-    strict bundle.
-
-    Args:
-        train_container: Normalized training data container, mmap dataset, or
-            selected ``PrebuiltPtychoDataModule``
-        test_container: Optional normalized test data container
-        config: TrainingConfig with training hyperparameters
-        execution_config: Optional unresolved ExecutionRequest. Ignored only
-            when absent because ``resolved_payload`` already owns the resolved
-            runtime carrier.
-        overrides: Optional dict of torch-only ``resolve_training_payload`` overrides
-            (highest precedence, applied last). This is the forwarding channel for
-            ModelConfig knobs that exist only on the torch-side
-            ptycho_torch.config_params.ModelConfig (e.g. training_patch_weighting,
-            physics_forward_mode, cnn_output_mode, rect_s1s2_trainable) and therefore
-            cannot be threaded through the read-only TF-side TrainingConfig/ModelConfig
-            (ptycho/config/config.py). See Task 2.7 (B7) follow-up.
-
-    Returns:
-        Dict[str, Any]: Training results including:
-            - history: Dict with train_loss and optional val_loss trajectories
-            - train_container: Original training container
-            - test_container: Original test container
-            - run_dir, selected_checkpoint, training_history, and optional
-              bundle/milestone paths
-            - models: Dict with 'diffraction_to_obj' (Lightning module) and 'autoencoder' (sentinel)
-                      for dual-model bundle persistence per spec §4.6
-
-    Raises:
-        RuntimeError: If torch or lightning packages are not installed (POLICY-001)
-
-    References:
-        - Blueprint: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-18T020940Z/phase_d2_completion/phase_b2_implementation.md
-        - Spec: specs/ptychodus_api_spec.md:187 (reconstructor lifecycle contract)
-        - Findings: POLICY-001 (PyTorch mandatory), CONFIG-001 (params.cfg already populated by caller)
-        - ADR-003 Phase C3: execution_config controls Trainer kwargs (accelerator, deterministic, gradient_clip_val)
-    """
-    _validate_training_execution_input(execution_config, resolved_payload)
-
-    # B2.2: torch-optional imports with POLICY-001 compliant error messaging
-    try:
-        import lightning.pytorch as L
-        from ptycho_torch.train_utils import (
-            PrebuiltPtychoDataModule,
-            get_training_strategy,
-        )
-    except ImportError as e:
-        raise RuntimeError(
-            "PyTorch backend requires torch>=2.2 and lightning. "
-            "Install with: pip install -e .[torch]\n"
-            "See docs/workflows/pytorch.md for installation guidance."
-        ) from e
+    torch_training_seed: Optional[int],
+    batch_order_recipe: str,
+    datagen_config: Optional[Any],
+) -> _PreparedTrainingData:
+    """Resolve seed, configs, and the RAM/mmap data source exactly once."""
+    config = payload.tf_training_config
 
     logger.info("_train_with_lightning orchestrating Lightning training")
-    logger.info(f"Training config: nepochs={config.nepochs}, training_groups={config.sampling.training_groups}")
+    logger.info(f"Training config: nepochs={config.nepochs}, training_groups={config.training_groups}")
 
-    # B2.1: Use the pure config resolver to derive PyTorch configs with correct
-    # channel propagation. The compatibility factory remains for declared
-    # CONFIG-001 callers.
-    # CRITICAL (Phase C4.D B2): Factory ensures C = gridsize**2 is propagated to
-    # the single gridsize-derived channel identity, preventing channel mismatch
-    # when gridsize > 1 (see docs/findings.md#BUG-TF-001).
-    from ptycho_torch.config_factory import (
-        build_training_factory_overrides,
-        resolve_training_payload,
-    )
-    factory_overrides = build_training_factory_overrides(config)
-    # Caller-supplied torch-only overrides take highest precedence. This is how
-    # ModelConfig knobs that live exclusively on the torch-side config_params.ModelConfig
-    # (training_patch_weighting, physics_forward_mode, cnn_output_mode,
-    # rect_s1s2_trainable) reach resolve_training_payload despite ptycho/config/config.py
-    # (TF-side TrainingConfig/ModelConfig/PyTorchExecutionConfig) being read-only.
-    if overrides:
-        factory_overrides.update(overrides)
-
-    # Supported CLI callers pass their already-resolved payload. Direct workflow
-    # callers provide an unresolved request, which the factory resolves once.
-    # Optimizer settings come only from the canonical training baseline/overrides.
-    payload = resolved_payload
-    if payload is None:
-        payload = resolve_training_payload(
-            train_data_file=Path(config.data.train_data_file),
-            output_dir=Path(getattr(config, 'output_dir', './outputs')),
-            execution_config=execution_config,
-            overrides=factory_overrides,
-            training_baseline=config,
-        )
-
-    # Extract PyTorch configs from payload (gridsize → C propagation already applied)
     pt_data_config = payload.pt_data_config
     pt_model_config = payload.pt_model_config
     pt_training_config = payload.pt_training_config
     execution_config = payload.execution_config
 
-    # Seed before module construction and reuse the same stream at the loader
-    # boundary so initialization and sampling are reproducible together.
+    # Seed before constructing any module parameters; the same stream is
+    # forwarded to the dataloader boundary below.
     effective_torch_training_seed = dataloaders._resolve_torch_training_seed(
         config,
         torch_training_seed,
     )
+    batch_order_recipe = validate_batch_order_recipe(batch_order_recipe)
+    validate_batch_order_loader_schedule(
+        batch_order_recipe,
+        has_validation_loader=(
+            test_container is not None
+            or isinstance(train_container, PrebuiltPtychoDataModule)
+        ),
+    )
+    if batch_order_recipe == JULY2026_BATCH_ORDER_RECIPE:
+        validate_july2026_runtime_conformance()
     L.seed_everything(effective_torch_training_seed)
 
-    resolved_scale_contract = validate_scale_contract(
+    resolved_scale_contract = scaling_contract.validate_scale_contract(
         pt_data_config,
         pt_model_config,
         pt_training_config,
@@ -637,21 +537,6 @@ def _train_with_lightning(
     elif not isinstance(datagen_config, DatagenConfig):
         raise TypeError("datagen_config must be a DatagenConfig or None")
 
-    # Build the module from the sealed structural identity plus the separately
-    # owned scientific/data, training, and inference sections. Runtime execution
-    # remains below at the Trainer boundary and cannot alter graph topology.
-    from ptycho_torch.application_factory import build_ptychopinn_application
-
-    model = build_ptychopinn_application(
-        payload.model_spec,
-        pt_data_config,
-        pt_training_config,
-        payload.pt_inference_config,
-    )
-
-    # Save hyperparameters so checkpoint can reconstruct module without external state
-    model.save_hyperparameters()
-
     # B2.3: Build dataloaders via helper
     data_product = (
         train_container
@@ -662,33 +547,28 @@ def _train_with_lightning(
             config,
             payload=payload,
             torch_training_seed=effective_torch_training_seed,
+            batch_order_recipe=batch_order_recipe,
         )
     )
-    
-    # Data product is a Lightning datamodule for DDP-style launchers and a
-    # regular train/validation loader tuple otherwise.
-    if isinstance(data_product, PrebuiltPtychoDataModule):
-        train_loader, val_loader = None, None  # Set to None when using datamodule
-    else:
-        train_loader, val_loader = data_product
 
-    if (
-        resolved_scale_contract is not None
-        and resolved_scale_contract.version == CI_SCALE_CONTRACT
-        and not isinstance(data_product, PrebuiltPtychoDataModule)
-    ):
-        model.register_ci_statistics(
-            containers._get_finalized_ci_statistics(train_container)
-        )
+    # DDP-style launchers use the resolved datamodule; other routes return a
+    # regular train/validation loader tuple.
+    if isinstance(data_product, PrebuiltPtychoDataModule):
+        data_module = data_product
+        train_loader, val_loader = None, None
+        kind = "datamodule"
+    else:
+        data_module = None
+        train_loader, val_loader = data_product
+        kind = "loaders"
 
     # DATA-SUP-001: Supervised mode requires labeled data
-    # Check if supervised mode is requested but training data lacks required labels
     if pt_model_config.mode == 'Supervised':
         # Inspect first batch to verify label keys exist
         try:
-            if isinstance(data_product, PrebuiltPtychoDataModule):
-                data_product.setup("fit")
-                supervised_loader = data_product.train_dataloader()
+            if kind == "datamodule":
+                data_module.setup("fit")
+                supervised_loader = data_module.train_dataloader()
             else:
                 supervised_loader = train_loader
             first_batch = next(iter(supervised_loader))
@@ -698,24 +578,98 @@ def _train_with_lightning(
                     f"Supervised mode (model_type='supervised') requires labeled datasets with "
                     f"'label_amp' and 'label_phase' keys, but training data lacks these fields. "
                     f"Either: (1) Use a labeled NPZ dataset (see ptycho_torch/notebooks/create_supervised_datasets.ipynb), "
-                    f"or (2) Switch to PINN mode (--model_type pinn) for self-supervised physics-based training."
+                    f"or (2) Switch to PINN mode (--model_type pinn) for self-supervised physics-based training. "
+                    f"See DATA-SUP-001 in docs/findings.md for details."
                 )
         except StopIteration:
             raise RuntimeError(
                 f"Training dataloader is empty. Check dataset path and training_groups configuration."
             )
 
+    dataset_size = (
+        len(getattr(train_loader, "dataset", train_container))
+        if kind == "loaders"
+        else None
+    )
+
+    return _PreparedTrainingData(
+        kind=kind,
+        data_module=data_module,
+        train_loader=train_loader,
+        val_loader=val_loader,
+        dataset_size=dataset_size,
+        effective_seed=effective_torch_training_seed,
+        batch_order_recipe=batch_order_recipe,
+        resolved_scale_contract=resolved_scale_contract,
+        datagen_config=datagen_config,
+        pt_configs=(pt_data_config, pt_model_config, pt_training_config, pt_inference_config),
+        execution_config=execution_config,
+    )
+
+
+def _construct_application(payload, pt_configs, ci_statistics):
+    """Build the Lightning module once from the sealed structural identity."""
+    pt_data_config, _, pt_training_config, pt_inference_config = pt_configs
+
+    from ptycho_torch.application_factory import build_ptychopinn_application
+
+    model = build_ptychopinn_application(
+        payload.model_spec,
+        pt_data_config,
+        pt_training_config,
+        pt_inference_config,
+    )
+
+    # Save hyperparameters so checkpoint can reconstruct module without external state
+    model.save_hyperparameters()
+
+    if ci_statistics is not None:
+        model.register_ci_statistics(ci_statistics)
+
+    return model
+
+
+@dataclasses.dataclass(frozen=True)
+class _AssembledTrainer:
+    """Explicit product of the trainer-assembly seam."""
+
+    trainer: Any
+    trainer_kwargs: Dict[str, Any]
+    lightning_logger: Any
+    loss_history_cb: Any
+    checkpoint_selection_callback: Any
+    milestone_callback: Optional[Any]
+    milestone_epochs: tuple[int, ...]
+    # ponytail: intentionally shared mutable sink — Lightning callbacks write
+    # into it during fit; do not freeze
+    checkpoint_selection: Dict[str, Any]
+    checkpoint_selection_path: Path
+    dataloader_settings: Mapping[str, Any]
+    rect_s1s2_initialization: Any
+    training_summary_path: Path
+    output_dir: Path
+    total_training_epochs: int
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "dataloader_settings",
+            types.MappingProxyType(self.dataloader_settings),
+        )
+
+
+def _build_callbacks(prepared, config, model, test_container, milestone_epochs):
+    """Build loss/summary/CI/config/metadata and checkpoint-selection callbacks."""
+    pt_data_config, pt_model_config, pt_training_config, pt_inference_config = prepared.pt_configs
+    execution_config = prepared.execution_config
+
     # B2.5: Configure Trainer with settings from config
-    # C3.A3: Thread execution config values to Trainer kwargs
-    output_dir = Path(getattr(config, 'output_dir', './outputs'))
-    debug_mode = getattr(config, 'debug', False)
+    output_dir = Path(config.output_dir)
     training_summary_path = output_dir / "training_summary.json"
 
     loss_history_cb = _LossHistoryCallback()
-
     training_summary_cb = _TrainingSummaryCallback(training_summary_path)
 
-    # EB1.D: Configure checkpoint/early-stop callbacks (ADR-003 Phase EB1)
     from ptycho_torch.lightning_utils import (
         CIStatisticsCallback,
         ConfigLogger,
@@ -723,7 +677,7 @@ def _train_with_lightning(
     )
 
     callbacks: list = [loss_history_cb, training_summary_cb]
-    if isinstance(data_product, PrebuiltPtychoDataModule):
+    if prepared.kind == "datamodule":
         callbacks.append(CIStatisticsCallback())
     callbacks.append(
         ConfigLogger(
@@ -731,7 +685,7 @@ def _train_with_lightning(
             model_config=pt_model_config,
             training_config=pt_training_config,
             inference_config=pt_inference_config,
-            datagen_config=datagen_config,
+            datagen_config=prepared.datagen_config,
             run_dir=output_dir,
         )
     )
@@ -760,25 +714,15 @@ def _train_with_lightning(
     if execution_config.enable_checkpointing:
         from lightning.pytorch.callbacks import EarlyStopping
 
-        # Determine if we have validation data to use val metrics
-        # Ptycho Datamodule automatically creates a validation dataset on instantiation (see train_utils.py)
-        # so this means validation set exists if data product is a datamodule.
-        has_validation = test_container is not None or isinstance(data_product, PrebuiltPtychoDataModule)
+        has_validation = test_container is not None or prepared.kind == "datamodule"
 
-        # EB2.B: Derive monitor metric from model.val_loss_name (ADR-003 Phase EB2)
-        # The model's val_loss_name is dynamically constructed based on model_type and loss configuration
-        # (e.g., 'poisson_val_Amp_loss' for PINN with amplitude loss, 'mae_val_Phase_loss' for supervised)
-        # This ensures checkpoint/early-stop callbacks watch the correct logged metric
         monitor_metric = _resolve_checkpoint_monitor(
             execution_config,
             model,
             has_validation=has_validation,
         )
 
-        # Build checkpoint filename template using dynamic metric name
-        # Format: epoch={epoch:02d}-<metric_short_name>={<full_metric_name>:.4f}
         if has_validation:
-            # Extract short name for filename (remove '_loss' suffix if present)
             metric_short_name = monitor_metric.replace('_loss', '')
             filename_template = f'epoch={{epoch:02d}}-{metric_short_name}={{{monitor_metric}:.4f}}'
         else:
@@ -799,8 +743,6 @@ def _train_with_lightning(
         )
         callbacks.append(checkpoint_selection_callback)
 
-        # EarlyStopping callback (ADR-003 Phase EB1.D)
-        # Only add early stopping if validation data is available (otherwise no metric to monitor)
         if has_validation:
             early_stop_callback = EarlyStopping(
                 monitor=monitor_metric,
@@ -833,7 +775,22 @@ def _train_with_lightning(
         )
         callbacks.append(milestone_callback)
 
-    # Recon logging callback (MLflow only, opt-in via recon_log_every_n_epochs)
+    return (
+        callbacks,
+        total_training_epochs,
+        training_summary_cb,
+        checkpoint_selection_callback,
+        milestone_callback,
+        checkpoint_selection,
+        checkpoint_selection_path,
+        loss_history_cb,
+        training_summary_path,
+        output_dir,
+    )
+
+
+def _build_recon_logging_callback(execution_config, callbacks):
+    """Append the MLflow-gated recon logging callback when opted in."""
     if (execution_config.logger_backend == 'mlflow'
             and execution_config.recon_log_every_n_epochs is not None):
         from ptycho_torch.workflows.recon_logging import PtychoReconLoggingCallback
@@ -850,7 +807,13 @@ def _train_with_lightning(
                      execution_config.recon_log_num_patches,
                      execution_config.recon_log_stitch)
 
-    # Instantiate logger based on execution config (Phase EB3.B - ADR-003)
+
+def _build_trainer(callbacks, total_training_epochs, prepared, config, model, output_dir):
+    """Assemble the Lightning logger, kwargs, and Trainer."""
+    pt_training_config = prepared.pt_configs[2]
+    execution_config = prepared.execution_config
+
+    # Instantiate logger based on execution config
     lightning_logger = False  # Default: no logger
     if execution_config.logger_backend is not None:
         try:
@@ -889,14 +852,16 @@ def _train_with_lightning(
     else:
         logger.info("Logger disabled (logger_backend=None). Loss metrics will not be saved to disk.")
 
+    # Not dead: touching ``log_dir`` forces the logger to resolve its lazy
+    # version directory, which build_training_history reads metrics.csv from.
     if lightning_logger is not False:
         _ = getattr(lightning_logger, "log_dir", None)
+
 
     automatic_optimization = getattr(model, "automatic_optimization", True)
     effective_accum_steps = pt_training_config.accum_steps
     effective_clip_val = pt_training_config.gradient_clip_val
     effective_clip_algorithm = pt_training_config.gradient_clip_algorithm
-
     if not automatic_optimization and effective_clip_val:
         logger.info(
             "Manual optimization enabled; disabling Lightning Trainer gradient_clip_val "
@@ -908,39 +873,53 @@ def _train_with_lightning(
             "Lightning automatic optimization accepts only 'norm' or 'value'"
         )
 
-    trainer_kwargs = _TrainerAssembly(
+    trainer_kwargs = dict(
         max_epochs=total_training_epochs,
-        # Execution config overrides (ADR-003 Phase C3)
-        accelerator=execution_config.accelerator,  # CPU-safe default, GPU via override
+        accelerator=execution_config.accelerator,
         strategy=get_training_strategy(
             execution_config.strategy,
             execution_config.devices,
             accelerator=execution_config.accelerator,
         ),
-        deterministic=execution_config.deterministic,  # Triggers torch.use_deterministic_algorithms
+        deterministic=execution_config.deterministic,
         gradient_clip_val=(
             effective_clip_val if automatic_optimization else None
         ),
         accumulate_grad_batches=(
             effective_accum_steps if automatic_optimization else 1
         ),
-        # Checkpoint/logging knobs
-        enable_progress_bar=execution_config.enable_progress_bar or debug_mode,
+        enable_progress_bar=execution_config.enable_progress_bar,
         enable_checkpointing=execution_config.enable_checkpointing,
-        callbacks=callbacks,  # EB1.D: Pass configured callbacks to Trainer
-        # Standard settings
+        callbacks=callbacks,
         devices=execution_config.devices,
         precision=execution_config.precision,
         log_every_n_steps=1,
         default_root_dir=str(output_dir),
-        logger=lightning_logger,  # Phase EB3.B: Use configured logger (False if disabled)
-        gradient_clip_algorithm=(
-            effective_clip_algorithm if automatic_optimization else _OMIT_FIELD
+        logger=lightning_logger,
+    )
+    if automatic_optimization:
+        trainer_kwargs["gradient_clip_algorithm"] = effective_clip_algorithm
+    trainer = L.Trainer(**trainer_kwargs)
+
+    return trainer, trainer_kwargs, lightning_logger
+
+
+def _init_rect_s1s2(trainer, training_summary_cb, prepared, model):
+    """Validate batch order, build dataloader settings, and init rect_s1s2."""
+    execution_config = prepared.execution_config
+    data_module = prepared.data_module
+    train_loader = prepared.train_loader
+    pt_model_config = prepared.pt_configs[1]
+
+    accelerator_connector = getattr(trainer, "_accelerator_connector", None)
+    validate_batch_order_distribution(
+        prepared.batch_order_recipe,
+        is_distributed=bool(
+            getattr(accelerator_connector, "is_distributed", False)
         ),
     )
-    trainer = L.Trainer(**_trainer_kwargs_as_dict(trainer_kwargs))
     dataloader_settings = rect_s1s2._effective_dataloader_settings(
-        data_product,
+        data_module,
         train_loader,
         execution_config,
     )
@@ -950,7 +929,7 @@ def _train_with_lightning(
         model,
         mode=rect_s1s2_mode,
         training_loader=rect_s1s2._rect_s1s2_training_loader(
-            data_product,
+            data_module,
             train_loader,
             rect_s1s2_mode,
         ),
@@ -961,74 +940,97 @@ def _train_with_lightning(
     )
     training_summary_cb.set_record(rect_s1s2_initialization)
 
-    # B2.6: Execute training cycle
-    logger.info(
-        "Starting Lightning training: %s epochs",
+    return dataloader_settings, rect_s1s2_initialization
+
+
+def _assemble_trainer(prepared, config, model, test_container, milestone_epochs):
+    """Build callbacks, logger, and Trainer, then initialize rect_s1s2."""
+    execution_config = prepared.execution_config
+
+    (
+        callbacks,
         total_training_epochs,
+        training_summary_cb,
+        checkpoint_selection_callback,
+        milestone_callback,
+        checkpoint_selection,
+        checkpoint_selection_path,
+        loss_history_cb,
+        training_summary_path,
+        output_dir,
+    ) = _build_callbacks(prepared, config, model, test_container, milestone_epochs)
+
+    _build_recon_logging_callback(execution_config, callbacks)
+
+    trainer, trainer_kwargs, lightning_logger = _build_trainer(
+        callbacks,
+        total_training_epochs,
+        prepared,
+        config,
+        model,
+        output_dir,
     )
-    if isinstance(data_product, PrebuiltPtychoDataModule):
-        try:
-            trainer.fit(model, datamodule = data_product)
-        except Exception as e:
-            logger.error(f"Lightning training failed: {e}")
-            raise RuntimeError(f"Lightning training failed. See logs for details.") from e
-    else:
-        try:
-            trainer.fit(model, train_dataloaders=train_loader, val_dataloaders=val_loader)
-        except Exception as e:
-            logger.error(f"Lightning training failed: {e}")
-            raise RuntimeError(f"Lightning training failed. See logs for details.") from e
 
-    milestone_checkpoints = None
-    if milestone_callback is not None:
-        milestone_checkpoints = {
-            epoch: output_dir
-            / "checkpoints"
-            / "milestones"
-            / f"epoch-{epoch:04d}.ckpt"
-            for epoch in milestone_epochs
-        }
-        missing = [
-            epoch
-            for epoch in milestone_epochs
-            if not milestone_checkpoints[epoch].is_file()
-        ]
-        if missing:
-            raise RuntimeError(
-                "requested milestone checkpoints were not captured: "
-                + ", ".join(str(epoch) for epoch in missing)
-            )
-    if (
-        isinstance(data_product, PrebuiltPtychoDataModule)
-        and data_product.train_dataset is None
-    ):
-        data_product.setup("fit")
+    dataloader_settings, rect_s1s2_initialization = _init_rect_s1s2(
+        trainer,
+        training_summary_cb,
+        prepared,
+        model,
+    )
 
-    effective_runtime = _build_effective_runtime(
-        effective_torch_training_seed,
-        _trainer_kwargs_as_dict(trainer_kwargs),
-        execution_config,
-        dataloader_settings,
+    return _AssembledTrainer(
         trainer=trainer,
+        trainer_kwargs=trainer_kwargs,
+        lightning_logger=lightning_logger,
+        loss_history_cb=loss_history_cb,
+        checkpoint_selection_callback=checkpoint_selection_callback,
+        milestone_callback=milestone_callback,
+        milestone_epochs=milestone_epochs,
+        checkpoint_selection=checkpoint_selection,
+        checkpoint_selection_path=checkpoint_selection_path,
+        dataloader_settings=dataloader_settings,
+        rect_s1s2_initialization=rect_s1s2_initialization,
+        training_summary_path=training_summary_path,
+        output_dir=output_dir,
+        total_training_epochs=total_training_epochs,
     )
 
+
+@dataclasses.dataclass(frozen=True)
+class _FitResult:
+    """Explicit product of the fit-and-collect seam."""
+
+    history: Dict[str, Any]
+    training_history: Any
+    effective_runtime: Dict[str, Any]
+    checkpoint_selection: Dict[str, Any]
+    selected_checkpoint: Optional[Any]
+    milestone_checkpoints: Optional[Dict[int, Any]]
+    training_sampling: Any
+    dataloader_settings: Dict[str, Any]
+
+
+def _resolve_selected_checkpoint(state, trainer, execution_config, output_dir, effective_runtime):
+    """Resolve the selected checkpoint from the shared selection sink."""
+    checkpoint_selection_callback = state.checkpoint_selection_callback
     checkpoint_selection_token = checkpoint_selection_callback.selection_token
     if (
         not execution_config.enable_checkpointing
-        and bool(getattr(trainer, "is_global_zero", True))
+        and _is_global_zero(trainer)
     ):
         _write_checkpoint_selection_atomic(
-            checkpoint_selection_path,
+            state.checkpoint_selection_path,
             _in_memory_checkpoint_selection(
                 monitor=None,
                 mode=None,
                 selection_token=checkpoint_selection_token,
             ),
         )
+    checkpoint_selection = state.checkpoint_selection
     checkpoint_selection.clear()
     checkpoint_selection.update(
         _read_checkpoint_selection(
-            checkpoint_selection_path,
+            state.checkpoint_selection_path,
             selection_token=checkpoint_selection_token,
         )
     )
@@ -1038,36 +1040,158 @@ def _train_with_lightning(
     selected_checkpoint = (
         output_dir / selected_path if selected_path is not None else None
     )
-    if bool(getattr(trainer, "is_global_zero", False)):
-        write_effective_runtime_json(
+    return selected_checkpoint
+
+
+
+
+def _fit_and_collect(state, prepared, model, train_container, test_container):
+    """Run the fit cycle and collect history, provenance, and selection."""
+    trainer = state.trainer
+    execution_config = prepared.execution_config
+    output_dir = state.output_dir
+
+    # B2.6: Execute training cycle
+    logger.info(
+        "Starting Lightning training: %s epochs",
+        state.total_training_epochs,
+    )
+    if prepared.kind == "datamodule":
+        fit_kwargs = {"datamodule": prepared.data_module}
+    else:
+        fit_kwargs = {
+            "train_dataloaders": prepared.train_loader,
+            "val_dataloaders": prepared.val_loader,
+        }
+    try:
+        trainer.fit(model, **fit_kwargs)
+    except Exception as e:
+        logger.error(f"Lightning training failed: {e}")
+        raise RuntimeError(f"Lightning training failed. See logs for details.") from e
+
+    milestone_checkpoints = None
+    if state.milestone_callback is not None:
+        milestone_checkpoints = {
+            epoch: output_dir
+            / "checkpoints"
+            / "milestones"
+            / f"epoch-{epoch:04d}.ckpt"
+            for epoch in state.milestone_epochs
+        }
+        missing = [
+            epoch
+            for epoch in state.milestone_epochs
+            if not milestone_checkpoints[epoch].is_file()
+        ]
+        if missing:
+            raise RuntimeError(
+                "requested milestone checkpoints were not captured: "
+                + ", ".join(str(epoch) for epoch in missing)
+            )
+    if prepared.kind == "datamodule":
+        data_module = prepared.data_module
+        if data_module.train_dataset is None:
+            data_module.setup("fit")
+        training_dataset = (
+            data_module.train_dataset
+            if data_module.train_dataset is not None
+            else train_container
+        )
+        dataset_size = len(training_dataset)
+    else:
+        dataset_size = prepared.dataset_size
+
+    training_sampling = batch_order_provenance(
+        recipe=prepared.batch_order_recipe,
+        seed=prepared.effective_seed,
+        dataset_size=dataset_size,
+        reference_epochs=(
+            3 if prepared.batch_order_recipe == JULY2026_BATCH_ORDER_RECIPE else 0
+        ),
+    )
+    effective_settings = {
+        **state.dataloader_settings,
+        "batch_order": training_sampling,
+    }
+    effective_runtime = runtime_provenance.build_effective_runtime(
+        prepared.effective_seed,
+        state.trainer_kwargs,
+        execution_config,
+        effective_settings,
+        trainer=trainer,
+    )
+
+    selected_checkpoint = _resolve_selected_checkpoint(
+        state,
+        trainer,
+        execution_config,
+        output_dir,
+        effective_runtime,
+    )
+
+    if _is_global_zero(trainer):
+        runtime_provenance.write_effective_runtime_json(
             output_dir / "effective_runtime.json",
             effective_runtime,
         )
 
     # Extract loss history from the custom callback
-    # The _LossHistoryCallback collects losses per epoch during training
     history = {
-        "train_loss": loss_history_cb.train_loss,
-        "val_loss": loss_history_cb.val_loss if test_container is not None or isinstance(data_product, PrebuiltPtychoDataModule) else None
+        "train_loss": state.loss_history_cb.train_loss,
+        "val_loss": (
+            state.loss_history_cb.val_loss
+            if test_container is not None or prepared.kind == "datamodule"
+            else None
+        ),
     }
     from ptycho_torch.training_history import build_training_history
 
     training_history = build_training_history(
         output_dir,
         csv_logger=(
-            lightning_logger
+            state.lightning_logger
             if execution_config.logger_backend == "csv"
             else None
         ),
         model=model,
-        training_config=pt_training_config,
+        training_config=prepared.pt_configs[2],
     )
 
+    return _FitResult(
+        history=history,
+        training_history=training_history,
+        effective_runtime=effective_runtime,
+        checkpoint_selection=dict(state.checkpoint_selection),
+        selected_checkpoint=selected_checkpoint,
+        milestone_checkpoints=milestone_checkpoints,
+        training_sampling=training_sampling,
+        dataloader_settings=effective_settings,
+    )
+
+
+class _PersistBundleResult(NamedTuple):
+    bundle_path: Optional[Path]
+    should_persist: bool
+
+
+def _persist_bundle(
+    state,
+    fit,
+    model,
+    config,
+    persist_bundle,
+    intensity_scale,
+    amplitude_physics_gain_record,
+):
+    """Persist the strict bundle and detach the module from its Trainer."""
+    output_dir = state.output_dir
+    trainer = state.trainer
+
     bundle_path = None
-    should_persist = bool(getattr(trainer, "is_global_zero", True))
+    should_persist = _is_global_zero(trainer)
     if persist_bundle and should_persist:
         archive_path = output_dir / "wts.h5"
-        save_torch_bundle(
+        model_manager.save_torch_bundle(
             models_dict={
                 "diffraction_to_obj": model,
                 "autoencoder": model,
@@ -1077,21 +1201,13 @@ def _train_with_lightning(
             intensity_scale=intensity_scale,
         )
         bundle_path = archive_path.with_suffix(".h5.zip")
-        if bundle_path.is_file() and all(
-            hasattr(model, name)
-            for name in (
-                "data_config",
-                "model_config",
-                "training_config",
-                "inference_config",
-                "get_ci_statistics",
-            )
-        ):
+        if bundle_path.is_file():
             bundle_io._persist_bundle_scaling_metadata(
                 bundle_path,
                 model,
                 amplitude_physics_gain_record=amplitude_physics_gain_record,
-                checkpoint_selection=checkpoint_selection,
+                checkpoint_selection=fit.checkpoint_selection,
+                training_sampling=fit.training_sampling,
             )
         elif amplitude_physics_gain_record is not None:
             raise RuntimeError(
@@ -1099,31 +1215,82 @@ def _train_with_lightning(
                 "training bundle or resolved model metadata is unavailable."
             )
 
-    if hasattr(model, "_trainer"):
-        model._trainer = None
+    model._trainer = None
 
     logger.info("Lightning training complete")
 
-    # B2.7: Build results payload with dual-model dict for bundle persistence (Phase C4.D3)
-    # save_torch_bundle requires 'autoencoder' and 'diffraction_to_obj' keys per spec §4.6
-    # PyTorch uses one trained unified module for both logical bundle roles.
+    return _PersistBundleResult(bundle_path=bundle_path, should_persist=should_persist)
+
+
+def _train_with_lightning(
+    payload: TrainingPayload,
+    train_container: Union[
+        'PtychoDataContainerTorch', 'PtychoDataset', 'PrebuiltPtychoDataModule',
+    ],
+    test_container: Optional['PtychoDataContainerTorch'] = None,
+    *,
+    torch_training_seed: Optional[int] = None,
+    batch_order_recipe: str = DEFAULT_BATCH_ORDER_RECIPE,
+    datagen_config: Optional[Any] = None,
+    milestone_epochs: tuple[int, ...] = (),
+    persist_bundle: bool = False,
+    intensity_scale: Optional[float] = None,
+    amplitude_physics_gain_record: Optional[AmplitudePhysicsGainRecord] = None,
+) -> Dict[str, Any]:
+    """Orchestrate Lightning training across five behavioral seams.
+
+    Consumes one resolved payload and either the RAM rail or a prebuilt mmap
+    DataModule; constructs the module/callbacks/Trainer, restores the declared
+    serving checkpoint, publishes history and sidecars, and optionally saves a
+    strict bundle.
+    """
+    prepared = _prepare_training_data(
+        payload,
+        train_container,
+        test_container,
+        torch_training_seed,
+        batch_order_recipe,
+        datagen_config,
+    )
+
+    ci_statistics = None
+    if (
+        prepared.resolved_scale_contract is not None
+        and prepared.resolved_scale_contract.version == CI_SCALE_CONTRACT
+        and prepared.kind == "loaders"
+    ):
+        ci_statistics = containers._get_finalized_ci_statistics(train_container)
+
+    model = _construct_application(payload, prepared.pt_configs, ci_statistics)
+
+    state = _assemble_trainer(
+        prepared, payload.tf_training_config, model, test_container, milestone_epochs,
+    )
+    fit = _fit_and_collect(state, prepared, model, train_container, test_container)
+    bundle = _persist_bundle(
+        state, fit, model, payload.tf_training_config, persist_bundle,
+        intensity_scale, amplitude_physics_gain_record,
+    )
+
     return {
-        "history": history,
+        "history": fit.history,
         "train_container": train_container,
         "test_container": test_container,
-        "rect_s1s2_initialization": rect_s1s2_initialization,
-        "training_summary_path": training_summary_path,
-        "execution_config": execution_config,
-        "effective_runtime": effective_runtime,
-        "checkpoint_selection": dict(checkpoint_selection),
-        "run_dir": output_dir,
-        "selected_checkpoint": selected_checkpoint,
-        "training_history": training_history,
-        "milestone_checkpoints": milestone_checkpoints,
-        "bundle_path": bundle_path,
-        "should_persist": should_persist,
+        "rect_s1s2_initialization": state.rect_s1s2_initialization,
+        "training_summary_path": state.training_summary_path,
+        "execution_config": prepared.execution_config,
+        "effective_runtime": fit.effective_runtime,
+        "checkpoint_selection": fit.checkpoint_selection,
+        "training_sampling": fit.training_sampling,
+        "run_dir": state.output_dir,
+        "selected_checkpoint": fit.selected_checkpoint,
+        "training_history": fit.training_history,
+        "milestone_checkpoints": fit.milestone_checkpoints,
+        "bundle_path": bundle.bundle_path,
+        "should_persist": bundle.should_persist,
         "models": {
             "diffraction_to_obj": model,
             "autoencoder": model,
-        }
+        },
     }
+

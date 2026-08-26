@@ -12,7 +12,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 @pytest.mark.parametrize(
     ("script_relpath", "required_help_text"),
     [
-        ("scripts/training/train.py", "--data.train_data_file"),
+        ("scripts/training/train.py", "--train_data_file"),
         ("scripts/inference/inference.py", "--model_path"),
         ("scripts/simulation/synthetic_pipeline.py", "--output-root"),
     ],

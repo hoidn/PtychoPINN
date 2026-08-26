@@ -30,7 +30,7 @@ sys.path.insert(0, str(project_root))
 
 # Import metadata utilities for verification
 from ptycho.metadata import MetadataManager
-from ptycho.config.config import TrainingConfig, ModelConfig, DataConfig, SamplingConfig
+from ptycho.config.config import TrainingConfig, ModelConfig
 
 
 class TestNphotonsMetadataIntegration(unittest.TestCase):
@@ -135,12 +135,13 @@ class TestNphotonsMetadataIntegration(unittest.TestCase):
         train_command = [
             sys.executable, 
             str(project_root / "scripts" / "training" / "train.py"),
-            "--data.train_data_file", str(data_file),
-            "--data.test_data_file", str(data_file),  # Use same file for simplicity
+            "--train_data_file", str(data_file),
+            "--test_data_file", str(data_file),  # Use same file for simplicity
             "--output_dir", str(training_output_dir),
             "--nepochs", "2",  # Minimal epochs for fast testing
-            "--sampling.training_groups", "50",
-            "--data.nphotons", str(nphotons),  # Explicitly set nphotons
+            "--n_images", "50", 
+            "--gridsize", "1",
+            "--nphotons", str(nphotons),  # Explicitly set nphotons
             "--quiet"
         ]
         
@@ -273,8 +274,8 @@ class TestNphotonsMetadataIntegration(unittest.TestCase):
         mismatched_nphotons = 1e8
         mismatched_config = TrainingConfig(
             model=ModelConfig(N=64, gridsize=1),
-            data=DataConfig(nphotons=mismatched_nphotons),
-            sampling=SamplingConfig(n_images=100),
+            nphotons=mismatched_nphotons,
+            n_images=100,
             nepochs=2
         )
         
@@ -308,12 +309,13 @@ class TestNphotonsMetadataIntegration(unittest.TestCase):
         train_command = [
             sys.executable,
             str(project_root / "scripts" / "training" / "train.py"),
-            "--data.train_data_file", str(sim_file),
-            "--data.test_data_file", str(sim_file),
+            "--train_data_file", str(sim_file),
+            "--test_data_file", str(sim_file),
             "--output_dir", str(training_output_dir),
             "--nepochs", "2",
-            "--sampling.training_groups", "50",
-            "--data.nphotons", str(config_nphotons),  # Different from data
+            "--n_images", "50",
+            "--gridsize", "1", 
+            "--nphotons", str(config_nphotons),  # Different from data
             "--quiet"
         ]
         

@@ -1,45 +1,21 @@
 """Torch-side training orchestration bodies relocated from ``ptycho.workflows.training``.
 
-Every function here is a thin lazy adapter to a pure ``ptycho_torch`` factory or
-a torch-only branch previously inlined in the TF-side training workflow.  The
-TF-side ``ptycho/workflows/training.py`` delegates to this module, so the
-shared entry point keeps its public surface while torch knowledge lives under
-``ptycho_torch/``.
+The shared TF-side training module keeps its spec-pinned public entry point
+(``run_training_workflow``) but delegates every torch-specific branch and
+factory/config adapter to the functions in this module.  Nothing here imports
+TensorFlow; all heavy torch imports stay lazy inside the functions that need
+them.
 """
 
 from __future__ import annotations
 
 from dataclasses import fields
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 import numpy as np
 
 from ptycho.config import TrainingConfig
-
-
-def resolve_training_payload(**kwargs):
-    """Lazy adapter to the pure Torch training factory."""
-
-    from ptycho_torch.config_factory import resolve_training_payload as resolve
-
-    return resolve(**kwargs)
-
-
-def resolve_amplitude_physics_gain(*args, **kwargs):
-    """Lazy adapter to the selected-data scaling contract."""
-
-    from ptycho_torch.scaling_contract import resolve_amplitude_physics_gain as resolve
-
-    return resolve(*args, **kwargs)
-
-
-def load_inference_bundle_torch(*args, **kwargs):
-    """Lazy adapter to strict Torch bundle reload."""
-
-    from .bundle_io import load_inference_bundle_torch as load
-
-    return load(*args, **kwargs)
 
 
 def _torch_model_from_snapshot(resolved: Any):
@@ -54,20 +30,8 @@ def _torch_model_from_snapshot(resolved: Any):
     return TorchModelConfig(**values)
 
 
-def _public_config_from_synthetic(
-    request: Any,
-) -> TrainingConfig:
+def _public_config_from_synthetic(request: Any) -> TrainingConfig:
     resolved = request.resolved_synthetic_workflow
-    from ptycho.config.config import (
-        AdamConfig,
-        DataConfig as PublicDataConfig,
-        GradientClipConfig,
-        LossConfig,
-        OptimizerConfig,
-        SamplingConfig,
-        SchedulerConfig,
-        SgdConfig,
-    )
     from ptycho.workflows.synthetic_config import materialize_data_config
     from ptycho_torch.config_bridge import to_model_config
 
@@ -79,59 +43,46 @@ def _public_config_from_synthetic(
     training = resolved.training
     return TrainingConfig(
         model=public_model,
+        train_data_file=Path(request.train_data_file),
+        test_data_file=Path(request.test_data_file),
         batch_size=training.batch_size,
         nepochs=training.epochs,
+        nphotons=data_config.nphotons,
+        training_groups=training.training_groups,
+        train_raw_selection=training.train_raw_selection,
+        subsample_seed=training.subsample_seed,
+        neighbor_count=training.neighbor_count,
+        enable_oversampling=training.enable_oversampling,
+        neighbor_pool_size=training.neighbor_pool_size,
         output_dir=Path(request.output_dir),
+        sequential_sampling=training.sequential_sampling,
         backend="pytorch",
-        data=PublicDataConfig(
-            train_data_file=Path(request.train_data_file),
-            test_data_file=Path(request.test_data_file),
-            nphotons=data_config.nphotons,
+        torch_loss_mode=training.torch_loss_mode,
+        torch_mae_pred_l2_match_target=(
+            training.torch_mae_pred_l2_match_target
         ),
-        sampling=SamplingConfig(
-            training_groups=training.training_groups,
-            train_raw_selection=training.train_raw_selection,
-            subsample_seed=training.subsample_seed,
-            neighbor_count=training.neighbor_count,
-            enable_oversampling=training.enable_oversampling,
-            neighbor_pool_size=training.neighbor_pool_size,
-            sequential_sampling=training.sequential_sampling,
-        ),
-        loss=LossConfig(
-            torch_loss_mode=training.torch_loss_mode,
-            torch_mae_pred_l2_match_target=(
-                training.torch_mae_pred_l2_match_target
-            ),
-        ),
-        gradient_clip=GradientClipConfig(
-            val=training.gradient_clip_val,
-            algorithm=training.gradient_clip_algorithm,
-        ),
-        optimizer=OptimizerConfig(
-            algorithm=training.optimizer,
-            weight_decay=training.weight_decay,
-            sgd=SgdConfig(momentum=training.momentum),
-            adam=AdamConfig(
-                beta1=training.adam_beta1,
-                beta2=training.adam_beta2,
-            ),
-        ),
-        scheduler=SchedulerConfig(
-            kind=training.scheduler,
-            lr_warmup_epochs=training.lr_warmup_epochs,
-            lr_min_ratio=training.lr_min_ratio,
-            plateau_factor=training.plateau_factor,
-            plateau_patience=training.plateau_patience,
-            plateau_min_lr=training.plateau_min_lr,
-            plateau_threshold=training.plateau_threshold,
-        ),
+        gradient_clip_val=training.gradient_clip_val,
+        gradient_clip_algorithm=training.gradient_clip_algorithm,
+        optimizer=training.optimizer,
+        momentum=training.momentum,
+        weight_decay=training.weight_decay,
+        adam_beta1=training.adam_beta1,
+        adam_beta2=training.adam_beta2,
+        scheduler=training.scheduler,
+        lr_warmup_epochs=training.lr_warmup_epochs,
+        lr_min_ratio=training.lr_min_ratio,
+        plateau_factor=training.plateau_factor,
+        plateau_patience=training.plateau_patience,
+        plateau_min_lr=training.plateau_min_lr,
+        plateau_threshold=training.plateau_threshold,
     )
 
 
 def _materialize_torch_container(
     grouped: dict,
     raw_data: Any,
-    config: TrainingConfig,
+    *,
+    data_adapter: str | None = None,
 ):
     from ptycho_torch.data_container_bridge import PtychoDataContainerTorch
 
@@ -139,10 +90,45 @@ def _materialize_torch_container(
     metadata = getattr(raw_data, "metadata", None)
     if metadata is not None:
         container.metadata = metadata
+    if data_adapter is not None:
+        _apply_backend_data_adapter(container, grouped, data_adapter)
     return container
 
 
-def _legacy_execution_and_patch(request: Any, config):
+def _apply_backend_data_adapter(
+    container: Any,
+    grouped: Mapping[str, Any],
+    adapter_name: str,
+) -> Any:
+    """Apply one resolved synthetic ingestion policy to an in-memory container."""
+
+    from ptycho_torch.data_adapter import resolve_data_adapter
+
+    policy = resolve_data_adapter(adapter_name)
+    if not policy.explicit_unit_scales:
+        return container
+
+    import torch
+
+    raw_grouped = np.ascontiguousarray(
+        np.asarray(grouped["diffraction"], dtype=np.float32)
+    )
+    raw_tensor = torch.from_numpy(raw_grouped).to(torch.float32)
+    unit = torch.ones((1, 1, 1), dtype=torch.float32)
+    values = {
+        "X": raw_tensor,
+        "rms_scaling_constant": unit.clone(),
+        "physics_scaling_constant": unit.clone(),
+    }
+    if isinstance(container, dict):
+        container.update(values)
+    else:
+        for name, value in values.items():
+            setattr(container, name, value)
+    return container
+
+
+def _legacy_execution_and_patch(request: Any, config: TrainingConfig):
     if config.backend != "pytorch":
         return None, None
     from ptycho_torch.cli.shared import (
@@ -243,146 +229,31 @@ def _synthetic_factory_overrides(
     overrides["n_raw_frames_selected"] = resolved.training.train_raw_selection
     return overrides
 
-
-def _selected_truth_patches(train_raw: Any, *, N: int) -> np.ndarray:
-    """Return one raw truth patch for every finalized selected frame.
-
-    ``RawData.Y`` is already frame-aligned after ``load_data`` subsampling.  A
-    flat acquisition may instead carry only the full object; in that case use
-    the same singleton-coordinate convention as ``RawData.from_simulation`` so
-    gain identity is independent of later neighbor grouping.
-    """
-
-    sample_count = int(np.asarray(train_raw.diff3d).shape[0])
-    if getattr(train_raw, "Y", None) is not None:
-        patches = np.asarray(train_raw.Y)
-        if patches.shape[0] != sample_count:
-            raise ValueError(
-                "selected RawData.Y must contain one truth patch per selected "
-                f"frame; got {patches.shape[0]} patches for {sample_count} frames"
-            )
-        return np.ascontiguousarray(patches)
-
-    object_guess = getattr(train_raw, "objectGuess", None)
-    if object_guess is None:
-        raise ValueError(
-            "selected training data requires RawData.Y or objectGuess to derive "
-            "amplitude_physics_gain"
-        )
-    from ptycho.raw_data import get_image_patches, get_relative_coords
-
-    coords = np.zeros((sample_count, 1, 2, 1), dtype=np.float64)
-    coords[:, 0, 0, 0] = np.asarray(train_raw.xcoords)
-    coords[:, 0, 1, 0] = np.asarray(train_raw.ycoords)
-    global_offsets, local_offsets = get_relative_coords(coords)
-    patches = get_image_patches(
-        object_guess,
-        global_offsets,
-        local_offsets,
-        N=N,
-        gridsize=1,
-    )
-    return np.ascontiguousarray(np.asarray(patches))
-
-
-def _resolve_gain(resolved: Any, train_raw: Any):
-    """Resolve gain from the finalized raw training selection, never groups."""
-
-    model = resolved.model
-    override = (
-        model.amplitude_physics_gain
-        if model.amplitude_physics_gain_provenance == "explicit"
-        else None
-    )
-    needs_truth = (
-        model.physics_forward_mode == "amplitude" and override is None
-    )
-    return resolve_amplitude_physics_gain(
-        np.ascontiguousarray(np.asarray(train_raw.diff3d)),
-        (
-            _selected_truth_patches(train_raw, N=resolved.data.N)
-            if needs_truth
-            else None
-        ),
-        np.ascontiguousarray(np.asarray(train_raw.probeGuess)),
-        probe_scale=resolved.data.probe_scale,
-        probe_mask=model.probe_mask,
-        probe_mask_tensor=model.probe_mask_tensor,
-        probe_mask_sigma=model.probe_mask_sigma,
-        probe_mask_diameter=model.probe_mask_diameter,
-        override=override,
-        physics_forward_mode=model.physics_forward_mode,
-    )
-
-
 def _validate_payload_selection_identity(
     selected_config: TrainingConfig,
     payload_config: TrainingConfig,
 ) -> None:
     """Fail if factory resolution changes fields already used for selection."""
 
-    values = (
-        (
-            "data.train_data_file",
-            selected_config.data.train_data_file,
-            payload_config.data.train_data_file,
-        ),
-        (
-            "data.test_data_file",
-            selected_config.data.test_data_file,
-            payload_config.data.test_data_file,
-        ),
-        (
-            "output_dir",
-            selected_config.output_dir,
-            payload_config.output_dir,
-        ),
-        (
-            "sampling.training_groups",
-            selected_config.sampling.training_groups,
-            payload_config.sampling.training_groups,
-        ),
-        (
-            "sampling.train_raw_selection",
-            selected_config.sampling.train_raw_selection,
-            payload_config.sampling.train_raw_selection,
-        ),
-        (
-            "sampling.subsample_seed",
-            selected_config.sampling.subsample_seed,
-            payload_config.sampling.subsample_seed,
-        ),
-        (
-            "sampling.neighbor_count",
-            selected_config.sampling.neighbor_count,
-            payload_config.sampling.neighbor_count,
-        ),
-        (
-            "sampling.enable_oversampling",
-            selected_config.sampling.enable_oversampling,
-            payload_config.sampling.enable_oversampling,
-        ),
-        (
-            "sampling.neighbor_pool_size",
-            selected_config.sampling.neighbor_pool_size,
-            payload_config.sampling.neighbor_pool_size,
-        ),
-        (
-            "sampling.sequential_sampling",
-            selected_config.sampling.sequential_sampling,
-            payload_config.sampling.sequential_sampling,
-        ),
-        (
-            "data.nphotons",
-            selected_config.data.nphotons,
-            payload_config.data.nphotons,
-        ),
+    paths = (
+        "train_data_file",
+        "test_data_file",
+        "output_dir",
+        "training_groups",
+        "train_raw_selection",
+        "subsample_seed",
+        "neighbor_count",
+        "enable_oversampling",
+        "neighbor_pool_size",
+        "sequential_sampling",
+        "nphotons",
     )
-    for name, before, after in values:
-        if before != after:
+    for name in paths:
+        if getattr(selected_config, name) != getattr(payload_config, name):
             raise ValueError(
                 "resolved Torch payload changed post-selection identity field "
-                f"{name!r}: {before!r} != {after!r}"
+                f"{name!r}: {getattr(selected_config, name)!r} != "
+                f"{getattr(payload_config, name)!r}"
             )
     for name in ("N", "gridsize"):
         before = getattr(selected_config.model, name)
@@ -407,13 +278,10 @@ def _validate_synthetic_payload_identity(
         raise ValueError("resolved payload changed synthetic neighbor count")
     if payload.pt_training_config.nll is not resolved.training.nll:
         raise ValueError("resolved payload changed synthetic nll identity")
-    if (
-        payload.tf_training_config.loss.torch_loss_mode
-        != resolved.training.torch_loss_mode
-    ):
+    if payload.tf_training_config.torch_loss_mode != resolved.training.torch_loss_mode:
         raise ValueError("resolved payload changed synthetic Torch loss mode")
     if (
-        payload.tf_training_config.loss.torch_mae_pred_l2_match_target
+        payload.tf_training_config.torch_mae_pred_l2_match_target
         is not resolved.training.torch_mae_pred_l2_match_target
     ):
         raise ValueError("resolved payload changed synthetic MAE L2-match identity")
@@ -428,3 +296,25 @@ def _validate_synthetic_payload_identity(
                 "resolved payload changed synthetic inference field "
                 f"{item.name!r}"
             )
+
+
+def _resolve_workflow_batch_order_recipe(request: Any) -> str:
+    """Resolve the versioned Torch example-order contract exactly once."""
+
+    from ptycho_torch.batch_order import (
+        DEFAULT_BATCH_ORDER_RECIPE,
+        validate_batch_order_recipe,
+    )
+
+    explicit = request.batch_order_recipe
+    if request.resolved_synthetic_workflow is None:
+        return validate_batch_order_recipe(
+            DEFAULT_BATCH_ORDER_RECIPE if explicit is None else explicit
+        )
+    configured = request.resolved_synthetic_workflow.training.batch_order_recipe
+    if explicit is not None and explicit != configured:
+        raise ValueError(
+            "request batch_order_recipe conflicts with resolved synthetic "
+            f"identity: expected {configured!r}, got {explicit!r}"
+        )
+    return validate_batch_order_recipe(configured)

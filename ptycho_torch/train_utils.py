@@ -118,16 +118,6 @@ def get_training_strategy(strategy='auto', n_devices=None, accelerator='cuda'):
         process_group_backend=process_group_backend,
     )
     
-def find_learning_rate(base_lr, n_devices, batch_size_per_gpu):
-    """
-    Scales LR based on effective batch size (EBS), where EBS = bs_per_gpu * n_devices
-    Uses sqrt LR scaling law based on Krizhevsky, 2014, Hoffer et al., 2017)
-    """
-    ebs = batch_size_per_gpu * n_devices
-    lr_scaled = base_lr * math.sqrt(ebs / batch_size_per_gpu)
-
-    return lr_scaled
-
 
 def adaptive_gradient_clip_(parameters, clip_factor: float = 0.01, eps: float = 1e-3):
     """Adaptive Gradient Clipping (AGC), operating in-place on parameter grads."""
@@ -160,27 +150,6 @@ def resolve_n_devices(training_config):
         raise ValueError(f"n_devices must be int or 'auto', got {training_config.n_devices!r}")
 
 
-def log_parameters_mlflow(data_config: DataConfig,
-                          model_config: ModelConfig,
-                          training_config: TrainingConfig,
-                          inference_config: InferenceConfig,
-                          datagen_config: DatagenConfig):
-    # Log configuration parameters
-    print('Logging configuration parameters to MLflow...')
-    # Assuming the config objects have a .get_settings() method returning a dict
-    try:
-        # Use specific prefixes for clarity
-        # Log each config as a single JSON string parameter
-        mlflow.log_param("DataConfig_params", json.dumps(config_to_json_serializable_dict(data_config)))
-        mlflow.log_param("ModelConfig_params", json.dumps(config_to_json_serializable_dict(model_config)))
-        mlflow.log_param("TrainingConfig_params", json.dumps(config_to_json_serializable_dict(training_config)))
-        mlflow.log_param("InferenceConfig_params", json.dumps(config_to_json_serializable_dict(inference_config)))
-        mlflow.log_param("DatagenConfig_params", json.dumps(config_to_json_serializable_dict(datagen_config)))
-        print('Configuration parameters logged.')
-    except AttributeError:
-        print("Warning: Could not log config parameters. '.get_settings()' method might be missing.")
-    except Exception as e:
-        print(f"Warning: Error logging config parameters: {e}")
 
 def is_effectively_global_rank_zero():
     """
@@ -270,158 +239,6 @@ class LightningConfigSaveCallback(Callback):
                 d[k] = [x.tolist() if torch.is_tensor(x) else x for x in v]
         return d
 
-#-----Fine-tuning------
-class ModelFineTuner:
-    """
-    Handles fine-tuning/re-instantiation of training parameters, etc.
-    Calls
-    1. Encoder Freeze
-    2. Adds a few additional parameters to logger, such as fine_tuning = True, encoder_frozen = True
-    3. Creates new trainer
-    """
-    def __init__(self, model,
-                 train_module,
-                 training_config: TrainingConfig):
-        
-        self.model = model
-        self.train_module = train_module
-        self.training_config = training_config
-
-    def fine_tune(self, experiment_name = "PtychoPINN synthetic"):
-
-        #Freeze encoder
-        self.model.freeze_encoder()
-
-        #Callbacks
-        callbacks = [
-            EarlyStopping(
-                monitor=self.model.val_loss_name, 
-                patience=5,  # Shorter patience for fine-tuning
-                mode='min',
-                verbose=True,
-                strict=True
-            )
-        ]
-        
-        #Calculate modified lr
-        fine_tuning_lr = self.model.lr * self.training_config.fine_tune_gamma
-        #Update lr
-        self.model.lr = fine_tuning_lr
-
-        #Same trainer except epochs
-        fine_tune_trainer = L.Trainer(
-            max_epochs = self.training_config.epochs_fine_tune,
-            default_root_dir = os.path.dirname(os.getcwd()),
-            devices = self.training_config.n_devices,  # FIXED: Use explicit n_devices instead of 'auto'
-            accelerator = 'gpu',
-            callbacks = callbacks,
-            accumulate_grad_batches=1,
-            strategy=get_training_strategy(self.training_config.strategy, self.training_config.n_devices),
-            check_val_every_n_epoch=1,  # Validate every epoch during fine-tuning
-            enable_checkpointing=True,
-        )
-
-        # Store the run_id before starting training (for proper scope)
-        fine_tune_run_id = None
-
-        #Start mlflow logging and runs for this "new run"
-        #Saves a separate MLFlow run instance so we can compare fine-tuned vs non fine-tuned model
-        if is_effectively_global_rank_zero():
-            mlflow.set_experiment(experiment_name)
-            with mlflow.start_run() as run:
-                # Store the run_id
-                fine_tune_run_id = run.info.run_id
-                
-                #Log
-                print("Logging fine-tuning configuration parameters to MLFlow...")
-                try:
-                    # Log each config as a single JSON string parameter
-                    log_parameters_mlflow(self.model.data_config, self.model.model_config,
-                                        self.model.training_config, self.model.inference_config)
-                    mlflow.log_param("fine_tuning", True)
-                    mlflow.log_param("encoder_frozen", True)
-                    print('Fine-tuning configuration parameters logged.')
-                except Exception as e:
-                    print(f"Warning: Error logging config parameters: {e}")
-
-                #Set experiment name and fine-tuning tags
-                mlflow.set_tag("stage", "fine_tuning")
-                mlflow.set_tag("encoder_frozen", "True")
-
-                print(f'[Rank {fine_tune_trainer.global_rank if hasattr(fine_tune_trainer, "global_rank") else "N/A"}] Fine-tuning model with learning rate {fine_tuning_lr}...')
-                fine_tune_trainer.fit(self.model, datamodule = self.train_module)
-
-                print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id))
-        else:
-            # Non-rank-0 processes still need to participate in training
-            print(f'[Rank {fine_tune_trainer.global_rank if hasattr(fine_tune_trainer, "global_rank") else "N/A"}] Fine-tuning model with learning rate {fine_tuning_lr}...')
-            fine_tune_trainer.fit(self.model, datamodule = self.train_module)
-
-        # FIXED: Use the consistent rank checking function instead of trainer.is_global_zero
-        return fine_tune_run_id if is_effectively_global_rank_zero() else None
-    
-class ModelFineTuner_Lightning:
-    """
-    Fine-tuning class specifically for lightning-only training. Works differently enough form mlflow-aided implementation
-    I decided to keep them as separate classes. There is likely room for refactoring/class merging but dev time not priority.
-    """
-    def __init__(self, model, train_module, training_config, run_dir):
-        self.model = model
-        self.train_module = train_module
-        self.training_config = training_config
-        self.run_dir = run_dir  # The unique folder created in main_lightning
-
-    def fine_tune(self):
-        print(f"\n[Rank {self.model.global_rank}] Starting Fine-Tuning Stage...")
-
-        # 1. Freeze encoder (Implementation depends on your model architecture)
-        if hasattr(self.model, 'freeze_encoder'):
-            self.model.freeze_encoder()
-        else:
-            # Generic fallback: freeze parameters starting with 'encoder'
-            for name, param in self.model.named_parameters():
-                if "encoder" in name:
-                    param.requires_grad = False
-            print("Encoder parameters frozen manually.")
-
-        # 2. Update Learning Rate
-        fine_tuning_lr = self.model.lr * self.training_config.fine_tune_gamma
-        self.model.lr = fine_tuning_lr
-        print(f"Fine-tuning LR set to: {fine_tuning_lr}")
-
-        # 3. Setup Fine-tuning specific checkpointing
-        ft_ckpt_path = os.path.join(self.run_dir, "finetune_checkpoints")
-        checkpoint_callback = ModelCheckpoint(
-            dirpath=ft_ckpt_path,
-            monitor=self.model.val_loss_name,
-            mode='min',
-            save_top_k=1,
-            filename='best-finetune-checkpoint'
-        )
-
-        callbacks = [
-            EarlyStopping(monitor=self.model.val_loss_name, patience=5, mode='min', verbose=True),
-            checkpoint_callback
-        ]
-
-        # 4. Create a fresh trainer for fine-tuning
-        fine_tune_trainer = L.Trainer(
-            max_epochs=self.training_config.epochs_fine_tune,
-            devices=self.training_config.n_devices,
-            accelerator='gpu',
-            strategy=get_training_strategy(self.training_config.strategy, self.training_config.n_devices),
-            callbacks=callbacks,
-            enable_checkpointing=True,
-            # Use CSVLogger in a subfolder for fine-tuning logs
-            logger=L.pytorch.loggers.CSVLogger(save_dir=self.run_dir, name="logs_finetune"),
-        )
-
-        # 5. Fit
-        fine_tune_trainer.fit(self.model, datamodule=self.train_module)
-        
-        print(f"[Rank {self.model.global_rank}] Fine-tuning complete.")
-        return ft_ckpt_path if self.model.global_rank == 0 else None
-        
 # --- Lightning Data Classes ---
 class PtychoDataModule(L.LightningDataModule):
     """

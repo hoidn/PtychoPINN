@@ -29,9 +29,9 @@ FACADE = frozenset(
     }
 )
 
-# Every implementation module that lives behind a facade on this branch.  The
-# list is trimmed to the modules the Phase 2 split creates/owns: modules that
-# do not exist on ``refactor`` are absent.
+# Every implementation module that lives behind a facade.  model_manager.py is
+# included deliberately: its only facade reference is a docstring example, which
+# the AST walk must ignore.
 IMPL_MODULES = [
     "ptycho_torch.workflows.bundle_io",
     "ptycho_torch.workflows.containers",
@@ -40,10 +40,21 @@ IMPL_MODULES = [
     "ptycho_torch.workflows.lightning_service",
     "ptycho_torch.workflows.orchestration",
     "ptycho_torch.workflows.rect_s1s2",
+    "ptycho_torch.batch_emission",
     "ptycho_torch.checkpoint_decode",
+    "ptycho_torch.collate",
+    "ptycho_torch.inference",
+    "ptycho_torch.inference_validation",
+    "ptycho_torch.train",
+    "ptycho_torch.model_manager",
+    "ptycho_torch.model_blocks",
+    "ptycho_torch.reassembly_accumulators",
+    "ptycho_torch.varpro",
     "ptycho.workflows.workflow_orchestration",
+    "ptycho.workflows.training",
     "ptycho.workflows.bundle_loading",
     "ptycho.workflows.config_cli",
+    "ptycho.workflows.backend_selector",
 ]
 
 FACADE_FILES = [

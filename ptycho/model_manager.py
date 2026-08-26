@@ -206,7 +206,8 @@ class ModelManager:
             if gridsize is None or N is None:
                 raise ValueError(f"Required parameters missing: gridsize={gridsize}, N={N}")
             
-            # Update params.cfg with loaded parameters
+            # Named archive-restore boundary (W3.1): the dill-era loader is the
+            # one sanctioned bulk restore of persisted legacy params on this path.
             params.cfg.update(loaded_params)
             
             # Load custom objects

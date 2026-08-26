@@ -48,18 +48,16 @@ def minimal_raw_data(params_cfg_snapshot):
     - N=64 (grid size)
     - gridsize=2 (standard 2x2 patches)
     """
-    from ptycho.config.config import (
-        TrainingConfig, ModelConfig, update_legacy_dict,
-        SamplingConfig, DataConfig,
-    )
+    from ptycho.config.config import TrainingConfig, ModelConfig, update_legacy_dict
     from ptycho import params as p
     from ptycho.raw_data import RawData
 
     # 1. Initialize params.cfg (MANDATORY per CLAUDE.md:76-93)
     config = TrainingConfig(
         model=ModelConfig(N=64, gridsize=2),
-        sampling=SamplingConfig(training_groups=64, neighbor_count=4),
-        data=DataConfig(nphotons=1e9),  # Required per Phase B config bridge validation
+        training_groups=64,
+        neighbor_count=4,
+        nphotons=1e9  # Required per Phase B config bridge validation
     )
     update_legacy_dict(p.cfg, config)
 

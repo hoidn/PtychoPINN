@@ -63,6 +63,14 @@ class ExecutionCapabilities:
 
 
 @dataclass(frozen=True)
+class ResolutionNotice:
+    """A deferred warning produced while resolving an execution request."""
+
+    category: type[Warning]
+    message: str
+
+
+@dataclass(frozen=True)
 class EnvironmentResolution:
     """Requested and environment-resolved primitive execution values."""
 
@@ -83,14 +91,6 @@ class EnvironmentResolution:
             _freeze_execution_values(self.resolved),
         )
         object.__setattr__(self, "notices", tuple(self.notices))
-
-
-@dataclass(frozen=True)
-class ResolutionNotice:
-    """A deferred warning produced while resolving an execution request."""
-
-    category: type[Warning]
-    message: str
 
 
 @dataclass(frozen=True)
@@ -173,7 +173,17 @@ class ResolvedRuntimeExecution:
     explicit_fields: frozenset[str]
     notices: tuple[ResolutionNotice, ...]
 
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "explicit_fields",
+            frozenset(self.explicit_fields),
+        )
+        object.__setattr__(self, "notices", tuple(self.notices))
+
     def audit_dict(self) -> dict[str, Any]:
+        """Return primitive requested/resolved runtime audit values."""
+
         capabilities = self.environment.capabilities
         return {
             "explicit_fields": sorted(self.explicit_fields),
@@ -236,6 +246,8 @@ def normalize_execution_input(
 
 
 def materialize_default_execution_input(*, mode: str) -> NormalizedExecutionInput:
+    """Create a complete, environment-unresolved default request."""
+
     normalized = normalize_execution_input(
         ExecutionRequest(values={}, explicit_fields=frozenset()),
         mode=mode,
@@ -282,6 +294,8 @@ def observe_execution_capabilities() -> ExecutionCapabilities:
 def execution_capabilities_required(
     normalized: NormalizedExecutionInput,
 ) -> bool:
+    """Return whether an unresolved runtime value needs CUDA facts."""
+
     accelerator = normalized.values["accelerator"]
     if accelerator == "auto":
         return True
@@ -360,8 +374,8 @@ def resolve_execution_environment(
         resolved["precision"] = "bf16-mixed"
 
     return EnvironmentResolution(
-        requested=MappingProxyType(requested),
-        resolved=MappingProxyType(resolved),
+        requested=requested,
+        resolved=resolved,
         capabilities=capabilities,
         notices=tuple(notices),
     )
@@ -377,7 +391,7 @@ def resolve_runtime_execution_request(
     mode: str,
     execution_capabilities: ExecutionCapabilities | None = None,
 ) -> ResolvedRuntimeExecution:
-    """Resolve a validated request to the compatible public runtime carrier."""
+    """Resolve a validated request to the compatible runtime carrier."""
 
     if isinstance(value, NormalizedExecutionInput):
         normalized = value
@@ -395,6 +409,7 @@ def resolve_runtime_execution_request(
             capabilities = execution_capabilities
         else:
             capabilities = observe_execution_capabilities()
+
     environment = resolve_execution_environment(
         normalized,
         capabilities=capabilities,

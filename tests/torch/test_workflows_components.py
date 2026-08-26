@@ -45,17 +45,45 @@ def _execution_request(**values):
     )
 
 
+def _build_training_payload(config, overrides=None, **execution_values):
+    """Resolve a TrainingPayload from a canonical TrainingConfig for tests.
+
+    Mirrors the resolution ``_train_with_lightning`` previously performed
+    inline: ``build_training_factory_overrides`` + caller overrides feed
+    ``resolve_training_payload`` with the canonical baseline. ``train_data_file``
+    must exist (DATA-001).
+    """
+    from ptycho_torch.config_factory import (
+        build_training_factory_overrides,
+        resolve_training_payload,
+    )
+
+    factory_overrides = build_training_factory_overrides(config)
+    if overrides:
+        factory_overrides.update(overrides)
+    execution_config = _execution_request(**execution_values) if execution_values else None
+    return resolve_training_payload(
+        train_data_file=Path(config.train_data_file),
+        output_dir=Path(getattr(config, "output_dir", "./outputs")),
+        execution_config=execution_config,
+        overrides=factory_overrides,
+        training_baseline=config,
+    )
+
+
 @pytest.fixture(autouse=True)
 def _isolate_effective_runtime_artifacts(monkeypatch):
     """Keep workflow-unit fakes focused on their declared Trainer behavior."""
-    from ptycho_torch.workflows import components
+    from ptycho_torch import runtime_provenance
 
     monkeypatch.setattr(
-        "ptycho_torch.workflows.lightning_service._build_effective_runtime",
+        runtime_provenance,
+        "build_effective_runtime",
         lambda seed, *_args, **_kwargs: {"seed": seed},
     )
     monkeypatch.setattr(
-        "ptycho_torch.workflows.lightning_service.write_effective_runtime_json",
+        runtime_provenance,
+        "write_effective_runtime_json",
         lambda *_args, **_kwargs: None,
     )
 
@@ -160,8 +188,7 @@ def test_train_with_lightning_accepts_selected_datamodule_unchanged(
         "ptycho_torch.application_factory.build_ptychopinn_application",
         lambda *_args, **_kwargs: StubModel(),
     )
-    monkeypatch.setattr(
-        "ptycho_torch.workflows.dataloaders._build_lightning_dataloaders",
+    monkeypatch.setattr("ptycho_torch.workflows.dataloaders._build_lightning_dataloaders",
         lambda *_args, **_kwargs: pytest.fail(
             "a selected DataModule must not be rebuilt"
         ),
@@ -188,10 +215,9 @@ def test_train_with_lightning_accepts_selected_datamodule_unchanged(
     monkeypatch.setattr("lightning.pytorch.Trainer", build_trainer)
 
     results = components._train_with_lightning(
+        payload,
         data_module,
         None,
-        config,
-        resolved_payload=payload,
     )
 
     assert fit_call["datamodule"] is data_module
@@ -277,7 +303,7 @@ class TestWorkflowsComponentsScaffold:
     @pytest.fixture
     def minimal_training_config(self):
         """Create minimal TrainingConfig fixture for parity tests."""
-        from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig
 
         model_config = ModelConfig(
             N=64,
@@ -287,12 +313,11 @@ class TestWorkflowsComponentsScaffold:
 
         training_config = TrainingConfig(
             model=model_config,
-            data=DataConfig(
-                train_data_file=Path("/tmp/dummy_train.npz"),
-                test_data_file=Path("/tmp/dummy_test.npz"),
-                nphotons=1e9,
-            ),
-            sampling=SamplingConfig(training_groups=10, neighbor_count=4),
+            train_data_file=Path("/tmp/dummy_train.npz"),
+            test_data_file=Path("/tmp/dummy_test.npz"),
+            training_groups=10,
+            neighbor_count=4,
+            nphotons=1e9,
         )
 
         return training_config
@@ -324,8 +349,7 @@ class TestWorkflowsComponentsScaffold:
                 "test_container": None,
             }
 
-        monkeypatch.setattr(
-            "ptycho_torch.workflows.legacy.train_cdi_model_torch",
+        monkeypatch.setattr("ptycho_torch.workflows.legacy.train_cdi_model_torch",
             mock_train_cdi_model_torch,
         )
 
@@ -365,10 +389,13 @@ class TestWorkflowsComponentsTraining:
             raise AssertionError("modern Torch training entered a legacy outer scope")
 
         monkeypatch.setattr(legacy_state, "legacy_params_scope", forbidden_scope)
-        monkeypatch.setattr("ptycho_torch.workflows.containers._ensure_container", lambda data, config: data)
+        monkeypatch.setattr("ptycho_torch.workflows.containers.create_torch_data_container", lambda data, config: data)
         monkeypatch.setattr(
-            "ptycho_torch.workflows.lightning_service._train_with_lightning",
-            lambda train, test, config: {
+            "ptycho_torch.config_factory.resolve_training_payload",
+            lambda **_kwargs: object(),
+        )
+        monkeypatch.setattr("ptycho_torch.workflows.lightning_service._train_with_lightning",
+            lambda payload, train, test: {
                 "history": {},
                 "train_container": train,
                 "test_container": test,
@@ -395,7 +422,7 @@ class TestWorkflowsComponentsTraining:
     @pytest.fixture
     def minimal_training_config(self):
         """Create minimal TrainingConfig fixture for training tests."""
-        from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig
 
         model_config = ModelConfig(
             N=64,
@@ -405,12 +432,11 @@ class TestWorkflowsComponentsTraining:
 
         training_config = TrainingConfig(
             model=model_config,
-            data=DataConfig(
-                train_data_file=Path("/tmp/dummy_train.npz"),
-                test_data_file=Path("/tmp/dummy_test.npz"),
-                nphotons=1e9,
-            ),
-            sampling=SamplingConfig(training_groups=10, neighbor_count=1),  # No neighbors
+            train_data_file=Path("/tmp/dummy_train.npz"),
+            test_data_file=Path("/tmp/dummy_test.npz"),
+            training_groups=10,
+            neighbor_count=1,  # No neighbors
+            nphotons=1e9,
             nepochs=2,  # Small number for testing
         )
 
@@ -446,7 +472,7 @@ class TestWorkflowsComponentsTraining:
         params_cfg_snapshot,
     ):
         """_train_with_lightning must forward fno_input_transform to factory overrides."""
-        from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig
         from ptycho_torch.workflows import components as torch_components
 
         captured = {}
@@ -484,12 +510,11 @@ class TestWorkflowsComponentsTraining:
 
         training_config = TrainingConfig(
             model=model_config,
-            data=DataConfig(
-                train_data_file=Path("/tmp/dummy_train.npz"),
-                test_data_file=Path("/tmp/dummy_test.npz"),
-                nphotons=1e9,
-            ),
-            sampling=SamplingConfig(training_groups=10, neighbor_count=1),
+            train_data_file=Path("/tmp/dummy_train.npz"),
+            test_data_file=Path("/tmp/dummy_test.npz"),
+            training_groups=10,
+            neighbor_count=1,
+            nphotons=1e9,
             nepochs=1,
         )
 
@@ -499,10 +524,13 @@ class TestWorkflowsComponentsTraining:
             "coords_relative": np.zeros((1, 1, 2, c), dtype=np.float32),
         }
 
+        monkeypatch.setattr("ptycho_torch.workflows.containers.create_torch_data_container",
+            lambda *_args, **_kwargs: train_container,
+        )
         with pytest.raises(RuntimeError, match="stop after overrides capture"):
-            torch_components._train_with_lightning(
-                train_container=train_container,
-                test_container=None,
+            torch_components.train_cdi_model_torch(
+                train_data=object(),
+                test_data=None,
                 config=training_config,
             )
 
@@ -519,8 +547,7 @@ class TestWorkflowsComponentsTraining:
         from ptycho_torch.workflows import components
 
         events = []
-        monkeypatch.setattr(
-            "ptycho_torch.workflows.containers._ensure_container",
+        monkeypatch.setattr("ptycho_torch.workflows.containers.create_torch_data_container",
             lambda *_args: events.append("container"),
         )
 
@@ -608,9 +635,6 @@ class TestWorkflowsComponentsTraining:
                 },
             ),
         )
-        public_config = payload.tf_training_config.model_copy(update={
-            "output_dir": tmp_path / "out",
-        })
         captured = {}
 
         class FakeModel:
@@ -651,16 +675,14 @@ class TestWorkflowsComponentsTraining:
             "ptycho_torch.application_factory.build_ptychopinn_application",
             fake_application_factory,
         )
-        monkeypatch.setattr(
-            "ptycho_torch.workflows.dataloaders._build_lightning_dataloaders",
+        monkeypatch.setattr("ptycho_torch.workflows.dataloaders._build_lightning_dataloaders",
             lambda *_args, **_kwargs: (object(), None),
         )
         monkeypatch.setattr(
             "lightning.pytorch.Trainer",
             FakeTrainer,
         )
-        monkeypatch.setattr(
-            "ptycho_torch.workflows.lightning_service.validate_scale_contract",
+        monkeypatch.setattr("ptycho_torch.scaling_contract.validate_scale_contract",
             lambda *_args: None,
         )
 
@@ -671,10 +693,9 @@ class TestWorkflowsComponentsTraining:
         )
         with expectation:
             components._train_with_lightning(
-                train_container={},
-                test_container=None,
-                config=public_config,
-                resolved_payload=payload,
+                payload,
+                {},
+                None,
             )
 
         assert captured["model"].training_config is payload.pt_training_config
@@ -704,13 +725,12 @@ class TestWorkflowsComponentsTraining:
 
         resolved_payload = object()
         captured = {}
-        monkeypatch.setattr(
-            "ptycho_torch.workflows.containers._ensure_container",
+        monkeypatch.setattr("ptycho_torch.workflows.containers.create_torch_data_container",
             lambda data, _config: data,
         )
 
-        def fake_train(*_args, **kwargs):
-            captured["resolved_payload"] = kwargs["resolved_payload"]
+        def fake_train(payload, *_args, **_kwargs):
+            captured["resolved_payload"] = payload
             return {
                 "history": {},
                 "models": {},
@@ -748,12 +768,10 @@ class TestWorkflowsComponentsTraining:
             captured.append((dataset, kwargs))
             return object()
 
-        monkeypatch.setattr(
-            "ptycho_torch.workflows.dataloaders.build_ptycho_loader",
+        monkeypatch.setattr("ptycho_torch.dataloader.build_ptycho_loader",
             fake_build_ptycho_loader,
         )
-        monkeypatch.setattr(
-            "ptycho_torch.workflows.dataloaders.validate_scale_contract",
+        monkeypatch.setattr("ptycho_torch.scaling_contract.validate_scale_contract",
             lambda *_args: None,
         )
         execution = PyTorchExecutionConfig(
@@ -864,7 +882,7 @@ class TestWorkflowsComponentsTraining:
         params_cfg_snapshot,
     ):
         """Supervised workflow requests must reach Lightning as Supervised + MAE."""
-        from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig
         from ptycho_torch.workflows import components as torch_components
 
         dataset_path = tmp_path / "train_supervised.npz"
@@ -887,13 +905,12 @@ class TestWorkflowsComponentsTraining:
         )
         training_config = TrainingConfig(
             model=model_config,
-            data=DataConfig(
-                train_data_file=dataset_path,
-                test_data_file=dataset_path,
-                nphotons=1e9,
-            ),
-            sampling=SamplingConfig(training_groups=2, neighbor_count=1),
+            train_data_file=dataset_path,
+            test_data_file=dataset_path,
             output_dir=tmp_path / "out",
+            training_groups=2,
+            neighbor_count=1,
+            nphotons=1e9,
             nepochs=1,
         )
 
@@ -916,11 +933,12 @@ class TestWorkflowsComponentsTraining:
             fake_application_factory,
         )
 
+        payload = _build_training_payload(training_config)
         with pytest.raises(RuntimeError, match="stop after application build"):
             torch_components._train_with_lightning(
+                payload,
                 train_container=train_container,
                 test_container=None,
-                config=training_config,
             )
 
         assert captured["model_config"].mode == "Supervised"
@@ -942,13 +960,13 @@ class TestWorkflowsComponentsTraining:
 
         Red-phase contract:
         - Entry signature: train_cdi_model_torch(train_data, test_data, config)
-        - MUST call _ensure_container(data, config) for train/test inputs
+        - MUST call create_torch_data_container(data, config) for train/test inputs
         - MUST delegate to Lightning trainer with normalized config
         - MUST return dict with keys: history, train_container, test_container
         - Stub implementation may raise NotImplementedError initially
 
         Test mechanism:
-        - Use monkeypatch to spy on _ensure_container and Lightning orchestration calls
+        - Use monkeypatch to spy on create_torch_data_container and Lightning orchestration calls
         - Pass minimal RawData (no actual training execution required)
         - Assert expected orchestration order without running full training
         """
@@ -959,8 +977,8 @@ class TestWorkflowsComponentsTraining:
         ensure_container_calls = []
         lightning_trainer_called = {"called": False, "config": None}
 
-        def mock_ensure_container(data, config):
-            """Spy that records _ensure_container invocations."""
+        def mockcreate_torch_data_container(data, config):
+            """Spy that records create_torch_data_container invocations."""
             ensure_container_calls.append({
                 "data": data,
                 "config": config
@@ -969,10 +987,10 @@ class TestWorkflowsComponentsTraining:
             # In Phase D2.B implementation, this would be a real container
             return {"X": np.ones((2, 64, 64)), "Y": np.ones((2, 64, 64), dtype=np.complex64)}
 
-        def mock_lightning_orchestrator(train_container, test_container, config):
+        def mock_lightning_orchestrator(payload, train_container, test_container):
             """Spy that records Lightning trainer invocation."""
             lightning_trainer_called["called"] = True
-            lightning_trainer_called["config"] = config
+            lightning_trainer_called["config"] = payload.tf_training_config
             # Return minimal training results dict
             return {
                 "history": {"train_loss": [0.5, 0.3], "val_loss": [0.6, 0.4]},
@@ -982,8 +1000,14 @@ class TestWorkflowsComponentsTraining:
 
         # Patch internal helpers (Phase D2.B implemented)
         monkeypatch.setattr(
-            "ptycho_torch.workflows.containers._ensure_container",
-            mock_ensure_container
+            "ptycho_torch.workflows.containers.create_torch_data_container",
+            mockcreate_torch_data_container
+        )
+        monkeypatch.setattr(
+            "ptycho_torch.config_factory.resolve_training_payload",
+            lambda **_kwargs: SimpleNamespace(
+                tf_training_config=minimal_training_config,
+            ),
         )
         monkeypatch.setattr(
             "ptycho_torch.workflows.lightning_service._train_with_lightning",
@@ -999,9 +1023,9 @@ class TestWorkflowsComponentsTraining:
 
         # Phase D2.B green phase assertions - validate orchestration
 
-        # Validate _ensure_container was called for train_data
+        # Validate create_torch_data_container was called for train_data
         assert len(ensure_container_calls) >= 1, (
-            "train_cdi_model_torch MUST call _ensure_container to normalize train_data"
+            "train_cdi_model_torch MUST call create_torch_data_container to normalize train_data"
         )
         assert ensure_container_calls[0]["data"] is dummy_raw_data
         assert ensure_container_calls[0]["config"] is minimal_training_config
@@ -1057,7 +1081,7 @@ class TestWorkflowsComponentsTraining:
         # Initialize params.cfg via CONFIG-001
         update_legacy_dict(params.cfg, minimal_training_config)
 
-        # Create minimal container fixture matching _ensure_container output
+        # Create minimal container fixture matching create_torch_data_container output
         # (duck-typed dict for testing; production uses PtychoDataContainerTorch)
         N = minimal_training_config.model.N
         gridsize = minimal_training_config.model.gridsize
@@ -1267,8 +1291,8 @@ class TestWorkflowsComponentsTraining:
         minimal_training_config.output_dir = tmp_path / "lightning_poisson_test"
         minimal_training_config.output_dir.mkdir(parents=True, exist_ok=True)
 
-        # Build minimal container (uses _ensure_container internally)
-        train_container = torch_components._ensure_container(
+        # Build minimal container (uses create_torch_data_container internally)
+        train_container = torch_components.create_torch_data_container(
             dummy_raw_data,
             minimal_training_config
         )
@@ -1293,7 +1317,7 @@ class TestWorkflowsComponentsTraining:
         pt_model_config = PTModelConfig(
             mode='Unsupervised',  # 'pinn' in TF maps to 'Unsupervised' in PyTorch
             n_filters_scale=minimal_training_config.model.n_filters_scale,
-        )
+                    )
 
         pt_training_config = PTTrainingConfig(
             epochs=minimal_training_config.nepochs,
@@ -1346,7 +1370,7 @@ class TestWorkflowsComponentsTraining:
 
         Design contract (phase_c4d_blockers/plan.md §B1-B2):
         - When config.model.gridsize=2, PyTorch DataConfig MUST set C=4 (2×2)
-        - channel identity derives from gridsize (C = gridsize**2) to match grouping
+        - ModelConfig MUST set C_model=4 and C_forward=4 to match grouping
         - PtychoPINN_Lightning first conv layer MUST expect 4 input channels (not 1)
 
         Test mechanism:
@@ -1356,16 +1380,16 @@ class TestWorkflowsComponentsTraining:
         - Assert first conv layer has in_channels == gridsize**2 == 4
 
         Expected failure mode (RED phase):
-        - _train_with_lightning manually builds PTDataConfig with default gridsize
-        - Lightning module created with gridsize=1 → first conv expects 1 channel
+        - _train_with_lightning manually builds PTDataConfig with default C=1
+        - Lightning module created with C_model=1 → first conv expects 1 channel
         - Assertion fails: in_channels=1 != expected 4
 
         GREEN phase fix:
         - Refactor _train_with_lightning to reuse config_factory.create_training_payload
         - Factory propagates gridsize → C via grid_size tuple → C = grid_size[0]*grid_size[1]
-        - ModelConfig receives Lightning module conv layers match
+        - ModelConfig receives C_model=4, Lightning module conv layers match
         """
-        from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig
         from ptycho_torch.workflows import components as torch_components
 
         # Spy to track Lightning module instantiation and inspect model structure
@@ -1451,12 +1475,11 @@ class TestWorkflowsComponentsTraining:
 
         training_config = TrainingConfig(
             model=model_config,
-            data=DataConfig(
-                train_data_file=dummy_npz,  # Use temp file for factory validation
-                test_data_file=dummy_npz,   # Reuse for test data
-                nphotons=1e9,
-            ),
-            sampling=SamplingConfig(training_groups=10, neighbor_count=4),
+            train_data_file=dummy_npz,  # Use temp file for factory validation
+            test_data_file=dummy_npz,   # Reuse for test data
+            training_groups=10,
+            neighbor_count=4,
+            nphotons=1e9,
             nepochs=2,
         )
 
@@ -1469,11 +1492,14 @@ class TestWorkflowsComponentsTraining:
         }
 
         # Call _train_with_lightning with gridsize=2 config
+        payload = _build_training_payload(
+            training_config,
+            enable_checkpointing=False,
+        )
         results = torch_components._train_with_lightning(
+            payload,
             train_container=train_container,
             test_container=None,
-            config=training_config,
-            execution_config=_execution_request(enable_checkpointing=False),
         )
 
         # Assert Lightning module was instantiated
@@ -1525,7 +1551,7 @@ class TestWorkflowsComponentsTraining:
         - Apply .contiguous() before batching to keep view() happy
         - Rerun test → assertion passes with (batch, 4, 1, 2) shape
         """
-        from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig
         from ptycho_torch.workflows import components as torch_components
         from ptycho.config.config import update_legacy_dict
         from ptycho import params
@@ -1540,11 +1566,10 @@ class TestWorkflowsComponentsTraining:
 
         training_config = TrainingConfig(
             model=model_config,
-            data=DataConfig(
-                train_data_file=Path("/tmp/dummy_train.npz"),
-                nphotons=1e9,
-            ),
-            sampling=SamplingConfig(training_groups=10, neighbor_count=4),
+            train_data_file=Path("/tmp/dummy_train.npz"),
+            training_groups=10,
+            neighbor_count=4,
+            nphotons=1e9,
             nepochs=2,
             batch_size=16,  # Explicit batch size for shape check
         )
@@ -1552,9 +1577,9 @@ class TestWorkflowsComponentsTraining:
         # Populate params.cfg (CONFIG-001 requirement)
         update_legacy_dict(params.cfg, training_config)
 
-        # Convert RawData to PtychoDataContainerTorch via _ensure_container
+        # Convert RawData to PtychoDataContainerTorch via create_torch_data_container
         # This will call generate_grouped_data internally
-        train_container = torch_components._ensure_container(
+        train_container = torch_components.create_torch_data_container(
             data=dummy_raw_data,
             config=training_config
         )
@@ -1586,6 +1611,96 @@ class TestWorkflowsComponentsTraining:
         )
 
 
+    def test_oversampling_required_but_not_enabled_raises(
+        self,
+        minimal_training_config,
+        dummy_raw_data,
+    ):
+        """Oversampling requested (training_groups > n_points, gridsize>1) without opt-in fails loudly."""
+        from ptycho_torch.workflows import components as torch_components
+
+        config = replace(
+            minimal_training_config,
+            model=replace(minimal_training_config.model, gridsize=2),
+            training_groups=minimal_training_config.training_groups * 2,
+            enable_oversampling=False,
+        )
+        with pytest.raises(ValueError, match="oversampling is required but not enabled"):
+            torch_components.create_torch_data_container(dummy_raw_data, config)
+
+    def test_enable_oversampling_is_honored_not_rejected(
+        self,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_raw_data,
+    ):
+        """enable_oversampling=True is passed through; no longer a config error by itself."""
+        from ptycho.config.config import update_legacy_dict
+        from ptycho import params
+        from ptycho_torch.workflows import components as torch_components
+
+        config = replace(minimal_training_config, enable_oversampling=True)
+        update_legacy_dict(params.cfg, config)
+        container = torch_components.create_torch_data_container(dummy_raw_data, config)
+        assert container is not None
+
+    def test_neighbor_pool_size_is_honored_not_rejected(
+        self,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_raw_data,
+    ):
+        """A pool size differing from neighbor_count is passed through (no longer dropped)."""
+        from ptycho.config.config import update_legacy_dict
+        from ptycho import params
+        from ptycho_torch.workflows import components as torch_components
+
+        config = replace(
+            minimal_training_config,
+            neighbor_pool_size=minimal_training_config.neighbor_count + 1,
+        )
+        update_legacy_dict(params.cfg, config)
+        container = torch_components.create_torch_data_container(dummy_raw_data, config)
+        assert container is not None
+
+    def test_grouping_noop_when_pool_size_equals_neighbor_count(
+        self,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_raw_data,
+    ):
+        """Pool size equal to neighbor_count does not change grouping."""
+        from ptycho.config.config import update_legacy_dict
+        from ptycho import params
+        from ptycho_torch.workflows import components as torch_components
+
+        config = replace(
+            minimal_training_config,
+            neighbor_pool_size=minimal_training_config.neighbor_count,
+        )
+        update_legacy_dict(params.cfg, config)
+        container = torch_components.create_torch_data_container(dummy_raw_data, config)
+        assert container is not None
+
+    def test_grouping_noop_on_default_config(
+        self,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_raw_data,
+    ):
+        """Default config (oversampling off, pool size None) must not raise."""
+        from ptycho.config.config import update_legacy_dict
+        from ptycho import params
+        from ptycho_torch.workflows import components as torch_components
+
+        update_legacy_dict(params.cfg, minimal_training_config)
+        container = torch_components.create_torch_data_container(
+            dummy_raw_data,
+            minimal_training_config,
+        )
+        assert container is not None
+
+
 class TestWorkflowsComponentsRun:
     """
     Phase D2.C inference + stitching tests — validate run_cdi_example_torch orchestration.
@@ -1607,7 +1722,7 @@ class TestWorkflowsComponentsRun:
     @pytest.fixture
     def minimal_training_config(self):
         """Create minimal TrainingConfig fixture for inference tests."""
-        from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig
 
         model_config = ModelConfig(
             N=64,
@@ -1617,12 +1732,11 @@ class TestWorkflowsComponentsRun:
 
         training_config = TrainingConfig(
             model=model_config,
-            data=DataConfig(
-                train_data_file=Path("/tmp/dummy_train.npz"),
-                test_data_file=Path("/tmp/dummy_test.npz"),
-                nphotons=1e9,
-            ),
-            sampling=SamplingConfig(training_groups=10, neighbor_count=4),
+            train_data_file=Path("/tmp/dummy_train.npz"),
+            test_data_file=Path("/tmp/dummy_test.npz"),
+            training_groups=10,
+            neighbor_count=4,
+            nphotons=1e9,
             nepochs=2,
         )
 
@@ -1767,7 +1881,7 @@ class TestWorkflowsComponentsRun:
         """
         # Import the module under test
         from ptycho_torch.workflows import components as torch_components
-        from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig
 
         training_kwargs = {}
 
@@ -1790,12 +1904,11 @@ class TestWorkflowsComponentsRun:
         model_config = ModelConfig(N=64, gridsize=2, model_type='pinn')
         config_with_output = TrainingConfig(
             model=model_config,
-            data=DataConfig(
-                train_data_file=Path("/tmp/dummy_train.npz"),
-                test_data_file=Path("/tmp/dummy_test.npz"),
-                nphotons=1e9,
-            ),
-            sampling=SamplingConfig(training_groups=10, neighbor_count=4),
+            train_data_file=Path("/tmp/dummy_train.npz"),
+            test_data_file=Path("/tmp/dummy_test.npz"),
+            training_groups=10,
+            neighbor_count=4,
+            nphotons=1e9,
             output_dir=tmp_path,  # Enable persistence
         )
 
@@ -1825,6 +1938,7 @@ class TestWorkflowsComponentsRun:
         from types import SimpleNamespace
         import zipfile
 
+        import ptycho_torch.workflows.bundle_io as bundle_io
         from ptycho_torch.workflows import components as torch_components
         from ptycho import params
 
@@ -1837,20 +1951,21 @@ class TestWorkflowsComponentsRun:
             "models": ["autoencoder", "diffraction_to_obj"],
             "version": "2.0-pytorch",
             "backend": "pytorch",
-            "artifact_schema_version": "torch-artifact-portable-v4",
+            "artifact_schema_version": "torch-artifact-v2",
         }
-        metadata = {"schema_version": "torch-artifact-portable-v4"}
+        identity = SimpleNamespace()
         monkeypatch.setattr(
-            "ptycho_torch.workflows.bundle_io._read_torch_bundle_manifest_and_params",
+            "ptycho_torch.model_manager._read_torch_bundle_manifest_and_params",
             lambda _base_path: (manifest, archived),
         )
         monkeypatch.setattr(
             "ptycho_torch.workflows.bundle_io._read_bundle_scaling_metadata",
-            lambda _zip_path: metadata,
+            lambda _zip_path: {"schema_version": "torch-artifact-v2"},
         )
         monkeypatch.setattr(
-            "ptycho_torch.workflows.bundle_io._decode_bundle_metadata",
-            lambda _metadata: object(),
+            bundle_io,
+            "_decode_bundle_metadata",
+            lambda _metadata: identity,
         )
         loaded_model = SimpleNamespace()
         reconstructed = {
@@ -1866,14 +1981,9 @@ class TestWorkflowsComponentsRun:
         def reconstruct_explicit(*args, **kwargs):
             observed_during_reconstruction.append(dict(params.cfg))
             decoded = dict(kwargs["params_dict"])
-            decoded.update(
-                scale_contract_version="legacy_v1",
-                measurement_domain="normalized_amplitude",
-            )
             return reconstructed, decoded, kwargs["identity"]
 
-        monkeypatch.setattr(
-            "ptycho_torch.workflows.bundle_io._reconstruct_inference_bundle_explicit",
+        monkeypatch.setattr("ptycho_torch.workflows.bundle_io._reconstruct_inference_bundle_explicit",
             reconstruct_explicit,
         )
         params.cfg.clear()
@@ -1882,8 +1992,6 @@ class TestWorkflowsComponentsRun:
         models_dict, params_dict = (
             torch_components.load_inference_bundle_torch(
                 bundle_dir=str(bundle_dir),
-                scale_contract_version="legacy_v1",
-                measurement_domain="normalized_amplitude",
             )
         )
 
@@ -1896,16 +2004,16 @@ class TestWorkflowsComponentsRun:
         assert params.cfg["N"] == 64
         assert params.cfg["gridsize"] == 2
 
-    def test_explicit_archive_reconstruction_ignores_poisoned_global(
+    def test_metadata_free_bundle_raises_loud_migration_error(
         self,
+        monkeypatch,
         tmp_path,
         params_cfg_snapshot,
     ):
-        """The retired identity-free route raises loudly without touching cfg."""
-        import pytest as _pytest
+        """A bundle without a sealed identity names the migration script."""
+        import zipfile
 
-        from ptycho import params
-        from ptycho_torch.workflows import components
+        from ptycho_torch.workflows import components as torch_components
 
         archived = {
             "_version": "2.0-pytorch",
@@ -1916,31 +2024,91 @@ class TestWorkflowsComponentsRun:
             "models": ["autoencoder", "diffraction_to_obj"],
             "version": "2.0-pytorch",
         }
-        params.cfg.clear()
-        params.cfg.update({"N": 999, "gridsize": 9, "poison": True})
-        poisoned = dict(params.cfg)
-        reconstruct = getattr(
-            components,
-            "_reconstruct_inference_bundle_explicit",
-            None,
+        monkeypatch.setattr(
+            "ptycho_torch.model_manager._read_torch_bundle_manifest_and_params",
+            lambda _base_path: (manifest, archived),
+        )
+        monkeypatch.setattr(
+            "ptycho_torch.workflows.bundle_io._read_bundle_scaling_metadata",
+            lambda _zip_path: None,
+        )
+        bundle_dir = tmp_path / "test_bundle"
+        bundle_dir.mkdir()
+        with zipfile.ZipFile(bundle_dir / "wts.h5.zip", "w"):
+            pass
+
+        with pytest.raises(
+            ValueError,
+            match=r"migrate_bundle",
+        ):
+            torch_components.load_inference_bundle_torch(str(bundle_dir))
+
+    def test_load_inference_bundle_accepts_live_profile_kwargs(self, tmp_path):
+        """The live CLI-exposed profile kwargs thread through the strict loader."""
+        from ptycho.config.config import (
+            TrainingConfig as CanonicalTrainingConfig,
+            ModelConfig as CanonicalModelConfig,
+        )
+        from ptycho_torch.config_params import (
+            DataConfig,
+            InferenceConfig,
+            ModelConfig,
+            TrainingConfig,
+        )
+        from ptycho_torch.model import PtychoPINN_Lightning
+        from ptycho_torch.model_manager import save_torch_bundle
+        from ptycho_torch.workflows import components as torch_components
+
+        data_config = DataConfig(
+            N=64,
+            gridsize=1,
+            scale_contract_version="legacy_v1",
+            measurement_domain="normalized_amplitude",
+        )
+        model_config = ModelConfig(
+                        object_big=False,
+            probe_big=False,
+            n_filters_scale=1,
+        )
+        model = PtychoPINN_Lightning(
+            model_config,
+            data_config,
+            TrainingConfig(device="cpu", torch_loss_mode="poisson"),
+            InferenceConfig(),
+        )
+        bundle_dir = tmp_path / "bundle"
+        base_path = bundle_dir / "wts.h5"
+        canonical = CanonicalTrainingConfig(
+            model=CanonicalModelConfig(N=64, gridsize=1),
+            output_dir=bundle_dir,
+        )
+        save_torch_bundle(
+            {"autoencoder": model, "diffraction_to_obj": model},
+            str(base_path),
+            canonical,
+        )
+        torch_components._persist_bundle_scaling_metadata(
+            base_path.with_suffix(".h5.zip"),
+            model,
         )
 
-        assert callable(reconstruct)
-        with _pytest.raises(ValueError, match="migrate_legacy_bundle"):
-            reconstruct(
-                tmp_path / "wts.h5",
-                tmp_path / "wts.h5.zip",
-                manifest=manifest,
-                params_dict=archived,
-                identity=None,
-                explicit_profile=(
-                    "legacy_v1",
-                    "normalized_amplitude",
-                ),
-                model_name="diffraction_to_obj",
-            )
+        models, params = torch_components.load_inference_bundle_torch(
+            bundle_dir,
+            model_name="diffraction_to_obj",
+            scale_contract_version="legacy_v1",
+            measurement_domain="normalized_amplitude",
+        )
+        assert models["diffraction_to_obj"] is not None
+        assert params["scale_contract_version"] == "legacy_v1"
+        assert params["measurement_domain"] == "normalized_amplitude"
 
-        assert params.cfg == poisoned
+        with pytest.raises(ValueError, match="contradict persisted"):
+            torch_components.load_inference_bundle_torch(
+                bundle_dir,
+                model_name="diffraction_to_obj",
+                scale_contract_version="ci_intensity_v2",
+                measurement_domain="count_intensity",
+            )
 
 
 class TestTrainWithLightningRed:
@@ -1973,7 +2141,7 @@ class TestTrainWithLightningRed:
     @pytest.fixture
     def minimal_training_config(self, tmp_path):
         """Create minimal TrainingConfig fixture for Lightning tests."""
-        from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig
 
         train_data_file = tmp_path / "train.npz"
         test_data_file = tmp_path / "test.npz"
@@ -1988,12 +2156,11 @@ class TestTrainWithLightningRed:
 
         training_config = TrainingConfig(
             model=model_config,
-            data=DataConfig(
-                train_data_file=train_data_file,
-                test_data_file=test_data_file,
-                nphotons=1e9,
-            ),
-            sampling=SamplingConfig(training_groups=10, neighbor_count=4),
+            train_data_file=train_data_file,
+            test_data_file=test_data_file,
+            training_groups=10,
+            neighbor_count=4,
+            nphotons=1e9,
             nepochs=2,
         )
 
@@ -2110,11 +2277,14 @@ class TestTrainWithLightningRed:
         }
 
         # Call _train_with_lightning
+        payload = _build_training_payload(
+            minimal_training_config,
+            enable_checkpointing=False,
+        )
         results = torch_components._train_with_lightning(
+            payload,
             train_container=train_container,
             test_container=None,
-            config=minimal_training_config,
-            execution_config=_execution_request(enable_checkpointing=False),
         )
 
         # RED PHASE ASSERTION (will fail until Phase B2 implements)
@@ -2221,11 +2391,14 @@ class TestTrainWithLightningRed:
         }
 
         # Call _train_with_lightning
+        payload = _build_training_payload(
+            minimal_training_config,
+            enable_checkpointing=False,
+        )
         results = torch_components._train_with_lightning(
+            payload,
             train_container=train_container,
             test_container=None,
-            config=minimal_training_config,
-            execution_config=_execution_request(enable_checkpointing=False),
         )
 
         assert rect_s1s2_init_spy.calls[0]["mode"] == "ones"
@@ -2311,11 +2484,14 @@ class TestTrainWithLightningRed:
         }
 
         # Call _train_with_lightning
+        payload = _build_training_payload(
+            minimal_training_config,
+            enable_checkpointing=False,
+        )
         results = torch_components._train_with_lightning(
+            payload,
             train_container=train_container,
             test_container=None,
-            config=minimal_training_config,
-            execution_config=_execution_request(enable_checkpointing=False),
         )
 
         # RED PHASE ASSERTION (will fail until Phase B2 implements)
@@ -2343,44 +2519,6 @@ class TestTrainWithLightningRed:
             module_handle = models_dict.get('lightning_module') or models_dict.get('diffraction_to_obj')
             assert module_handle is not None, "Module handle must not be None"
             assert models_dict["autoencoder"] is module_handle
-
-
-def test_reassemble_uses_training_execution_carrier(monkeypatch):
-    from ptycho_torch.workflows import components
-
-    execution = object()
-    seen = []
-
-    class Module:
-        def eval(self):
-            return self
-
-    monkeypatch.setattr("ptycho_torch.workflows.containers._ensure_container", lambda *_args: object())
-
-    def stop_after_loader(_container, _config, execution_config=None):
-        seen.append(execution_config)
-        raise RuntimeError("stop after loader")
-
-    monkeypatch.setattr(
-        "ptycho_torch.workflows.dataloaders._build_inference_dataloader",
-        stop_after_loader,
-    )
-
-    with pytest.raises(RuntimeError, match="stop after loader"):
-        components._reassemble_cdi_image_torch(
-            object(),
-            SimpleNamespace(),
-            flip_x=False,
-            flip_y=False,
-            transpose=False,
-            M=20,
-            train_results={
-                "models": {"diffraction_to_obj": Module()},
-                "execution_config": execution,
-            },
-        )
-
-    assert seen == [execution]
 
 
 class TestReassembleCdiImageTorchGreen:
@@ -2418,26 +2556,25 @@ class TestReassembleCdiImageTorchGreen:
     @pytest.fixture
     def minimal_training_config(self, tmp_path):
         """Create minimal TrainingConfig for stitching tests."""
-        from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig
 
         model_config = ModelConfig(
             N=64,
             gridsize=2,
             model_type='pinn',
-            amp_activation='swish',
+            amp_activation='silu',
             n_filters_scale=1,
         )
 
         return TrainingConfig(
             model=model_config,
-            data=DataConfig(
-                train_data_file=Path("dummy_train.npz"),
-                test_data_file=Path("dummy_test.npz"),
-                nphotons=1e9,
-            ),
-            sampling=SamplingConfig(training_groups=10, neighbor_count=4),
+            train_data_file=Path("dummy_train.npz"),
+            test_data_file=Path("dummy_test.npz"),
+            training_groups=10,
             batch_size=2,
             nepochs=1,
+            nphotons=1e9,
+            neighbor_count=4,
             output_dir=tmp_path,
         )
 
@@ -2778,19 +2915,15 @@ class TestReassembleCdiImageTorchGreen:
             ),
         )
 
-        # Monkeypatch _train_with_lightning to return mock results with Lightning module
-        def mock_train_with_lightning(
-            train_container, test_container, config, **_kwargs
-        ):
+        # Monkeypatch train_cdi_model_torch to return mock results with Lightning module
+        def mock_train_cdi_model(train_data, test_data, config, **_kwargs):
             """Stub that returns train_results with mock Lightning module."""
-            # Return the stitch_train_results fixture enriched with containers
             results = stitch_train_results.copy()
-            results["containers"] = {"train": train_container, "test": test_container}
+            results["containers"] = {"train": train_data, "test": test_data}
             return results
 
-        monkeypatch.setattr(
-            "ptycho_torch.workflows.lightning_service._train_with_lightning",
-            mock_train_with_lightning
+        monkeypatch.setattr("ptycho_torch.workflows.legacy.train_cdi_model_torch",
+            mock_train_cdi_model,
         )
 
         # GREEN PHASE VALIDATION: expect successful stitching
@@ -2924,7 +3057,7 @@ class TestReassembleCdiImageTorchFloat32:
     @pytest.fixture
     def minimal_training_config(self):
         """Create minimal TrainingConfig fixture for dtype tests."""
-        from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig
 
         model_config = ModelConfig(
             N=64,
@@ -2934,12 +3067,11 @@ class TestReassembleCdiImageTorchFloat32:
 
         training_config = TrainingConfig(
             model=model_config,
-            data=DataConfig(
-                train_data_file=Path("/tmp/dummy_train.npz"),
-                test_data_file=Path("/tmp/dummy_test.npz"),
-                nphotons=1e9,
-            ),
-            sampling=SamplingConfig(training_groups=10, neighbor_count=4),
+            train_data_file=Path("/tmp/dummy_train.npz"),
+            test_data_file=Path("/tmp/dummy_test.npz"),
+            training_groups=10,
+            neighbor_count=4,
+            nphotons=1e9,
             batch_size=16,
         )
 
@@ -2950,7 +3082,7 @@ class TestReassembleCdiImageTorchFloat32:
         """
         Create mock container dict with explicit float32 tensors.
 
-        This fixture emulates the output of _ensure_container after Phase C,
+        This fixture emulates the output of create_torch_data_container after Phase C,
         where X and coords_nominal should be float32 per data contract.
         Uses dict interface for duck-typing compatibility with _build_inference_dataloader.
         """
@@ -3340,7 +3472,7 @@ class TestTrainWithLightningGreen:
     @pytest.fixture
     def minimal_training_config(self, tmp_path):
         """Create minimal TrainingConfig fixture for execution config tests."""
-        from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig
 
         train_data_file = tmp_path / "train.npz"
         test_data_file = tmp_path / "test.npz"
@@ -3355,12 +3487,11 @@ class TestTrainWithLightningGreen:
 
         training_config = TrainingConfig(
             model=model_config,
-            data=DataConfig(
-                train_data_file=train_data_file,
-                test_data_file=test_data_file,
-                nphotons=1e9,
-            ),
-            sampling=SamplingConfig(training_groups=10, neighbor_count=4),
+            train_data_file=train_data_file,
+            test_data_file=test_data_file,
+            training_groups=10,
+            neighbor_count=4,
+            nphotons=1e9,
             nepochs=2,
         )
 
@@ -3447,13 +3578,7 @@ class TestTrainWithLightningGreen:
         )
 
         # Runtime mechanics enter the workflow as an unresolved request.
-        exec_config = _execution_request(
-            accelerator='gpu',  # Override default 'cpu'
-            deterministic=False,  # Override default True
-            num_workers=4,  # Override default 0
-            enable_checkpointing=False,
-        )
-        minimal_training_config.gradient_clip.val = 1.0
+        minimal_training_config.gradient_clip_val = 1.0
 
         # Create minimal containers
         c = minimal_training_config.model.gridsize ** 2
@@ -3462,12 +3587,17 @@ class TestTrainWithLightningGreen:
             "coords_relative": np.zeros((10, 1, 2, c), dtype=np.float32),
         }
 
-        # Call _train_with_lightning with execution_config
+        payload = _build_training_payload(
+            minimal_training_config,
+            accelerator='gpu',
+            deterministic=False,
+            num_workers=4,
+            enable_checkpointing=False,
+        )
         results = torch_components._train_with_lightning(
+            payload,
             train_container=train_container,
             test_container=None,
-            config=minimal_training_config,
-            execution_config=exec_config  # CRITICAL: new parameter
         )
 
         # RED PHASE ASSERTION (will fail until Phase C3.A3 implements)
@@ -3542,18 +3672,12 @@ class TestTrainWithLightningGreen:
             def save_hyperparameters(self):
                 pass
 
-        monkeypatch.setattr(
-            "ptycho_torch.model.PtychoPINN_Lightning",
-            lambda *args, **kwargs: StubLightningModule()
-        )
-
-        # Create an unresolved execution request with deterministic=True.
-        exec_config = _execution_request(
+        payload = _build_training_payload(
+            minimal_training_config,
             deterministic=True,
             accelerator='cpu',
             enable_checkpointing=False,
         )
-
         # Create minimal containers
         c = minimal_training_config.model.gridsize ** 2
         train_container = {
@@ -3561,12 +3685,10 @@ class TestTrainWithLightningGreen:
             "coords_relative": np.zeros((10, 1, 2, c), dtype=np.float32),
         }
 
-        # Call _train_with_lightning
         results = torch_components._train_with_lightning(
+            payload,
             train_container=train_container,
             test_container=None,
-            config=minimal_training_config,
-            execution_config=exec_config
         )
 
         # RED PHASE ASSERTION
@@ -3603,19 +3725,18 @@ class TestInferenceExecutionConfig:
     @pytest.fixture
     def minimal_training_config(self):
         """Create minimal TrainingConfig fixture."""
-        from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig
 
         model_config = ModelConfig(N=64, gridsize=2, model_type='pinn')
 
         return TrainingConfig(
             model=model_config,
-            data=DataConfig(
-                train_data_file=Path("/tmp/dummy_train.npz"),
-                test_data_file=Path("/tmp/dummy_test.npz"),
-                nphotons=1e9,
-            ),
-            sampling=SamplingConfig(training_groups=10, neighbor_count=4),
+            train_data_file=Path("/tmp/dummy_train.npz"),
+            test_data_file=Path("/tmp/dummy_test.npz"),
+            training_groups=10,
             batch_size=16,
+            neighbor_count=4,
+            nphotons=1e9,
         )
 
     def test_inference_uses_execution_batch_size(
@@ -3712,18 +3833,17 @@ class TestLightningCheckpointCallbacks:
     @pytest.fixture
     def minimal_training_config(self):
         """Minimal TrainingConfig for callback tests."""
-        from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig
 
         model_config = ModelConfig(N=64, gridsize=1, model_type='pinn')
         return TrainingConfig(
             model=model_config,
-            data=DataConfig(
-                train_data_file=Path("/tmp/dummy_train.npz"),
-                nphotons=1e9,
-            ),
-            sampling=SamplingConfig(training_groups=10, neighbor_count=1),
+            train_data_file=Path("/tmp/dummy_train.npz"),
+            training_groups=10,
             batch_size=16,
             nepochs=2,
+            neighbor_count=1,
+            nphotons=1e9,
         )
 
     def test_model_checkpoint_callback_configured(self, minimal_training_config, monkeypatch, tmp_path):
@@ -3750,12 +3870,12 @@ class TestLightningCheckpointCallbacks:
         np.savez(str(train_file), **dummy_data)
 
         # Update config with valid paths
-        minimal_training_config.data.train_data_file = train_file
-        minimal_training_config.data.test_data_file = None  # No test data for this test
+        minimal_training_config.train_data_file = train_file
+        minimal_training_config.test_data_file = None  # No test data for this test
         minimal_training_config.output_dir = tmp_path / "outputs"
 
-        # Create execution config with checkpoint overrides
-        exec_config = _execution_request(
+        payload = _build_training_payload(
+            minimal_training_config,
             enable_checkpointing=True,
             checkpoint_save_top_k=3,
             checkpoint_monitor_metric='train_loss',
@@ -3785,14 +3905,16 @@ class TestLightningCheckpointCallbacks:
         from ptycho_torch.workflows.components import _train_with_lightning
 
         # Patch callbacks and Trainer
-        with patch('ptycho_torch.workflows.lightning_service._ServingModelCheckpoint', mock_checkpoint_cls), \
+        with patch(
+                 'ptycho_torch.workflows.lightning_service._ServingModelCheckpoint',
+                 mock_checkpoint_cls,
+             ), \
              patch('lightning.pytorch.Trainer', mock_trainer_cls):
             try:
                 _train_with_lightning(
+                    payload,
                     train_container=mock_train_container,
                     test_container=mock_test_container,
-                    config=minimal_training_config,
-                    execution_config=exec_config,
                 )
             except Exception as e:
                 # May fail during training; we only care about callback setup
@@ -3808,7 +3930,7 @@ class TestLightningCheckpointCallbacks:
         assert call_kwargs.get('save_top_k') == 3, \
             f"Expected save_top_k=3, got {call_kwargs.get('save_top_k')}"
         assert call_kwargs.get('monitor') == 'poisson_train_loss', \
-            f"Expected monitor='poisson_train_loss', got {call_kwargs.get('monitor')}"
+            f"Expected resolved training metric, got {call_kwargs.get('monitor')}"
         assert call_kwargs.get('mode') == 'max', \
             f"Expected mode='max', got {call_kwargs.get('mode')}"
 
@@ -3844,12 +3966,12 @@ class TestLightningCheckpointCallbacks:
         np.savez(str(test_file), **dummy_data)
 
         # Update config with valid paths
-        minimal_training_config.data.train_data_file = train_file
-        minimal_training_config.data.test_data_file = test_file  # Validation data for early stopping
+        minimal_training_config.train_data_file = train_file
+        minimal_training_config.test_data_file = test_file  # Validation data for early stopping
         minimal_training_config.output_dir = tmp_path / "outputs"
 
-        # Create execution config with early stopping override
-        exec_config = _execution_request(
+        payload = _build_training_payload(
+            minimal_training_config,
             early_stop_patience=5,
             checkpoint_monitor_metric='val_loss',
             checkpoint_mode='min',
@@ -3882,10 +4004,9 @@ class TestLightningCheckpointCallbacks:
              patch('lightning.pytorch.Trainer', mock_trainer_cls):
             try:
                 _train_with_lightning(
+                    payload,
                     train_container=mock_train_container,
                     test_container=mock_test_container,
-                    config=minimal_training_config,
-                    execution_config=exec_config,
                 )
             except Exception:
                 pass  # May fail during training; we only care about callback setup
@@ -3914,7 +4035,7 @@ class TestLightningCheckpointCallbacks:
         assert mock_early_stop_instance in callbacks_list, \
             "EarlyStopping instance not found in Trainer callbacks list"
 
-    def test_disable_checkpointing_skips_callbacks(self, minimal_training_config, monkeypatch):
+    def test_disable_checkpointing_skips_callbacks(self, minimal_training_config, monkeypatch, tmp_path):
         """
         RED Test: When enable_checkpointing=False, ModelCheckpoint/EarlyStopping are NOT instantiated.
 
@@ -3930,9 +4051,22 @@ class TestLightningCheckpointCallbacks:
         except ImportError:
             pytest.skip("Lightning not available")
 
-        # Create execution config with checkpointing disabled
-        exec_config = _execution_request(
-            enable_checkpointing=False,  # DISABLE checkpointing
+        # Create a real training NPZ so the payload can resolve.
+        dummy_data = {
+            "diffraction": np.random.rand(10, 64, 64).astype(np.float32),
+            "xcoords": np.random.rand(10),
+            "ycoords": np.random.rand(10),
+            "probeGuess": np.ones((64, 64), dtype=np.complex64),
+            "objectGuess": np.ones((128, 128), dtype=np.complex64),
+        }
+        train_file = tmp_path / "train.npz"
+        np.savez(str(train_file), **dummy_data)
+        minimal_training_config.train_data_file = train_file
+        minimal_training_config.output_dir = tmp_path / "outputs"
+
+        payload = _build_training_payload(
+            minimal_training_config,
+            enable_checkpointing=False,
             accelerator='cpu',
             deterministic=True,
             num_workers=0,
@@ -3961,15 +4095,17 @@ class TestLightningCheckpointCallbacks:
         from ptycho_torch.workflows.components import _train_with_lightning
 
         # Patch at import site inside the function
-        with patch('ptycho_torch.workflows.lightning_service._ServingModelCheckpoint', mock_checkpoint_cls), \
+        with patch(
+                 'ptycho_torch.workflows.lightning_service._ServingModelCheckpoint',
+                 mock_checkpoint_cls,
+             ), \
              patch('lightning.pytorch.callbacks.EarlyStopping', mock_early_stop_cls), \
              patch('lightning.pytorch.Trainer', mock_trainer_cls):
             try:
                 _train_with_lightning(
+                    payload,
                     train_container=mock_train_container,
                     test_container=mock_test_container,
-                    config=minimal_training_config,
-                    execution_config=exec_config,
                 )
             except Exception:
                 pass
@@ -3995,7 +4131,7 @@ class TestLightningExecutionConfig:
         """
         Minimal TrainingConfig with validation data for dynamic monitor testing.
         """
-        from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig
 
         # Create dummy NPZ data
         dummy_data = {
@@ -4014,16 +4150,14 @@ class TestLightningExecutionConfig:
             N=64,
             gridsize=2,
             model_type='pinn',
-            amp_activation='swish',
+            amp_activation='silu',
         )
 
         config = TrainingConfig(
             model=model_config,
-            data=DataConfig(
-                train_data_file=train_file,
-                test_data_file=test_file,  # Validation data present
-            ),
-            sampling=SamplingConfig(training_groups=64),
+            train_data_file=train_file,
+            test_data_file=test_file,  # Validation data present
+            training_groups=64,
             batch_size=16,
             nepochs=2,
             output_dir=tmp_path / "outputs",
@@ -4060,13 +4194,14 @@ class TestLightningExecutionConfig:
             "ptycho_torch.application_factory.build_ptychopinn_application",
             lambda *_args, **_kwargs: StubLightningModule(),
         )
-        monkeypatch.setattr(
-            "ptycho_torch.workflows.dataloaders._build_lightning_dataloaders",
+        monkeypatch.setattr("ptycho_torch.workflows.dataloaders._build_lightning_dataloaders",
             lambda *_args, **_kwargs: ([], []),
         )
         monkeypatch.setattr("lightning.pytorch.Trainer", StubTrainer)
 
-        exec_config = _execution_request(
+        payload = _build_training_payload(
+            minimal_training_config_with_val,
+            overrides={"accum_steps": 4},
             accelerator='cpu',
             deterministic=True,
             num_workers=0,
@@ -4085,11 +4220,9 @@ class TestLightningExecutionConfig:
         }
 
         components._train_with_lightning(
+            payload,
             train_container=mock_train_container,
             test_container=mock_test_container,
-            config=minimal_training_config_with_val,
-            execution_config=exec_config,
-            overrides={"accum_steps": 4},
         )
 
         assert captured["kwargs"]["accumulate_grad_batches"] == 1
@@ -4116,8 +4249,7 @@ class TestLightningExecutionConfig:
             "ptycho_torch.application_factory.build_ptychopinn_application",
             lambda *_args, **_kwargs: StubLightningModule(),
         )
-        monkeypatch.setattr(
-            "ptycho_torch.workflows.dataloaders._build_lightning_dataloaders",
+        monkeypatch.setattr("ptycho_torch.workflows.dataloaders._build_lightning_dataloaders",
             lambda *_args, **_kwargs: ([], []),
         )
         captured = {}
@@ -4131,7 +4263,9 @@ class TestLightningExecutionConfig:
 
         monkeypatch.setattr("lightning.pytorch.Trainer", StubTrainer)
 
-        execution = _execution_request(
+        payload = _build_training_payload(
+            minimal_training_config_with_val,
+            overrides={"accum_steps": 3},
             accelerator="cpu",
             enable_checkpointing=False,
             logger_backend=None,
@@ -4146,11 +4280,9 @@ class TestLightningExecutionConfig:
         }
 
         components._train_with_lightning(
+            payload,
             train_container=container,
             test_container=container,
-            config=minimal_training_config_with_val,
-            execution_config=execution,
-            overrides={"accum_steps": 3},
         )
 
         assert captured["kwargs"]["accumulate_grad_batches"] == 1
@@ -4182,9 +4314,10 @@ class TestLightningExecutionConfig:
             pytest.skip("Lightning not available")
 
         # Create execution config with checkpointing enabled
-        exec_config = _execution_request(
+        payload = _build_training_payload(
+            minimal_training_config_with_val,
             enable_checkpointing=True,
-            checkpoint_monitor_metric='val_loss',  # User provides generic name
+            checkpoint_monitor_metric='val_loss',
             checkpoint_mode='min',
             early_stop_patience=10,
             accelerator='cpu',
@@ -4216,15 +4349,17 @@ class TestLightningExecutionConfig:
         from ptycho_torch.workflows.components import _train_with_lightning
 
         # Patch at import sites
-        with patch('ptycho_torch.workflows.lightning_service._ServingModelCheckpoint', mock_checkpoint_cls), \
+        with patch(
+                 'ptycho_torch.workflows.lightning_service._ServingModelCheckpoint',
+                 mock_checkpoint_cls,
+             ), \
              patch('lightning.pytorch.callbacks.EarlyStopping', mock_early_stop_cls), \
              patch('lightning.pytorch.Trainer', mock_trainer_cls):
             try:
                 _train_with_lightning(
+                    payload,
                     train_container=mock_train_container,
                     test_container=mock_test_container,
-                    config=minimal_training_config_with_val,
-                    execution_config=exec_config,
                 )
             except Exception:
                 pass  # May fail during training; we only care about callback setup
@@ -4285,7 +4420,8 @@ class TestLightningExecutionConfig:
             pytest.skip("Lightning not available")
 
         # Test Case 1: CSV Logger
-        exec_config_csv = _execution_request(
+        payload = _build_training_payload(
+            minimal_training_config_with_val,
             logger_backend='csv',
             accelerator='cpu',
             deterministic=True,
@@ -4324,10 +4460,9 @@ class TestLightningExecutionConfig:
              patch('lightning.pytorch.Trainer', mock_trainer_cls):
             try:
                 _train_with_lightning(
+                    payload,
                     train_container=mock_train_container,
                     test_container=mock_test_container,
-                    config=minimal_training_config_with_val,
-                    execution_config=exec_config_csv,
                 )
             except Exception:
                 pass  # May fail during training; we only care about logger setup
@@ -4345,7 +4480,8 @@ class TestLightningExecutionConfig:
             f"Expected Trainer to receive CSVLogger instance, got {trainer_kwargs['logger']}"
 
         # Test Case 2: logger_backend=None should pass logger=False
-        exec_config_none = _execution_request(
+        payload = _build_training_payload(
+            minimal_training_config_with_val,
             logger_backend=None,
             accelerator='cpu',
             deterministic=True,
@@ -4360,10 +4496,9 @@ class TestLightningExecutionConfig:
         with patch('lightning.pytorch.Trainer', mock_trainer_cls_2):
             try:
                 _train_with_lightning(
+                    payload,
                     train_container=mock_train_container,
                     test_container=mock_test_container,
-                    config=minimal_training_config_with_val,
-                    execution_config=exec_config_none,
                 )
             except Exception:
                 pass
@@ -4375,3 +4510,236 @@ class TestLightningExecutionConfig:
         # Verify logger=False when backend is None
         assert trainer_kwargs_none['logger'] is False, \
             f"Expected Trainer to receive logger=False for logger_backend=None, got {trainer_kwargs_none['logger']}"
+
+
+class TestCheckpointDecodeBoundary:
+    """The shared decode helper fails loudly on every Lightning-native loader.
+
+    Phase 2 Task 4 relocates the dual-write agreement checks (field-set-exact
+    on raw hparams, parity-conflict) out of ``PtychoPINN_Lightning.__init__``
+    into ``ptycho_torch.checkpoint_decode.decode_checkpoint_hparams``. Every
+    Lightning-native loader must route raw checkpoint hyperparameters through
+    that helper before strict state loading; a checkpoint whose dual-written
+    ``model_config`` disagrees with its sealed ``model_spec`` must fail loudly
+    on each path.
+    """
+
+    @staticmethod
+    def _spec_checkpoint(tmp_path):
+        """Build a spec-era checkpoint plus its on-disk config layout."""
+        from types import SimpleNamespace
+
+        from lightning.pytorch import Trainer
+
+        from ptycho_torch.application_factory import build_ptychopinn_application
+        from ptycho_torch.config_bridge import to_model_config
+        from ptycho_torch.config_params import (
+            DataConfig,
+            DatagenConfig,
+            InferenceConfig,
+            ModelConfig,
+            TrainingConfig,
+        )
+        from ptycho_torch.lightning_utils import ConfigLogger
+        from ptycho_torch.model_spec import derive_model_spec
+
+        data = DataConfig(N=64, gridsize=1, probe_scale=4.0)
+        model = ModelConfig(
+            object_big=False, probe_big=False, probe_mask=False
+        )
+        training = TrainingConfig(device="cpu", torch_loss_mode="poisson")
+        inference = InferenceConfig()
+        spec = derive_model_spec(to_model_config(data, model), model, data)
+
+        run_dir = tmp_path / "run"
+        ckpt_dir = run_dir / "checkpoints"
+        ckpt_dir.mkdir(parents=True)
+        ckpt_path = ckpt_dir / "best-checkpoint.ckpt"
+
+        module = build_ptychopinn_application(spec, data, training, inference)
+        ConfigLogger(
+            data, module.model_config, training, inference, DatagenConfig()
+        ).on_train_start(SimpleNamespace(log_dir=str(run_dir)), module)
+
+        trainer = Trainer(
+            max_epochs=0,
+            enable_checkpointing=True,
+            logger=False,
+            enable_progress_bar=False,
+            accelerator="cpu",
+            default_root_dir=str(run_dir),
+        )
+        trainer.strategy._lightning_module = module
+        trainer.save_checkpoint(str(ckpt_path))
+
+        return ckpt_path, run_dir, spec, data, training, inference
+
+    @staticmethod
+    def _corrupt(ckpt_path):
+        """Tamper one sealed identity field so it disagrees with the sidecar."""
+        checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+        checkpoint["hyper_parameters"]["artifact_identity"]["model_spec"]["schema_version"] = "torch-model-spec-v999"
+        torch.save(checkpoint, ckpt_path)
+        return ckpt_path
+
+    @pytest.mark.parametrize(
+        "loader",
+        [
+            "load_checkpoint_with_configs",
+            "base_api_load_from_lightning",
+            "mlflow_register",
+            "build_ptychopinn_application",
+        ],
+    )
+    def test_corrupted_checkpoint_fails_loudly_on_every_loader(
+        self, tmp_path, loader, monkeypatch
+    ):
+        ckpt_path, run_dir, spec, data, training, inference = self._spec_checkpoint(
+            tmp_path
+        )
+        model_config = spec.to_model_config()
+        from ptycho_torch.model import PtychoPINN_Lightning
+
+        if loader == "load_checkpoint_with_configs":
+            from ptycho_torch.lightning_utils import load_checkpoint_with_configs
+
+            self._corrupt(ckpt_path)
+            with pytest.raises(ValueError, match="ModelSpec schema"):
+                load_checkpoint_with_configs(
+                    str(ckpt_path), PtychoPINN_Lightning, device="cpu"
+                )
+        elif loader == "base_api_load_from_lightning":
+            from ptycho_torch.api.base_api import PtychoModel
+
+            self._corrupt(ckpt_path)
+            with pytest.raises(ValueError, match="ModelSpec schema"):
+                PtychoModel.load_from_lightning(
+                    data,
+                    model_config,
+                    training,
+                    inference,
+                    str(run_dir),
+                    PtychoPINN_Lightning,
+                )
+        elif loader == "mlflow_register":
+            from ptycho_torch.api import mlflow_utils
+
+            self._corrupt(ckpt_path)
+            monkeypatch.setattr(
+                mlflow_utils.mlflow, "set_experiment", lambda _name: None
+            )
+            monkeypatch.setattr(
+                mlflow_utils.mlflow,
+                "start_run",
+                lambda **kwargs: nullcontext(
+                    SimpleNamespace(info=SimpleNamespace(run_id="run-1"))
+                ),
+            )
+            monkeypatch.setattr(mlflow_utils, "_log_configs", lambda _configs: None)
+            with pytest.raises(ValueError, match="ModelSpec schema"):
+                mlflow_utils.register_lightning_model_to_mlflow(
+                    str(ckpt_path),
+                    PtychoPINN_Lightning,
+                    experiment_name="corrupted",
+                    config_map={
+                        "model_config": model_config,
+                        "data_config": data,
+                        "training_config": training,
+                        "inference_config": inference,
+                    },
+                )
+        else:
+            from ptycho_torch import checkpoint_decode
+            from ptycho_torch.application_factory import build_ptychopinn_application
+
+            def boom(_hparams):
+                raise AssertionError("decode helper not called")
+
+            monkeypatch.setattr(checkpoint_decode, "decode_checkpoint_hparams", boom)
+            with pytest.raises(AssertionError, match="decode helper not called"):
+                build_ptychopinn_application(spec, data, training, inference)
+
+    def test_application_factory_routes_through_decode_helper(
+        self, tmp_path, monkeypatch
+    ):
+        _, _, spec, data, training, inference = self._spec_checkpoint(tmp_path)
+        from ptycho_torch import checkpoint_decode
+        from ptycho_torch.application_factory import build_ptychopinn_application
+
+        def boom(_hparams):
+            raise AssertionError("decode helper not called")
+
+        monkeypatch.setattr(checkpoint_decode, "decode_checkpoint_hparams", boom)
+        with pytest.raises(AssertionError, match="decode helper not called"):
+            build_ptychopinn_application(spec, data, training, inference)
+
+    @pytest.mark.parametrize(
+        "loader",
+        ["load_checkpoint_with_configs", "base_api_load_from_lightning"],
+    )
+    def test_prespec_checkpoint_keeps_loading(self, tmp_path, loader):
+        import json
+
+        from lightning.pytorch import Trainer
+
+        from ptycho_torch.config_params import (
+            DataConfig,
+            DatagenConfig,
+            InferenceConfig,
+            ModelConfig,
+            TrainingConfig,
+        )
+        from ptycho_torch.model import PtychoPINN_Lightning
+        from ptycho_torch.utils import config_to_json_serializable_dict
+
+        data = DataConfig(N=64, gridsize=1)
+        model = ModelConfig(
+            object_big=False, probe_big=False, probe_mask=False
+        )
+        training = TrainingConfig(device="cpu", torch_loss_mode="poisson")
+        inference = InferenceConfig()
+
+        run_dir = tmp_path / "run"
+        config_dir = run_dir / "configs"
+        config_dir.mkdir(parents=True)
+        ckpt_dir = run_dir / "checkpoints"
+        ckpt_dir.mkdir(parents=True)
+        ckpt_path = ckpt_dir / "best-checkpoint.ckpt"
+
+        for cfg_name, cfg in {
+            "data_config": data,
+            "model_config": model,
+            "training_config": training,
+            "inference_config": inference,
+            "datagen_config": DatagenConfig(),
+        }.items():
+            (config_dir / f"{cfg_name}.json").write_text(
+                json.dumps(config_to_json_serializable_dict(cfg))
+            )
+
+        module = PtychoPINN_Lightning(model, data, training, inference)
+        trainer = Trainer(
+            max_epochs=0,
+            enable_checkpointing=True,
+            logger=False,
+            enable_progress_bar=False,
+            accelerator="cpu",
+            default_root_dir=str(run_dir),
+        )
+        trainer.strategy._lightning_module = module
+        trainer.save_checkpoint(str(ckpt_path))
+
+        if loader == "load_checkpoint_with_configs":
+            from ptycho_torch.lightning_utils import load_checkpoint_with_configs
+
+            loaded, _ = load_checkpoint_with_configs(
+                str(ckpt_path), PtychoPINN_Lightning, device="cpu"
+            )
+        else:
+            from ptycho_torch.api.base_api import PtychoModel
+
+            loaded = PtychoModel.load_from_lightning(
+                data, model, training, inference, str(run_dir), PtychoPINN_Lightning
+            )
+
+        assert loaded.model_config.mode == model.mode

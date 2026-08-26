@@ -24,17 +24,15 @@ def _configs(grid_size=1, *, ci=False, batch_size=4, num_workers=0, strategy="au
     from ptycho.config.config import (
         ModelConfig as PublicModelConfig,
         PyTorchExecutionConfig,
-        SamplingConfig,
         TrainingConfig as PublicTrainingConfig,
     )
 
     data = DataConfig(
         N=N,
-        gridsize=grid_size,
         neighbor_count=1 if grid_size == 1 else 6,
         K_quadrant=8,
         n_raw_frames_selected=1,
-
+        gridsize=grid_size,
         neighbor_function="Nearest" if grid_size == 1 else "4_quadrant",
         scan_pattern="Isotropic",
         x_bounds=(0.0, 1.0),
@@ -58,7 +56,7 @@ def _configs(grid_size=1, *, ci=False, batch_size=4, num_workers=0, strategy="au
     public = PublicTrainingConfig(
         model=PublicModelConfig(N=N, gridsize=grid_size, object_big=grid_size > 1),
         batch_size=batch_size,
-        sampling=SamplingConfig(sequential_sampling=True),
+        sequential_sampling=True,
         backend="pytorch",
     )
     payload = SimpleNamespace(
@@ -362,7 +360,6 @@ def test_real_lightning_cpu_ddp_shards_train_and_uses_explicit_validation_map(
             sys.path.insert(0, sys.argv[2])
             from ptycho.config.config import ModelConfig as PublicModelConfig
             from ptycho.config.config import PyTorchExecutionConfig
-            from ptycho.config.config import SamplingConfig
             from ptycho.config.config import TrainingConfig as PublicTrainingConfig
             from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig
             from ptycho_torch.dataloader import PtychoDataset
@@ -403,7 +400,7 @@ def test_real_lightning_cpu_ddp_shards_train_and_uses_explicit_validation_map(
                 public = PublicTrainingConfig(
                     model=PublicModelConfig(N=N, gridsize=1),
                     batch_size=2,
-                    sampling=SamplingConfig(sequential_sampling=False),
+                    sequential_sampling=False,
                     backend="pytorch",
                 )
                 payload = SimpleNamespace(

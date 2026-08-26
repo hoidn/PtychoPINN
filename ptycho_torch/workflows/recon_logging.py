@@ -437,7 +437,13 @@ class PtychoReconLoggingCallback(L.Callback):
         if gridsize is None:
             gridsize = physics_metadata.get('gridsize')
         if gridsize is None:
-            gridsize = getattr(data_config, 'gridsize', None)
+            grid_size = getattr(data_config, 'grid_size', None)
+            if (
+                isinstance(grid_size, (list, tuple))
+                and len(grid_size) == 2
+                and grid_size[0] == grid_size[1]
+            ):
+                gridsize = grid_size[0]
         offset = metadata.get('offset')
         if offset is None:
             offset = additional_metadata.get(

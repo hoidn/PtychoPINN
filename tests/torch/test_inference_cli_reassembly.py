@@ -58,7 +58,7 @@ def _cli_stub_stack():
     """Standard mock set so cli_main runs to the routing decision without IO."""
     mock_factory = MagicMock()
     mock_factory.return_value = MagicMock(
-        tf_inference_config=MagicMock(inference_groups=32),
+        tf_inference_config=MagicMock(n_groups=32),
         pt_data_config=MagicMock(),
         pt_inference_config=MagicMock(log_patch_stats=False, patch_stats_limit=None),
         execution_config=MagicMock(accelerator="cpu", num_workers=0,
@@ -87,59 +87,11 @@ class _ModelStub:
         return self
 
 
-class _BareModelStub:
-    """Model without model_config/data_config (legacy/opaque checkpoint)."""
-
-    def eval(self):
-        return self
-
-    def to(self, device):
-        return self
-
-
 # ---------------------------------------------------------------------------
-# Routing decision unit tests
+# CI VarPro scaling guard
 # ---------------------------------------------------------------------------
 
-class TestResolveReassemblyRoute:
-    def test_compatibility_wrapper_delegates_to_policy_resolver(self, monkeypatch):
-        from ptycho_torch import inference
-
-        calls = []
-
-        class Policy:
-            compatibility_route = "barycentric"
-
-        def resolve(patch_weighting, varpro_scaling):
-            calls.append((patch_weighting, varpro_scaling))
-            return Policy()
-
-        monkeypatch.setattr(inference, "resolve_cli_reconstruction_policy", resolve)
-
-        assert inference._resolve_reassembly_route("uniform", True) == "barycentric"
-        assert calls == [("uniform", True)]
-
-    def test_knobs_unset_resolves_uniform(self):
-        from ptycho_torch.inference import _resolve_reassembly_route
-
-        assert _resolve_reassembly_route("uniform", False) == "uniform"
-
-    def test_probe_weighting_resolves_barycentric(self):
-        from ptycho_torch.inference import _resolve_reassembly_route
-
-        assert _resolve_reassembly_route("probe", False) == "barycentric"
-
-    def test_varpro_scaling_resolves_barycentric(self):
-        from ptycho_torch.inference import _resolve_reassembly_route
-
-        assert _resolve_reassembly_route("uniform", True) == "barycentric"
-
-    def test_unknown_patch_weighting_raises(self):
-        from ptycho_torch.inference import _resolve_reassembly_route
-
-        with pytest.raises(ValueError, match="patch_weighting"):
-            _resolve_reassembly_route("central_mask", False)
-
+class TestCiVarproScalingGuard:
     def test_active_ci_requires_varpro_scaling(self):
         from ptycho_torch.config_params import InferenceConfig as PTInferenceConfig
         from ptycho_torch.inference import _require_ci_varpro_scaling
@@ -170,14 +122,11 @@ class TestResolveReassemblyRoute:
 # ---------------------------------------------------------------------------
 
 class TestCliRouting:
-    def _run_cli(self, argv, monkeypatch, uniform_helper, barycentric_helper):
-        mock_factory, mock_bundle_loader, mock_raw_data = _cli_stub_stack()
+    def _run_cli(self, argv, monkeypatch, barycentric_helper):
+        mock_factory, _, _ = _cli_stub_stack()
 
         with patch("ptycho_torch.cli.shared.validate_paths", MagicMock()), \
              patch("ptycho_torch.config_factory.create_inference_payload", mock_factory), \
-             patch("ptycho_torch.workflows.bundle_io.load_inference_bundle_torch", mock_bundle_loader), \
-             patch("ptycho.raw_data.RawData.from_file", return_value=mock_raw_data), \
-             patch("ptycho_torch.inference._run_inference_and_reconstruct", uniform_helper), \
              patch("ptycho_torch.inference.reconstruct_npz_barycentric", barycentric_helper), \
              patch("ptycho_torch.inference.save_individual_reconstructions", MagicMock()):
             from ptycho_torch.inference import cli_main
@@ -186,27 +135,24 @@ class TestCliRouting:
             exit_code = cli_main()
         return exit_code, mock_factory
 
-    def test_default_flags_route_uniform_path(self, cli_paths, monkeypatch):
-        """Knobs unset: the legacy uniform helper runs; barycentric never does."""
-        uniform_helper = MagicMock(
-            return_value=(np.zeros((8, 8)), np.zeros((8, 8)))
+    def test_default_routes_barycentric_kernel(self, cli_paths, monkeypatch):
+        """Knobs unset: the barycentric kernel runs by default."""
+        barycentric_helper = MagicMock(
+            return_value=SimpleNamespace(
+                amplitude=np.zeros((8, 8)), phase=np.zeros((8, 8))
+            )
         )
-        barycentric_helper = MagicMock()
 
-        argv = cli_paths["base_args"] + ["--n_images", "32", "--quiet"]
-        exit_code, _ = self._run_cli(
-            argv, monkeypatch, uniform_helper, barycentric_helper
-        )
+        argv = cli_paths["base_args"] + ["--quiet"]
+        exit_code, _ = self._run_cli(argv, monkeypatch, barycentric_helper)
 
         assert exit_code == 0
-        assert uniform_helper.called, "uniform helper must run when knobs are unset"
-        assert not barycentric_helper.called, (
-            "barycentric path must NOT run when knobs are unset"
+        assert barycentric_helper.called, (
+            "the barycentric kernel must run by default"
         )
 
     def test_probe_weighting_routes_barycentric(self, cli_paths, monkeypatch):
         """--patch-weighting probe routes to the barycentric helper, knob threaded."""
-        uniform_helper = MagicMock()
         barycentric_helper = MagicMock(
             return_value=SimpleNamespace(
                 amplitude=np.zeros((8, 8)), phase=np.zeros((8, 8))
@@ -214,21 +160,17 @@ class TestCliRouting:
         )
 
         argv = cli_paths["base_args"] + ["--patch-weighting", "probe", "--quiet"]
-        exit_code, mock_factory = self._run_cli(
-            argv, monkeypatch, uniform_helper, barycentric_helper
-        )
+        exit_code, mock_factory = self._run_cli(argv, monkeypatch, barycentric_helper)
 
         assert exit_code == 0
         assert barycentric_helper.called, (
             "--patch-weighting probe must route through the barycentric helper"
         )
-        assert not uniform_helper.called
         overrides = mock_factory.call_args.kwargs["overrides"]
         assert overrides["patch_weighting"] == "probe"
 
     def test_varpro_scaling_routes_barycentric(self, cli_paths, monkeypatch):
         """--varpro-scaling routes to the barycentric helper, knob threaded."""
-        uniform_helper = MagicMock()
         barycentric_helper = MagicMock(
             return_value=SimpleNamespace(
                 amplitude=np.zeros((8, 8)), phase=np.zeros((8, 8))
@@ -236,93 +178,14 @@ class TestCliRouting:
         )
 
         argv = cli_paths["base_args"] + ["--varpro-scaling", "--quiet"]
-        exit_code, mock_factory = self._run_cli(
-            argv, monkeypatch, uniform_helper, barycentric_helper
-        )
+        exit_code, mock_factory = self._run_cli(argv, monkeypatch, barycentric_helper)
 
         assert exit_code == 0
         assert barycentric_helper.called, (
             "--varpro-scaling must route through the barycentric helper"
         )
-        assert not uniform_helper.called
         overrides = mock_factory.call_args.kwargs["overrides"]
         assert overrides["varpro_scaling"] is True
-
-    def test_explicit_n_images_with_barycentric_raises(self, cli_paths, monkeypatch):
-        """Explicit --n_images cannot be honored on the full-scan barycentric path."""
-        from ptycho_torch.inference import cli_main
-
-        argv = cli_paths["base_args"] + [
-            "--patch-weighting", "probe", "--n_images", "16",
-        ]
-        monkeypatch.setattr("sys.argv", ["inference.py"] + argv)
-
-        with pytest.raises(ValueError, match="n_images"):
-            cli_main()
-
-
-# ---------------------------------------------------------------------------
-# Uniform helper still targets hh.reassemble_patches_position_real
-# ---------------------------------------------------------------------------
-
-class TestUniformPathUnchanged:
-    def test_uniform_helper_calls_position_real(self):
-        """The knobs-unset stitching target remains reassemble_patches_position_real."""
-        from ptycho.config.config import (
-            InferenceConfig,
-            ModelConfig,
-            PyTorchExecutionConfig,
-        )
-        from ptycho_torch.inference import _run_inference_and_reconstruct
-
-        raw_data = MagicMock()
-        raw_data.diff3d = np.random.rand(4, 64, 64).astype(np.float32)
-        raw_data.probeGuess = np.random.rand(64, 64).astype(np.complex64)
-        raw_data.xcoords = np.random.rand(4)
-        raw_data.ycoords = np.random.rand(4)
-
-        model = MagicMock()
-        model.to = MagicMock(return_value=model)
-        model.eval = MagicMock(return_value=model)
-        patch_complex = torch.complex(
-            torch.rand(4, 1, 64, 64), torch.rand(4, 1, 64, 64)
-        )
-        model.forward_predict = MagicMock(return_value=patch_complex)
-
-        config = InferenceConfig(
-            model=ModelConfig(N=64, gridsize=1),
-            model_path=Path("outputs/test/bundle.zip"),
-            test_data_file=Path("test.npz"),
-            backend="pytorch",
-            output_dir=Path("outputs/inference"),
-            inference_groups=4,
-        )
-        execution_config = PyTorchExecutionConfig(
-            accelerator="cpu", num_workers=0, inference_batch_size=None
-        )
-
-        def fake_reassemble(patches, offsets, data_cfg, model_cfg, **_kwargs):
-            imgs = torch.zeros((1, 64, 64), dtype=patches.dtype)
-            return imgs, None, None
-
-        presenter = MagicMock(
-            return_value=(np.zeros((64, 64)), np.zeros((64, 64)))
-        )
-        with patch(
-            "ptycho_torch.helper.reassemble_patches_position_real",
-            side_effect=fake_reassemble,
-        ) as mock_reassemble, patch(
-            "ptycho_torch.inference.present_reconstruction_canvas",
-            presenter,
-        ):
-            _run_inference_and_reconstruct(
-                model, raw_data, config, execution_config, "cpu", quiet=True
-            )
-
-        assert mock_reassemble.called, (
-            "knobs-unset path must stitch via hh.reassemble_patches_position_real"
-        )
-        assert presenter.call_count == 1
 
 
 class TestPublicWorkflowCliDelegation:
@@ -416,6 +279,7 @@ class TestPublicWorkflowCliDelegation:
             model_path=model_dir,
             test_data_file=test_npz,
             output_dir=output_dir,
+            inference_groups=None,
         )
         args = SimpleNamespace(
             config=None,
@@ -467,7 +331,8 @@ class TestPublicWorkflowCliDelegation:
             lambda **_kwargs: SimpleNamespace(
                 pt_inference_config=PTInferenceConfig(
                     patch_weighting="probe", varpro_scaling=False
-                )
+                ),
+                execution_config=execution_config,
             ),
         )
 
@@ -487,3 +352,100 @@ class TestPublicWorkflowCliDelegation:
         assert exit_info.value.code == 0
         public.assert_called_once()
         save.assert_called_once()
+
+    def _installed_door_env(self, tmp_path, monkeypatch, *, config_extra=None,
+                            args_extra=None):
+        """Common installed-door harness: real dispatcher, stubbed factory IO."""
+        from types import SimpleNamespace
+        from scripts.inference import inference
+        from ptycho_torch import inference as torch_inference
+        from ptycho_torch.config_params import InferenceConfig as PTInferenceConfig
+
+        model_dir = tmp_path / "training"
+        model_dir.mkdir(exist_ok=True)
+        test_npz = tmp_path / "test.npz"
+        test_npz.touch()
+        config_fields = {
+            "backend": "pytorch",
+            "model_path": model_dir,
+            "test_data_file": test_npz,
+            "output_dir": tmp_path / "output",
+            "inference_groups": None,
+        }
+        config_fields.update(config_extra or {})
+        config = SimpleNamespace(**config_fields)
+        args = SimpleNamespace(
+            config=None, debug_dump=None, comparison_plot=False,
+            phase_vmin=None, phase_vmax=None,
+            patch_weighting="uniform", varpro_scaling=False,
+            groups_per_center=1, torch_accelerator="cpu",
+            torch_num_workers=0, torch_inference_batch_size=2,
+            **(args_extra or {}),
+        )
+        execution_config = SimpleNamespace(
+            accelerator="cpu", num_workers=0, inference_batch_size=2,
+            precision="32-true",
+        )
+        factory = MagicMock(
+            return_value=SimpleNamespace(
+                pt_inference_config=PTInferenceConfig(),
+                execution_config=execution_config,
+            )
+        )
+        monkeypatch.setattr(inference, "parse_arguments", lambda: args)
+        monkeypatch.setattr(
+            inference, "setup_inference_configuration", lambda *_a: config
+        )
+        monkeypatch.setattr(
+            "ptycho_torch.cli.shared.build_execution_request_from_args",
+            lambda *_a, **_k: SimpleNamespace(explicit_fields=frozenset()),
+        )
+        monkeypatch.setattr(
+            "ptycho_torch.config_factory.create_inference_payload", factory
+        )
+        monkeypatch.setattr(
+            torch_inference,
+            "reconstruct_npz_barycentric",
+            MagicMock(return_value=SimpleNamespace(
+                amplitude=np.ones((8, 8)), phase=np.zeros((8, 8)))),
+            raising=False,
+        )
+        return inference, factory, config
+
+    def test_installed_door_forwards_required_n_groups_default(
+        self, tmp_path, monkeypatch
+    ):
+        """The factory hard-requires n_groups; the dispatcher must supply it.
+
+        Pins the P0 review finding: overrides without n_groups make every
+        real --backend pytorch run fail inside create_inference_payload.
+        """
+        inference, factory, _ = self._installed_door_env(tmp_path, monkeypatch)
+        with patch.object(inference, "save_reconstruction_images"), \
+             pytest.raises(SystemExit) as exit_info:
+            inference.main()
+        assert exit_info.value.code == 0
+        overrides = factory.call_args.kwargs["overrides"]
+        assert overrides["inference_groups"] == 32  # native-door default
+
+    def test_installed_door_forwards_explicit_n_groups(self, tmp_path, monkeypatch):
+        inference, factory, _ = self._installed_door_env(
+            tmp_path, monkeypatch, config_extra={"inference_groups": 7}
+        )
+        with patch.object(inference, "save_reconstruction_images"), \
+             pytest.raises(SystemExit) as exit_info:
+            inference.main()
+        assert exit_info.value.code == 0
+        assert factory.call_args.kwargs["overrides"]["inference_groups"] == 7
+
+    def test_installed_door_rejects_tf_sampling_flags_on_pytorch(
+        self, tmp_path, monkeypatch
+    ):
+        """--n_subsample/--subsample_seed are TF-door semantics: loud, not dropped."""
+        inference, factory, _ = self._installed_door_env(
+            tmp_path, monkeypatch, args_extra={"n_subsample": 16}
+        )
+        with pytest.raises(SystemExit) as exit_info:
+            inference.main()
+        assert exit_info.value.code == 1
+        factory.assert_not_called()

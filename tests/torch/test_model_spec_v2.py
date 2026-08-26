@@ -63,8 +63,8 @@ def test_current_model_spec_v2_owns_public_axes_not_object_big():
     spec = derive_model_spec(canonical, model, data)
     payload = spec.to_payload()
 
-    assert CURRENT_MODEL_SPEC_VERSION == "torch-model-spec-portable-v3"
-    assert payload["schema_version"] == "torch-model-spec-portable-v3"
+    assert CURRENT_MODEL_SPEC_VERSION == "torch-model-spec-v3"
+    assert payload["schema_version"] == "torch-model-spec-v3"
     assert "object_big" not in payload["model_config"]
     assert payload["model_config"]["object_layout"] == "single_patch"
     assert payload["model_config"]["training_canvas"] == "independent"
@@ -81,8 +81,8 @@ def test_frozen_model_spec_v1_deterministically_upgrades_to_v2():
 
     upgraded = ModelSpec.from_payload(legacy_payload)
 
-    assert upgraded.schema_version == "torch-model-spec-portable-v3"
-    assert upgraded.to_payload()["schema_version"] == "torch-model-spec-portable-v3"
+    assert upgraded.schema_version == "torch-model-spec-v3"
+    assert upgraded.to_payload()["schema_version"] == "torch-model-spec-v3"
     assert upgraded.to_model_config() == current.to_model_config()
 
 

@@ -44,6 +44,7 @@ def group_coords(
 
     del xcoords_bounded, ycoords_bounded, neighbor_function
     group_size = data_config.gridsize * data_config.gridsize if C is None else C
+
     randomness = (
         {"rng": rng}
         if rng is not None

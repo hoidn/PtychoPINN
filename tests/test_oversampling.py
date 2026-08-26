@@ -60,7 +60,7 @@ class TestAutomaticOversampling(unittest.TestCase):
         K = 4
         N = 64
         
-        dataset = raw_data.generate_grouped_data(N, K=K, nsamples=nsamples, seed=42)
+        dataset = raw_data.generate_grouped_data(N, K=K, nsamples=nsamples, seed=42, gridsize=2)
         
         # Check that we got the requested number of groups
         self.assertEqual(dataset['diffraction'].shape[0], nsamples)
@@ -90,7 +90,8 @@ class TestAutomaticOversampling(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             dataset = raw_data.generate_grouped_data(
                 N, K=K, nsamples=nsamples, seed=42,
-                enable_oversampling=False  # Explicit False
+                enable_oversampling=False,  # Explicit False
+                gridsize=2,
             )
 
         # Check error message references OVERSAMPLING-001
@@ -121,7 +122,8 @@ class TestAutomaticOversampling(unittest.TestCase):
             dataset = raw_data.generate_grouped_data(
                 N, K=4, nsamples=nsamples, seed=42,
                 enable_oversampling=True,
-                neighbor_pool_size=3  # Less than C=4
+                neighbor_pool_size=3,  # Less than C=4
+                gridsize=2,
             )
 
         # Check error message references the constraint
@@ -151,7 +153,8 @@ class TestAutomaticOversampling(unittest.TestCase):
         dataset = raw_data.generate_grouped_data(
             N, K=K, nsamples=nsamples, seed=42,
             enable_oversampling=True,  # Explicit opt-in
-            neighbor_pool_size=7  # >= C=4
+            neighbor_pool_size=7,  # >= C=4
+            gridsize=2,
         )
 
         # Check that we got the requested number of groups through oversampling
@@ -183,7 +186,8 @@ class TestAutomaticOversampling(unittest.TestCase):
                 dataset = raw_data.generate_grouped_data(
                     N, K=K, nsamples=nsamples, seed=42,
                     enable_oversampling=True,
-                    neighbor_pool_size=K
+                    neighbor_pool_size=K,
+                    gridsize=2,
                 )
 
                 # Should always get requested number of groups
@@ -213,7 +217,7 @@ class TestAutomaticOversampling(unittest.TestCase):
         K = 7
         N = 64
         
-        dataset = raw_data.generate_grouped_data(N, K=K, nsamples=nsamples, seed=42)
+        dataset = raw_data.generate_grouped_data(N, K=K, nsamples=nsamples, seed=42, gridsize=1)
         
         # For gridsize=1, no oversampling - capped at available points
         expected_samples = min(nsamples, len(self.xcoords))
@@ -243,12 +247,14 @@ class TestAutomaticOversampling(unittest.TestCase):
         dataset1 = raw_data.generate_grouped_data(
             N, K=K, nsamples=nsamples, seed=seed,
             enable_oversampling=True,
-            neighbor_pool_size=K
+            neighbor_pool_size=K,
+            gridsize=2,
         )
         dataset2 = raw_data.generate_grouped_data(
             N, K=K, nsamples=nsamples, seed=seed,
             enable_oversampling=True,
-            neighbor_pool_size=K
+            neighbor_pool_size=K,
+            gridsize=2,
         )
 
         # Should be identical
@@ -258,7 +264,8 @@ class TestAutomaticOversampling(unittest.TestCase):
         dataset3 = raw_data.generate_grouped_data(
             N, K=K, nsamples=nsamples, seed=456,
             enable_oversampling=True,
-            neighbor_pool_size=K
+            neighbor_pool_size=K,
+            gridsize=2,
         )
 
         # Should be different

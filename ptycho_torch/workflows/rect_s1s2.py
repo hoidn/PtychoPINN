@@ -5,7 +5,6 @@ inspection, and the crash-safe training-summary publication used by the
 Lightning service.
 """
 from dataclasses import dataclass
-import logging
 import math
 from numbers import Integral
 from pathlib import Path
@@ -21,10 +20,6 @@ from ptycho_torch.rect_s1s2_sampling import (
     build_dose_closure_sample_plan,
 )
 from ptycho_torch.train_utils import PrebuiltPtychoDataModule
-
-logger = logging.getLogger("ptycho_torch.workflows.components")
-
-_RECT_S1S2_IDENTITY_FIELD = "__rect_s1s2_logical_row_identity__"
 
 def _move_batch_to_device(batch, device):
     """Move tensors in a nested Lightning batch structure to ``device``."""
@@ -50,6 +45,9 @@ class _RectS1S2IndexedRows:
 class _RectS1S2SelectedBatch:
     value: Any
     access_rows: tuple[SelectedDoseClosureRow, ...]
+
+
+_RECT_S1S2_IDENTITY_FIELD = "__rect_s1s2_logical_row_identity__"
 
 
 def _rect_s1s2_attach_identities(value, access_rows, *, batched_indexing):
@@ -648,7 +646,7 @@ def _effective_dataloader_settings(
     train_loader,
     execution_config,
 ):
-    """Return the loader settings used by this Trainer invocation."""
+    """Resolve the loader settings used by this Trainer invocation."""
 
     if isinstance(data_product, PrebuiltPtychoDataModule):
         return data_product._loader_settings()
@@ -667,3 +665,5 @@ def _effective_dataloader_settings(
             else None
         ),
     }
+
+

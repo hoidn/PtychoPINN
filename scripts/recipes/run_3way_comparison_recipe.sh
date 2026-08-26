@@ -182,13 +182,13 @@ if [[ "$SKIP_PINN" == "false" ]]; then
     echo ""
 
     python scripts/training/train.py \
-        --data.train_data_file "$TRAIN_DATA" \
-        --data.test_data_file "$TRAIN_DATA" \
-        --sampling.training_groups "$N_GROUPS" \
-        --sampling.train_raw_selection "$N_IMAGES" \
-        --sampling.neighbor_count "$NEIGHBOR_COUNT" \
+        --train_data_file "$TRAIN_DATA" \
+        --test_data_file "$TRAIN_DATA" \
+        --n_groups "$N_GROUPS" \
+        --n_subsample "$N_IMAGES" \
+        --neighbor_count "$NEIGHBOR_COUNT" \
         --nepochs "$NEPOCHS" \
-        --model '{"model_type":"pinn"}' \
+        --model_type pinn \
         --output_dir "$PINN_DIR"
 
     echo ""
@@ -210,13 +210,13 @@ if [[ "$SKIP_BASELINE" == "false" ]]; then
     echo ""
 
     python scripts/training/train.py \
-        --data.train_data_file "$TRAIN_DATA" \
-        --data.test_data_file "$TRAIN_DATA" \
-        --sampling.training_groups "$N_GROUPS" \
-        --sampling.train_raw_selection "$N_IMAGES" \
-        --sampling.neighbor_count "$NEIGHBOR_COUNT" \
+        --train_data_file "$TRAIN_DATA" \
+        --test_data_file "$TRAIN_DATA" \
+        --n_groups "$N_GROUPS" \
+        --n_subsample "$N_IMAGES" \
+        --neighbor_count "$NEIGHBOR_COUNT" \
         --nepochs "$NEPOCHS" \
-        --model '{"model_type":"supervised"}' \
+        --model_type supervised \
         --output_dir "$BASELINE_DIR"
 
     echo ""

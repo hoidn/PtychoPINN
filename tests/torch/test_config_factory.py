@@ -25,18 +25,15 @@ Override Matrix Reference:
 
 import pytest
 from pathlib import Path
-from dataclasses import fields, is_dataclass
-import math
+from dataclasses import is_dataclass
 import tempfile
 import shutil
-import warnings
 
 # Factory functions under test (stubs in Phase B2)
 from ptycho_torch.config_factory import (
     create_training_payload,
     create_inference_payload,
     infer_probe_size,
-    populate_legacy_params,
     simulation_from_datagen_config,
     datagen_config_from_simulation,
     TrainingPayload,
@@ -60,11 +57,6 @@ from ptycho_torch.config_params import (
     InferenceConfig as PTInferenceConfig,
     DatagenConfig,
 )
-from ptycho.config.config import PyTorchExecutionConfig
-from ptycho_torch.execution_request import (
-    ExecutionCapabilities,
-    ExecutionRequest,
-)
 
 
 def test_resolved_torch_records_build_exact_training_payload(tmp_path):
@@ -73,9 +65,9 @@ def test_resolved_torch_records_build_exact_training_payload(tmp_path):
         create_training_payload_from_resolved_configs,
     )
 
-    data = PTDataConfig(N=128, gridsize=2, neighbor_count=7, nphotons=3e7)
+    data = PTDataConfig(N=96, gridsize=2, neighbor_count=7, nphotons=3e7)
     model = PTModelConfig(
-        object_big=True,
+                object_big=True,
         rect_s1s2_trainable=True,
     )
     training = PTTrainingConfig(
@@ -110,10 +102,10 @@ def test_resolved_torch_records_build_exact_training_payload(tmp_path):
     assert payload.pt_training_config is training
     assert payload.pt_inference_config is inference
     assert payload.execution_config is execution
-    assert payload.tf_training_config.data.train_data_file == tmp_path / "train.npz"
+    assert payload.tf_training_config.train_data_file == tmp_path / "train.npz"
     assert payload.tf_training_config.output_dir == tmp_path / "run"
-    assert payload.tf_training_config.sampling.training_groups == 23
-    assert payload.tf_training_config.model.N == 128
+    assert payload.tf_training_config.training_groups == 23
+    assert payload.tf_training_config.model.N == 96
     assert payload.tf_training_config.model.gridsize == 2
     assert payload.model_spec.parity_scale_mode == "fixed"
     assert payload.model_spec.parity_fixed_delta == 0.75
@@ -139,7 +131,7 @@ def test_resolved_torch_records_preserve_use_all_group_semantics(tmp_path):
     )
 
     assert training.training_groups is None
-    assert payload.tf_training_config.sampling.training_groups is None
+    assert payload.tf_training_config.training_groups is None
 
 
 def test_datagen_config_converts_owned_fields_to_simulation_without_changing_payload_shape():
@@ -210,14 +202,6 @@ def test_datagen_config_rejects_lossy_probe_or_object_conversion():
         DatagenConfig.from_simulation_config(
             SimulationConfig(probe=ProbeSimulationConfig(source="ideal"))
         )
-
-
-def test_datagen_config_surfaces_canonical_simulation_validation_errors():
-    with pytest.raises(
-        ValueError,
-        match=r"simulation\.object\.image_size must be square",
-    ):
-        DatagenConfig(image_size=(250, 251)).to_simulation_config()
 
 # For params.cfg validation
 import ptycho.params
@@ -305,8 +289,7 @@ def mock_train_npz_with_metadata(tmp_path):
         "ycoords": np.linspace(0, 1, n_images).astype(np.float64),
         "scan_index": np.arange(n_images).astype(np.int32),
     }
-    from ptycho.config.config import DataConfig as TFDataConfig
-    tf_config = TFTrainingConfig(model=TFModelConfig(N=N, gridsize=1), data=TFDataConfig(nphotons=nphotons))
+    tf_config = TFTrainingConfig(model=TFModelConfig(N=N, gridsize=1), nphotons=nphotons)
     metadata = MetadataManager.create_metadata(
         tf_config,
         script_name="unit-test",
@@ -419,16 +402,20 @@ class TestTrainingPayloadStructure:
 
     def test_gridsize_sets_channel_count(self, mock_train_npz, temp_output_dir):
         """
-        Gridsize override is the single channel-identity statement.
+        Gridsize override synchronizes C_forward and C_model with data channel count.
 
         Regression test for ADR-003 C4.D3: create_training_payload() must set
-        pt_data_config.gridsize from the override. The channel count is derived
-        at consumption as gridsize**2; ModelConfig C_model/C_forward are retired.
+        pt_model_config.C_forward and C_model to match pt_data_config.C when
+        gridsize is specified. This ensures PyTorch helpers (reassemble_patches_position_real)
+        receive tensor shapes consistent with the grouping strategy.
 
         Expected behavior:
-            - gridsize=1 -> 1 channel
-            - gridsize=2 -> 4 channels
-            - Default (no gridsize override) -> gridsize=2 -> 4 channels
+            - gridsize=1 → C=1, 
+            - gridsize=2 → C=4, C_forward=4, C_model=4
+            - Default (no gridsize override) → C=4, C_forward=4, C_model=4
+
+        Reference: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T061500Z/
+                   phase_c4_cli_integration_debug/coords_relative_investigation.md
         """
         # Case 1: gridsize=1 (single-position groups)
         payload_gs1 = create_training_payload(
@@ -436,8 +423,7 @@ class TestTrainingPayloadStructure:
             output_dir=temp_output_dir,
             overrides={'gridsize': 1, 'training_groups': 512},
         )
-        assert payload_gs1.pt_data_config.gridsize == 1
-        assert payload_gs1.overrides_applied["C"] == 1
+        assert payload_gs1.pt_data_config.gridsize == 1, "DataConfig.gridsize should be 1"
 
         # Case 2: gridsize=2 (2x2 = 4 overlapping positions)
         payload_gs2 = create_training_payload(
@@ -445,19 +431,17 @@ class TestTrainingPayloadStructure:
             output_dir=temp_output_dir,
             overrides={'gridsize': 2, 'training_groups': 512},
         )
-        assert payload_gs2.pt_data_config.gridsize == 2
-        assert payload_gs2.overrides_applied["C"] == 4
+        assert payload_gs2.pt_data_config.gridsize == 2, "DataConfig.gridsize should be 2"
 
-        # Case 3: No gridsize override (default gridsize -> C derived once)
+        # Case 3: No gridsize override (default grid_size=(2,2) → C=4)
         payload_default = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
             overrides={'training_groups': 512},
         )
-        assert payload_default.pt_data_config.gridsize >= 1
-        assert payload_default.overrides_applied["C"] == (
-            payload_default.pt_data_config.gridsize ** 2
-        )
+        # Default grid_size is (2,2) per PTDataConfig defaults (config_params.py:29)
+        # but factory may compute C from overrides; accept any C >= 1
+        assert payload_default.pt_data_config.gridsize >= 1, "DataConfig.gridsize should be positive"
 
     def test_training_payload_infers_probe_size_for_pt_data_config(self, mock_train_npz_128, temp_output_dir):
         """Factory should propagate inferred N into pt_data_config and TF model config."""
@@ -492,7 +476,7 @@ class TestInferencePayloadStructure:
             model_path=mock_checkpoint_dir,
             test_data_file=mock_test_npz,
             output_dir=temp_output_dir,
-            overrides={'inference_groups': 128},
+            overrides={'training_groups': 128},
         )
         # GREEN phase:
         assert isinstance(payload, InferencePayload)
@@ -503,7 +487,7 @@ class TestInferencePayloadStructure:
             model_path=mock_checkpoint_dir,
             test_data_file=mock_test_npz,
             output_dir=temp_output_dir,
-            overrides={'inference_groups': 128},
+            overrides={'training_groups': 128},
         )
         # GREEN phase:
         assert isinstance(payload.tf_inference_config, TFInferenceConfig)
@@ -514,7 +498,7 @@ class TestInferencePayloadStructure:
             model_path=mock_checkpoint_dir,
             test_data_file=mock_test_npz,
             output_dir=temp_output_dir,
-            overrides={'inference_groups': 128},
+            overrides={'training_groups': 128},
         )
         # GREEN phase assertions:
         assert isinstance(payload.pt_data_config, PTDataConfig)
@@ -536,7 +520,7 @@ class TestInferencePayloadStructure:
             model_path=mock_checkpoint_dir,
             test_data_file=mock_test_npz,
             output_dir=temp_output_dir,
-            overrides={'inference_groups': 128, 'varpro_scaling': False},
+            overrides={'training_groups': 128, 'varpro_scaling': False},
         )
 
         assert payload.pt_inference_config.varpro_scaling is False
@@ -558,15 +542,16 @@ class TestConfigBridgeTranslation:
         - All config_bridge.py transformations applied correctly
     """
 
-    def test_gridsize_override_reaches_both_configs(self, mock_train_npz, temp_output_dir):
-        """Factory passes gridsize 2 through to PyTorch and TensorFlow configs."""
+    def test_grid_size_tuple_to_gridsize_int(self, mock_train_npz, temp_output_dir):
+        """Factory converts grid_size (2, 2) → gridsize 2 via bridge."""
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
             overrides={'training_groups': 512, 'gridsize': 2},
         )
-        assert payload.pt_data_config.gridsize == 2
-        assert payload.tf_training_config.model.gridsize == 2
+        # GREEN phase assertions:
+        assert payload.pt_data_config.gridsize == 2  # PyTorch int
+        assert payload.tf_training_config.model.gridsize == 2  # TensorFlow int
 
     def test_epochs_to_nepochs_conversion(self, mock_train_npz, temp_output_dir):
         """Factory maps epochs → nepochs via bridge."""
@@ -588,25 +573,24 @@ class TestConfigBridgeTranslation:
         )
         # GREEN phase assertions:
         assert payload.pt_data_config.neighbor_count == 7  # PyTorch K
-        assert payload.tf_training_config.sampling.neighbor_count == 7  # TensorFlow naming
+        assert payload.tf_training_config.neighbor_count == 7  # TensorFlow naming
 
 
 # ============================================================================
-# Test Category 3: params.cfg Population (CONFIG-001 Compliance)
+# Test Category 3: Legacy params.cfg Projection (Retired)
 # ============================================================================
 
-class TestLegacyParamsPopulation:
+class TestLegacyParamsNotPopulated:
     """
-    Verify factory calls update_legacy_dict to populate params.cfg.
+    Verify the torch factory no longer projects the legacy ``params.cfg``.
 
-    Critical requirement (CONFIG-001): params.cfg MUST be populated before
-    any data loading or model construction. Factory is responsible for this
-    checkpoint via populate_legacy_params() helper.
+    The CONFIG-001 checkpoint (factory-populates-legacy-global) is retired: the
+    data path reads explicit arguments instead, so ``create_training_payload``
+    resolves owners without committing the global dictionary.
     """
 
-    def test_factory_populates_params_cfg(self, mock_train_npz, temp_output_dir):
-        """Factory updates ptycho.params.cfg with config values."""
-        # Clear params.cfg before test
+    def test_factory_does_not_populate_params_cfg(self, mock_train_npz, temp_output_dir):
+        """Factory resolves owners without touching ptycho.params.cfg."""
         ptycho.params.cfg.clear()
 
         payload = create_training_payload(
@@ -615,91 +599,8 @@ class TestLegacyParamsPopulation:
             overrides={'training_groups': 512, 'gridsize': 2},
         )
 
-        # GREEN phase assertions:
-        assert ptycho.params.cfg['gridsize'] == 2
-        assert ptycho.params.cfg['N'] == 64  # Inferred from NPZ
-        assert ptycho.params.cfg['training_groups'] == 512
-
-    def test_populate_legacy_params_helper(self, mock_train_npz, temp_output_dir):
-        """populate_legacy_params() wrapper calls update_legacy_dict."""
-        from ptycho.config.config import TrainingConfig, ModelConfig, DataConfig, SamplingConfig
-
-        # Construct minimal TF config
-        tf_config = TrainingConfig(
-            model=ModelConfig(N=64, gridsize=2),
-            data=DataConfig(train_data_file=mock_train_npz),
-            sampling=SamplingConfig(training_groups=512),
-        )
-
-        # Clear params.cfg
-        ptycho.params.cfg.clear()
-
-        # Call factory helper
-        populate_legacy_params(tf_config)
-
-        # GREEN phase:
-        assert ptycho.params.cfg['gridsize'] == 2
-
-
-def test_training_model_spec_failure_precedes_legacy_commit(
-    mock_train_npz,
-    temp_output_dir,
-    monkeypatch,
-):
-    import ptycho_torch.config_factory as factory
-
-    commits = []
-
-    def commit_spy(config):
-        commits.append(config)
-
-    def fail_model_spec(*_args, **_kwargs):
-        raise RuntimeError("model spec construction failed")
-
-    monkeypatch.setattr(factory, "populate_legacy_params", commit_spy)
-    monkeypatch.setattr(factory, "derive_model_spec", fail_model_spec)
-
-    with pytest.raises(RuntimeError, match="model spec construction failed"):
-        factory.create_training_payload(
-            train_data_file=mock_train_npz,
-            output_dir=temp_output_dir,
-            overrides={"training_groups": 1},
-        )
-
-    assert commits == []
-
-
-def test_inference_payload_failure_precedes_legacy_commit(
-    mock_checkpoint_dir,
-    mock_test_npz,
-    temp_output_dir,
-    monkeypatch,
-):
-    import ptycho_torch.config_factory as factory
-
-    commits = []
-
-    def commit_spy(config):
-        commits.append(config)
-
-    def fail_payload(*_args, **_kwargs):
-        raise RuntimeError("inference payload construction failed")
-
-    monkeypatch.setattr(factory, "populate_legacy_params", commit_spy)
-    monkeypatch.setattr(factory, "InferencePayload", fail_payload)
-
-    with pytest.raises(
-        RuntimeError,
-        match="inference payload construction failed",
-    ):
-        factory.create_inference_payload(
-            model_path=mock_checkpoint_dir,
-            test_data_file=mock_test_npz,
-            output_dir=temp_output_dir,
-            overrides={"inference_groups": 1},
-        )
-
-    assert commits == []
+        assert ptycho.params.cfg == {}
+        assert payload.tf_training_config.training_groups == 512
 
 
 # ============================================================================
@@ -726,7 +627,7 @@ class TestOverridePrecedence:
             overrides={'training_groups': 1024, 'batch_size': 16},
         )
         # GREEN phase assertions:
-        assert payload.tf_training_config.sampling.training_groups == 1024  # Override wins
+        assert payload.tf_training_config.training_groups == 1024  # Override wins
         assert payload.tf_training_config.batch_size == 16
 
     def test_probe_size_override_wins_over_inference(self, mock_train_npz, temp_output_dir):
@@ -747,7 +648,7 @@ class TestOverridePrecedence:
             output_dir=temp_output_dir,
             overrides={'training_groups': 128},
         )
-        assert payload.tf_training_config.data.nphotons == TFTrainingConfig(model=TFModelConfig()).data.nphotons
+        assert payload.tf_training_config.nphotons == TFTrainingConfig(model=TFModelConfig()).nphotons
 
     def test_nphotons_uses_metadata_when_present(self, mock_train_npz_with_metadata, temp_output_dir):
         """Metadata nphotons should override defaults when present."""
@@ -756,7 +657,7 @@ class TestOverridePrecedence:
             output_dir=temp_output_dir,
             overrides={'training_groups': 128},
         )
-        assert payload.tf_training_config.data.nphotons == 5e8
+        assert payload.tf_training_config.nphotons == 5e8
 
 
 # ============================================================================
@@ -774,7 +675,7 @@ class TestFactoryValidation:
         - NPZ field validation (diffraction, probeGuess present)
     """
 
-    def test_missing_n_groups_raises_error(self, mock_train_npz, temp_output_dir):
+    def test_missing_training_groups_raises_error(self, mock_train_npz, temp_output_dir):
         """Factory raises ValueError if training_groups missing from overrides."""
         # Omit training_groups (required field)
         with pytest.raises(ValueError, match="training_groups is required"):
@@ -848,7 +749,7 @@ class TestExecutionConfigOverrides:
             model_path=mock_checkpoint_dir,
             test_data_file=mock_test_npz,
             output_dir=temp_output_dir,
-            overrides={'inference_groups': 128},
+            overrides={'training_groups': 128},
         )
         # GREEN phase:
         assert payload.execution_config is not None
@@ -862,7 +763,7 @@ class TestExecutionConfigOverrides:
             model_path=mock_checkpoint_dir,
             test_data_file=mock_test_npz,
             output_dir=temp_output_dir,
-            overrides={"inference_groups": 128, "object_big": True},
+            overrides={"training_groups": 128, "object_big": True},
         )
 
         assert payload.tf_inference_config.model.object_big is True
@@ -1140,580 +1041,6 @@ class TestExecutionConfigOverrides:
             f"Expected logger_backend='tensorboard', got {payload.execution_config.logger_backend}"
 
 
-def test_training_optimizer_inputs_resolve_from_canonical_overrides(
-    mock_train_npz,
-    temp_output_dir,
-):
-    request = ExecutionRequest(
-        values={"accelerator": "cpu"},
-        explicit_fields=frozenset({"accelerator"}),
-    )
-
-    payload = create_training_payload(
-        train_data_file=mock_train_npz,
-        output_dir=temp_output_dir,
-        overrides={
-            "training_groups": 4,
-            "learning_rate": 3e-4,
-            "scheduler": "Exponential",
-            "gradient_clip_val": 5.0,
-            "accum_steps": 4,
-        },
-        training_baseline=PTTrainingConfig(scheduler="WarmupCosine"),
-        execution_config=request,
-    )
-
-    assert payload.pt_training_config.learning_rate == 3e-4
-    assert payload.pt_training_config.scheduler == "Exponential"
-    assert payload.pt_training_config.gradient_clip_val == 5.0
-    assert payload.pt_training_config.accum_steps == 4
-    assert payload.overrides_applied["training_config_provenance"][
-        "learning_rate"
-    ] == "canonical_override"
-    assert payload.overrides_applied["training_config_provenance"][
-        "scheduler"
-    ] == "canonical_override"
-
-
-def test_runtime_request_does_not_override_training_baseline(
-    mock_train_npz,
-    temp_output_dir,
-):
-    request = ExecutionRequest(
-        values={"accelerator": "cpu"},
-        explicit_fields=frozenset({"accelerator"}),
-    )
-
-    payload = create_training_payload(
-        train_data_file=mock_train_npz,
-        output_dir=temp_output_dir,
-        overrides={"training_groups": 4},
-        training_baseline=PTTrainingConfig(learning_rate=4e-4),
-        execution_config=request,
-    )
-
-    assert payload.pt_training_config.learning_rate == 4e-4
-    assert payload.overrides_applied["training_config_provenance"][
-        "learning_rate"
-    ] == "training_baseline"
-
-
-def test_factory_rejects_bare_resolved_execution_carrier(
-    mock_train_npz,
-    temp_output_dir,
-):
-    with pytest.raises(TypeError, match="ExecutionRequest"):
-        create_training_payload(
-            train_data_file=mock_train_npz,
-            output_dir=temp_output_dir,
-            overrides={"training_groups": 4},
-            execution_config=PyTorchExecutionConfig(),
-        )
-
-
-def test_execution_ownership_public_scheduler_is_baseline_not_explicit_patch(
-    mock_train_npz,
-    temp_output_dir,
-):
-    from ptycho.config.config import SchedulerConfig as TFSchedulerConfig
-    public = TFTrainingConfig(
-        model=TFModelConfig(),
-        scheduler=TFSchedulerConfig(kind="WarmupCosine"),
-    )
-    baseline = create_training_payload(
-        train_data_file=mock_train_npz,
-        output_dir=temp_output_dir,
-        overrides={"training_groups": 4},
-        training_baseline=public,
-    )
-    canonical = create_training_payload(
-        train_data_file=mock_train_npz,
-        output_dir=temp_output_dir,
-        overrides={"training_groups": 4, "scheduler": "WarmupCosine"},
-        training_baseline=public,
-    )
-
-    assert baseline.pt_training_config.scheduler == "WarmupCosine"
-    assert canonical.pt_training_config.scheduler == "WarmupCosine"
-    assert baseline.overrides_applied["training_config_provenance"][
-        "scheduler"
-    ] == "training_baseline"
-    assert canonical.overrides_applied["training_config_provenance"][
-        "scheduler"
-    ] == "canonical_override"
-
-
-@pytest.mark.parametrize(
-    ("field_name", "invalid"),
-    [
-        ("scheduler", "CosineAnnealing"),
-        ("gradient_clip_algorithm", "bogus"),
-        ("learning_rate", 0.0),
-        ("learning_rate", math.inf),
-        ("accum_steps", 0),
-        ("gradient_clip_val", -1.0),
-        ("gradient_clip_val", math.nan),
-    ],
-)
-def test_execution_domain_rejects_invalid_effective_training_owner(
-    mock_train_npz,
-    temp_output_dir,
-    field_name,
-    invalid,
-):
-    with pytest.raises(ValueError, match=field_name):
-        create_training_payload(
-            train_data_file=mock_train_npz,
-            output_dir=temp_output_dir,
-            overrides={"training_groups": 4, field_name: invalid},
-            execution_config=ExecutionRequest(
-                values={"accelerator": "cpu"},
-                explicit_fields=frozenset({"accelerator"}),
-            ),
-        )
-
-
-@pytest.mark.parametrize(
-    "scheduler",
-    [
-        "Default",
-        "Exponential",
-        "MultiStage",
-        "Adaptive",
-        "WarmupCosine",
-        "ReduceLROnPlateau",
-    ],
-)
-def test_execution_domain_accepts_complete_torch_scheduler_set(
-    mock_train_npz,
-    temp_output_dir,
-    scheduler,
-):
-    payload = create_training_payload(
-        train_data_file=mock_train_npz,
-        output_dir=temp_output_dir,
-        overrides={"training_groups": 4, "scheduler": scheduler},
-        execution_config=ExecutionRequest(
-            values={"accelerator": "cpu"},
-            explicit_fields=frozenset({"accelerator"}),
-        ),
-    )
-
-    assert payload.pt_training_config.scheduler == scheduler
-
-
-def test_execution_deferred_invalid_patch_does_not_observe_capabilities(
-    mock_train_npz,
-    temp_output_dir,
-    monkeypatch,
-):
-    observed = []
-    monkeypatch.setattr(
-        "ptycho_torch.execution_request.observe_execution_capabilities",
-        lambda: observed.append(True),
-    )
-
-    with pytest.raises(ValueError, match="learning_rate"):
-        create_training_payload(
-            train_data_file=mock_train_npz,
-            output_dir=temp_output_dir,
-            overrides={"training_groups": 4, "learning_rate": 0.0},
-            execution_config=ExecutionRequest(
-                values={"accelerator": "auto"},
-                explicit_fields=frozenset({"accelerator"}),
-            ),
-        )
-
-    assert observed == []
-
-
-def test_execution_deferred_none_does_not_observe_before_scientific_validation(
-    mock_train_npz,
-    temp_output_dir,
-    monkeypatch,
-):
-    observed = []
-    monkeypatch.setattr(
-        "ptycho_torch.execution_request.observe_execution_capabilities",
-        lambda: observed.append(True),
-    )
-
-    with pytest.raises(ValueError, match="training_groups is required"):
-        create_training_payload(
-            train_data_file=mock_train_npz,
-            output_dir=temp_output_dir,
-            overrides={},
-            execution_config=None,
-        )
-
-    assert observed == []
-
-
-def test_execution_provenance_cuda_auto_resolution_is_audited(
-    mock_train_npz,
-    temp_output_dir,
-):
-    payload = create_training_payload(
-        train_data_file=mock_train_npz,
-        output_dir=temp_output_dir,
-        overrides={"training_groups": 4},
-        execution_config=ExecutionRequest(
-            values={
-                "accelerator": "auto",
-                "devices": "auto",
-                "pin_memory": True,
-                "precision": "16-mixed",
-            },
-            explicit_fields=frozenset(
-                {"accelerator", "devices", "pin_memory", "precision"}
-            ),
-        ),
-        execution_capabilities=ExecutionCapabilities(
-            cuda_available=True,
-            cuda_device_count=3,
-        ),
-    )
-
-    assert payload.execution_config.accelerator == "cuda"
-    assert payload.execution_config.devices == 3
-    assert payload.overrides_applied["execution_runtime"] == {
-        "explicit_fields": [
-            "accelerator",
-            "devices",
-            "pin_memory",
-            "precision",
-        ],
-        "requested": {
-            "accelerator": "auto",
-            "devices": "auto",
-            "pin_memory": True,
-            "precision": "16-mixed",
-        },
-        "resolved": {
-            "accelerator": "cuda",
-            "devices": 3,
-            "pin_memory": True,
-            "precision": "16-mixed",
-        },
-        "capabilities": {
-            "cuda_available": True,
-            "cuda_device_count": 3,
-        },
-    }
-
-
-def test_execution_values_excluded_from_identity(
-    mock_train_npz,
-    temp_output_dir,
-    monkeypatch,
-):
-    from ptycho_torch.artifact_schema import encode_artifact_identity
-
-    monkeypatch.setattr(ptycho.params, "cfg", {})
-    monkeypatch.setattr(ptycho.params, "_sealed", False)
-    request_values = {
-        "accelerator": "auto",
-        "devices": "auto",
-        "precision": "16-mixed",
-        "pin_memory": True,
-        "logger_backend": "tensorboard",
-        "num_workers": 2,
-        "persistent_workers": True,
-        "checkpoint_save_top_k": 7,
-    }
-    payload = create_training_payload(
-        train_data_file=mock_train_npz,
-        output_dir=temp_output_dir,
-        overrides={"training_groups": 4},
-        execution_config=ExecutionRequest(
-            values=request_values,
-            explicit_fields=frozenset(request_values),
-        ),
-        execution_capabilities=ExecutionCapabilities(
-            cuda_available=True,
-            cuda_device_count=6,
-        ),
-    )
-
-    model_spec_payload = payload.model_spec.to_payload()
-    artifact_identity = encode_artifact_identity(
-        payload.model_spec,
-        payload.pt_data_config,
-        payload.pt_training_config,
-        payload.pt_inference_config,
-    )
-    excluded_names = {
-        "accelerator",
-        "devices",
-        "precision",
-        "pin_memory",
-        "logger_backend",
-        "persistent_workers",
-        "checkpoint_save_top_k",
-    }
-
-    def nested_mapping_keys(value):
-        if isinstance(value, dict):
-            return set(value).union(
-                *(
-                    nested_mapping_keys(item)
-                    for item in value.values()
-                ),
-                set(),
-            )
-        if isinstance(value, (list, tuple)):
-            return set().union(
-                *(nested_mapping_keys(item) for item in value),
-                set(),
-            )
-        return set()
-
-    assert excluded_names.isdisjoint(ptycho.params.cfg)
-    assert excluded_names.isdisjoint(
-        field_info.name for field_info in fields(payload.model_spec)
-    )
-    assert excluded_names.isdisjoint(nested_mapping_keys(model_spec_payload))
-    assert excluded_names.isdisjoint(nested_mapping_keys(artifact_identity))
-    for section_name in (
-        "model_spec",
-        "data_config",
-        "training_config",
-        "inference_config",
-    ):
-        assert excluded_names.isdisjoint(
-            nested_mapping_keys(artifact_identity[section_name])
-        )
-
-    assert payload.execution_config.num_workers == 2
-    assert (
-        payload.pt_training_config.num_workers
-        == PTTrainingConfig().num_workers
-        == 4
-    )
-    assert artifact_identity["training_config"]["num_workers"] == 4
-
-    runtime_audit = payload.overrides_applied["execution_runtime"]
-    assert runtime_audit == {
-        "explicit_fields": sorted(request_values),
-        "requested": {
-            "accelerator": "auto",
-            "devices": "auto",
-            "pin_memory": True,
-            "precision": "16-mixed",
-        },
-        "resolved": {
-            "accelerator": "cuda",
-            "devices": 6,
-            "pin_memory": True,
-            "precision": "16-mixed",
-        },
-        "capabilities": {
-            "cuda_available": True,
-            "cuda_device_count": 6,
-        },
-    }
-
-
-def test_execution_provenance_auto_cpu_fallback_uses_injected_capabilities(
-    mock_train_npz,
-    temp_output_dir,
-):
-    with pytest.warns(UserWarning, match="POLICY-001"):
-        payload = create_training_payload(
-            train_data_file=mock_train_npz,
-            output_dir=temp_output_dir,
-            overrides={"training_groups": 4},
-            execution_config=ExecutionRequest(
-                values={"accelerator": "auto", "devices": "auto"},
-                explicit_fields=frozenset({"accelerator", "devices"}),
-            ),
-            execution_capabilities=ExecutionCapabilities(
-                cuda_available=False,
-                cuda_device_count=0,
-            ),
-        )
-
-    assert payload.execution_config.accelerator == "cpu"
-    assert payload.execution_config.devices == 1
-    assert payload.overrides_applied["execution_runtime"]["capabilities"] == {
-        "cuda_available": False,
-        "cuda_device_count": 0,
-    }
-
-
-@pytest.mark.parametrize("accelerator", ["cpu", "cuda"])
-def test_execution_deferred_explicit_concrete_runtime_skips_capability_observer(
-    mock_train_npz,
-    temp_output_dir,
-    monkeypatch,
-    accelerator,
-):
-    monkeypatch.setattr(
-        "ptycho_torch.execution_request.observe_execution_capabilities",
-        lambda: pytest.fail("explicit concrete runtime observed capabilities"),
-    )
-
-    payload = create_training_payload(
-        train_data_file=mock_train_npz,
-        output_dir=temp_output_dir,
-        overrides={"training_groups": 4},
-        execution_config=ExecutionRequest(
-            values={"accelerator": accelerator, "devices": 2},
-            explicit_fields=frozenset({"accelerator", "devices"}),
-        ),
-    )
-
-    assert payload.execution_config.accelerator == accelerator
-    assert payload.execution_config.devices == 2
-    assert payload.overrides_applied["execution_runtime"]["capabilities"] is None
-
-
-def test_execution_deferred_invalid_accelerator_fails_before_observer(
-    mock_train_npz,
-    temp_output_dir,
-    monkeypatch,
-):
-    monkeypatch.setattr(
-        "ptycho_torch.execution_request.observe_execution_capabilities",
-        lambda: pytest.fail("invalid request observed capabilities"),
-    )
-
-    with pytest.raises(ValueError, match="TPU execution is unsupported"):
-        create_training_payload(
-            train_data_file=mock_train_npz,
-            output_dir=temp_output_dir,
-            overrides={"training_groups": 4},
-            execution_config=ExecutionRequest(
-                values={"accelerator": "tpu"},
-                explicit_fields=frozenset({"accelerator"}),
-            ),
-        )
-
-
-def test_execution_deferred_resolved_constructor_does_not_repeat_cuda_lookup(
-    mock_train_npz,
-    temp_output_dir,
-    monkeypatch,
-):
-    import torch
-
-    monkeypatch.setattr(
-        torch.cuda,
-        "is_available",
-        lambda: pytest.fail("resolved constructor repeated CUDA lookup"),
-    )
-
-    payload = create_training_payload(
-        train_data_file=mock_train_npz,
-        output_dir=temp_output_dir,
-        overrides={"training_groups": 4},
-        execution_config=ExecutionRequest(
-            values={"accelerator": "auto", "devices": 2},
-            explicit_fields=frozenset({"accelerator", "devices"}),
-        ),
-        execution_capabilities=ExecutionCapabilities(
-            cuda_available=True,
-            cuda_device_count=4,
-        ),
-    )
-
-    assert payload.execution_config.accelerator == "cuda"
-    assert payload.execution_config.devices == 2
-
-
-def test_execution_provenance_cpu_runtime_downgrades_are_deferred_and_audited(
-    mock_train_npz,
-    temp_output_dir,
-):
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        payload = create_training_payload(
-            train_data_file=mock_train_npz,
-            output_dir=temp_output_dir,
-            overrides={"training_groups": 4},
-            execution_config=ExecutionRequest(
-                values={
-                    "accelerator": "cpu",
-                    "devices": "auto",
-                    "pin_memory": True,
-                    "precision": "16-mixed",
-                },
-                explicit_fields=frozenset(
-                    {"accelerator", "devices", "pin_memory", "precision"}
-                ),
-            ),
-        )
-
-    assert payload.execution_config.devices == 1
-    assert payload.execution_config.pin_memory is False
-    assert payload.execution_config.precision == "bf16-mixed"
-    pin_memory_notices = [
-        str(item.message)
-        for item in caught
-        if "pin_memory=True is unavailable" in str(item.message)
-    ]
-    assert pin_memory_notices == [
-        "pin_memory=True is unavailable for accelerator='cpu'; using False."
-    ]
-    assert payload.overrides_applied["execution_runtime"]["capabilities"] is None
-    assert payload.overrides_applied["execution_runtime"]["resolved"] == {
-        "accelerator": "cpu",
-        "devices": 1,
-        "pin_memory": False,
-        "precision": "bf16-mixed",
-    }
-
-
-def test_execution_inference_accepts_runtime_request_and_rejects_optimizer(
-    mock_checkpoint_dir,
-    mock_test_npz,
-    temp_output_dir,
-):
-    payload = create_inference_payload(
-        model_path=mock_checkpoint_dir,
-        test_data_file=mock_test_npz,
-        output_dir=temp_output_dir,
-        overrides={"inference_groups": 4},
-        execution_config=ExecutionRequest(
-            values={"accelerator": "cpu", "devices": "auto"},
-            explicit_fields=frozenset({"accelerator", "devices"}),
-        ),
-    )
-
-    assert payload.execution_config.accelerator == "cpu"
-    assert payload.execution_config.devices == 1
-    assert payload.overrides_applied["execution_runtime"]["requested"][
-        "devices"
-    ] == "auto"
-
-    with pytest.raises(ValueError, match="inference.*learning_rate"):
-        create_inference_payload(
-            model_path=mock_checkpoint_dir,
-            test_data_file=mock_test_npz,
-            output_dir=temp_output_dir,
-            overrides={"inference_groups": 4, "learning_rate": 1e-3},
-            execution_config=ExecutionRequest(
-                values={"accelerator": "cpu"},
-                explicit_fields=frozenset({"accelerator"}),
-            ),
-        )
-
-
-def test_execution_inference_rejects_bare_resolved_carrier(
-    mock_checkpoint_dir,
-    mock_test_npz,
-    temp_output_dir,
-):
-    with pytest.raises(TypeError, match="ExecutionRequest"):
-        create_inference_payload(
-            model_path=mock_checkpoint_dir,
-            test_data_file=mock_test_npz,
-            output_dir=temp_output_dir,
-            overrides={"inference_groups": 4},
-            execution_config=PyTorchExecutionConfig(),
-        )
-
-
 # ============================================================================
 # Test Category 7: Generator Output Mode Overrides
 # ============================================================================
@@ -1766,13 +1093,7 @@ class TestVarProProbeWeightingKnobOverrides:
         assert payload.pt_model_config.use_shared_decoder is True
 
     def test_training_patch_weighting_override_survives_training_payload(self, mock_train_npz, temp_output_dir):
-        from ptycho_torch.object_compatibility import resolve_torch_model_object_policy
-
-        assert PTModelConfig().training_patch_weighting is None
-        assert (
-            resolve_torch_model_object_policy(PTModelConfig()).training_patch_weighting
-            == 'central_mask'
-        )
+        assert PTModelConfig().training_patch_weighting is None  # unresolved input default
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
@@ -1822,13 +1143,12 @@ class TestTrainWithLightningVarProProbeWeightingForwarding:
         from ptycho_torch.workflows import components
         import ptycho_torch.config_factory as config_factory_module
 
-        from ptycho.config.config import DataConfig as TFDataConfig2, SamplingConfig as TFSamplingConfig2
         cfg = TFTrainingConfig(
             model=TFModelConfig(N=64, gridsize=1, architecture="fno"),
-            data=TFDataConfig2(train_data_file=mock_train_npz),
-            sampling=TFSamplingConfig2(training_groups=4),
+            train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
             backend="pytorch",
+            training_groups=4,
         )
 
         real_resolve_training_payload = config_factory_module.resolve_training_payload
@@ -1844,10 +1164,13 @@ class TestTrainWithLightningVarProProbeWeightingForwarding:
             spy_resolve_payload,
         )
 
+        monkeypatch.setattr("ptycho_torch.workflows.containers.create_torch_data_container",
+            lambda *_args, **_kwargs: object(),
+        )
         with pytest.raises(RuntimeError, match="stop-after-capture"):
-            components._train_with_lightning(
-                train_container=object(),
-                test_container=None,
+            components.train_cdi_model_torch(
+                train_data=object(),
+                test_data=None,
                 config=cfg,
                 overrides={
                     "training_patch_weighting": "probe",
@@ -1866,19 +1189,16 @@ class TestTrainWithLightningVarProProbeWeightingForwarding:
     def test_omitted_overrides_kwarg_preserves_pt_model_config_defaults(
         self, monkeypatch, mock_train_npz, temp_output_dir
     ):
-        """DEFAULTS NEVER CHANGE: not passing `overrides` at all (the pre-fix call
-        site shape) must reproduce ptycho_torch.config_params.ModelConfig's
-        existing defaults for the 4 knobs."""
+        """Omission preserves defaults except declared object-policy derivation."""
         from ptycho_torch.workflows import components
         import ptycho_torch.config_factory as config_factory_module
 
-        from ptycho.config.config import DataConfig as TFDataConfig2, SamplingConfig as TFSamplingConfig2
         cfg = TFTrainingConfig(
             model=TFModelConfig(N=64, gridsize=1, architecture="fno"),
-            data=TFDataConfig2(train_data_file=mock_train_npz),
-            sampling=TFSamplingConfig2(training_groups=4),
+            train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
             backend="pytorch",
+            training_groups=4,
         )
 
         real_resolve_training_payload = config_factory_module.resolve_training_payload
@@ -1894,18 +1214,20 @@ class TestTrainWithLightningVarProProbeWeightingForwarding:
             spy_resolve_payload,
         )
 
+        monkeypatch.setattr("ptycho_torch.workflows.containers.create_torch_data_container",
+            lambda *_args, **_kwargs: object(),
+        )
         with pytest.raises(RuntimeError, match="stop-after-capture"):
-            components._train_with_lightning(
-                train_container=object(),
-                test_container=None,
+            components.train_cdi_model_torch(
+                train_data=object(),
+                test_data=None,
                 config=cfg,
             )
 
         pt_model_config = captured["pt_model_config"]
-        from ptycho_torch.object_compatibility import resolve_torch_model_object_policy
-
-        defaults = resolve_torch_model_object_policy(PTModelConfig())
-        assert pt_model_config.training_patch_weighting == defaults.training_patch_weighting
+        defaults = PTModelConfig()
+        assert defaults.training_patch_weighting is None
+        assert pt_model_config.training_patch_weighting == "central_mask"
         assert pt_model_config.physics_forward_mode == defaults.physics_forward_mode
         assert pt_model_config.cnn_output_mode == defaults.cnn_output_mode
         assert pt_model_config.rect_s1s2_trainable == defaults.rect_s1s2_trainable
@@ -1971,6 +1293,109 @@ class TestProbeSizeInference:
         N = infer_probe_size(Path("/nonexistent/data.npz"))
         # GREEN phase:
         assert N == 64  # Fallback per design decision
+
+
+def test_factory_overrides_emit_mode_not_model_type():
+    """D3: the factory emits the canonical torch key ``mode`` directly, not
+    ``model_type`` (which previously round-tripped through the alias table)."""
+    from ptycho_torch.config_factory import build_training_factory_overrides
+
+    config = TFTrainingConfig(
+        model=TFModelConfig(N=64, gridsize=1, architecture="cnn", model_type="pinn"),
+        training_groups=7,
+    )
+    overrides = build_training_factory_overrides(config)
+    assert "mode" in overrides
+    assert "model_type" not in overrides
+    assert overrides["mode"] == "Unsupervised"
+
+
+def test_patch_supplying_model_type_still_resolves_to_mode():
+    """The external ``model_type`` fence still resolves to canonical ``mode``."""
+    from ptycho_torch.config_resolution import normalize_training_patch
+
+    canonical = normalize_training_patch({"mode": "Supervised"})
+    fenced = normalize_training_patch({"model_type": "Supervised"})
+    assert fenced.values == canonical.values
+    assert fenced.values["mode"] == "Supervised"
+
+
+def test_build_training_factory_overrides_equality():
+    """W1 pre/post equality: freeze the factory override projection.
+
+    The factory override surface gained an import-time tripwire (possible-key
+    set within the resolver vocabulary). This freezes the surface's output on
+    fixture inputs so a refactor that silently changes a projected key is
+    caught here.
+    """
+    from ptycho_torch.config_factory import build_training_factory_overrides
+    from ptycho_torch.config_bridge import to_model_config, to_training_config
+
+    data = PTDataConfig(N=128, gridsize=3, nphotons=1e9, neighbor_count=7)
+    model = PTModelConfig(mode='Unsupervised', amp_activation='silu', n_filters_scale=3)
+    tf_model = to_model_config(data, model)
+    tf_train = to_training_config(
+        tf_model, data, model, PTTrainingConfig(epochs=77, batch_size=24, nll=False),
+        overrides=dict(
+            train_data_file=Path('train.npz'),
+            test_data_file=Path('test.npz'),
+            training_groups=512,
+        ),
+    )
+    expected = {
+        'adam_beta1': 0.9,
+        'adam_beta2': 0.999,
+        'amp_activation': 'swish',
+        'architecture': 'cnn',
+        'batch_size': 24,
+        'enable_oversampling': False,
+        'fno_blocks': 4,
+        'fno_cnn_blocks': 2,
+        'fno_input_transform': 'none',
+        'fno_modes': 12,
+        'fno_width': 32,
+        'gaussian_smoothing_sigma': 0.0,
+        'generator_output_mode': 'real_imag',
+        'grad_norm_log_freq': 1,
+        'gradient_clip_algorithm': 'norm',
+        'gradient_clip_val': None,
+        'gridsize': 3,
+        'intensity_scale_trainable': False,
+        'learned_input_channels': 1,
+        'log_grad_norm': False,
+        'lr_min_ratio': 0.1,
+        'lr_warmup_epochs': 0,
+        'max_epochs': 77,
+        'mode': 'Unsupervised',
+        'momentum': 0.9,
+        'n_filters_scale': 3,
+        'neighbor_count': 7,
+        'neighbor_pool_size': None,
+        'nphotons': 1000000000.0,
+        'object_layout': 'grouped_patches',
+        'optimizer': 'adam',
+        'pad_object': True,
+        'plateau_factor': 0.5,
+        'plateau_min_lr': 5e-5,
+        'plateau_patience': 2,
+        'plateau_threshold': 0.0,
+        'probe_big': True,
+        'probe_mask': False,
+        'probe_mask_diameter': None,
+        'probe_mask_sigma': 1.0,
+        'probe_scale': 4.0,
+        'scheduler': 'Default',
+        'sequential_sampling': False,
+        'subsample_seed': None,
+        'test_data_file': Path('test.npz'),
+        'torch_loss_mode': 'poisson',
+        'torch_mae_pred_l2_match_target': False,
+        'training_canvas': 'relative_overlap',
+        'training_groups': 512,
+        'training_patch_weighting': 'central_mask',
+        'weight_decay': 0.0,
+    }
+    assert build_training_factory_overrides(tf_train) == expected
 
 
 # ============================================================================

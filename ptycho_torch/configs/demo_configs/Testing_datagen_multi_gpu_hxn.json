@@ -2,8 +2,8 @@
   "data_config": {
     "N": 64,
     "normalize": "Batch",
-    "n_subsample": 1,
-    "C": 4,
+    "n_raw_frames_selected": 1,
+    "gridsize": 2,
     "neighbor_function": "4_quadrant",
     "probe_normalize": true,
     "probe_scale": 1.0,

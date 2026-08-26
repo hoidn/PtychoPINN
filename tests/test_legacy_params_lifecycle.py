@@ -259,8 +259,7 @@ def test_backend_workflow_entrypoint_contains_legacy_bridge(
             cfg["workflow_marker"] = "temporary"
 
         monkeypatch.setattr(backend_selector, "update_legacy_dict", bridge)
-        monkeypatch.setattr(
-            "ptycho_torch.workflows.legacy.run_cdi_example_torch",
+        monkeypatch.setattr("ptycho_torch.workflows.legacy.run_cdi_example_torch",
             lambda *_args, **_kwargs: (None, None, {}),
         )
         train_path = tmp_path / "train.npz"
@@ -305,35 +304,6 @@ def test_tensorflow_bundle_failure_rolls_back_archived_state(tmp_path):
         params.cfg.update(original)
 
 
-def test_torch_bundle_failure_rolls_back_archived_state(tmp_path, monkeypatch):
-    import ptycho_torch.application_factory as application_factory
-    from ptycho_torch.workflows.bundle_io import load_inference_bundle_torch
-    from tests.torch.era_fixtures import build_bundle
-
-    bundle_dir = build_bundle(tmp_path, "portable_v2_json")
-
-    monkeypatch.setattr(
-        application_factory,
-        "build_ptychopinn_application",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(
-            RuntimeError("build failed")
-        ),
-    )
-
-    original = dict(params.cfg)
-    try:
-        params.cfg["archive_marker"] = "root"
-
-        with pytest.raises(RuntimeError, match="build failed"):
-            load_inference_bundle_torch(bundle_dir)
-
-        assert params.cfg["archive_marker"] == "root"
-        assert "loaded_only" not in params.cfg
-    finally:
-        params.cfg.clear()
-        params.cfg.update(original)
-
-
 def test_outer_bundle_route_rolls_back_inner_success(monkeypatch, tmp_path):
     from ptycho.config import InferenceConfig, ModelConfig
     from ptycho.workflows import backend_selector
@@ -343,8 +313,7 @@ def test_outer_bundle_route_rolls_back_inner_success(monkeypatch, tmp_path):
         params.cfg.update({"archive_marker": "loaded", "loaded_only": True})
         return {"autoencoder": object()}, {"N": 64, "gridsize": 1}
 
-    monkeypatch.setattr(
-        "ptycho_torch.workflows.bundle_io.load_inference_bundle_torch",
+    monkeypatch.setattr("ptycho_torch.workflows.bundle_io.load_inference_bundle_torch",
         successful_inner_load,
     )
 

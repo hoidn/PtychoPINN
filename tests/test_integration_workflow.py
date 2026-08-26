@@ -5,7 +5,6 @@ import pytest
 import subprocess
 import sys
 import tempfile
-import json
 from pathlib import Path
 import os
 import numpy as np
@@ -55,28 +54,17 @@ class TestFullWorkflow(unittest.TestCase):
         # --- 1. Define Paths ---
         training_output_dir = self.output_path / "training_outputs"
         inference_output_dir = self.output_path / "lcls_output"
-        training_config = self.output_path / "training.json"
-        training_config.write_text(
-            json.dumps(
-                {
-                    "model": {"N": 64, "gridsize": 1},
-                    "data": {
-                        "train_data_file": str(self.data_file),
-                        "test_data_file": str(self.data_file),
-                    },
-                    "sampling": {"training_groups": 64},
-                    "output_dir": str(training_output_dir),
-                    "nepochs": 2,
-                }
-            ),
-            encoding="utf-8",
-        )
         
         # --- 2. Training Step ---
         print("--- Running Training Step (subprocess) ---")
         train_command = [
             sys.executable, str(project_root / "scripts" / "training" / "train.py"),
-            "--config", str(training_config),
+            "--train_data_file", str(self.data_file),
+            "--test_data_file", str(self.data_file),
+            "--output_dir", str(training_output_dir),
+            "--nepochs", "2",
+            "--n_images", "64",
+            "--gridsize", "1", # Explicitly set for clarity
             "--quiet"
         ]
         

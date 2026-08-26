@@ -397,7 +397,7 @@ class TestStitchedLogging:
             },
         )
         dataset = FakeDataset(n=4)
-        dataset.data_config = SimpleNamespace(N=64, gridsize=2)
+        dataset.data_config = SimpleNamespace(N=64, grid_size=(2, 2))
         dataset.model_config = SimpleNamespace(offset=6)
         val_dl = FakeValDataloader(dataset)
 

@@ -170,6 +170,7 @@ def test_simulation_config_from_mapping_converts_nested_paths_and_round_trips():
             "objects_per_probe": 6,
             "diffractions_per_object": 128,
             "set_phi": True,
+            "patch_amplitude_normalization": "none",
         },
         "scan": {
             "kind": "grid",
@@ -180,6 +181,7 @@ def test_simulation_config_from_mapping_converts_nested_paths_and_round_trips():
             "train_groups": 3,
             "test_groups": 2,
             "buffer": 0,
+            "position_layout": "uniform_random",
         },
         "detector": {
             "photons_per_pattern": 1e8,
@@ -599,6 +601,7 @@ def test_direct_construction_and_replace_remain_non_validating():
                 "transform_pipeline",
                 "mask_diameter",
                 "ideal_scale",
+                "simulation_normalization_scale",
             ),
         ),
         (
@@ -609,6 +612,8 @@ def test_direct_construction_and_replace_remain_non_validating():
                 "objects_per_probe",
                 "diffractions_per_object",
                 "set_phi",
+                "patch_amplitude_normalization",
+                "source_path",
             ),
         ),
         (
@@ -622,6 +627,7 @@ def test_direct_construction_and_replace_remain_non_validating():
                 "train_groups",
                 "test_groups",
                 "buffer",
+                "position_layout",
             ),
         ),
         (
@@ -694,6 +700,7 @@ def test_simulation_records_retain_positional_frozen_value_semantics():
             "transform_pipeline": "pad_preserve:128",
             "mask_diameter": 4,
             "ideal_scale": 0.9,
+            "simulation_normalization_scale": None,
         },
         "object": {
             "kind": "dead_leaves",
@@ -701,6 +708,8 @@ def test_simulation_records_retain_positional_frozen_value_semantics():
             "objects_per_probe": 5,
             "diffractions_per_object": 64,
             "set_phi": True,
+            "patch_amplitude_normalization": "none",
+            "source_path": None,
         },
         "scan": {
             "kind": "grid",
@@ -711,6 +720,7 @@ def test_simulation_records_retain_positional_frozen_value_semantics():
             "train_groups": 9,
             "test_groups": 3,
             "buffer": 1,
+            "position_layout": "uniform_random",
         },
         "detector": {
             "photons_per_pattern": 1e8,
@@ -746,6 +756,7 @@ def test_default_simulation_canonical_dictionary_and_digest_are_exact():
             "objects_per_probe": 4,
             "diffractions_per_object": 7000,
             "set_phi": False,
+            "patch_amplitude_normalization": "none",
         },
         "scan": {
             "kind": "grid",
@@ -756,6 +767,7 @@ def test_default_simulation_canonical_dictionary_and_digest_are_exact():
             "train_groups": 2,
             "test_groups": 2,
             "buffer": 0,
+            "position_layout": "uniform_random",
         },
         "detector": {
             "photons_per_pattern": 1_000_000_000.0,
@@ -858,3 +870,79 @@ def test_simulation_config_legacy_bridge_maps_only_generation_owned_fields():
         "optimizer": "leave-me-alone",
         **expected_projection,
     }
+
+
+# --- Raster scan position layout --------------------------------------------
+
+
+def test_scan_position_layout_defaults_to_uniform_random_and_accepts_rasters():
+    api = _api()
+
+    assert api.SimulationConfig().scan.position_layout == "uniform_random"
+    raster = api.simulation_config_from_mapping(
+        {"scan": {"position_layout": "raster"}}
+    )
+    assert raster.scan.position_layout == "raster"
+    fixed = api.simulation_config_from_mapping(
+        {"scan": {"position_layout": "fixed_pitch_raster"}}
+    )
+    assert fixed.scan.position_layout == "fixed_pitch_raster"
+
+
+def test_scan_position_layout_rejects_unknown_values():
+    api = _api()
+
+    with pytest.raises(ValueError, match="position_layout"):
+        api.simulation_config_from_mapping({"scan": {"position_layout": "spiral"}})
+
+
+def test_canonical_dictionary_records_position_layout_explicitly():
+    """On-disk completeness: the canonical recipe is not default-elided."""
+
+    api = _api()
+
+    assert api.simulation_config_to_dict(api.SimulationConfig())["scan"][
+        "position_layout"
+    ] == "uniform_random"
+    assert api.simulation_config_to_dict(
+        api.simulation_config_from_mapping({"scan": {"position_layout": "raster"}})
+    )["scan"]["position_layout"] == "raster"
+
+
+def test_default_position_layout_is_elided_from_the_recipe_digest():
+    """Adding the field must not move any existing dataset identity."""
+
+    api = _api()
+
+    # Historical digest of the default recipe, pinned before the field existed.
+    assert api.simulation_config_sha256(api.SimulationConfig()) == (
+        "f149d2d29e2e105643f9ee44087e3e0a562b9621be24f210301194302348772d"
+    )
+
+
+def test_raster_layout_produces_a_distinct_recipe_digest():
+    """Two datasets with different positions must not share an identity."""
+
+    api = _api()
+    default = api.SimulationConfig()
+    raster = api.simulation_config_from_mapping({"scan": {"position_layout": "raster"}})
+
+    assert api.simulation_config_sha256(raster) != api.simulation_config_sha256(default)
+
+
+def test_patch_amplitude_normalization_is_explicit_and_identity_bearing():
+    api = _api()
+
+    default = api.SimulationConfig()
+    assert default.object.patch_amplitude_normalization == "none"
+    assert api.simulation_config_to_dict(default)["object"][
+        "patch_amplitude_normalization"
+    ] == "none"
+
+    normalized = api.simulation_config_from_mapping(
+        {"object": {"patch_amplitude_normalization": "mean_patch_max"}}
+    )
+    assert normalized.object.patch_amplitude_normalization == "mean_patch_max"
+    assert api.simulation_config_sha256(normalized) != api.simulation_config_sha256(
+        default
+    )

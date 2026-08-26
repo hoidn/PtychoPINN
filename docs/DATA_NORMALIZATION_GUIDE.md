@@ -12,9 +12,9 @@ CI NPZs store measured detector count intensity and the acquisition probe under
 `probeGuess`. On ingestion, the CI runtime exposes the selected acquisition
 carrier as `probe_physical`. Inference uses that carrier directly, but its
 global scalar is not identifiable from diffraction alone: multiplying the
-probe by `c` and dividing the object by `c` leaves the predicted counts
-unchanged. The runtime name distinguishes it from the normalized training
-view; it does not establish physical calibration or absolute object units.
+probe by `c` and dividing the object by `c` leaves the counts unchanged. The
+runtime name distinguishes it from the normalized training view; it does not
+by itself prove physical calibration or absolute object units.
 
 A normalized training probe may improve conditioning, but its normalization is
 canceled exactly in the field:
@@ -33,36 +33,41 @@ mean_measured_intensity = mean_BCHW(measured_intensity)
 
 CI is enabled only for unsupervised `rectangular_scaled` training with Poisson NLL. MAE is rejected before loading. The Poisson data term is divided by `mean_measured_intensity`; auxiliary object/overlap regularizers are added afterward. Inference uses physical-probe VarPro with the training mask and no `physics_scaling_constant` or training output scale.
 
-### CI gauge initialization is not calibration
+### CI Gauge Initialization Is Not Calibration
 
 `ModelConfig.rect_s1s2_init` selects the pre-training rectangular gauge:
 
 | Mode | Behavior | Default |
 |---|---|---|
-| `ones` | Set `s1=s2=1.0` and consume no training data. | Bare Torch `ModelConfig` |
-| `dose_closure` | Under the coherent CI contract, solve `s1=s2=sqrt(sum(counts)/sum(predicted_intensity))` with a real unit-object forward over the fixed representative 256-slot sample. | Training-only `ci` and synthetic `cnn-lines-ci` profiles |
+| `ones` | Set `s1=s2=1.0` and consume no training data. | Bare Torch `ModelConfig` and non-CI public training profiles |
+| `dose_closure` | Under the coherent CI contract, solve `s1=s2=sqrt(sum(counts)/sum(predicted_intensity))` from the fixed representative 256-slot sample and real unit-object forward. | Training-only `ci` and synthetic `hybrid-resnet-lines-ci` profiles |
 
 An explicit `ones` overrides either CI profile. Historical `data` is retired,
-not translated. The solve closes the sampled aggregate detector dose at
-startup. It intentionally adopts a unit-object transmission convention, so an
-absorbing or greater-than-one object can move the result away from one. The
-value is an optimizer starting point and a diagnostic of probe/object
-decomposition, not a calibrated physical quantity.
+not translated. The [normative core contract](specs/spec-ptycho-core.md#ci-rectangular-gauge-initialization-normative)
+owns logical-slot mapping, the fixed seed and draw policy, nested-subset
+behavior, failure/no-fallback rules, and record compatibility.
 
-The following operations remain distinct:
+The solve intentionally adopts a unit-object transmission convention. An
+absorbing or greater-than-one object therefore moves the result away from one;
+that is expected and no exact-one tolerance applies. The value is a useful
+optimizer starting point and a diagnostic of probe/object decomposition, not a
+calibrated physical quantity.
 
-1. Probe normalization is canceled in the field and does not change the object
-   gauge.
-2. `rect_s1s2_init` chooses the shared startup value.
-3. Gradient training may move `s1` and `s2` independently.
-4. Inference VarPro is a post-training solve on inference data.
+Three scale operations remain distinct:
 
-Fresh training persists `rect-s1s2-initialization-v2` in
-`training_summary.json`. Dose closure records method
-`dose_closure_seeded_uniform_unit_object` and exactly 256 sampled logical
-slots. Strict historical v1 records remain readable. See
-[Dose-closure initialization](CONFIGURATION.md#dose-closure-initialization)
-for the pinned sample identity, failure behavior, and compatibility rules.
+1. `rect_s1s2_init` chooses the shared pre-fit `s1=s2` startup gauge.
+2. Gradient training may move `s1` and `s2` independently; their final values
+   are not the initialization record.
+3. `rect_s1s2_refit=dataset` and inference VarPro are post-training solves on
+   their own data and must not be read as the startup gauge.
+
+The shared Torch workflow used by `ptycho_synthetic`, `ptycho_train`, and
+`ptycho_study` arms writes `training_summary.json`. Fresh records use
+`rect-s1s2-initialization-v2`; a dose-closure record names
+`dose_closure_seeded_uniform_unit_object` and exactly 256 sampled slots, while
+`ones` records the unit no-solve result. Strict v1 parsing remains only for
+prefix-era artifacts. Under DDP, global rank zero publishes the file atomically
+and all ranks cross the live strategy barrier before training continues.
 
 ## The Three Types of Normalization
 
@@ -216,14 +221,15 @@ return RawData(..., X, ...)  # Return normalized data
 - Keeps reconstruction in normalized space
 
 ### PyTorch backend
-- New rectangular workflows default to CI count intensity and persist `rms_input_scale`, `mean_measured_intensity`, the profile pair, and physical-probe gauge metadata.
+- New rectangular workflows default to CI count intensity and persist `rms_input_scale`, `mean_measured_intensity`, the profile pair, and acquisition-probe gauge metadata.
 - Mmap and in-memory loaders preserve both `probe_physical` and `probe_training`; their named tensors use `(B,C,P,H,W)` and support finite incoherent mode sums.
 - CI statistics come only from finalized training indices, are accumulated in bounded chunks, and are reused unchanged for validation, checkpoints, bundles, and inference.
 - CI training is Poisson-only. Raw count NLL is logged; the optimized data term uses physical-mean normalization.
-- CI VarPro uses `probe_physical`, the training detector mask, and `scale=None`. Dose-consistent probe/count changes leave recovered object scale invariant.
-- `physics_scaling_constant` remains a legacy/amplitude compatibility input.
-  Coherent CI instead consumes finalized count intensity and persisted CI
-  statistics; neither establishes physical calibration.
+- CI VarPro uses `probe_physical`, the training detector mask, and `scale=None`. Dose-consistent probe/count decompositions leave recovered object scale invariant in the selected acquisition gauge.
+- `physics_scaling_constant` and `count_scale_mode=auto` remain explicit
+  legacy/amplitude compatibility inputs. Coherent CI instead consumes finalized
+  count intensity and persisted CI statistics; none of these values establishes
+  CI absolute units.
 
 ### loader.py
 - Handles diffraction amplitude normalization for legacy data loading
@@ -258,11 +264,31 @@ return RawData(..., X, ...)  # Return normalized data
 4. **Use configuration consistently**
    ```python
    # Always get nphotons from config
-   nphotons = config.data.nphotons  # Not hardcoded
+   nphotons = config.nphotons  # Not hardcoded
    ```
+
+## Validation Checklist
+
+When implementing or modifying normalization:
+
+- [ ] Is the normalization type clearly documented?
+- [ ] Is the profile pair explicit, or intentionally defaulted to CI for a new rectangular workflow?
+- [ ] For legacy/amplitude data, is intensity_scale calculated but not applied to internal data?
+- [ ] For CI, are measured values count intensity and is the stored acquisition probe used consistently, without assuming its scalar is identifiable from diffraction?
+- [ ] Are CI statistics derived only from finalized training indices and persisted for inference?
+- [ ] Is CI used only with Poisson NLL, never MAE?
+- [ ] Does CI inference use the raw physical probe without `physics_scaling_constant` or an output scale?
+- [ ] Do `ptycho_synthetic`, `ptycho_train`, and delegated `ptycho_study` arms persist a strict initialization record through the shared Torch workflow, and is it kept distinct from final learned s1/s2, refit, and VarPro values?
+- [ ] Is nphotons parameter passed correctly through the pipeline?
+- [ ] Does prepare.sh workflow still function correctly?
+- [ ] Are visualization scalings separate from training data?
+- [ ] Do unit tests verify normalization behavior?
 
 ## Related Documentation
 
-- [Configuration Guide](CONFIGURATION.md)
-- [PtychoPINN Data Contracts](data_contracts.md)
-- [PyTorch Workflow Guide](workflows/pytorch.md)
+- <doc-ref type="guide">CLAUDE.md</doc-ref> - Section 6.5 for quick reference
+- <doc-ref type="contract">docs/specs/spec-ptycho-core.md</doc-ref> - standalone-NPZ data format specifications
+- <doc-ref type="guide">docs/DEVELOPER_GUIDE.md</doc-ref> - Architectural overview
+- <code-ref type="module">ptycho/diffsim.py</code-ref> - Physics simulation implementation
+- <code-ref type="module">ptycho/raw_data.py</code-ref> - Data loading implementation
+- <doc-ref type="finding">docs/findings.md</doc-ref> - POISSON-NORM-001 (count-scale diffraction collapses amplitude-path Poisson training), POISSON-SCALE-001 (grid-lines dict-container path physics-scale opt-in fix)

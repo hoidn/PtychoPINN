@@ -5,13 +5,13 @@
   "debug": true,
   "gaussian_smoothing_sigma": 0.5,
   "gridsize": 3,
+  "inference_groups": 512,
+  "inference_raw_selection": 1024,
   "intensity_scale.trainable": true,
   "mae_weight": 0.3,
   "model_path": "/canonical/baseline/model_directory",
   "model_type": "pinn",
   "n_filters_scale": 2,
-  "inference_groups": 512,
-  "inference_raw_selection": 1024,
   "neighbor_count": 6,
   "nepochs": 100,
   "nll_weight": 0.7,
@@ -29,5 +29,7 @@
   "sequential_sampling": true,
   "subsample_seed": 99,
   "test_data_file_path": "/canonical/baseline/inference_data.npz",
-  "train_data_file_path": "/canonical/baseline/train_data.npz"
+  "train_data_file_path": "/canonical/baseline/train_data.npz",
+  "train_raw_selection": 2048,
+  "training_groups": 1024
 }

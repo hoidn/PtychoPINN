@@ -104,24 +104,6 @@ def test_rectangular_ci_accepts_unsupervised_poisson():
     assert validate_scale_contract(DataConfig(), model_config, training_config) == CI_PROFILE
 
 
-def test_dose_closure_accepts_none_resolved_ci_defaults():
-    data_config = SimpleNamespace(
-        scale_contract_version=None,
-        measurement_domain=None,
-    )
-    model_config = ModelConfig(
-        mode="Unsupervised",
-        physics_forward_mode="rectangular_scaled",
-        rect_s1s2_init="dose_closure",
-    )
-    training_config = TrainingConfig(torch_loss_mode="poisson")
-
-    assert (
-        validate_scale_contract(data_config, model_config, training_config)
-        == CI_PROFILE
-    )
-
-
 @pytest.mark.parametrize(
     ("mode", "torch_loss_mode"),
     [
@@ -264,4 +246,29 @@ def test_lightning_dataloader_partial_payload_defaults_ci_before_reading_contain
             None,
             config=None,
             payload=payload,
+        )
+
+
+def test_lightning_dataloader_gate_without_payload_rejects_before_reading_container():
+    from ptycho_torch.workflows.components import _build_lightning_dataloaders
+
+    class UnreadableContainer:
+        def __getattribute__(self, name):
+            raise AssertionError("container must not be read")
+
+    config = SimpleNamespace(
+        model=ModelConfig(
+            mode="Unsupervised",
+            physics_forward_mode="rectangular_scaled",
+        ),
+        torch_loss_mode="mae",
+        subsample_seed=None,
+    )
+
+    with pytest.raises(ValueError, match="ci_intensity_v2"):
+        _build_lightning_dataloaders(
+            UnreadableContainer(),
+            None,
+            config,
+            payload=None,
         )

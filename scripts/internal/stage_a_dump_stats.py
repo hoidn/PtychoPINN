@@ -2,11 +2,11 @@
 
 Prints amplitude/phase mean/std from metrics.json, best val_loss from
 history.json, and checks whether StablePtychoBlock.norm.weight stayed
-near zero (for runs with a saved model.pt).
+near zero (for stable_hybrid runs with a saved model.pt).
 
 Usage:
     python scripts/internal/stage_a_dump_stats.py \
-        --run-dir outputs/grid_lines_stage_a/arm_stable/runs/pinn_stable \
+        --run-dir outputs/grid_lines_stage_a/arm_stable/runs/pinn_stable_hybrid \
         --out-json plans/active/.../stage_a_arm_stable_stats.json
 """
 
@@ -60,7 +60,7 @@ def compute_stats(run_dir: pathlib.Path) -> dict:
         stats["amp_psnr"] = float(psnr[0]) if psnr[0] is not None else None
         stats["phase_psnr"] = float(psnr[1]) if psnr[1] is not None else None
 
-    # Model: check norm.weight stats
+    # Model: check norm.weight for stable_hybrid
     model_path = run_dir / "model.pt"
     if model_path.exists():
         try:

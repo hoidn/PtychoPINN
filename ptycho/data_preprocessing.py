@@ -157,7 +157,7 @@ def stitch_data(b, norm_Y_I_test=1, norm=True, part='amp', outer_offset=None, ni
     
     # channel size must be 1, or not present
     if b.shape[-1] != 1:
-        assert b.shape[-1] == params.get(['N'])
+        assert b.shape[-1] == params.get('N')
     if nimgs is None:
         nimgs = params.get('nimgs_test')
     if outer_offset is None:

@@ -33,10 +33,16 @@ from pydantic import (
 )
 
 from ptycho.config.config import (
+    DEFAULT_SCAN_POSITION_LAYOUT,
     SimulationConfig,
     simulation_config_from_mapping,
     simulation_config_to_dict,
     validate_simulation_config,
+    PROBE_SCALE_DEFAULT,
+)
+from ptycho.simulation.object_producers import (
+    object_recipe_for_kind,
+    validate_object_recipe,
 )
 from ptycho.config.strict_types import (
     _require_exact_int,
@@ -51,9 +57,7 @@ from ptycho.config.strict_types import (
     _StrictPositiveInt,
 )
 from ptycho_torch.config_params import DataConfig, ModelConfig as TorchModelConfig
-from ptycho_torch.scaling_contract import (
-    validate_rect_s1s2_initialization_contract,
-)
+from ptycho_torch.data_adapter import DataAdapterName, resolve_data_adapter
 
 
 __all__ = [
@@ -68,15 +72,16 @@ __all__ = [
     "resolve_synthetic_workflow",
     "materialize_data_config",
     "synthetic_workflow_to_dict",
+    "synthetic_workflow_digest_input",
     "synthetic_workflow_sha256",
 ]
 
 
-_PROFILE_NAME = "synthetic-lines"
-_CI_PROFILE_NAME = "cnn-lines-ci"
-_RECIPE_VERSION = "synthetic-lines-v1"
-_CI_RECIPE_VERSION = "cnn-lines-ci-v1"
-_SCHEMA_VERSION = "synthetic-workflow-v1"
+_PROFILE_NAME = "hybrid-resnet-lines"
+_CI_PROFILE_NAME = "hybrid-resnet-lines-ci"
+_RECIPE_VERSION = "hybrid-resnet-lines-v2"
+_CI_RECIPE_VERSION = "hybrid-resnet-lines-ci-v2"
+_SCHEMA_VERSION = "synthetic-workflow-v2"
 
 
 class _UnsetType:
@@ -113,6 +118,14 @@ _PhysicsForwardMode = Annotated[
     Literal["amplitude", "rectangular_scaled"],
     BeforeValidator(_require_exact_str),
 ]
+_BatchOrderRecipe = Annotated[
+    Literal["torch-generator-v1", "torch-implicit-july2026-v1"],
+    BeforeValidator(_require_exact_str),
+]
+_FrameOrderRecipe = Annotated[
+    Literal["object-major-v1", "coordinate-major-interleaved-v1"],
+    BeforeValidator(_require_exact_str),
+]
 _SupportedN = Annotated[
     Literal[64, 128, 256],
     BeforeValidator(_require_exact_int),
@@ -130,6 +143,7 @@ class SyntheticSimulationConfig:
     measurement_domain: _MeasurementDomain = "normalized_amplitude"
     object_recipe: _StrictText = "lines-object-v1"
     shared_object: _StrictBool = True
+    frame_order_recipe: _FrameOrderRecipe = "object-major-v1"
 
 
 _GainProvenance = Annotated[
@@ -209,6 +223,12 @@ class SyntheticTrainingConfig:
     enable_oversampling: _StrictBool = False
     sequential_sampling: _StrictBool = False
     subsample_seed: _StrictNonNegativeInt | None = None
+    torch_training_seed: _StrictNonNegativeInt | None = None
+    batch_order_recipe: _BatchOrderRecipe = "torch-generator-v1"
+    data_adapter: Annotated[
+        DataAdapterName,
+        BeforeValidator(_require_exact_str),
+    ] = "dictionary_parity"
     epochs: _StrictPositiveInt = 50
     batch_size: _StrictPositiveInt = 16
     framework: Annotated[
@@ -269,7 +289,10 @@ class SyntheticTrainingConfig:
 @with_config(_CONFIG)
 @dataclass(frozen=True)
 class SyntheticInferenceConfig:
-    """Reconstruction-only policy; never overwrites persisted DataConfig."""
+    """Assembly, object-gauge, and metric-crop policy for strict reconstruction.
+
+    These runtime choices never overwrite the persisted training DataConfig.
+    """
 
     middle_trim: _StrictNonNegativeInt = 32
     batch_size: _StrictPositiveInt = 16
@@ -277,7 +300,7 @@ class SyntheticInferenceConfig:
     pad_eval: _StrictBool = True
     window: _StrictNonNegativeInt = 20
     reconstruction_method: Annotated[
-        Literal["barycentric"],
+        Literal["barycentric", "tiled"],
         BeforeValidator(_require_exact_str),
     ] = "barycentric"
     patch_weighting: Annotated[
@@ -286,6 +309,7 @@ class SyntheticInferenceConfig:
     ] = "probe"
     groups_per_center: _StrictPositiveInt = 1
     varpro_scaling: _StrictBool = True
+    metric_crop_border: _StrictNonNegativeInt = 0
     log_patch_stats: _StrictBool = False
     patch_stats_limit: _StrictPositiveInt | None = None
 
@@ -394,6 +418,11 @@ _MODEL_VALIDATION_TYPES.update(
         "learned_input_channels": _StrictPositiveInt,
         "max_hidden_channels": _StrictPositiveInt | None,
         "resnet_width": _StrictPositiveInt | None,
+        "hybrid_skip_connections": _StrictBool,
+        "hybrid_encoder_conv_hidden_scale": _StrictFinitePositiveNumber,
+        "hybrid_encoder_spectral_hidden_scale": _StrictFinitePositiveNumber,
+        "hybrid_encoder_layerscale_init": _StrictFinitePositiveNumber,
+        "hybrid_encoder_branch_gate_init": _StrictFinitePositiveNumber,
         "object_big": _StrictBool | None,
         "probe_big": _StrictBool,
         "probe_mask": _StrictBool,
@@ -460,25 +489,31 @@ _PROFILE_VALUES: dict[str, dict[str, Any]] = {
         "seed": 3,
         "train_patterns": 4096,
         "test_patterns": 1024,
+        "train_objects": 1,
+        "test_objects": 1,
         "scale_contract_version": "legacy_v1",
         "measurement_domain": "normalized_amplitude",
         "object_recipe": "lines-object-v1",
         "shared_object": True,
+        "frame_order_recipe": "object-major-v1",
         "probe": {
             "source": "ideal",
             "source_path": None,
             "transform_pipeline": None,
             "mask_diameter": None,
             "ideal_scale": 0.7,
+            "simulation_normalization_scale": None,
         },
         "object": {
             "kind": "lines",
             "image_size": (392, 392),
-            "objects_per_probe": 1,
             "set_phi": True,
+            "patch_amplitude_normalization": "none",
+            "source_path": None,
         },
         "scan": {
             "kind": "nongrid",
+            "position_layout": "uniform_random",
             "grid_size": None,
             "offset": 4,
             "outer_offset_train": 8,
@@ -502,6 +537,16 @@ _PROFILE_VALUES: dict[str, dict[str, Any]] = {
         "fno_input_transform": "none",
         "max_hidden_channels": None,
         "resnet_width": None,
+        "hybrid_skip_connections": False,
+        "hybrid_downsample_steps": 2,
+        "hybrid_downsample_op": "stride_conv",
+        "hybrid_encoder_conv_hidden_scale": 2.0,
+        "hybrid_encoder_spectral_hidden_scale": 1.0,
+        "hybrid_skip_style": "add",
+        "hybrid_encoder_fusion_mode": "baseline",
+        "hybrid_encoder_layerscale_init": 0.1,
+        "hybrid_encoder_branch_gate_init": 0.1,
+        "hybrid_encoder_branch_select": "both",
         "generator_output_mode": "real_imag",
         "object_big": None,
         "object_layout": None,
@@ -543,15 +588,16 @@ _CI_PROFILE_PATCH: dict[str, dict[str, Any]] = {
         "measurement_domain": "count_intensity",
     },
     "model": {
-        "architecture": "cnn",
         "physics_forward_mode": "rectangular_scaled",
         "cnn_output_mode": "real_imag",
         "loss_function": "Poisson",
         "rect_s1s2_init": "dose_closure",
     },
     "training": {
+        "data_adapter": "loader",
         "torch_loss_mode": "poisson",
         "nll": True,
+        # Poisson NLL on physical counts needs the reference recipe's clip.
         "gradient_clip_val": 1.0,
         "gradient_clip_algorithm": "norm",
     },
@@ -559,33 +605,21 @@ _CI_PROFILE_PATCH: dict[str, dict[str, Any]] = {
 
 
 def _ci_profile_values() -> dict[str, dict[str, Any]]:
-    """Project the count-intensity CNN profile from the shared lines recipe."""
+    """Project the count-intensity profile from the shared amplitude recipe."""
 
-    return _merged_mapping(_PROFILE_VALUES, _CI_PROFILE_PATCH)
+    values = _merged_mapping(_PROFILE_VALUES, {})
+    for namespace, patch in _CI_PROFILE_PATCH.items():
+        values[namespace].update(patch)
+    return values
 
 
+#: Named coherent profiles.  The amplitude profile is the default and owns the
+#: sealed integration identity; the CI profile makes the count-intensity
+#: contract un-mixable by construction.  Explicit overrides on either profile
+#: remain governed by ``_validate_scaling``.
 _PROFILES: dict[str, tuple[str, Any]] = {
     _PROFILE_NAME: (_RECIPE_VERSION, lambda: _PROFILE_VALUES),
     _CI_PROFILE_NAME: (_CI_RECIPE_VERSION, _ci_profile_values),
-}
-
-_PROFILE_LOCKS: dict[str, dict[str, dict[str, Any]]] = {
-    _CI_PROFILE_NAME: {
-        "simulation": {
-            "scale_contract_version": "ci_intensity_v2",
-            "measurement_domain": "count_intensity",
-        },
-        "model": {
-            "architecture": "cnn",
-            "physics_forward_mode": "rectangular_scaled",
-            "cnn_output_mode": "real_imag",
-            "loss_function": "Poisson",
-        },
-        "training": {
-            "torch_loss_mode": "poisson",
-            "nll": True,
-        },
-    },
 }
 
 
@@ -629,27 +663,6 @@ def _values_equal(left: Any, right: Any) -> bool:
     except Exception:
         return False
     return type(result) is bool and result
-
-
-def _enforce_profile_locks(
-    profile: str,
-    patch: Mapping[str, Any],
-    *,
-    source: str,
-) -> None:
-    """Reject explicit values that would relabel a named contract profile."""
-
-    for namespace, locked_fields in _PROFILE_LOCKS.get(profile, {}).items():
-        supplied = patch.get(namespace)
-        if not isinstance(supplied, Mapping):
-            continue
-        for name, expected in locked_fields.items():
-            if name not in supplied or _values_equal(supplied[name], expected):
-                continue
-            raise ValueError(
-                f"{source} field {namespace}.{name}={supplied[name]!r} "
-                f"contradicts profile {profile!r}; required {expected!r}"
-            )
 
 
 def _put_patch_value(
@@ -818,7 +831,11 @@ def _custom_probe_shape(source_path: str | Path) -> tuple[int, int]:
     return probe.shape
 
 
-def _resolve_simulation(values: Mapping[str, Any]) -> SyntheticSimulationConfig:
+def _resolve_simulation(
+    values: Mapping[str, Any],
+    *,
+    object_recipe_explicit: bool,
+) -> SyntheticSimulationConfig:
     N = _adapt(_N_ADAPTER, values["N"], root="simulation.N")
     gridsize = _adapt(
         _GRID_SIZE_ADAPTER,
@@ -836,6 +853,31 @@ def _resolve_simulation(values: Mapping[str, Any]) -> SyntheticSimulationConfig:
         values["test_patterns"],
         root="simulation.test_patterns",
     )
+    train_objects = _adapt(
+        _COUNT_ADAPTER,
+        values["train_objects"],
+        root="simulation.train_objects",
+    )
+    test_objects = _adapt(
+        _COUNT_ADAPTER,
+        values["test_objects"],
+        root="simulation.test_objects",
+    )
+    for split_name, pattern_count, object_count in (
+        ("train", train_patterns, train_objects),
+        ("test", test_patterns, test_objects),
+    ):
+        if pattern_count % object_count:
+            raise ValueError(
+                f"simulation.{split_name}_patterns must be divisible by "
+                f"simulation.{split_name}_objects; got {pattern_count} and "
+                f"{object_count}"
+            )
+    if values["shared_object"] and (train_objects, test_objects) != (1, 1):
+        raise ValueError(
+            "simulation.shared_object=True requires train_objects=1 and "
+            "test_objects=1"
+        )
 
     probe = dict(values["probe"])
     if probe["source"] == "custom" and probe["source_path"] is None:
@@ -871,7 +913,7 @@ def _resolve_simulation(values: Mapping[str, Any]) -> SyntheticSimulationConfig:
     if scan["grid_size"] is None:
         scan["grid_size"] = expected_grid
 
-    def split_config(pattern_count: int) -> SimulationConfig:
+    def split_config(pattern_count: int, object_count: int) -> SimulationConfig:
         return simulation_config_from_mapping(
             {
                 "N": N,
@@ -879,7 +921,8 @@ def _resolve_simulation(values: Mapping[str, Any]) -> SyntheticSimulationConfig:
                 "probe": probe,
                 "object": {
                     **values["object"],
-                    "diffractions_per_object": pattern_count,
+                    "objects_per_probe": object_count,
+                    "diffractions_per_object": pattern_count // object_count,
                 },
                 "scan": {
                     **scan,
@@ -890,12 +933,36 @@ def _resolve_simulation(values: Mapping[str, Any]) -> SyntheticSimulationConfig:
             }
         )
 
-    train = split_config(train_patterns)
-    test = split_config(test_patterns)
+    train = split_config(train_patterns, train_objects)
+    test = split_config(test_patterns, test_objects)
     if train.scan.grid_size != expected_grid:
         raise ValueError(
             "simulation.scan.grid_size conflicts with simulation.gridsize: "
             f"expected {expected_grid}, got {train.scan.grid_size}"
+        )
+    selected_object_recipe = (
+        values["object_recipe"]
+        if object_recipe_explicit
+        else object_recipe_for_kind(train.object.kind)
+    )
+    validate_object_recipe(train.object.kind, selected_object_recipe)
+    from ptycho.simulation.object_producers import FROZEN_OBJECT_BANK_RECIPE
+
+    source_path = train.object.source_path
+    if selected_object_recipe == FROZEN_OBJECT_BANK_RECIPE:
+        if source_path is None:
+            raise ValueError(
+                "simulation.object.source_path is required when "
+                f"simulation.object_recipe={FROZEN_OBJECT_BANK_RECIPE!r}"
+            )
+        if not source_path.is_file():
+            raise FileNotFoundError(
+                f"frozen object bank source does not exist: {source_path}"
+            )
+    elif source_path is not None:
+        raise ValueError(
+            "simulation.object.source_path is only supported when "
+            f"simulation.object_recipe={FROZEN_OBJECT_BANK_RECIPE!r}"
         )
     return _adapt(
         _SIMULATION_NAMESPACE_ADAPTER,
@@ -904,8 +971,9 @@ def _resolve_simulation(values: Mapping[str, Any]) -> SyntheticSimulationConfig:
             "test": test,
             "scale_contract_version": values["scale_contract_version"],
             "measurement_domain": values["measurement_domain"],
-            "object_recipe": values["object_recipe"],
+            "object_recipe": selected_object_recipe,
             "shared_object": values["shared_object"],
+            "frame_order_recipe": values["frame_order_recipe"],
         },
         root="simulation",
     )
@@ -973,6 +1041,7 @@ def _adapt_model(values: Mapping[str, Any]) -> SyntheticModelConfig:
 def _resolve_model(
     values: Mapping[str, Any],
     *,
+    C: int,
     N: int,
     gridsize: int,
 ) -> SyntheticModelConfig:
@@ -1005,6 +1074,9 @@ def _resolve_model(
     forward_mode = candidate["physics_forward_mode"]
     gain = candidate["amplitude_physics_gain"]
     if forward_mode == "rectangular_scaled":
+        # PROBE-RANK-001 §3.3 / CI-ABSOLUTE-SCALE-CONTRACT-001: the amplitude
+        # gain is an amplitude-forward-only training device and is pinned to
+        # exactly 1.0 under every rectangular/CI profile, fail-closed.
         if gain is not None and float(gain) != 1.0:
             raise ValueError(
                 "model.amplitude_physics_gain must be 1.0 when "
@@ -1089,6 +1161,230 @@ def _validate_sampling(
         )
 
 
+def _validate_scan_layout(simulation: SyntheticSimulationConfig) -> None:
+    """Reject pattern counts or geometry a declared raster cannot realize.
+
+    ``docs/plans/2026-08-04-synthetic-runner-scan-geometry.md`` §3.1: raster
+    requires a perfect-square count per split so the grid is square.
+    """
+
+    splits = (
+        ("train", simulation.train),
+        ("test", simulation.test),
+    )
+    if simulation.frame_order_recipe == "coordinate-major-interleaved-v1":
+        for name, split in splits:
+            if split.scan.position_layout not in {
+                "raster",
+                "fixed_pitch_raster",
+            }:
+                raise ValueError(
+                    "simulation.frame_order_recipe="
+                    "'coordinate-major-interleaved-v1' requires a raster "
+                    f"simulation.{name}.scan.position_layout"
+                )
+
+    for name, split in splits:
+        layout = split.scan.position_layout
+        if layout not in {"raster", "fixed_pitch_raster"}:
+            continue
+        count = split.object.diffractions_per_object
+        side = math.isqrt(count)
+        if side * side != count:
+            raise ValueError(
+                f"simulation.{name}_patterns must be a perfect square when "
+                f"simulation.scan.position_layout={layout!r}; got {count}, "
+                f"nearest squares are {side ** 2} and {(side + 1) ** 2}"
+            )
+        if side < 2:
+            raise ValueError(
+                f"simulation.{name}_patterns must be at least 4 when "
+                f"simulation.scan.position_layout={layout!r}; got "
+                f"{count}"
+            )
+        if layout == "fixed_pitch_raster":
+            outer_offset = (
+                split.scan.outer_offset_train
+                if name == "train"
+                else split.scan.outer_offset_test
+            )
+            pitch = float(outer_offset) / 2.0
+            if pitch <= 0.0:
+                raise ValueError(
+                    f"simulation.{name}.scan.outer_offset_{name} must be "
+                    "positive for fixed_pitch_raster"
+                )
+            origin = float(int(split.N) // 2)
+            height, width = split.object.image_size
+            last = origin + (side - 1) * pitch
+            max_x = int(width) - int(split.N) + origin
+            max_y = int(height) - int(split.N) + origin
+            if last > min(max_x, max_y) + 1e-12:
+                raise ValueError(
+                    f"simulation.{name} fixed_pitch_raster does not fit the "
+                    f"object canvas: last center {last} exceeds "
+                    f"({max_x}, {max_y})"
+                )
+
+
+def _validate_reconstruction_contract(
+    simulation: SyntheticSimulationConfig,
+    inference: SyntheticInferenceConfig,
+) -> None:
+    """Validate method-specific reconstruction knobs as one coherent policy."""
+
+    if inference.reconstruction_method != "tiled":
+        return
+    if simulation.test.scan.grid_size != (1, 1):
+        raise ValueError(
+            "inference.reconstruction_method='tiled' requires gridsize=1"
+        )
+    if simulation.test.scan.position_layout != "fixed_pitch_raster":
+        raise ValueError(
+            "inference.reconstruction_method='tiled' requires "
+            "simulation.scan.position_layout='fixed_pitch_raster'"
+        )
+    if inference.groups_per_center != 1:
+        raise ValueError(
+            "inference.reconstruction_method='tiled' requires "
+            "groups_per_center=1"
+        )
+    if inference.patch_weighting != "uniform":
+        raise ValueError(
+            "inference.reconstruction_method='tiled' requires "
+            "patch_weighting='uniform'"
+        )
+    outer_offset_test = simulation.test.scan.outer_offset_test
+    if (
+        outer_offset_test <= 0
+        or outer_offset_test % 4
+        or outer_offset_test > 2 * simulation.test.N
+    ):
+        raise ValueError(
+            "inference.reconstruction_method='tiled' requires "
+            "simulation.scan.outer_offset_test divisible by 4 and no larger "
+            "than 2*N"
+        )
+
+
+def _validate_patch_amplitude_normalization(
+    simulation: SyntheticSimulationConfig,
+    inference: SyntheticInferenceConfig,
+) -> None:
+    """Keep the historical patch-gauge recipe on its exact supported geometry."""
+
+    for split_name, split in (
+        ("train", simulation.train),
+        ("test", simulation.test),
+    ):
+        method = split.object.patch_amplitude_normalization
+        if method == "none":
+            continue
+        if split.scan.grid_size != (1, 1):
+            raise ValueError(
+                f"simulation.{split_name}.object.patch_amplitude_normalization "
+                "requires gridsize=1"
+            )
+        if split.scan.position_layout != "fixed_pitch_raster":
+            raise ValueError(
+                f"simulation.{split_name}.object.patch_amplitude_normalization "
+                "requires fixed_pitch_raster"
+            )
+        if inference.reconstruction_method != "tiled":
+            raise ValueError(
+                f"simulation.{split_name}.object.patch_amplitude_normalization "
+                "requires inference.reconstruction_method='tiled' so the "
+                "source-object gauge is restored before evaluation"
+            )
+
+
+def _validate_scaling(
+    simulation: SyntheticSimulationConfig,
+    model: SyntheticModelConfig,
+    training: SyntheticTrainingConfig,
+    inference: SyntheticInferenceConfig,
+) -> None:
+    """Enforce the inseparable measurement-units triple and its CI constraints.
+
+    ``docs/specs/spec-ptycho-core.md``: rectangular workflows identify their
+    units with the inseparable pair ``scale_contract_version`` /
+    ``measurement_domain``; the only supported pairs are
+    ``ci_intensity_v2``/``count_intensity`` and
+    ``legacy_v1``/``normalized_amplitude``; partial or contradictory pairs
+    SHALL error; and CI scaling is valid only for unsupervised
+    ``rectangular_scaled`` training with ``torch_loss_mode='poisson'``.
+    """
+
+    version = simulation.scale_contract_version
+    domain = simulation.measurement_domain
+    mode = model.physics_forward_mode
+    if model.rect_s1s2_init == "dose_closure" and (
+        mode != "rectangular_scaled"
+        or version != "ci_intensity_v2"
+        or domain != "count_intensity"
+        or model.mode != "Unsupervised"
+        or training.torch_loss_mode != "poisson"
+    ):
+        raise ValueError(
+            "model.rect_s1s2_init='dose_closure' requires the coherent CI "
+            "rectangular_scaled + ci_intensity_v2/count_intensity + "
+            "unsupervised poisson contract"
+        )
+
+    if mode == "amplitude":
+        if domain != "normalized_amplitude":
+            raise ValueError(
+                "simulation.measurement_domain must be 'normalized_amplitude' "
+                "when model.physics_forward_mode='amplitude'"
+            )
+        if version != "legacy_v1":
+            raise ValueError(
+                "simulation.scale_contract_version must be 'legacy_v1' when "
+                "model.physics_forward_mode='amplitude'"
+            )
+        return
+
+    if version == "legacy_v1" and domain == "normalized_amplitude":
+        raise ValueError(
+            "model.physics_forward_mode='rectangular_scaled' conflicts with "
+            "the legacy normalized-amplitude simulation profile"
+        )
+    if version != "ci_intensity_v2":
+        raise ValueError(
+            "simulation.scale_contract_version must be 'ci_intensity_v2' when "
+            "model.physics_forward_mode='rectangular_scaled'"
+        )
+    if domain != "count_intensity":
+        raise ValueError(
+            "simulation.measurement_domain must be 'count_intensity' when "
+            "model.physics_forward_mode='rectangular_scaled'"
+        )
+    if training.torch_loss_mode != "poisson":
+        raise ValueError(
+            "training.torch_loss_mode must be 'poisson' for the CI "
+            "count-intensity rectangular forward"
+        )
+    if model.cnn_output_mode != "real_imag":
+        raise ValueError(
+            "model.cnn_output_mode must be 'real_imag' when "
+            "model.physics_forward_mode='rectangular_scaled'"
+        )
+    if not inference.varpro_scaling:
+        raise ValueError(
+            "inference.varpro_scaling must be true for the CI count-intensity "
+            "contract; the reconstruction must report its fitted "
+            "acquisition/count gauge"
+        )
+    if (
+        inference.reconstruction_method == "barycentric"
+        and inference.patch_weighting != "probe"
+    ):
+        raise ValueError(
+            "inference.patch_weighting must be 'probe' for the CI "
+            "count-intensity contract"
+        )
+
+
 def _validate_loss_identity(
     model: SyntheticModelConfig,
     training: SyntheticTrainingConfig,
@@ -1106,72 +1402,6 @@ def _validate_loss_identity(
         raise ValueError(
             f"training.nll must be {expected_nll!r} when "
             f"training.torch_loss_mode={training.torch_loss_mode!r}"
-        )
-
-
-def _validate_scaling(
-    simulation: SyntheticSimulationConfig,
-    model: SyntheticModelConfig,
-    training: SyntheticTrainingConfig,
-    inference: SyntheticInferenceConfig,
-) -> None:
-    """Enforce the inseparable units/forward triple and CI-only constraints."""
-
-    version = simulation.scale_contract_version
-    domain = simulation.measurement_domain
-    mode = model.physics_forward_mode
-    if mode == "amplitude":
-        if domain != "normalized_amplitude":
-            raise ValueError(
-                "simulation.measurement_domain must be 'normalized_amplitude' "
-                "when model.physics_forward_mode='amplitude'"
-            )
-        if version != "legacy_v1":
-            raise ValueError(
-                "simulation.scale_contract_version must be 'legacy_v1' when "
-                "model.physics_forward_mode='amplitude'"
-            )
-        return
-
-    if version != "ci_intensity_v2":
-        raise ValueError(
-            "simulation.scale_contract_version must be 'ci_intensity_v2' when "
-            "model.physics_forward_mode='rectangular_scaled'"
-        )
-    if domain != "count_intensity":
-        raise ValueError(
-            "simulation.measurement_domain must be 'count_intensity' when "
-            "model.physics_forward_mode='rectangular_scaled'"
-        )
-    if model.mode != "Unsupervised":
-        raise ValueError(
-            "model.mode must be 'Unsupervised' for the CI count-intensity "
-            "contract"
-        )
-    if training.torch_loss_mode != "poisson":
-        raise ValueError(
-            "training.torch_loss_mode must be 'poisson' for the CI "
-            "count-intensity rectangular forward"
-        )
-    output_mode_field = (
-        "cnn_output_mode"
-        if model.architecture == "cnn"
-        else "generator_output_mode"
-    )
-    if getattr(model, output_mode_field) != "real_imag":
-        raise ValueError(
-            f"model.{output_mode_field} must be 'real_imag' when "
-            "model.physics_forward_mode='rectangular_scaled'"
-        )
-    if not inference.varpro_scaling:
-        raise ValueError(
-            "inference.varpro_scaling must be true for the CI count-intensity "
-            "contract"
-        )
-    if inference.patch_weighting != "probe":
-        raise ValueError(
-            "inference.patch_weighting must be 'probe' for the CI "
-            "count-intensity contract"
         )
 
 
@@ -1201,22 +1431,25 @@ def _derive_data_snapshot(
     simulation: SyntheticSimulationConfig,
     training: SyntheticTrainingConfig,
     *,
+    C: int,
     gridsize: int,
 ) -> ResolvedDataConfig:
+    adapter = resolve_data_adapter(training.data_adapter)
     return _snapshot_data_config(
         DataConfig(
             nphotons=float(simulation.train.detector.photons_per_pattern),
             scale_contract_version=simulation.scale_contract_version,
             measurement_domain=simulation.measurement_domain,
             N=simulation.train.N,
+            gridsize=gridsize,
             neighbor_count=training.neighbor_count,
             n_raw_frames_selected=training.train_raw_selection,
             subsample_seed=training.subsample_seed,
-            gridsize=gridsize,
             x_bounds=(0.0, 1.0),
             y_bounds=(0.0, 1.0),
-            probe_scale=4.0,
-            probe_normalize=True,
+            probe_scale=PROBE_SCALE_DEFAULT,
+            normalize=adapter.normalize,
+            probe_normalize=adapter.probe_normalize,
         )
     )
 
@@ -1294,8 +1527,34 @@ def _validate_resolved_workflow(resolved: ResolvedSyntheticWorkflow) -> None:
         resolved.simulation,
         simulation,
     )
+    validate_object_recipe(
+        simulation.train.object.kind,
+        simulation.object_recipe,
+    )
+    from ptycho.simulation.object_producers import FROZEN_OBJECT_BANK_RECIPE
+
+    source_path = simulation.train.object.source_path
+    if simulation.object_recipe == FROZEN_OBJECT_BANK_RECIPE:
+        if source_path is None:
+            raise ValueError(
+                "simulation.object.source_path is required for the frozen "
+                "object-bank recipe"
+            )
+    elif source_path is not None:
+        raise ValueError(
+            "simulation.object.source_path is only supported by the frozen "
+            "object-bank recipe"
+        )
     validate_simulation_config(simulation.train)
     validate_simulation_config(simulation.test)
+    if simulation.shared_object and (
+        simulation.train.object.objects_per_probe != 1
+        or simulation.test.object.objects_per_probe != 1
+    ):
+        raise ValueError(
+            "simulation.test.object.objects_per_probe conflicts with "
+            "simulation.shared_object=True"
+        )
     for split_name, split in (
         ("train", simulation.train),
         ("test", simulation.test),
@@ -1311,6 +1570,7 @@ def _validate_resolved_workflow(resolved: ResolvedSyntheticWorkflow) -> None:
         simulation.train,
         object=replace(
             simulation.train.object,
+            objects_per_probe=simulation.test.object.objects_per_probe,
             diffractions_per_object=(
                 simulation.test.object.diffractions_per_object
             ),
@@ -1331,6 +1591,7 @@ def _validate_resolved_workflow(resolved: ResolvedSyntheticWorkflow) -> None:
     _raise_first_record_difference("model", resolved.model, model)
     expected_model = _resolve_model(
         _record_values(model),
+        C=C,
         N=simulation.train.N,
         gridsize=gridsize,
     )
@@ -1354,21 +1615,38 @@ def _validate_resolved_workflow(resolved: ResolvedSyntheticWorkflow) -> None:
     )
     _raise_first_record_difference("workflow", resolved.workflow, workflow)
     _validate_stages(workflow)
+    if (
+        simulation.test.object.objects_per_probe != 1
+        and any(stage in workflow.stages for stage in ("reconstruct", "evaluate"))
+    ):
+        raise ValueError(
+            "simulation.test.object.objects_per_probe must be 1 for "
+            "reconstruction or evaluation"
+        )
     _validate_sampling(
         C=C,
-        train_patterns=simulation.train.object.diffractions_per_object,
-        test_patterns=simulation.test.object.diffractions_per_object,
+        train_patterns=(
+            simulation.train.object.objects_per_probe
+            * simulation.train.object.diffractions_per_object
+        ),
+        test_patterns=(
+            simulation.test.object.objects_per_probe
+            * simulation.test.object.diffractions_per_object
+        ),
         training=training,
     )
     _validate_loss_identity(model, training)
+    _validate_patch_amplitude_normalization(simulation, inference)
+    _validate_reconstruction_contract(simulation, inference)
     _validate_scaling(simulation, model, training, inference)
-    validate_rect_s1s2_initialization_contract(simulation, model, training)
+    _validate_scan_layout(simulation)
 
     data = _adapt_data(_record_values(resolved.data))
     _raise_first_record_difference("data", resolved.data, data)
     expected_data = _derive_data_snapshot(
         simulation,
         training,
+        C=C,
         gridsize=gridsize,
     )
     _raise_first_record_difference("data", data, expected_data)
@@ -1394,21 +1672,27 @@ def resolve_synthetic_workflow(
         source="file",
         omit_unset=False,
     )
-    _enforce_profile_locks(profile, file_patch, source="file")
     cli_patch = _normalize_source(
         cli_values,
         source="explicit CLI",
         omit_unset=True,
     )
-    _enforce_profile_locks(profile, cli_patch, source="explicit CLI")
     merged = _merged_mapping(profile_values(), file_patch)
     merged = _merged_mapping(merged, cli_patch)
 
-    simulation = _resolve_simulation(merged["simulation"])
+    object_recipe_explicit = any(
+        "object_recipe" in patch.get("simulation", {})
+        for patch in (file_patch, cli_patch)
+    )
+    simulation = _resolve_simulation(
+        merged["simulation"],
+        object_recipe_explicit=object_recipe_explicit,
+    )
     gridsize = simulation.train.scan.grid_size[0]
     C = gridsize**2
     model = _resolve_model(
         merged["model"],
+        C=C,
         N=simulation.train.N,
         gridsize=gridsize,
     )
@@ -1429,17 +1713,26 @@ def resolve_synthetic_workflow(
 
     _validate_sampling(
         C=C,
-        train_patterns=simulation.train.object.diffractions_per_object,
-        test_patterns=simulation.test.object.diffractions_per_object,
+        train_patterns=(
+            simulation.train.object.objects_per_probe
+            * simulation.train.object.diffractions_per_object
+        ),
+        test_patterns=(
+            simulation.test.object.objects_per_probe
+            * simulation.test.object.diffractions_per_object
+        ),
         training=training,
     )
     _validate_loss_identity(model, training)
+    _validate_patch_amplitude_normalization(simulation, inference)
+    _validate_reconstruction_contract(simulation, inference)
     _validate_scaling(simulation, model, training, inference)
-    validate_rect_s1s2_initialization_contract(simulation, model, training)
+    _validate_scan_layout(simulation)
 
     data = _derive_data_snapshot(
         simulation,
         training,
+        C=C,
         gridsize=gridsize,
     )
     resolved = ResolvedSyntheticWorkflow(
@@ -1500,10 +1793,31 @@ def synthetic_workflow_to_dict(
     return _semantic_value(resolved)
 
 
-def synthetic_workflow_sha256(
+def synthetic_simulation_compatibility_identity(
+    simulation: Any,
+) -> Any:
+    """Normalize defaults added after persisted workflow v1 artifacts."""
+
+    normalized = _semantic_value(simulation)
+    if not isinstance(normalized, dict):
+        return normalized
+    if normalized.get("frame_order_recipe", "object-major-v1") == (
+        "object-major-v1"
+    ):
+        normalized.pop("frame_order_recipe", None)
+    return normalized
+
+
+def synthetic_workflow_digest_input(
     resolved: ResolvedSyntheticWorkflow | Mapping[str, Any],
-) -> str:
-    """Return location-independent SHA-256 identity for a resolved workflow."""
+) -> dict[str, Any]:
+    """Return the location-independent payload the workflow digest hashes.
+
+    Normalization drops caller-owned location (``output_root``, custom probe
+    path) and default-valued fields introduced after the sealed identities were
+    pinned.  Exposed so callers verify identity against the same reduction the
+    digest uses instead of reimplementing it.
+    """
 
     if isinstance(resolved, ResolvedSyntheticWorkflow):
         payload = synthetic_workflow_to_dict(resolved)
@@ -1526,9 +1840,22 @@ def synthetic_workflow_sha256(
         raise ValueError("resolved workflow digest input fields are not exact")
     workflow = payload["workflow"]
     simulation = payload["simulation"]
-    if not isinstance(workflow, dict) or not isinstance(simulation, dict):
+    training = payload["training"]
+    inference = payload["inference"]
+    if (
+        not isinstance(workflow, dict)
+        or not isinstance(simulation, dict)
+        or not isinstance(training, dict)
+        or not isinstance(inference, dict)
+    ):
         raise ValueError("resolved workflow digest namespaces must be mappings")
     workflow.pop("output_root", None)
+    simulation = synthetic_simulation_compatibility_identity(simulation)
+    payload["simulation"] = simulation
+    if training.get("batch_order_recipe") == "torch-generator-v1":
+        training.pop("batch_order_recipe")
+    if inference.get("metric_crop_border") == 0:
+        inference.pop("metric_crop_border")
     for split in ("train", "test"):
         split_config = simulation.get(split)
         if not isinstance(split_config, dict) or not isinstance(
@@ -1538,9 +1865,34 @@ def synthetic_workflow_sha256(
         probe = split_config["probe"]
         if probe.get("source") == "custom":
             probe["source_path"] = "<sealed-custom-probe>"
+        # Default-elide the scan layout so every workflow authored before the
+        # field existed keeps its digest; a non-default layout changes scan
+        # positions and therefore must change identity.
+        scan = split_config.get("scan")
+        if isinstance(scan, dict) and (
+            scan.get("position_layout") == DEFAULT_SCAN_POSITION_LAYOUT
+        ):
+            scan.pop("position_layout")
+        object_config = split_config.get("object")
+        if isinstance(object_config, dict) and (
+            object_config.get("patch_amplitude_normalization") == "none"
+        ):
+            object_config.pop("patch_amplitude_normalization")
+        if isinstance(object_config, dict):
+            if object_config.get("source_path") is None:
+                object_config.pop("source_path", None)
+            else:
+                object_config["source_path"] = "<sealed-object-bank>"
+    return payload
+
+
+def synthetic_workflow_sha256(
+    resolved: ResolvedSyntheticWorkflow | Mapping[str, Any],
+) -> str:
+    """Return location-independent SHA-256 identity for a resolved workflow."""
 
     encoded = json.dumps(
-        payload,
+        synthetic_workflow_digest_input(resolved),
         sort_keys=True,
         separators=(",", ":"),
         allow_nan=False,

@@ -214,7 +214,6 @@ def _run_pytorch_workflow(output_root, data_file, cuda_gpu_env):
         "--model_path", str(training_output_dir),
         "--test_data", str(data_file),
         "--output_dir", str(inference_output_dir),
-        "--n_images", "1024",
         "--accelerator", "cuda",
     ]
 

@@ -43,12 +43,14 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from ptycho.raw_data import RawData
-from ptycho.workflows.config_cli import load_data
-from ptycho.workflows.backend_selector import load_inference_bundle_with_backend
-from ptycho.config import resolve_inference_config
-from ptycho.config.config import InferenceConfig, load_yaml_config
-from ptycho.config.legacy_state import scoped_legacy_params
+from ptycho.raw_data import RawData  # noqa: E402
+from ptycho.workflows.components import load_data  # noqa: E402
+from ptycho.workflows.backend_selector import (  # noqa: E402
+    load_inference_bundle_with_backend,
+)
+from ptycho.config import resolve_inference_config  # noqa: E402
+from ptycho.config.config import InferenceConfig, load_yaml_config  # noqa: E402
+from ptycho.config.legacy_state import scoped_legacy_params  # noqa: E402
 
 # Set up logging
 logging.basicConfig(level=logging.INFO,
@@ -85,7 +87,8 @@ def parse_arguments() -> argparse.Namespace:
                        help="Optional path to YAML configuration file to override defaults")
     parser.add_argument("--output_dir", type=str, default=argparse.SUPPRESS,
                        help="Directory for saving output files and images")
-    parser.add_argument("--debug", action="store_true", default=argparse.SUPPRESS,
+    parser.add_argument("--debug", action="store_true",
+                       default=argparse.SUPPRESS,
                        help="Enable debug mode")
     parser.add_argument("--comparison_plot", action="store_true",
                        help="Generate original comparison plot (only if ground truth is available)")
@@ -94,10 +97,10 @@ def parse_arguments() -> argparse.Namespace:
                        help="Number of groups to process.")
     parser.add_argument("--n_groups", type=int, required=False,
                        default=argparse.SUPPRESS,
-                       help="DEPRECATED: Use --inference_groups instead.")
+                       help="DEPRECATED: Use --inference-groups instead.")
     parser.add_argument("--n_images", type=int, required=False,
                        default=argparse.SUPPRESS,
-                       help="DEPRECATED: Use --inference_groups instead. Number of images/groups to process. Interpretation depends on gridsize: "
+                       help="DEPRECATED: Use --inference-groups instead. Number of images/groups to process. Interpretation depends on gridsize: "
                             "gridsize=1 means individual images, gridsize>1 means number of groups")
     parser.add_argument("--inference_raw_selection", type=int, required=False,
                        default=argparse.SUPPRESS,
@@ -105,7 +108,7 @@ def parse_arguments() -> argparse.Namespace:
                             "When provided, controls data selection separately from grouping.")
     parser.add_argument("--n_subsample", type=int, required=False,
                        default=argparse.SUPPRESS,
-                       help="DEPRECATED: Use --inference_raw_selection instead.")
+                       help="DEPRECATED: Use --inference-raw-selection instead.")
     parser.add_argument("--subsample_seed", type=int, required=False,
                        default=argparse.SUPPRESS,
                        help="Random seed for reproducible subsampling")
@@ -116,52 +119,38 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--debug_dump", nargs='?', const='__AUTO__', default=None,
                        help="Directory to store inference debug artifacts (patch grid, offsets, stats). "
                             "Defaults to <output_dir>/debug_dump when invoked without a value.")
-    parser.add_argument(
-        "--patch-weighting",
-        choices=["uniform", "probe"],
-        default="uniform",
-        help=(
-            "PyTorch stitching weight. 'probe' selects the strict-load mmap "
-            "barycentric workflow; 'uniform' preserves legacy stitching."
-        ),
-    )
-    parser.add_argument(
-        "--varpro-scaling",
-        action="store_true",
-        help="Apply VarPro scaling during mmap barycentric reconstruction.",
-    )
-    parser.add_argument(
-        "--groups-per-center",
-        type=int,
-        default=1,
-        help=(
-            "Runtime coordinate groups per eligible center for PyTorch mmap "
-            "barycentric reconstruction (default: 1)."
-        ),
-    )
-    # Backend selection (POLICY-001: PyTorch mandatory, CONFIG-001: update_legacy_dict required)
+    # Backend selection: this CLI dispatches to the TensorFlow workflow or
+    # delegates to the PyTorch-native inference CLI (python -m ptycho_torch.inference).
     parser.add_argument("--backend", type=str, choices=['tensorflow', 'pytorch'],
                        default=argparse.SUPPRESS,
-                       help="Backend to use for inference: 'tensorflow' (default) or 'pytorch'. "
-                            "PyTorch backend requires torch>=2.2 (POLICY-001). "
-                            "Both backends handle params.cfg restoration via CONFIG-001.")
-
-    # PyTorch-only execution flags (see docs/workflows/pytorch.md §12)
-    parser.add_argument("--torch-accelerator", type=str,
-                       choices=['auto', 'cpu', 'cuda', 'gpu', 'mps', 'tpu'],
-                       default='cuda',
-                       help="PyTorch accelerator for inference (only applies when --backend pytorch). "
-                            "Options: 'cuda' (default GPU baseline per POLICY-001), 'auto' (auto-detect with CUDA preference), "
-                            "'cpu' (fallback), 'gpu', 'mps', 'tpu'. "
-                            "Override with '--torch-accelerator cpu' for CPU-only runs. "
-                            "See docs/workflows/pytorch.md §12 for details.")
-    parser.add_argument("--torch-num-workers", type=int, default=0,
-                       help="Number of dataloader worker processes for PyTorch inference (default: 0). "
-                            "Set to 0 for main process only (CPU-safe). "
-                            "Only applies when --backend pytorch.")
-    parser.add_argument("--torch-inference-batch-size", type=int, default=None,
-                       help="Batch size for PyTorch inference (default: None, uses model default). "
-                            "Only applies when --backend pytorch.")
+                       help="Backend to use for inference: 'tensorflow' (default) "
+                            "or 'pytorch' (delegates to 'python -m ptycho_torch.inference').")
+    # Barycentric runtime knobs (PyTorch-only; forwarded to the torch door).
+    parser.add_argument("--patch-weighting", choices=['uniform', 'probe'],
+                       dest='patch_weighting', default=argparse.SUPPRESS,
+                       help="Stitching weight for patch reassembly on the "
+                            "PyTorch path: 'uniform' (default) or 'probe' "
+                            "(|P|^2-weighted barycentric).")
+    parser.add_argument("--varpro-scaling", action='store_true',
+                       dest='varpro_scaling', default=argparse.SUPPRESS,
+                       help="Apply the VarPro (s1, s2) intensity refit during "
+                            "PyTorch reconstruction (barycentric path).")
+    parser.add_argument("--groups-per-center", type=int,
+                       dest='groups_per_center', default=argparse.SUPPRESS,
+                       help="Fresh coordinate groups drawn per eligible center "
+                            "on the PyTorch mmap barycentric path (default: 1).")
+    # Torch execution flags (only apply when --backend pytorch).
+    parser.add_argument("--torch-accelerator", type=str, default=argparse.SUPPRESS,
+                       dest='torch_accelerator',
+                       help="PyTorch accelerator (auto, cpu, gpu/cuda, mps).")
+    parser.add_argument("--torch-num-workers", type=int, default=argparse.SUPPRESS,
+                       dest='torch_num_workers',
+                       help="PyTorch DataLoader worker count (default: 0).")
+    parser.add_argument("--torch-inference-batch-size", type=int,
+                       default=argparse.SUPPRESS,
+                       dest='torch_inference_batch_size',
+                       help="Batch size for PyTorch inference (default: reuse "
+                            "training batch_size).")
     return parser.parse_args()
 
 def interpret_sampling_parameters(
@@ -192,7 +181,7 @@ def interpret_sampling_parameters(
     if config.inference_raw_selection is not None:
         n_subsample = config.inference_raw_selection
         n_groups = config.inference_groups
-        
+
         if gridsize == 1:
             if n_groups is None:
                 n_groups = n_subsample
@@ -211,9 +200,9 @@ def interpret_sampling_parameters(
                     f"{n_subsample} images, creating {n_groups} groups "
                     f"(approx {total_from_groups} patterns from groups)"
                 )
-        
+
         return n_subsample, n_groups, message
-    
+
     # Case 2: Canonical grouping controls both
     else:
         if config.inference_groups is not None:
@@ -231,7 +220,7 @@ def interpret_sampling_parameters(
             n_subsample = None
             n_groups = None
             message = "Using full dataset for inference"
-        
+
         return n_subsample, n_groups, message
 
 def setup_inference_configuration(args: argparse.Namespace, yaml_path: Optional[str]) -> InferenceConfig:
@@ -284,8 +273,8 @@ def setup_inference_configuration(args: argparse.Namespace, yaml_path: Optional[
                 f"({args.n_subsample!r} vs {cli_patch['inference_raw_selection']!r})"
             )
         cli_patch["inference_raw_selection"] = args.n_subsample
-
     inference_config = resolve_inference_config(yaml_data, cli_patch)
+
     print(f"Final inference config - gridsize: {inference_config.model.gridsize}")
     return inference_config
 
@@ -434,7 +423,7 @@ def _run_tf_inference_and_reconstruct(
     """
     Core TensorFlow inference helper for programmatic use.
 
-    Mirrors PyTorch `_run_inference_and_reconstruct()` signature for API parity.
+    Mirrors the PyTorch inference helper signature for API parity.
     See docs/specs/spec-ptycho-interfaces.md for contract details.
 
     Args:
@@ -713,34 +702,112 @@ def save_probe_visualization(test_data: RawData, output_path: str):
     except OSError as e:
         raise OSError(f"Error saving probe visualization: {str(e)}")
 
+def _dispatch_pytorch_inference(config: InferenceConfig, args: argparse.Namespace) -> int:
+    """Run a ``backend='pytorch'`` request through the torch reconstruction kernel.
 
-def _resolve_unified_pytorch_runtime(execution_request):
-    """Resolve the unified CLI's Torch request once and disclose notices."""
-    if not execution_request.explicit_fields:
-        print(
-            "POLICY-001: No --torch-* execution flags provided. Backend will "
-            "use GPU-first defaults (auto-detects CUDA if available, else CPU). "
-            "CPU-only users should pass --torch-accelerator cpu."
-        )
-    from ptycho_torch.execution_request import resolve_runtime_execution_request
+    ``ptycho_inference`` is the single installed inference door. For the
+    PyTorch backend it orchestrates the torch factory chain directly
+    (``build_execution_request_from_args`` -> ``create_inference_payload``
+    -> ``reconstruct_npz_barycentric``), then saves through the door's own
+    ``save_reconstruction_images`` so the artifact contract
+    (``reconstructed_amplitude.png`` / ``reconstructed_phase.png``) is shared
+    with the TensorFlow path. It SHALL NOT touch the legacy bundle loader or
+    legacy data loader. Sampling intent: ``--inference-groups`` (or the deprecated
+    ``--n_images`` alias, migrated by setup) is forwarded to the factory;
+    ``--inference-raw-selection``/``--subsample-seed`` are TF-door semantics and are
+    rejected loudly rather than silently dropped.
+    """
+    try:
+        import torch  # noqa: F401  (lazy: only on the PyTorch path)
+        import lightning  # noqa: F401
+    except ImportError as e:
+        raise RuntimeError(
+            "PyTorch backend selected but 'lightning' and 'torch' are required. "
+            "Install via: pip install -e .[torch]\n"
+            f"Import error: {e}"
+        ) from e
 
-    runtime = resolve_runtime_execution_request(
-        execution_request,
-        mode="inference",
+    from ptycho_torch.cli.shared import (
+        build_execution_request_from_args,
+        validate_paths,
     )
-    execution_config = runtime.config
-    logger.debug("PyTorch execution runtime audit: %s", runtime.audit_dict())
-    import warnings
+    from ptycho_torch.config_factory import create_inference_payload
+    from ptycho_torch.inference import (
+        reconstruct_npz_barycentric,
+        resolve_device_and_precision,
+    )
 
-    for notice in runtime.notices:
-        warnings.warn(notice.message, notice.category, stacklevel=2)
-    if execution_config.accelerator in ("cuda", "gpu"):
-        device_str = "cuda"
-    elif execution_config.accelerator == "mps":
-        device_str = "mps"
-    else:
-        device_str = "cpu"
-    return execution_config, device_str
+    tf_door_sampling = [
+        name
+        for name in ('inference_raw_selection', 'n_subsample', 'subsample_seed')
+        if hasattr(args, name)
+    ]
+    if tf_door_sampling:
+        raise ValueError(
+            f"Flags {sorted(tf_door_sampling)} carry TensorFlow-door sampling "
+            "semantics and are not honored by '--backend pytorch'; use "
+            "--inference-groups (or drop them)."
+        )
+
+    model_path = Path(config.model_path)
+    test_data_path = Path(config.test_data_file)
+    output_dir = Path(config.output_dir)
+
+    validate_paths(
+        train_file=None,  # Inference mode: no training file
+        test_file=test_data_path,
+        output_dir=output_dir,
+    )
+
+    execution_request = build_execution_request_from_args(
+        args,
+        mode='inference',
+        explicit_options=tuple(sys.argv[1:]),
+        lane='unified-inference',
+    )
+
+    overrides = {
+        # inference_groups is the canonical inference group-count key;
+        # setup_inference_configuration already migrated --n_images into
+        # config.inference_groups. 32 matches the native torch door's default.
+        'inference_groups': (
+            config.inference_groups if config.inference_groups is not None else 32
+        ),
+        'patch_weighting': getattr(args, 'patch_weighting', 'uniform'),
+        'varpro_scaling': getattr(args, 'varpro_scaling', False),
+    }
+    payload = create_inference_payload(
+        model_path=model_path,
+        test_data_file=test_data_path,
+        output_dir=output_dir,
+        overrides=overrides,
+        execution_config=execution_request,
+    )
+    # The factory resolves the execution request once; reuse its resolution
+    # (cli_main does the same) instead of re-resolving here.
+    execution_config = payload.execution_config
+    device, precision = resolve_device_and_precision(execution_config)
+
+    result = reconstruct_npz_barycentric(
+        model_path,
+        test_data_path,
+        run_root=output_dir,
+        groups_per_center=getattr(args, 'groups_per_center', 1),
+        inference_config=payload.pt_inference_config,
+        device=device,
+        num_workers=int(execution_config.num_workers or 0),
+        inference_batch_size=execution_config.inference_batch_size,
+        precision=precision,
+        quiet=getattr(args, 'quiet', False),
+    )
+    save_reconstruction_images(
+        result.amplitude,
+        result.phase,
+        output_dir,
+        phase_vmin=getattr(args, 'phase_vmin', None),
+        phase_vmax=getattr(args, 'phase_vmax', None),
+    )
+    return 0
 
 
 @scoped_legacy_params
@@ -748,19 +815,23 @@ def main():
     """Main entry point for the ptychography inference script."""
     config = None
     try:
-        raw_argv = tuple(sys.argv[1:])
         print("Starting ptychography inference script...")
         args = parse_arguments()
         config = setup_inference_configuration(args, args.config)
-        execution_request = None
         if config.backend == 'pytorch':
-            from ptycho_torch.cli.shared import build_execution_request_from_args
-
-            execution_request = build_execution_request_from_args(
-                args,
-                mode='inference',
-                explicit_options=raw_argv,
-                lane='unified-inference',
+            sys.exit(_dispatch_pytorch_inference(config, args))
+        pytorch_only = [
+            name for name in (
+                'patch_weighting', 'varpro_scaling', 'groups_per_center',
+                'torch_accelerator', 'torch_num_workers',
+                'torch_inference_batch_size',
+            )
+            if hasattr(args, name)
+        ]
+        if pytorch_only:
+            raise ValueError(
+                f"Flags {sorted(pytorch_only)} are PyTorch-only; remove them "
+                "or select '--backend pytorch'."
             )
         debug_dump_dir = None
         if args.debug_dump is not None:
@@ -769,57 +840,6 @@ def main():
                 if args.debug_dump == '__AUTO__'
                 else Path(args.debug_dump)
             )
-
-        if config.backend == "pytorch":
-            from ptycho_torch.inference import (
-                _resolve_reassembly_route,
-                reconstruct_npz_barycentric,
-            )
-
-            patch_weighting = getattr(args, "patch_weighting", "uniform")
-            varpro_scaling = bool(getattr(args, "varpro_scaling", False))
-            reassembly_route = _resolve_reassembly_route(
-                patch_weighting,
-                varpro_scaling,
-            )
-            if reassembly_route == "barycentric":
-                execution_config, device_str = (
-                    _resolve_unified_pytorch_runtime(execution_request)
-                )
-                from ptycho_torch.config_params import (
-                    InferenceConfig as PTInferenceConfig,
-                )
-
-                runtime_inference_knobs = PTInferenceConfig(
-                    patch_weighting=patch_weighting,
-                    varpro_scaling=varpro_scaling,
-                )
-                precision = getattr(execution_config, "precision", "32-true")
-                if precision not in {"32-true", "16-mixed", "bf16-mixed"}:
-                    precision = "32-true"
-                result = reconstruct_npz_barycentric(
-                    Path(config.model_path),
-                    Path(config.test_data_file),
-                    run_root=Path(config.output_dir),
-                    groups_per_center=getattr(args, "groups_per_center", 1),
-                    inference_config=runtime_inference_knobs,
-                    device=device_str,
-                    num_workers=int(execution_config.num_workers or 0),
-                    inference_batch_size=(
-                        execution_config.inference_batch_size
-                    ),
-                    precision=precision,
-                    quiet=False,
-                )
-                save_reconstruction_images(
-                    result.amplitude,
-                    result.phase,
-                    config.output_dir,
-                    phase_vmin=args.phase_vmin,
-                    phase_vmax=args.phase_vmax,
-                )
-                print("Inference process completed successfully.")
-                sys.exit(0)
 
         # The selector bridges this validated bootstrap request before loading.
         # The backend loader may then restore authoritative archived params,
@@ -853,16 +873,6 @@ def main():
                     f"{archive_gridsize}². Consider increasing n_subsample "
                     f"to at least {min_required}"
                 )
-
-        # For PyTorch backend, move model to execution device and set to eval mode
-        if config.backend == 'pytorch':
-            execution_config, device_str = _resolve_unified_pytorch_runtime(
-                execution_request
-            )
-            # Move model to execution device and ensure eval mode (DEVICE-MISMATCH-001 fix)
-            model.to(device_str)
-            model.eval()
-            print(f"PyTorch model moved to device: {device_str}")
 
         # Load test data with new independent sampling parameters
         print("Loading test data...")
@@ -899,45 +909,17 @@ def main():
                     nsamples = 1  # Minimum of 1 group
                 print(f"Inference config: gridsize={gridsize}, using {nsamples} groups (≈{nsamples * gridsize**2} total patterns)")
 
-        # Perform inference - branch based on backend
+        # Perform inference (TensorFlow)
         print("Performing inference...")
 
-        if config.backend == 'pytorch':
-            # PyTorch inference path
-            from ptycho_torch.inference import _run_inference_and_reconstruct
-
-            # execution_config and device_str already resolved above after model loading
-            # to ensure model.to(device) happens before inference
-
-            print(f"PyTorch inference config: accelerator={execution_config.accelerator}, "
-                  f"num_workers={execution_config.num_workers}, "
-                  f"inference_batch_size={execution_config.inference_batch_size}")
-
-            # Call PyTorch-native inference helper
-            reconstructed_amplitude, reconstructed_phase = _run_inference_and_reconstruct(
-                model,
-                test_data,
-                config,
-                execution_config,
-                device_str,
-                quiet=False,
-                debug_dump_dir=debug_dump_dir,
-            )
-
-            # PyTorch path doesn't return ground truth comparison data (not in scope for Phase R)
-            epie_amplitude = None
-            epie_phase = None
-
-        else:
-            # TensorFlow inference path (legacy)
-            reconstructed_amplitude, reconstructed_phase, epie_amplitude, epie_phase = perform_inference(
-                model,
-                test_data,
-                archive_params,
-                K=config.neighbor_count,
-                nsamples=nsamples,
-                debug_dump_dir=debug_dump_dir,
-            )
+        reconstructed_amplitude, reconstructed_phase, epie_amplitude, epie_phase = perform_inference(
+            model,
+            test_data,
+            archive_params,
+            K=config.neighbor_count,
+            nsamples=nsamples,
+            debug_dump_dir=debug_dump_dir,
+        )
 
         # Save separate reconstruction images
         print("Saving reconstruction images...")

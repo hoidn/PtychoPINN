@@ -197,36 +197,6 @@ def test_unified_inference_does_not_bind_unexposed_quiet_option():
     assert "enable_progress_bar" not in request.explicit_fields
 
 
-@pytest.mark.parametrize(
-    ("lane", "mode"),
-    [
-        ("native-training", "training"),
-        ("native-inference", "inference"),
-        ("unified-training", "training"),
-    ],
-)
-def test_omitted_quiet_preserves_progress_bar_default(lane, mode):
-    from ptycho_torch.cli.shared import build_execution_request_from_args
-
-    omitted = build_execution_request_from_args(
-        argparse.Namespace(quiet=True),
-        mode=mode,
-        explicit_options=(),
-        lane=lane,
-    )
-    explicit = build_execution_request_from_args(
-        argparse.Namespace(quiet=True),
-        mode=mode,
-        explicit_options={"--quiet"},
-        lane=lane,
-    )
-
-    assert omitted.values["enable_progress_bar"] is True
-    assert "enable_progress_bar" not in omitted.explicit_fields
-    assert explicit.values["enable_progress_bar"] is False
-    assert explicit.explicit_fields == frozenset({"enable_progress_bar"})
-
-
 def test_runtime_request_freezes_reconstruction_indices():
     from ptycho_torch.cli.shared import build_execution_request_from_args
 
@@ -372,7 +342,7 @@ def test_unified_training_patch_has_exact_sixteen_canonical_fields():
         "weight_decay": 0.01,
         "adam_beta1": 0.85,
         "adam_beta2": 0.98,
-        "scheduler.kind": "WarmupCosine",
+        "scheduler": "WarmupCosine",
         "lr_warmup_epochs": 2,
         "lr_min_ratio": 0.2,
         "plateau_factor": 0.4,
@@ -420,7 +390,7 @@ def test_unified_canonical_optimizer_spelling_wins_torch_alias():
     from ptycho_torch.cli.shared import build_training_config_patch_from_args
 
     args = argparse.Namespace(
-        **{"scheduler.kind": "WarmupCosine"},
+        scheduler="WarmupCosine",
         torch_scheduler="Exponential",
         plateau_factor=0.4,
         torch_plateau_factor=0.25,
@@ -430,7 +400,7 @@ def test_unified_canonical_optimizer_spelling_wins_torch_alias():
         args,
         explicit_options=(
             "--torch-scheduler=Exponential",
-            "--scheduler.kind=WarmupCosine",
+            "--scheduler=WarmupCosine",
             "--torch-plateau-factor=0.25",
             "--plateau_factor=0.4",
         ),

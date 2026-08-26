@@ -1,20 +1,22 @@
 """Configuration and CLI helpers for the TensorFlow workflows.
 
-Owns the public-training argument parser, YAML/config resolution, the notebook
-``update_config_from_dict`` bridge, and the NPZ ``load_data`` entry.
+Owns the public-training argument parser, YAML/config resolution, and the
+notebook ``update_config_from_dict`` bridge, plus the NPZ ``load_data`` entry.
 """
 import argparse
-import dataclasses
-import json
 import logging
+import warnings
 from pathlib import Path
-from typing import Any, Dict, Optional
+from dataclasses import fields
+from types import UnionType
+from typing import Annotated, Any, Dict, Literal, Optional, Union, get_args, get_origin
+
 import numpy as np
 import yaml
 
 from ptycho import params
 from ptycho.config import resolve_training_config
-from ptycho.config.config import TrainingConfig, update_legacy_dict
+from ptycho.config.config import ModelConfig, TrainingConfig, update_legacy_dict
 from ptycho.config.legacy_state import configured_legacy_params
 from ptycho.loader import RawData
 from ptycho.acquisition import (
@@ -22,25 +24,50 @@ from ptycho.acquisition import (
     select_acquisition,
     transform_coordinates,
 )
-from pydantic import TypeAdapter, ValidationError
-from pydantic_settings.sources.providers.cli import CliSettingsSource
 
-# Preserves pre-split log provenance.
-logger = logging.getLogger("ptycho.workflows.components")
+# Preserves pre-split log provenance: records stay on the components facade logger.
+logger = logging.getLogger('ptycho.workflows.components')
 
 @configured_legacy_params
 def update_config_from_dict(config_updates: dict):
     """
-    Update global config from a nested dict, ideal for notebook workflows.
+    Updates the application's configuration from a dictionary, ideal for notebook workflows.
 
-    config_updates must use the nested TrainingConfig structure, e.g.:
-        {'model': {'N': 64}, 'nepochs': 100, 'sampling': {'training_groups': 512}}
+    Args:
+        config_updates (dict): A dictionary of parameters to update.
     """
-    config = resolve_training_config(config_updates, None)
-    update_legacy_dict(params.cfg, config)
+    # 1. Create a mutable dictionary from the default dataclass values
+    model_defaults = {f.name: f.default for f in fields(ModelConfig)}
+    training_defaults = {f.name: f.default for f in fields(TrainingConfig) if f.name != 'model'}
+    
+    # Merge them
+    full_config_dict = {**model_defaults, **training_defaults}
+
+    # 2. Update with the user's dictionary
+    for key, value in config_updates.items():
+        if key in full_config_dict:
+            full_config_dict[key] = value
+        else:
+            # Optionally warn about unused keys
+            logger.warning(f"Configuration key '{key}' is not a recognized parameter.")
+
+    # 3. Re-construct the dataclasses
+    model_args = {k: v for k, v in full_config_dict.items() if k in model_defaults}
+    training_args = {k: v for k, v in full_config_dict.items() if k in training_defaults}
+
+    # Handle required Path objects if they are not set
+    if training_args.get('train_data_file') is None:
+        # Assign a dummy path or handle as an error if it's essential for all workflows
+        training_args['train_data_file'] = Path("dummy_path.npz")
+
+    final_model_config = ModelConfig(**model_args)
+    final_training_config = TrainingConfig(model=final_model_config, **training_args)
+    
+    # 4. Update the legacy global params dictionary
+    update_legacy_dict(params.cfg, final_training_config)
+    
     logger.info("Configuration updated programmatically for interactive session.")
     params.print_params()
-
 
 def load_data(file_path, n_images=None, n_subsample=None, flip_x=False, flip_y=False, swap_xy=False, n_samples=1, coord_scale=1.0, subsample_seed=None, *, rng: Optional[np.random.Generator] = None):
     """
@@ -99,7 +126,7 @@ def load_data(file_path, n_images=None, n_subsample=None, flip_x=False, flip_y=F
     selected_indices = selection.source_indices
     if selection.mode == "random_without_replacement":
         logger.info(f"Randomly subsampled {images_to_use} images")
-    
+
     # Create RawData object with subsampled data
     ptycho_data = RawData(
         record.xcoords[selected_indices],
@@ -124,18 +151,148 @@ def load_data(file_path, n_images=None, n_subsample=None, flip_x=False, flip_y=F
     # Persist selected indices for reproducibility
     ptycho_data.sample_indices = np.array(selected_indices, copy=True)
     ptycho_data.subsample_seed = subsample_seed
+
     return ptycho_data
+
+
+PUBLIC_TRAINING_INPUT_NAMES = frozenset(
+    item.name for item in fields(ModelConfig)
+) | frozenset(
+    item.name for item in fields(TrainingConfig) if item.name != "model"
+)
+
+# Parse-time deprecated CLI flag aliases: old flag -> canonical config field.
+_TRAINING_CLI_FLAG_ALIASES = {
+    "n_groups": "training_groups",
+    "n_subsample": "train_raw_selection",
+}
+
+
+def _unwrap_public_cli_type(annotation):
+    while True:
+        origin = get_origin(annotation)
+        if origin is Annotated:
+            annotation = get_args(annotation)[0]
+            continue
+        if origin not in (Union, UnionType):
+            return annotation
+        value_types = tuple(
+            item for item in get_args(annotation) if item is not type(None)
+        )
+        if len(value_types) == 1:
+            annotation = value_types[0]
+            continue
+        primitive_types = {
+            _unwrap_public_cli_type(item) for item in value_types
+        }
+        if primitive_types == {int, float}:
+            return float
+        return annotation
+
+
+def _literal_argument_type(choices):
+    choice_types = {type(choice) for choice in choices}
+    if len(choice_types) != 1:
+        raise TypeError(
+            "public CLI Literal choices must use one primitive type"
+        )
+    return next(iter(choice_types))
+
+
+def _public_training_argument_help(name: str, *, model_field: bool) -> str:
+    if name == "training_groups":
+        return (
+            "Number of groups to generate. Always means groups regardless "
+            "of gridsize. Can exceed dataset size when using higher "
+            "--neighbor_count values."
+        )
+    if name == "n_images":
+        return (
+            "DEPRECATED: Use --training-groups instead. Number of groups to use "
+            "from the dataset."
+        )
+    if name == "train_raw_selection":
+        return (
+            "Number of images to subsample from dataset before grouping "
+            "(independent control). When provided, controls data selection "
+            "separately from grouping."
+        )
+    if name == "subsample_seed":
+        return (
+            "Random seed for reproducible subsampling. Use same seed across "
+            "runs to ensure consistent data selection."
+        )
+    if name == "neighbor_count":
+        return (
+            "Number of nearest neighbors (K) for grouping. Use higher "
+            "values (e.g., 7) to enable more combinations when requesting "
+            "more groups than available points."
+        )
+    if name == "backend":
+        return (
+            "Backend selection: tensorflow, pytorch (default: tensorflow). "
+            "PyTorch backend requires torch>=2.2 (POLICY-001)."
+        )
+    prefix = "Model" if model_field else "Training"
+    return f"{prefix} parameter: {name}"
+
+
+def _add_public_training_argument(
+    parser: argparse.ArgumentParser,
+    config_field,
+    *,
+    model_field: bool,
+) -> None:
+    value_type = _unwrap_public_cli_type(config_field.type)
+    options = {
+        "default": argparse.SUPPRESS,
+        "help": _public_training_argument_help(
+            config_field.name,
+            model_field=model_field,
+        ),
+    }
+
+    if get_origin(value_type) is Literal:
+        choices = list(get_args(value_type))
+        options["choices"] = choices
+        options["type"] = _literal_argument_type(choices)
+    elif value_type is bool:
+        options["action"] = argparse.BooleanOptionalAction
+    else:
+        options["type"] = value_type
+
+    parser.add_argument(f"--{config_field.name}", **options)
 
 
 def add_public_training_config_arguments(
     parser: argparse.ArgumentParser,
 ) -> argparse.ArgumentParser:
-    """Register TrainingConfig CLI arguments on an existing argparse parser.
-
-    Arguments are auto-derived from the TrainingConfig model structure.
-    Nested sub-config fields use dotted names, e.g. --sampling.training_groups.
-    """
-    CliSettingsSource(TrainingConfig, root_parser=parser, cli_parse_args=False)
+    """Add public training overrides without applying dataclass defaults."""
+    for model_field in fields(ModelConfig):
+        _add_public_training_argument(
+            parser,
+            model_field,
+            model_field=True,
+        )
+    for training_field in fields(TrainingConfig):
+        if training_field.name == "model":
+            continue
+        _add_public_training_argument(
+            parser,
+            training_field,
+            model_field=False,
+        )
+    for alias, target in _TRAINING_CLI_FLAG_ALIASES.items():
+        parser.add_argument(
+            f"--{alias}",
+            dest=alias,
+            type=int,
+            default=argparse.SUPPRESS,
+            help=(
+                f"DEPRECATED: Use --{target.replace('_', '-')} instead. "
+                f"Legacy alias for the {target} field."
+            ),
+        )
     return parser
 
 
@@ -152,7 +309,6 @@ def parse_arguments():
     add_public_training_config_arguments(parser)
     return parser.parse_args()
 
-
 def load_yaml_config(file_path: str) -> Dict[str, Any]:
     """Load configuration from a YAML file."""
     try:
@@ -163,71 +319,41 @@ def load_yaml_config(file_path: str) -> Dict[str, Any]:
         raise
 
 
-def _get_field_annotation(cls: Any, name: str) -> Any:
-    if hasattr(cls, "model_fields") and name in cls.model_fields:
-        return cls.model_fields[name].annotation
-    if dataclasses.is_dataclass(cls):
-        for field in dataclasses.fields(cls):
-            if field.name == name:
-                return field.type
-    return None
-
-
-def _resolve_training_field_annotation(path: list[str]) -> Any:
-    annotation: Any = TrainingConfig
-    for part in path:
-        annotation = _get_field_annotation(annotation, part)
-        if annotation is None:
-            break
-    return annotation
-
-
-def _convert_cli_value(value: Any, path: list[str]) -> Any:
-    """Decode a CLI scalar only when it satisfies the destination annotation."""
-    if not isinstance(value, str):
-        return value
-    if value.lower() in {"true", "false"}:
-        decoded = value.lower() == "true"
-    else:
-        try:
-            decoded = json.loads(value)
-        except json.JSONDecodeError:
-            return value
-    try:
-        return TypeAdapter(
-            _resolve_training_field_annotation(path)
-        ).validate_python(decoded)
-    except ValidationError:
-        return value
-
-
-def _convert_cli_patch(node: Any, path: list[str]) -> Any:
-    if isinstance(node, dict):
-        return {
-            key: _convert_cli_patch(value, [*path, key])
-            for key, value in node.items()
-        }
-    return _convert_cli_value(node, path)
-
-
-def _namespace_to_training_patch(args: argparse.Namespace) -> dict[str, Any]:
-    """Extract a nested, typed TrainingConfig patch from parsed CLI arguments."""
-    source = CliSettingsSource(TrainingConfig, cli_parse_args=False)
-    source(parsed_args=args)
-    return _convert_cli_patch(source(), [])
-
+#def validate_config(config: Dict[str, Any]) -> None:
+#    """Validate the configuration."""
+#    if 'train_data_file_path' not in config or config['train_data_file_path'] is None:
+#        raise ValueError("train_data_file_path is a required parameter and must be provided")
 
 def setup_configuration(args: argparse.Namespace, yaml_path: Optional[str]) -> TrainingConfig:
     """Set up the configuration by merging defaults, YAML file, and command-line arguments."""
     try:
         yaml_config = load_yaml_config(yaml_path) if yaml_path else {}
-        cli_patch = _namespace_to_training_patch(args)
+        cli_patch = {
+            name: value
+            for name, value in vars(args).items()
+            if name in PUBLIC_TRAINING_INPUT_NAMES
+        }
+        for alias, target in _TRAINING_CLI_FLAG_ALIASES.items():
+            value = getattr(args, alias, None)
+            if value is not None:
+                warnings.warn(
+                    f"--{alias} is deprecated; use --{target}",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+                if target in cli_patch and cli_patch[target] != value:
+                    raise ValueError(
+                        f"--{alias} conflicts with explicit --{target} "
+                        f"({value!r} vs {cli_patch[target]!r})"
+                    )
+                cli_patch[target] = value
         config = resolve_training_config(yaml_config, cli_patch)
 
         logger.info("Configuration setup complete")
         logger.info(f"Final configuration: {config}")
-
+        
         return config
     except (yaml.YAMLError, IOError, ValueError) as e:
         logger.error(f"Error setting up configuration: {e}")
         raise
+

@@ -1,21 +1,20 @@
 """Bundle persistence, decoding, and strict reconstruction for ``wts.h5.zip``.
 
-Owns the bundle metadata decode/encode slab, ``load_inference_bundle_torch``,
-and the scaling-metadata persistence. The ``components`` facade re-exports this
-slab so the spec-pinned module path and public names are unchanged.
+Owns the versioned JSON manifest and ``torch.load`` serialization sites in the
+workflow layer (Ratchet B pins their per-file counts here).  The ``components``
+facade re-exports this slab so the spec-pinned module path and public names are
+unchanged.
 """
-import io
-import logging
 from contextlib import contextmanager
+import io
+import json
+import logging
 from pathlib import Path
 import zipfile
 from typing import Any, Dict, Optional, Tuple, Union
 
 from ptycho import params
 from ptycho.config.legacy_state import transactional_legacy_params
-from ptycho_torch.model_manager import (
-    _read_torch_bundle_manifest_and_params,
-)
 from ptycho_torch.scaling_contract import (
     AmplitudePhysicsGainRecord,
     CI_SCALE_CONTRACT,
@@ -25,13 +24,13 @@ from ptycho_torch.scaling_contract import (
     resolve_scale_contract,
     validate_amplitude_physics_gain,
 )
+from ptycho_torch import model_manager
 
-# Preserves pre-split log provenance.
-logger = logging.getLogger("ptycho_torch.workflows.components")
+# Preserves pre-split log provenance: records stay on the components facade logger.
+logger = logging.getLogger('ptycho_torch.workflows.components')
 
 _BUNDLE_SCALING_METADATA = "torch_scaling_metadata.pt"
 _BUNDLE_AMPLITUDE_PHYSICS_GAIN_RECORD = "amplitude_physics_gain_record.json"
-
 def _persist_bundle_scaling_metadata(
     archive_path: Path,
     model,
@@ -40,6 +39,7 @@ def _persist_bundle_scaling_metadata(
         AmplitudePhysicsGainRecord
     ] = None,
     checkpoint_selection: Optional[Dict[str, Any]] = None,
+    training_sampling: Optional[Dict[str, Any]] = None,
 ) -> None:
     """Append the torch config and frozen CI statistics needed for strict reload."""
     statistics = model.get_ci_statistics()
@@ -63,6 +63,7 @@ def _persist_bundle_scaling_metadata(
     from ptycho_torch.artifact_schema import (
         CURRENT_ARTIFACT_SCHEMA_VERSION,
         TORCH_ARTIFACT_BACKEND,
+        TORCH_MANIFEST_MEMBER,
         encode_artifact_identity,
         validate_torch_bundle_manifest,
     )
@@ -79,6 +80,11 @@ def _persist_bundle_scaling_metadata(
             parity_fixed_delta=float(model.hparams.get("parity_fixed_delta", 0.0)),
             parity_init_scheme=model.hparams.get("parity_init_scheme", "default"),
         )
+    sidecar_json = (
+        amplitude_physics_gain_record_to_json(amplitude_physics_gain_record)
+        if amplitude_physics_gain_record is not None
+        else None
+    )
     payload = encode_artifact_identity(
         model_spec,
         model.data_config,
@@ -86,19 +92,10 @@ def _persist_bundle_scaling_metadata(
         model.inference_config,
         ci_statistics=serialized_statistics,
     )
-    sidecar_json = (
-        amplitude_physics_gain_record_to_json(amplitude_physics_gain_record)
-        if amplitude_physics_gain_record is not None
-        else None
-    )
     buffer = io.BytesIO()
     torch.save(payload, buffer)
-
-    import json
     import os
     import tempfile
-
-    from ptycho_torch.artifact_schema import TORCH_MANIFEST_MEMBER
 
     with zipfile.ZipFile(archive_path, "r") as archive:
         members = {
@@ -119,6 +116,8 @@ def _persist_bundle_scaling_metadata(
     )
     if checkpoint_selection is not None:
         manifest["checkpoint_selection"] = dict(checkpoint_selection)
+    if training_sampling is not None:
+        manifest["training_sampling"] = dict(training_sampling)
     handle, temporary_name = tempfile.mkstemp(
         prefix=archive_path.name,
         suffix=".tmp",
@@ -171,14 +170,13 @@ def _read_bundle_amplitude_physics_gain_record(
 
 def _decode_bundle_metadata(metadata):
     from ptycho_torch.artifact_schema import (
-        SUPPORTED_ARTIFACT_SCHEMA_VERSIONS,
+        RUNTIME_SUPPORTED_ARTIFACT_SCHEMA_VERSIONS,
         decode_artifact_identity,
+        ensure_supported_artifact_schema_version,
         upgrade_unversioned_sections,
     )
 
     schema = metadata.get("schema_version") if isinstance(metadata, dict) else None
-    if schema in SUPPORTED_ARTIFACT_SCHEMA_VERSIONS:
-        return decode_artifact_identity(metadata)
     if schema == "ci-entrypoints-v1":
         return upgrade_unversioned_sections(
             data_config=metadata["data_config"],
@@ -187,9 +185,12 @@ def _decode_bundle_metadata(metadata):
             inference_config=metadata["inference_config"],
             ci_statistics=metadata.get("ci_statistics"),
         )
-    raise ValueError(
-        f"unsupported wts.h5.zip Torch metadata schema {schema!r}"
+    ensure_supported_artifact_schema_version(
+        schema,
+        context="wts.h5.zip Torch metadata",
+        supported_versions=RUNTIME_SUPPORTED_ARTIFACT_SCHEMA_VERSIONS,
     )
+    return decode_artifact_identity(metadata)
 
 
 def _strictly_reconstruct_bundle_model(archive_path: Path, identity, model_name: str):
@@ -253,21 +254,13 @@ def _reconstruct_inference_bundle_explicit(
     *,
     manifest: dict,
     params_dict: dict,
-    identity: Optional[Any],
+    identity: Any,
     explicit_profile: Optional[Tuple[str, str]],
     model_name: str,
-) -> Tuple[Dict[str, Any], dict, Optional[Any]]:
+) -> Tuple[Dict[str, Any], dict, Any]:
     """Reconstruct a decoded bundle without consulting or mutating params.cfg."""
     decoded_params = dict(params_dict)
     available_models = manifest["models"]
-
-    if identity is None:
-        raise ValueError(
-            "wts.h5.zip has no sealed Torch identity metadata; the in-process "
-            "legacy restore path was retired. Run "
-            "`python scripts/migrate_legacy_bundle.py SOURCE_DIR OUT_DIR` to "
-            "migrate this pre-JSON or unsealed bundle."
-        )
 
     persisted_profile = resolve_scale_contract(
         identity.data_config.scale_contract_version,
@@ -298,7 +291,7 @@ def _reconstruct_inference_bundle_explicit(
 
 @contextmanager
 def _pinned_bundle_snapshot(zip_path: Path):
-    """Yield an immutable private snapshot of one archive generation."""
+    """Yield an immutable private snapshot of one opened archive generation."""
     from collections import Counter
     import shutil
     import tempfile
@@ -310,6 +303,8 @@ def _pinned_bundle_snapshot(zip_path: Path):
         prefix="ptycho-torch-bundle-snapshot-"
     ) as temporary_directory:
         snapshot_zip_path = Path(temporary_directory) / zip_path.name
+        # Opening the live path once pins its inode even if another process
+        # atomically replaces the directory entry while the copy is running.
         with zip_path.open("rb") as source, snapshot_zip_path.open("wb") as target:
             shutil.copyfileobj(source, target)
 
@@ -332,13 +327,13 @@ def _decode_pinned_inference_bundle(
     model_name: str,
     explicit_profile: Optional[Tuple[str, str]],
 ) -> Tuple[Any, dict, Optional[AmplitudePhysicsGainRecord]]:
-    """Decode and reconstruct all members from one private snapshot."""
+    """Decode and reconstruct every bundle member from one private snapshot."""
     from ptycho_torch.artifact_schema import (
         SUPPORTED_ARTIFACT_SCHEMA_VERSIONS,
         validate_torch_bundle_manifest,
     )
 
-    manifest, params_dict = _read_torch_bundle_manifest_and_params(
+    manifest, params_dict = model_manager._read_torch_bundle_manifest_and_params(
         str(archive_path)
     )
     manifest_era = validate_torch_bundle_manifest(manifest)
@@ -348,10 +343,9 @@ def _decode_pinned_inference_bundle(
     )
     if metadata is None:
         raise ValueError(
-            "wts.h5.zip has no sealed Torch identity metadata; the in-process "
-            "legacy restore path was retired. Run "
-            "`python scripts/migrate_legacy_bundle.py SOURCE_DIR OUT_DIR` to "
-            "migrate this pre-JSON or unsealed bundle."
+            "wts.h5.zip has no sealed identity metadata. Run "
+            "`python -m ptycho_torch.migrate_bundle` to migrate this pre-JSON or "
+            "metadata-free legacy bundle to the versioned JSON manifest era."
         )
     metadata_schema = metadata.get("schema_version")
     if (
@@ -360,7 +354,8 @@ def _decode_pinned_inference_bundle(
     ):
         raise ValueError(
             "wts.h5.zip root manifest and metadata schemas disagree: "
-            f"manifest={manifest_era!r}, declares {metadata_schema!r}"
+            f"manifest={manifest_era!r}, "
+            f"declares {metadata_schema!r}"
         )
     if (
         manifest_era == "metadata-free-legacy"
@@ -391,31 +386,74 @@ def _decode_pinned_inference_bundle(
         explicit_profile=explicit_profile,
         model_name=model_name,
     )
-    params_dict["artifact_schema_version"] = metadata_schema
     return models_dict, params_dict, amplitude_physics_gain_record
 
 
 @transactional_legacy_params
 def load_inference_bundle_torch(
     bundle_dir: Union[str, Path],
-    model_name: str = "diffraction_to_obj",
+    model_name: str = 'diffraction_to_obj',
     *,
     scale_contract_version: Optional[str] = None,
     measurement_domain: Optional[str] = None,
 ) -> Tuple[Any, dict]:
-    """Strictly load a trained PyTorch bundle from a pinned snapshot."""
-    archive_path = Path(bundle_dir) / "wts.h5"
+    """
+    Load a trained PyTorch model bundle for inference from a directory.
+
+    This function provides API parity with ptycho.workflows.components.load_inference_bundle,
+    enabling transparent backend selection for model loading.
+
+    Decoding and model reconstruction are explicit and global-free. This
+    legacy/API wrapper commits the validated archive projection only after
+    every declared model role has loaded successfully.
+
+    Args:
+        bundle_dir: Path to the directory containing the wts.h5.zip archive.
+                   Expects TorchModelManager archive format matching TensorFlow baseline.
+        model_name: Name of model to load from dual-model bundle (default: 'diffraction_to_obj')
+        scale_contract_version: Optional explicit profile; when supplied together
+            with ``measurement_domain``, must match the bundle's sealed identity.
+        measurement_domain: Optional explicit profile companion of
+            ``scale_contract_version``.
+
+    Returns:
+        Tuple containing:
+        - models_dict: Dictionary with loaded model
+        - params_dict: Configuration dictionary restored from saved bundle
+
+    Raises:
+        ValueError: If bundle archive not found or params.json incomplete, or an
+            explicit profile contradicts the sealed identity.
+        FileNotFoundError: If bundle_dir does not contain wts.h5.zip
+
+    Example:
+        >>> models_dict, params_dict = load_inference_bundle_torch("outputs/run_001")
+        >>> # params.cfg now restored with training-time N, gridsize, nphotons
+        >>> # Use models_dict['diffraction_to_obj'] for inference
+
+    Lifecycle: authored config -> resolved payload -> sealed identity ->
+    restored identity (four invocation points: the training service, loader
+    construction, module construction, and the inference kernel; see
+    docs/workflows/pytorch.md).  Hop count: CLI -> load_inference_bundle_torch
+    -> _decode_pinned_inference_bundle -> _reconstruct_inference_bundle_explicit
+    -> _strictly_reconstruct_bundle_model (kernel), 4 hops.
+    """
+    # Normalize bundle_dir to string for Path compatibility
+    bundle_dir_str = str(bundle_dir)
+
+    # Build archive path following TensorFlow convention (wts.h5.zip in bundle_dir)
+    # TensorFlow baseline: load_inference_bundle expects model_dir containing wts.h5.zip
+    # PyTorch mirrors this: bundle_dir/wts.h5.zip.
+    archive_path = Path(bundle_dir_str) / "wts.h5"
     zip_path = archive_path.with_suffix(".h5.zip")
-    logger.info("Loading PyTorch inference bundle from %s.zip", archive_path)
+
+    logger.info(f"Loading PyTorch inference bundle from {archive_path}.zip")
 
     from ptycho_torch.config_factory import resolve_profile_overrides
-
-    explicit_profile = resolve_profile_overrides(
-        {
-            "scale_contract_version": scale_contract_version,
-            "measurement_domain": measurement_domain,
-        }
-    )
+    explicit_profile = resolve_profile_overrides({
+        "scale_contract_version": scale_contract_version,
+        "measurement_domain": measurement_domain,
+    })
     with _pinned_bundle_snapshot(zip_path) as (
         pinned_archive_path,
         pinned_zip_path,
@@ -428,17 +466,16 @@ def load_inference_bundle_torch(
                 explicit_profile=explicit_profile,
             )
         )
-
     params.cfg.update(params_dict)
+
     returned_params = dict(params_dict)
     if amplitude_physics_gain_record is not None:
         returned_params["amplitude_physics_gain_record"] = (
             amplitude_physics_gain_record
         )
 
-    logger.info(
-        "Inference bundle loaded successfully. Models: %s, Params keys: %s...",
-        list(models_dict),
-        list(params_dict)[:5],
-    )
+    logger.info(f"Inference bundle loaded successfully. Models: {list(models_dict.keys())}, Params keys: {list(params_dict.keys())[:5]}...")
+
+    # Return (models_dict, params_dict) matching TensorFlow baseline signature
+    # models_dict already contains both models per implementation
     return models_dict, returned_params

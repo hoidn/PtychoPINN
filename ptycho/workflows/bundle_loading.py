@@ -13,7 +13,6 @@ import numpy as np
 import tensorflow as tf
 
 from ptycho import params
-from ptycho import params as p
 from ptycho.config.legacy_state import (
     isolated_archived_params_scope,
     legacy_params_scope,
@@ -21,8 +20,8 @@ from ptycho.config.legacy_state import (
 )
 from ptycho.model_manager import ModelManager
 
-# Preserves pre-split log provenance.
-logger = logging.getLogger("ptycho.workflows.components")
+# Preserves pre-split log provenance: records stay on the components facade logger.
+logger = logging.getLogger('ptycho.workflows.components')
 
 class DiffractionToObjectAdapter(tf.keras.Model):
     """
@@ -79,9 +78,11 @@ class DiffractionToObjectAdapter(tf.keras.Model):
         if gridsize * gridsize != channels or gridsize <= 0:
             return
 
-        if p.cfg.get('gridsize') != gridsize:
-            p.cfg['gridsize'] = gridsize
+        if params.cfg.get('gridsize') != gridsize:
+            params.cfg['gridsize'] = gridsize
 
+    # Named archive-restore boundary (W3.1): call/predict re-project the
+    # bundle's runtime params (and input-derived gridsize) inside a scope.
     def call(self, inputs, training=False, **kwargs):
         with legacy_params_scope():
             params.cfg.update(self._runtime_params)
@@ -203,3 +204,5 @@ def load_inference_bundle_explicit(
     """
     with isolated_archived_params_scope():
         return load_inference_bundle(model_dir)
+
+

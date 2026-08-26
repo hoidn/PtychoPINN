@@ -49,6 +49,10 @@ python scripts/tools/transpose_rename_convert_tool.py \
 - **All relationships preserved:** Each diffraction pattern correctly corresponds to its coordinates
 - **Verified shuffling:** Contains `_shuffle_applied` and `_shuffle_seed` metadata
 
+**Provenance note:**
+- `fly64_shuffled.npz` is a permutation of `fly001_64_train_converted.npz` (same coordinates and diffraction frames, reordered).
+- For these fly64 files, do not rely on `scan_index` as a unique provenance key; align/verify by coordinates.
+
 **Validation:**
 ```python
 import numpy as np
@@ -108,11 +112,15 @@ print("✓ fly64_bottom_half_shuffled.npz ready for spatial subset studies")
 
 **Creation Commands:**
 ```bash
-# 1. Extract top half (first 5172 scan points)
+# 1. Extract top half by coordinate mask (Y >= 114.3)
 python -c "
 import numpy as np
 data = np.load('datasets/fly64/fly001_64_train_converted.npz')
-subset = {k: v[:5172] if v.shape and v.shape[0] == 10304 else v for k, v in data.items()}
+mask = data['ycoords'] >= 114.3
+subset = {
+    k: (v[mask] if hasattr(v, 'shape') and v.shape and v.shape[0] == len(mask) else v)
+    for k, v in data.items()
+}
 np.savez_compressed('datasets/fly64/fly64_top_half.npz', **subset)
 "
 
@@ -153,21 +161,11 @@ For rapid prototyping and validation experiments, smaller subsets (1000 images) 
 - **GridSize 2 compatible:** ~200 valid neighbor groups in training set
 
 **Usage:**
-```yaml
-# configs/fly64-sequential-gs2.yaml
-model:
-  gridsize: 2
-data:
-  train_data_file: datasets/fly64/fly64_sequential_train_800.npz
-  test_data_file: datasets/fly64/fly64_sequential_test_200.npz
-sampling:
-  training_groups: 200
-nepochs: 10
-output_dir: gs2_validation
-```
-
 ```bash
-ptycho_train --config configs/fly64-sequential-gs2.yaml
+ptycho_train --train_data_file datasets/fly64/fly64_sequential_train_800.npz \
+             --test_data_file datasets/fly64/fly64_sequential_test_200.npz \
+             --gridsize 2 --n_groups 200 --nepochs 10 \
+             --output_dir gs2_validation
 ```
 
 #### Random Subsets
@@ -183,21 +181,11 @@ ptycho_train --config configs/fly64-sequential-gs2.yaml
 - **General purpose:** Suitable for any gridsize value
 
 **Usage:**
-```yaml
-# configs/fly64-random-gs1.yaml
-model:
-  gridsize: 1
-data:
-  train_data_file: datasets/fly64/fly64_random_train_800.npz
-  test_data_file: datasets/fly64/fly64_random_test_200.npz
-sampling:
-  training_groups: 800
-nepochs: 10
-output_dir: gs1_validation
-```
-
 ```bash
-ptycho_train --config configs/fly64-random-gs1.yaml
+ptycho_train --train_data_file datasets/fly64/fly64_random_train_800.npz \
+             --test_data_file datasets/fly64/fly64_random_test_200.npz \
+             --gridsize 1 --n_groups 800 --nepochs 10 \
+             --output_dir gs1_validation
 ```
 
 **Creation Process:**
@@ -205,12 +193,12 @@ These subsets were created from properly converted datasets:
 - Sequential: First 1000 images from `fly001_64_train_converted.npz` (format-converted, sequential order), split 80/20
 - Random: First 1000 images from `fly64_shuffled.npz` (format-converted, randomized order), split 80/20
 
-Both source datasets have the correct float32 amplitude format required by PtychoPINN.
+Both source datasets have canonical float32 diffraction arrays required by PtychoPINN.
 
 ## Format Issues & Solutions
 
 ### Raw Format Problems
-- **Data type:** `uint16` intensity → PtychoPINN expects `float32` amplitude
+- **Data type:** `uint16` diffraction/intensity arrays → PtychoPINN expects canonical `float32`
 - **Key naming:** `diff3d` → PtychoPINN expects `diffraction`
 - **Missing Y patches:** No ground truth patches for supervised learning
 
@@ -265,5 +253,5 @@ print("✓ FLY64 dataset ready for PtychoPINN")
 ## See Also
 
 - <doc-ref type="workflow-guide">scripts/tools/README.md</doc-ref> - Preprocessing tools
-- <doc-ref type="workflow-guide">docs/COMMANDS_REFERENCE.md</doc-ref> - Training and evaluation commands
-- <doc-ref type="contract">docs/data_contracts.md</doc-ref> - Data format specifications
+- <doc-ref type="workflow-guide">scripts/studies/README.md</doc-ref> - Study workflows
+- <doc-ref type="contract">docs/specs/spec-ptycho-core.md</doc-ref> - standalone-NPZ data format specifications

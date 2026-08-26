@@ -24,24 +24,29 @@ def first_and_last(it):
         yield last
 
 path = './'
-image = imread(os.path.join(path,'williamson.jpeg')).astype(float)
-image /= image.mean()
-image = image[None, 100:, :, :1]
 
-N = params.get('size')
-imgs = hh.extract_patches(image, N, N)
-imgs = tf.reshape(imgs, (-1,) + (N, N))
+# Lazy pipeline state: (iterator, reversed_iterator). Import performs zero
+# params.cfg reads and zero file I/O (W3.2); first get_block() initializes.
+_state = None
 
-# Convert TensorFlow tensor to NumPy array for reversible operations
-imgs_np = imgs.numpy()
-rev = imgs_np[::-1]  # Reversing using NumPy slicing
 
-# Convert back to TensorFlow tensor if needed
-rev_tensor = tf.convert_to_tensor(rev, dtype=tf.float32)
-it = iter(imgs_np)  # Iterator for original order
-rev_it = iter(rev_tensor)  # Iterator for reversed order
+def _load_patches():
+    global _state
+    if _state is None:
+        image = imread(os.path.join(path, 'williamson.jpeg')).astype(float)
+        image /= image.mean()
+        image = image[None, 100:, :, :1]
+        N = params.get('size')
+        imgs = hh.extract_patches(image, N, N)
+        imgs = tf.reshape(imgs, (-1,) + (N, N))
+        imgs_np = imgs.numpy()
+        rev_tensor = tf.convert_to_tensor(imgs_np[::-1], dtype=tf.float32)
+        _state = (iter(imgs_np), iter(rev_tensor))
+    return _state
+
 
 def get_block(reverse = False):
+    it, rev_it = _load_patches()
     if reverse:
         return np.array(next(rev_it))
     return np.array(next(it))

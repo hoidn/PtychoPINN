@@ -4,7 +4,7 @@ PyTorch Training Script for PtychoPINN (INTEGRATE-PYTORCH-001)
 This module provides the canonical CLI training entry point for the PyTorch
 backend.
 
-CLI Interface (Phase E2.C1):
+CLI Interface:
     python -m ptycho_torch.train \\
         --train_data_file <path>       # Required: Training NPZ dataset
         --test_data_file <path>        # Optional: Validation NPZ dataset
@@ -22,7 +22,7 @@ Key Features:
 - Configuration bridge: PyTorch configs → TensorFlow dataclasses → params.cfg
 
 References:
-    - Phase E2.C1 spec: plans/active/INTEGRATE-PYTORCH-001/phase_e2_implementation.md
+    - Entry-point contract: docs/specs/spec-ptycho-interfaces.md (python -m ptycho_torch.train)
     - Test contract: tests/torch/test_integration_workflow_torch.py
     - Config bridge: ptycho_torch/config_bridge.py
 """
@@ -37,7 +37,7 @@ from ptycho.config.legacy_state import scoped_legacy_params
 @scoped_legacy_params
 def cli_main():
     """
-    CLI entrypoint for PyTorch training workflow (Phase E2.C1).
+    CLI entrypoint for PyTorch training workflow.
 
     The CLI resolves configuration through the supported factory and delegates
     training to the versioned workflow path.
@@ -52,7 +52,7 @@ Examples:
         """
     )
 
-    # New CLI interface flags (Phase E2.C1)
+    # New CLI interface flags
     parser.add_argument('--train_data_file', type=str,
                        help='Path to training NPZ dataset (required for new CLI interface)')
     parser.add_argument('--test_data_file', type=str,
@@ -150,7 +150,7 @@ Examples:
         help='Probe-mask disk diameter in pixels (default: N/2).'
     )
 
-    # Execution config flags (Phase C4.C1 - ADR-003)
+    # Execution config flags (the config-factory contract (docs/specs/spec-ptycho-config-bridge.md))
     parser.add_argument(
         '--accelerator',
         type=str,
@@ -203,7 +203,7 @@ Examples:
         )
     )
 
-    # Logger backend flags (Phase EB3.B - ADR-003)
+    # Logger backend flags (Phase EB3.B - the config-factory contract (docs/specs/spec-ptycho-config-bridge.md))
     parser.add_argument(
         '--logger',
         type=str,
@@ -219,7 +219,7 @@ Examples:
         )
     )
 
-    # Checkpoint and early stopping flags (Phase EB1.B - ADR-003)
+    # Checkpoint and early stopping flags (Phase EB1.B - the config-factory contract (docs/specs/spec-ptycho-config-bridge.md))
     parser.add_argument(
         '--enable-checkpointing',
         dest='enable_checkpointing',
@@ -283,7 +283,7 @@ Examples:
         )
     )
 
-    # Optimization knobs (Phase EB2 - ADR-003)
+    # Optimization knobs (Phase EB2 - the config-factory contract (docs/specs/spec-ptycho-config-bridge.md))
     parser.add_argument(
         '--scheduler',
         type=str,
@@ -325,8 +325,8 @@ Examples:
         args.train_data_file is not None or args.output_dir is not None
     )
     if canonical_interface:
-        # New CLI interface: --train_data_file --output_dir ... (Phase C4.C2 - ADR-003)
-        print("Using new CLI interface with factory-based config (ADR-003)")
+        # New CLI interface: --train_data_file --output_dir ... (the config-factory contract (docs/specs/spec-ptycho-config-bridge.md))
+        print("Using new CLI interface with factory-based config (config-factory contract; docs/specs/spec-ptycho-config-bridge.md)")
 
         # Validate required arguments
         if not args.train_data_file:
@@ -341,7 +341,7 @@ Examples:
         test_data_file = Path(args.test_data_file) if args.test_data_file else None
         output_dir = Path(args.output_dir)
 
-        # Validate paths using shared helper (Phase D.B - ADR-003)
+        # Validate paths using shared helper (Phase D.B - the config-factory contract (docs/specs/spec-ptycho-config-bridge.md))
         from ptycho_torch.cli.shared import validate_paths
         try:
             validate_paths(train_data_file, test_data_file, output_dir)
@@ -370,11 +370,13 @@ Examples:
             print(f"ERROR: Invalid CLI configuration: {e}")
             sys.exit(1)
 
-        # Phase C4.C2: Use config factory instead of manual config construction
+        # Use config factory instead of manual config construction
         print("Creating configuration via factory (CONFIG-001 compliance)...")
         from ptycho_torch.config_factory import create_training_payload
 
         # Build overrides dict from CLI arguments
+        # Door-level alias: the public CLI flag is --n_images; it maps onto the
+        # torch canonical field training_groups at this parse boundary only.
         overrides = {
             'training_groups': args.n_images,
             'batch_size': args.batch_size,
@@ -422,7 +424,7 @@ Examples:
             traceback.print_exc()
             sys.exit(1)
 
-        # Call workflow-based training (Phase C4.D3 - bundle persistence)
+        # Call workflow-based training (bundle persistence)
         try:
             print(f"Starting training with {args.max_epochs} epochs...")
 

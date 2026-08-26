@@ -22,7 +22,6 @@ venv/
 # Logs
 *.log
 logs/
-.loglogin
 
 # Data files - CRITICAL: Never commit these!
 *.npz
@@ -162,11 +161,12 @@ test_*/**/pinn_frc_curves.csv
 /grid_resolution_study_outputs_test/
 /input.md
 /loop.sh
-/orchestration.yaml
 /plan.md
 /pytorch_workflow_analysis.md
 /studies/*
-!/studies/lines_arch_profile/
+!/studies/object_family_repro/
+# frozen, unreconstructible study inputs: exempt from the global *.npz rule
+!/studies/object_family_repro/inputs/*.npz
 /supervisor.sh
 /sync/
 /test_script_wrapper_fix.sh
@@ -193,7 +193,6 @@ train_debug.log
 training_outputs/
 # Artifacts (new policy)
 .artifacts/
-.orchestrate/
 artifacts/
 state/
 $OUTDIR/
@@ -204,8 +203,3 @@ docs/plans/**/reports/**
 plans/**/reports/**
 
 .worktrees/
-
-# Branch-local working docs on refactor: keep as untracked working state, never commit
-docs/plans/
-docs/superpowers/
-docs/workflows/

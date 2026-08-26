@@ -12,8 +12,8 @@ Exports:
 All workflow functions are re-exported from this package for convenient imports.
 """
 
-# Torch-optional: This file must be importable even when torch unavailable
-# All torch-specific imports are guarded inside components.py
+# Torch-optional: importing this package without torch raises the actionable
+# RuntimeError from ptycho_torch/__init__.py's package-level guard.
 
 from .components import (
     run_cdi_example_torch,

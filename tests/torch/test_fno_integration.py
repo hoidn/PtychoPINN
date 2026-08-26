@@ -1,5 +1,5 @@
 # tests/torch/test_fno_integration.py
-"""Integration tests for FNO end-to-end training and inference."""
+"""Integration tests for FNO/Hybrid end-to-end training and inference."""
 import numpy as np
 import pytest
 import torch
@@ -64,7 +64,7 @@ def test_fno_generator_forward_pass():
         fno_blocks=2,
         cnn_blocks=1,
         modes=4,
-        C=1,  # generator channel count (not the retired config field)
+        C=1,  # gridsize=1
     )
 
     # Create synthetic input
@@ -83,6 +83,39 @@ def test_fno_generator_forward_pass():
     loss = output.sum()
     loss.backward()
     assert x.grad is not None, "Gradients did not flow to input"
+
+
+@pytest.mark.slow
+def test_hybrid_generator_forward_pass():
+    """Verify Hybrid U-NO generator produces valid output shape and gradients."""
+    from ptycho_torch.generators.fno import HybridUNOGenerator
+
+    # Create small model for testing
+    model = HybridUNOGenerator(
+        in_channels=1,
+        out_channels=2,
+        hidden_channels=8,  # Small for speed
+        n_blocks=2,
+        modes=4,
+        C=1,
+    )
+
+    # Create synthetic input
+    batch_size = 2
+    N = 32
+    C = 1
+    x = torch.randn(batch_size, C, N, N, requires_grad=True)
+
+    # Forward pass
+    output = model(x)
+
+    # Verify output shape
+    assert output.shape == (batch_size, N, N, C, 2)
+
+    # Verify differentiability
+    loss = output.sum()
+    loss.backward()
+    assert x.grad is not None
 
 
 @pytest.mark.slow

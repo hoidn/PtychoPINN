@@ -20,7 +20,7 @@ from ptycho.config import (
     SimulationConfig,
     SyntheticObjectConfig,
 )
-from ptycho.config.config import ModelConfig, TrainingConfig, DataConfig, SamplingConfig
+from ptycho.config.config import ModelConfig, TrainingConfig
 
 
 _FORMAT_RECIPE = {
@@ -39,9 +39,11 @@ _FORMAT_RECIPE = {
         "objects_per_probe": 5,
         "diffractions_per_object": 64,
         "set_phi": True,
+        "patch_amplitude_normalization": "none",
     },
     "scan": {
         "kind": "grid",
+        "position_layout": "uniform_random",
         "grid_size": [2, 2],
         "offset": 4,
         "outer_offset_train": 8,
@@ -62,7 +64,9 @@ _FORMAT_DOCUMENTS = {
         '"source_path":"probe.npz","transform_pipeline":'
         '"smooth:0.5|pad_preserve:128","mask_diameter":100.0},"object":'
         '{"kind":"dead_leaves","image_size":[392,392],"objects_per_probe":5,'
-        '"diffractions_per_object":64,"set_phi":true},"scan":{"kind":"grid",'
+        '"diffractions_per_object":64,"set_phi":true,'
+        '"patch_amplitude_normalization":"none"},"scan":{"kind":"grid",'
+        '"position_layout":"uniform_random",'
         '"grid_size":[2,2],"offset":4,"outer_offset_train":8,'
         '"outer_offset_test":20,"train_groups":9,"test_groups":3,"buffer":1},'
         '"detector":{"photons_per_pattern":100000000.0,'
@@ -83,8 +87,10 @@ simulation:
     objects_per_probe: 5
     diffractions_per_object: 64
     set_phi: true
+    patch_amplitude_normalization: none
   scan:
     kind: grid
+    position_layout: uniform_random
     grid_size: [2, 2]
     offset: 4
     outer_offset_train: 8
@@ -113,9 +119,11 @@ image_size = [392, 392]
 objects_per_probe = 5
 diffractions_per_object = 64
 set_phi = true
+patch_amplitude_normalization = "none"
 
 [simulation.scan]
 kind = "grid"
+position_layout = "uniform_random"
 grid_size = [2, 2]
 offset = 4
 outer_offset_train = 8
@@ -411,11 +419,11 @@ def test_generic_simulation_persists_complete_probe_identity(
         probeGuess=raw_probe,
     )
     simulation = SimulationConfig(
-        N=64,
+        N=8,
         probe=ProbeSimulationConfig(
             source="custom",
             source_path=input_path,
-            transform_pipeline="pad_extrapolate_boundary_matched:64",
+            transform_pipeline="pad_extrapolate_boundary_matched:8",
         ),
         object=SyntheticObjectConfig(
             kind="lines", image_size=(32, 32), diffractions_per_object=1
@@ -425,9 +433,9 @@ def test_generic_simulation_persists_complete_probe_identity(
         seed=3,
     )
     training = TrainingConfig(
-        model=ModelConfig(N=64, gridsize=1, object_big=False),
-        sampling=SamplingConfig(n_images=1),
-        data=DataConfig(nphotons=1e8),
+        model=ModelConfig(N=8, gridsize=1, object_big=False),
+        n_images=1,
+        nphotons=1e8,
     )
     captured: dict[str, object] = {}
     fake_raw = SimpleNamespace(
@@ -435,20 +443,20 @@ def test_generic_simulation_persists_complete_probe_identity(
         ycoords=np.array([4]),
         xcoords_start=np.array([0]),
         ycoords_start=np.array([0]),
-        diff3d=np.ones((1, 64, 64), dtype=np.float32),
-        probeGuess=np.ones((64, 64), dtype=np.complex64),
+        diff3d=np.ones((1, 8, 8), dtype=np.float32),
+        probeGuess=np.ones((8, 8), dtype=np.complex64),
         scan_index=np.array([0]),
     )
     ambient = {"N": 13, "gridsize": 3, "ambient_marker": "poison"}
     monkeypatch.setattr(params, "cfg", dict(ambient))
 
     def fake_generate(**kwargs):
-        assert params.cfg["N"] == 64
+        assert params.cfg["N"] == 8
         assert params.cfg["gridsize"] == 1
         assert params.cfg["nphotons"] == 1e8
         return (
             fake_raw,
-            np.ones((1, 64, 64), dtype=np.complex64),
+            np.ones((1, 8, 8), dtype=np.complex64),
         )
 
     monkeypatch.setattr(
@@ -481,7 +489,7 @@ def test_generic_simulation_persists_complete_probe_identity(
     assert len(lineage["raw_probe_sha256"]) == 64
     assert len(lineage["transformed_probe_sha256"]) == 64
     assert lineage["normalized_transform_pipeline"] == (
-        "pad_extrapolate_boundary_matched:64"
+        "pad_extrapolate_boundary_matched:8"
     )
     assert lineage["boundary_method"] == "harmonic_dirichlet_c0"
     assert lineage["laplacian_residual"] <= lineage["solver_tolerance"]
@@ -512,11 +520,11 @@ def test_generic_simulation_preflights_existing_output_before_generation(
         },
     )
     simulation = SimulationConfig(
-        N=64,
+        N=8,
         probe=ProbeSimulationConfig(
             source="custom",
             source_path=input_path,
-            transform_pipeline="pad_preserve:64",
+            transform_pipeline="pad_preserve:8",
         ),
         object=SyntheticObjectConfig(
             kind="lines", image_size=(32, 32), diffractions_per_object=1
@@ -524,8 +532,7 @@ def test_generic_simulation_preflights_existing_output_before_generation(
         scan=ScanSimulationConfig(kind="nongrid", buffer=4),
     )
     training = TrainingConfig(
-        model=ModelConfig(N=64, gridsize=1, object_big=False),
-        sampling=SamplingConfig(n_images=1),
+        model=ModelConfig(N=8, gridsize=1, object_big=False), n_images=1
     )
     monkeypatch.setattr(
         nongrid_simulation,

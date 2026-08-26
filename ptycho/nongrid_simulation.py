@@ -10,7 +10,7 @@ Architecture Overview
 The module serves as a bridge between the modern configuration system and legacy
 simulation components, providing a clean interface while maintaining compatibility:
 
-* **Modern Interface**: Uses structured `TrainingConfig` records for parameter management
+* **Modern Interface**: Uses TrainingConfig dataclasses for consistent parameter management
 * **Legacy Adapter**: Safely handles global state manipulation for backward compatibility  
 * **Coordinate-Based**: Generates arbitrary scan positions vs fixed grid patterns
 * **Simulation Pipeline**: Complete workflow from NPZ data to simulated measurements
@@ -51,14 +51,14 @@ Example Usage
 ------------
 Basic simulation from NPZ file:
 
-    >>> from ptycho.config.config import ModelConfig, SamplingConfig, TrainingConfig
+    >>> from ptycho.config.config import TrainingConfig, ModelConfig
     >>> from ptycho.nongrid_simulation import simulate_from_npz
     >>> 
     >>> # Configure simulation parameters
     >>> model_config = ModelConfig(N=64, gridsize=2)
     >>> training_config = TrainingConfig(
     ...     model=model_config,
-    ...     sampling=SamplingConfig(training_groups=2000),
+    ...     n_images=2000
     ... )
     >>> 
     >>> # Simulate non-grid data from experimental object/probe
@@ -123,8 +123,6 @@ from ptycho import params as p
 
 from ptycho.loader import RawData
 from ptycho import tf_helper as hh
-from ptycho import probe
-from ptycho import baselines as bl
 
 
 def load_probe_object(file_path: str) -> Tuple[np.ndarray, np.ndarray]:
@@ -160,14 +158,25 @@ def _generate_simulated_data_legacy_params(
     *,
     coordinate_rng: np.random.Generator | None = None,
     detector_seed: int | None = None,
+    coordinates: tuple[np.ndarray, np.ndarray] | None = None,
 ) -> RawData:
     """
     Internal legacy function that manipulates global state to generate data.
     This is a temporary workaround until raw_data.py and diffsim.py can be refactored.
+
+    ``coordinates`` supplies explicit scan positions (for example a raster
+    layout) and is mutually exclusive with the position RNG sources; when given,
+    no position randomness is drawn.  The detector Poisson stream is unaffected.
     """
     height, width = objectGuess.shape
     buffer = min(buffer, min(height, width) / 2 - 1)
 
+    if coordinates is not None and (
+        random_seed is not None or coordinate_rng is not None
+    ):
+        raise ValueError(
+            "coordinates is mutually exclusive with random_seed and coordinate_rng"
+        )
     if random_seed is not None and coordinate_rng is not None:
         raise ValueError("random_seed and coordinate_rng are mutually exclusive")
     if coordinate_rng is not None and not isinstance(
@@ -180,28 +189,51 @@ def _generate_simulated_data_legacy_params(
         else coordinate_rng
     )
 
-    # Use training_groups (modern) with fallback to n_images (deprecated) for compatibility
-    n_positions = config.sampling.training_groups if config.sampling.training_groups is not None else config.sampling.n_images
+    # Use training_groups (canonical) with fallback to n_images (deprecated) for compatibility
+    n_positions = config.training_groups if config.training_groups is not None else config.n_images
     if n_positions is None:
         raise ValueError("Either training_groups or n_images must be specified in config")
 
-    xcoords = rng.uniform(buffer, width - buffer, n_positions)
-    ycoords = rng.uniform(buffer, height - buffer, n_positions)
+    if coordinates is None:
+        xcoords = rng.uniform(buffer, width - buffer, n_positions)
+        ycoords = rng.uniform(buffer, height - buffer, n_positions)
+    else:
+        xcoords, ycoords = (
+            np.ascontiguousarray(np.asarray(value, dtype=np.float64))
+            for value in coordinates
+        )
+        for name, value in (("x", xcoords), ("y", ycoords)):
+            if value.shape != (n_positions,):
+                raise ValueError(
+                    f"explicit {name} coordinates must have shape "
+                    f"({n_positions},), got {value.shape}"
+                )
+            if not np.isfinite(value).all():
+                raise ValueError(
+                    f"explicit {name} coordinates must be finite"
+                )
     scan_index = np.zeros(n_positions, dtype=np.int64)
 
     # This is the non-conforming part: it manipulates global state.
     # It sets N, gridsize, and nphotons for the duration of the call to from_simulation.
     with legacy_params_scope():
-        # Set parameters to match the modern config
+        # This leaf receives a fully materialized object array.  Preserve the
+        # canonical object kind on SimulationConfig/object_class, while telling
+        # the legacy source router that no legacy object producer is involved.
+        p.set('data_source', 'generic')
+        # Set parameters to match the modern config.
         p.set('N', probeGuess.shape[0])
-        # RawData.from_simulation is a per-position extraction leaf. Flat
-        # storage is independent of the logical grouping geometry.
+        # RawData.from_simulation is a per-position extraction leaf.  Flat
+        # storage is independent of the logical model grouping geometry, so
+        # project gridsize=1 only for the entire protected leaf call.
         p.set('gridsize', 1)
-        p.set('nphotons', config.data.nphotons)  # Critical: Set nphotons for proper scaling
+        p.set('nphotons', config.nphotons)  # Critical: Set nphotons for proper scaling
         protected_seed = detector_seed if detector_seed is not None else random_seed
         if protected_seed is not None:
             import tensorflow as tf
 
+            # These are the only global RNG writes in this adapter.  Keep them
+            # immediately adjacent to the protected Poisson call.
             np.random.seed(protected_seed)
             tf.random.set_seed(protected_seed)
         raw_data = RawData.from_simulation(xcoords, ycoords, probeGuess, objectGuess, scan_index)
@@ -219,12 +251,16 @@ def generate_simulated_data(
     *,
     coordinate_rng: np.random.Generator | None = None,
     detector_seed: int | None = None,
+    coordinates: tuple[np.ndarray, np.ndarray] | None = None,
 ) -> Union[RawData, Tuple[RawData, np.ndarray]]:
     """
     CONFORMING: Generate simulated ptychography data using a configuration object.
-    
+
     This function acts as an adapter, calling an internal legacy function
     but exposing a clean, modern interface.
+
+    ``coordinates`` supplies explicit scan positions and is mutually exclusive
+    with ``random_seed``/``coordinate_rng``.
     """
     raw_data = _generate_simulated_data_legacy_params(
         config=config,
@@ -234,6 +270,7 @@ def generate_simulated_data(
         random_seed=random_seed,
         coordinate_rng=coordinate_rng,
         detector_seed=detector_seed,
+        coordinates=coordinates,
     )
 
     if return_patches:

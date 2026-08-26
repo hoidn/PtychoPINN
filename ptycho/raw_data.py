@@ -89,8 +89,9 @@ Usage Example:
     ```
 
 State Dependencies:
-- Depends on params.get('gridsize') for determining group size (C = gridsize²)
-- Uses params.get('N') as fallback for patch size in get_image_patches()
+- gridsize is an explicit argument on ``generate_grouped_data`` and
+  ``from_simulation`` (explicit ``gridsize`` argument); group size C = gridsize².
+- ``N`` and ``gridsize`` are explicit arguments on ``get_image_patches``.
 - Caching behavior eliminated - no dependency on dataset_path for cache files
 
 Data Contract Compliance:
@@ -114,10 +115,8 @@ from scipy.spatial import cKDTree
 import os
 import logging
 from pathlib import Path
-from ptycho import params
 from ptycho import grouping
 from ptycho.acquisition import canonicalize_identity_index
-from ptycho.autotest.debug import debug
 
 # Constants, # TODO cleanup / refactor
 local_offset_sign = -1
@@ -219,7 +218,7 @@ class RawData:
 
     @staticmethod
     def from_simulation(xcoords, ycoords, probeGuess,
-                 objectGuess, scan_index = None):
+                 objectGuess, scan_index = None, gridsize: int = 1):
         """
         Create a RawData instance from simulation data.
 
@@ -241,9 +240,6 @@ class RawData:
         
         # For gridsize=1 simulation, we handle individual coordinates directly
         # instead of complex grouping. This replaces the missing calculate_relative_coords.
-        gridsize = params.get('gridsize')
-        if gridsize is None:
-            gridsize = 1
         if gridsize != 1:
             raise NotImplementedError(
                 "from_simulation currently only supports gridsize=1. "
@@ -262,7 +258,7 @@ class RawData:
         
         global_offsets, local_offsets = get_relative_coords(coords_nn)
 
-        Y_obj = get_image_patches(objectGuess, global_offsets, local_offsets) 
+        Y_obj = get_image_patches(objectGuess, global_offsets, local_offsets, N=probeGuess.shape[0], gridsize=gridsize)
         Y_I = tf.math.abs(Y_obj)
         Y_phi = tf.math.angle(Y_obj)
         X, Y_I_xprobe, Y_phi_xprobe, intensity_scale = illuminate_and_diffract(Y_I, Y_phi, probeGuess)
@@ -271,7 +267,7 @@ class RawData:
         # TODO RawData should have a method for generating the illuminated ground truth object
         return RawData(xcoords, ycoords, xcoords_start, ycoords_start, tf.squeeze(X).numpy(),
                        probeGuess, scan_index, objectGuess,
-                       Y = Y_obj.numpy(),
+                       Y = np.asarray(Y_obj),
                        norm_Y_I = norm_Y_I)
 
     #@debug
@@ -425,9 +421,7 @@ class RawData:
             sequential_sampling (bool, optional): If True, uses the first nsamples points sequentially
                                                  instead of random sampling. Useful for debugging or
                                                  analyzing specific scan regions. Defaults to False.
-            gridsize (int, optional): Grid size for patch grouping. If None, falls back to
-                                     params.get('gridsize', 1). Explicit parameter takes precedence
-                                     for better dependency injection and testing.
+            gridsize (int): Grid size for patch grouping. Required.
             enable_oversampling (bool, optional): Explicit opt-in for K choose C oversampling.
                                                  Defaults to False. When True and nsamples > n_points,
                                                  enables oversampling if neighbor_pool_size >= C.
@@ -454,23 +448,17 @@ class RawData:
             Performance is fast enough that first-run and subsequent runs
             have similar execution times.
 
-        ⚠️ CRITICAL DEPENDENCY WARNING ⚠️
-        This method requires params.cfg['gridsize'] to be initialized.
-
-        Initialization requirements:
-        - For training: Call update_legacy_dict(params.cfg, config) first
-        - For inference: Ensure params.cfg is populated from saved model
-        - For testing: Set params.cfg['gridsize'] explicitly
-
-        Common failure scenario:
-        - Symptom: Getting shape (*, 64, 64, 1) instead of (*, 64, 64, 4)
-        - Cause: params.cfg['gridsize'] not set, defaults to 1
-        - Fix: Ensure update_legacy_dict() called before this method
+        Note:
+        ``gridsize`` is required. A missing value now raises instead of silently
+        defaulting to the wrong group shape.
 
         See: docs/debugging/TROUBLESHOOTING.md#shape-mismatch-errors
         """
         if gridsize is None:
-            gridsize = params.get('gridsize', 1)
+            raise ValueError(
+                "gridsize is required for generate_grouped_data; pass it "
+                "explicitly (e.g. gridsize=config.model.gridsize)."
+            )
         C = gridsize ** 2
         try:
             plan = grouping.plan_sample_then_group(
@@ -498,7 +486,9 @@ class RawData:
                 "K choose C oversampling" in message
                 and "OVERSAMPLING-001" not in message
             ):
-                raise ValueError(f"{message} [OVERSAMPLING-001]") from exc
+                raise ValueError(
+                    f"{message}. See OVERSAMPLING-001 in docs/findings.md for details."
+                ) from exc
             raise
         dtype = (
             np.int64
@@ -675,31 +665,38 @@ def get_image_patches(gt_image, global_offsets, local_offsets, N=None, gridsize=
     Generate and return image patches in channel format using a single canvas.
 
     Args:
-        gt_image (tensor): Ground truth image tensor.
-        global_offsets (tensor): Global offset tensor.
-        local_offsets (tensor): Local offset tensor.
-        N (int, optional): Patch size. If None, uses params.get('N').
-        gridsize (int, optional): Grid size. If None, uses params.get('gridsize').
+        gt_image (array): Ground truth image (numpy array or torch tensor).
+        global_offsets (array): Global offset array.
+        local_offsets (array): Local offset array.
+        N (int): Patch size. Required.
+        gridsize (int): Grid size. Required.
 
     Returns:
-        tensor: Image patches in channel format.
+        np.ndarray: Image patches in channel format (B, N, N, gridsize**2),
+        dtype complex64.
     """
-    import tensorflow as tf
-    from ptycho import tf_helper as hh
+    from ptycho_torch import pad_translate
 
-    # Use explicit parameters if provided, otherwise fall back to global params
-    # This follows the project's hybrid modernization pattern
-    N = N if N is not None else params.get('N')
-    gridsize = gridsize if gridsize is not None else params.get('gridsize')
+    if N is None or gridsize is None:
+        raise ValueError(
+            "N and gridsize are required for get_image_patches; pass them "
+            "explicitly."
+        )
     B = global_offsets.shape[0]
     c = gridsize**2
 
+    # Accept a torch tensor (torch rail may hand us one); the TF rail passes numpy.
+    if hasattr(gt_image, 'detach'):
+        gt_image = gt_image.detach().cpu().numpy()
+    else:
+        gt_image = np.asarray(gt_image)
+
     # Pad the ground truth image once
-    gt_padded = hh.pad(gt_image[None, ..., None], N // 2)
+    gt_padded = pad_translate.pad(gt_image[None, ..., None], N // 2)
 
     # Calculate the combined offsets by adding global and local offsets
-    offsets_c = tf.cast((global_offsets + local_offsets), tf.float32)
-    offsets_f = hh._channel_to_flat(offsets_c)
+    offsets_c = (global_offsets + local_offsets).astype(np.float32)
+    offsets_f = np.transpose(offsets_c, [0, 3, 1, 2]).reshape(-1, 1, 2, 1)
 
     # Create a canvas to store the extracted patches
     canvas = np.zeros((B, N, N, c), dtype=np.complex64)
@@ -707,11 +704,10 @@ def get_image_patches(gt_image, global_offsets, local_offsets, N=None, gridsize=
     # Iterate over the combined offsets and extract patches one by one
     for i in range(B * c):
         offset = -offsets_f[i, :, :, 0]
-        translated_patch = hh.translate(gt_padded, offset)
-        canvas[i // c, :, :, i % c] = np.array(translated_patch)[0, :N, :N, 0]
+        translated_patch = pad_translate.translate(gt_padded, offset)
+        canvas[i // c, :, :, i % c] = np.asarray(translated_patch)[0, :N, :N, 0]
 
-    # Convert the canvas to a TensorFlow tensor and return it
-    return tf.convert_to_tensor(canvas)
+    return canvas
 
 #@debug
 def get_relative_coords(coords_nn):

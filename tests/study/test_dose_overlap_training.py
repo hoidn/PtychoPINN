@@ -26,7 +26,6 @@ def test_train_cdi_model_normalizes_history(monkeypatch):
     Ensure TensorFlow workflow returns dict-based history even if Keras produces a History object.
     """
     from ptycho.workflows import components as workflow_components
-    from ptycho.workflows import workflow_orchestration
 
     train_raw = object()
     test_raw = object()
@@ -51,8 +50,8 @@ def test_train_cdi_model_normalizes_history(monkeypatch):
     def fake_train_eval(dataset, **kwargs):
         return {'history': FakeHistory(), 'model_instance': object()}
 
-    monkeypatch.setattr(workflow_orchestration, 'create_ptycho_data_container', fake_create_container)
-    monkeypatch.setattr(workflow_orchestration.probe, 'set_probe_guess', lambda *args, **kwargs: None)
+    monkeypatch.setattr('ptycho.workflows.workflow_orchestration.create_ptycho_data_container', fake_create_container)
+    monkeypatch.setattr('ptycho.probe.set_probe_guess', lambda *args, **kwargs: None)
     monkeypatch.setattr('ptycho.loader.PtychoDataset', FakeDataset)
     monkeypatch.setattr('ptycho.train_pinn.train_eval', fake_train_eval)
 
@@ -496,7 +495,7 @@ def test_run_training_job_dry_run(tmp_path):
 
 def test_execute_training_job_dispatches_tensorflow_by_default(tmp_path, monkeypatch):
     """Default execute_training_job call should route to TensorFlow backend."""
-    from ptycho.config.config import TrainingConfig, ModelConfig, DataConfig
+    from ptycho.config.config import TrainingConfig, ModelConfig
     from studies.fly64_dose_overlap import training as training_module
 
     artifact_dir = tmp_path / "artifacts"
@@ -517,7 +516,8 @@ def test_execute_training_job_dispatches_tensorflow_by_default(tmp_path, monkeyp
     )
 
     config = TrainingConfig(
-        data=DataConfig(train_data_file=str(train_npz), test_data_file=str(test_npz)),
+        train_data_file=str(train_npz),
+        test_data_file=str(test_npz),
         output_dir=str(artifact_dir),
         model=ModelConfig(gridsize=1),
     )
@@ -548,7 +548,7 @@ def test_execute_training_job_dispatches_tensorflow_by_default(tmp_path, monkeyp
 
 def test_execute_training_job_dispatches_pytorch_when_requested(tmp_path, monkeypatch):
     """execute_training_job should route to PyTorch backend when explicitly requested."""
-    from ptycho.config.config import TrainingConfig, ModelConfig, DataConfig
+    from ptycho.config.config import TrainingConfig, ModelConfig
     from studies.fly64_dose_overlap import training as training_module
 
     artifact_dir = tmp_path / "artifacts"
@@ -569,7 +569,8 @@ def test_execute_training_job_dispatches_pytorch_when_requested(tmp_path, monkey
     )
 
     config = TrainingConfig(
-        data=DataConfig(train_data_file=str(train_npz), test_data_file=str(test_npz)),
+        train_data_file=str(train_npz),
+        test_data_file=str(test_npz),
         output_dir=str(artifact_dir),
         model=ModelConfig(gridsize=2),
         backend='pytorch',
@@ -604,7 +605,7 @@ def test_execute_training_job_tensorflow_persists_bundle(tmp_path, monkeypatch):
     """
     TensorFlow backend should save bundles via model_manager.save with manifest metadata.
     """
-    from ptycho.config.config import TrainingConfig, ModelConfig, DataConfig
+    from ptycho.config.config import TrainingConfig, ModelConfig
     from studies.fly64_dose_overlap import training as training_module
 
     artifact_dir = tmp_path / "artifacts"
@@ -635,7 +636,8 @@ def test_execute_training_job_tensorflow_persists_bundle(tmp_path, monkeypatch):
     )
 
     config = TrainingConfig(
-        data=DataConfig(train_data_file=str(train_npz), test_data_file=str(test_npz)),
+        train_data_file=str(train_npz),
+        test_data_file=str(test_npz),
         output_dir=str(artifact_dir),
         model=ModelConfig(gridsize=1),
         backend='tensorflow',
@@ -1145,12 +1147,12 @@ def test_training_cli_invokes_real_runner(tmp_path, monkeypatch):
         f"Runner must receive TrainingConfig instance, got {type(call['config'])}"
 
     # Assertions: config has correct fields
-    assert call['config'].data.train_data_file.endswith('patched_train.npz'), \
-        f"config.data.train_data_file must point to patched_train.npz, got {call['config'].data.train_data_file}"
-    assert call['config'].data.test_data_file.endswith('patched_test.npz'), \
-        f"config.data.test_data_file must point to patched_test.npz, got {call['config'].data.test_data_file}"
-    assert call['config'].data.nphotons == 1000.0, \
-        f"config.data.nphotons must match dose=1000, got {call['config'].data.nphotons}"
+    assert call['config'].train_data_file.endswith('patched_train.npz'), \
+        f"config.train_data_file must point to patched_train.npz, got {call['config'].train_data_file}"
+    assert call['config'].test_data_file.endswith('patched_test.npz'), \
+        f"config.test_data_file must point to patched_test.npz, got {call['config'].test_data_file}"
+    assert call['config'].nphotons == 1000.0, \
+        f"config.nphotons must match dose=1000, got {call['config'].nphotons}"
     assert call['config'].model.gridsize == 1, \
         f"config.model.gridsize must be 1 for baseline, got {call['config'].model.gridsize}"
 
@@ -1172,7 +1174,7 @@ def test_training_cli_invokes_real_runner(tmp_path, monkeypatch):
 
     print(f"\n✓ CLI real runner integration validated:")
     print(f"  - execute_training_job called: {len(runner_calls)} time(s)")
-    print(f"  - Received TrainingConfig with nphotons={call['config'].data.nphotons}, gridsize={call['config'].model.gridsize}")
+    print(f"  - Received TrainingConfig with nphotons={call['config'].nphotons}, gridsize={call['config'].model.gridsize}")
     print(f"  - Job metadata: dose={call['job'].dose}, view={call['job'].view}")
     print(f"  - Log path: {call['log_path']}")
 

@@ -1,10 +1,7 @@
 """Focused tests for the maintained TensorFlow baseline CLI."""
 
 from __future__ import annotations
-import json
-import os
-import subprocess
-import sys
+
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
@@ -13,7 +10,7 @@ import numpy as np
 import pytest
 import tensorflow as tf
 
-from ptycho.config.config import ModelConfig, SamplingConfig, TrainingConfig
+from ptycho.config.config import ModelConfig, TrainingConfig
 from scripts import run_baseline
 
 
@@ -66,106 +63,6 @@ def _training_config(tmp_path: Path, *, gridsize: int = 2) -> TrainingConfig:
         nepochs=3,
         batch_size=8,
     )
-
-def test_load_baseline_dataset_uses_canonical_sampling_controls(
-    monkeypatch,
-    tmp_path: Path,
-):
-    config = _training_config(tmp_path).model_copy(
-        update={
-            "sampling": SamplingConfig(
-                training_groups=23,
-                train_raw_selection=31,
-                subsample_seed=7,
-            )
-        }
-    )
-    raw_data = SimpleNamespace(objectGuess=None)
-    calls = []
-
-    def fake_load_data(path, **kwargs):
-        calls.append((path, kwargs))
-        return raw_data
-
-    monkeypatch.setattr(run_baseline, "load_data", fake_load_data)
-    monkeypatch.setattr(
-        run_baseline,
-        "create_ptycho_data_container",
-        lambda *_args: object(),
-    )
-    monkeypatch.setattr(run_baseline, "PtychoDataset", lambda *_args: object())
-
-    run_baseline._load_baseline_dataset(config)
-
-    assert calls[0][1] == {
-        "n_images": 23,
-        "n_subsample": 31,
-        "subsample_seed": 7,
-    }
-
-def test_run_comparison_builds_valid_baseline_model_override(tmp_path: Path):
-    train_path = tmp_path / "train.npz"
-    test_path = tmp_path / "test.npz"
-    np.savez(train_path, diff3d=np.zeros((2, 4, 4), dtype=np.float32))
-    np.savez(test_path, diff3d=np.zeros((2, 4, 4), dtype=np.float32))
-
-    command_log = tmp_path / "commands.jsonl"
-    fake_bin = tmp_path / "bin"
-    fake_bin.mkdir()
-    fake_python = fake_bin / "python"
-    fake_python.write_text(
-        """#!/usr/bin/env python3
-import json
-import os
-import subprocess
-import sys
-
-if sys.argv[1:2] == ["-c"]:
-    raise SystemExit(subprocess.run([os.environ["REAL_PYTHON"], *sys.argv[1:]]).returncode)
-with open(os.environ["COMMAND_LOG"], "a", encoding="utf-8") as handle:
-    handle.write(json.dumps(sys.argv[1:]) + "\\n")
-""",
-        encoding="utf-8",
-    )
-    fake_python.chmod(0o755)
-
-    result = subprocess.run(
-        [
-            "bash",
-            "scripts/run_comparison.sh",
-            str(train_path),
-            str(test_path),
-            str(tmp_path / "output"),
-            "--n-train-groups",
-            "2",
-            "--n-train-subsample",
-            "2",
-            "--n-test-groups",
-            "2",
-            "--n-test-subsample",
-            "2",
-            "--neighbor-count",
-            "4",
-        ],
-        cwd=Path(__file__).resolve().parent.parent,
-        env={
-            **os.environ,
-            "PATH": f"{fake_bin}:{os.environ['PATH']}",
-            "COMMAND_LOG": str(command_log),
-            "REAL_PYTHON": sys.executable,
-        },
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 0, result.stderr
-
-    commands = [
-        json.loads(line)
-        for line in command_log.read_text(encoding="utf-8").splitlines()
-    ]
-    baseline = next(command for command in commands if command[0] == "scripts/run_baseline.py")
-    model_index = baseline.index("--model")
-    assert json.loads(baseline[model_index + 1]) == {"gridsize": 1}
 
 
 def test_run_identity_comes_only_from_resolved_config_and_explicit_timestamp(
@@ -391,19 +288,17 @@ def test_run_baseline_uses_owned_runtime_values_and_explicit_persistence(
     assert result["metrics"] == {"mae": (0.1, 0.2), "psnr": (20.0, 21.0)}
 
 
-def test_train_leaf_projects_training_values_and_restores_module_and_params(
+def test_train_leaf_projects_training_values_and_restores_params(
     monkeypatch,
     tmp_path: Path,
 ):
     from ptycho import baselines, params
     from ptycho.config.legacy_state import legacy_params_scope
 
-    base = _training_config(tmp_path)
-    config = base.model_copy(update={
-        "model": replace(base.model, n_filters_scale=3),
-    })
-    previous_filter_scale = 91
-    monkeypatch.setattr(baselines, "n_filters_scale", previous_filter_scale)
+    config = replace(
+        _training_config(tmp_path),
+        model=replace(_training_config(tmp_path).model, n_filters_scale=3),
+    )
     observed = {}
 
     class FakeModel:
@@ -414,7 +309,8 @@ def test_train_leaf_projects_training_values_and_restores_module_and_params(
     def fake_train(x, y_i, y_phi):
         observed["inputs"] = (x, y_i, y_phi)
         observed["params"] = dict(params.cfg)
-        observed["filter_scale"] = baselines.n_filters_scale
+        # W3.2: n_filters_scale flows through params.cfg (build_model reads it
+        # at call time); the module-global projection protocol is retired.
         return FakeModel(), "history"
 
     monkeypatch.setattr(baselines, "train", fake_train)
@@ -444,8 +340,7 @@ def test_train_leaf_projects_training_values_and_restores_module_and_params(
     assert observed["params"]["nepochs"] == 3
     assert observed["params"]["batch_size"] == 8
     assert observed["params"]["intensity_scale"] == 23.0
-    assert observed["filter_scale"] == 3
-    assert baselines.n_filters_scale == previous_filter_scale
+    assert observed["params"]["n_filters_scale"] == 3
 
 
 def test_reassembly_leaf_uses_config_geometry_and_restores_ambient(

@@ -417,30 +417,6 @@ def test_legacy_simulation_projects_resolved_training_state_and_restores_it(
     monkeypatch
 ):
     from ptycho import params
-    from ptycho.config import resolve_training_config as _real_resolve
-
-    def _compat_resolve_training_config(file_mapping, explicit_cli_patch):
-        """Translate legacy flat-key patch to nested API required by pydantic TrainingConfig."""
-        if explicit_cli_patch and isinstance(explicit_cli_patch, dict):
-            patch = dict(explicit_cli_patch)
-            model_overrides = {}
-            data_overrides = {}
-            for flat_key, sub in (("N", "model"), ("gridsize", "model"), ("nphotons", "data")):
-                if flat_key in patch:
-                    if sub == "model":
-                        model_overrides[flat_key] = patch.pop(flat_key)
-                    else:
-                        data_overrides[flat_key] = patch.pop(flat_key)
-            if model_overrides:
-                patch["model"] = patch.get("model", {})
-                patch["model"].update(model_overrides)
-            if data_overrides:
-                patch["data"] = patch.get("data", {})
-                patch["data"].update(data_overrides)
-            explicit_cli_patch = patch
-        return _real_resolve(file_mapping, explicit_cli_patch)
-
-    monkeypatch.setattr(synthetic, "resolve_training_config", _compat_resolve_training_config)
 
     observed = {}
     marker = object()
@@ -493,30 +469,6 @@ def test_legacy_simulation_projects_resolved_training_state_and_restores_it(
 
 def test_legacy_simulation_restores_state_when_tensorflow_leaf_fails(monkeypatch):
     from ptycho import params
-    from ptycho.config import resolve_training_config as _real_resolve
-
-    def _compat_resolve_training_config(file_mapping, explicit_cli_patch):
-        """Translate legacy flat-key patch to nested API required by pydantic TrainingConfig."""
-        if explicit_cli_patch and isinstance(explicit_cli_patch, dict):
-            patch = dict(explicit_cli_patch)
-            model_overrides = {}
-            data_overrides = {}
-            for flat_key, sub in (("N", "model"), ("gridsize", "model"), ("nphotons", "data")):
-                if flat_key in patch:
-                    if sub == "model":
-                        model_overrides[flat_key] = patch.pop(flat_key)
-                    else:
-                        data_overrides[flat_key] = patch.pop(flat_key)
-            if model_overrides:
-                patch["model"] = patch.get("model", {})
-                patch["model"].update(model_overrides)
-            if data_overrides:
-                patch["data"] = patch.get("data", {})
-                patch["data"].update(data_overrides)
-            explicit_cli_patch = patch
-        return _real_resolve(file_mapping, explicit_cli_patch)
-
-    monkeypatch.setattr(synthetic, "resolve_training_config", _compat_resolve_training_config)
 
     monkeypatch.setattr(
         synthetic.RawData,

@@ -1,0 +1,233 @@
+{
+  "fit_extrema": {
+    "amplitude_mae_max": 0.16464776141893606,
+    "amplitude_ssim_min": 0.8920043725827375,
+    "phase_ssim_min": 0.9568175256917024,
+    "train_loss_max": 0.07052002102136612,
+    "validation_loss_max": 0.06621479988098145,
+    "wrapped_phase_mae_max": 0.16571944952011108
+  },
+  "margins": {
+    "amplitude_mae": 0.015,
+    "amplitude_ssim": 0.035,
+    "loss_epsilon": 1e-06,
+    "phase_ssim": 0.015,
+    "train_loss_multiplier": 1.1,
+    "validation_loss_multiplier": 1.1,
+    "wrapped_phase_mae": 0.025
+  },
+  "metric_contract_version": "synthetic-quality-metrics-v1",
+  "observations": [
+    {
+      "dataset_manifest_sha256": "7c502c86c117306d16ef7bb619ab92d269ef22becdb62599fddc4cc13b0687c8",
+      "epoch_ids": {
+        "train": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "validation": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "fingerprint_index": 0,
+      "losses": {
+        "train": 0.07052002102136612,
+        "validation": 0.06621479988098145
+      },
+      "metrics": {
+        "absolute_amp_mae": 0.16464776141893606,
+        "amplitude_ssim": 0.8920043725827375,
+        "phase_ssim": 0.9568175256917024,
+        "phase_wrapped_mae": 0.16571944952011108
+      },
+      "run_id": "run-01"
+    },
+    {
+      "dataset_manifest_sha256": "7c502c86c117306d16ef7bb619ab92d269ef22becdb62599fddc4cc13b0687c8",
+      "epoch_ids": {
+        "train": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "validation": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "fingerprint_index": 0,
+      "losses": {
+        "train": 0.07052002102136612,
+        "validation": 0.06621479988098145
+      },
+      "metrics": {
+        "absolute_amp_mae": 0.16464776141893606,
+        "amplitude_ssim": 0.8920043725827375,
+        "phase_ssim": 0.9568175256917024,
+        "phase_wrapped_mae": 0.16571944952011108
+      },
+      "run_id": "run-02"
+    },
+    {
+      "dataset_manifest_sha256": "7c502c86c117306d16ef7bb619ab92d269ef22becdb62599fddc4cc13b0687c8",
+      "epoch_ids": {
+        "train": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "validation": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "fingerprint_index": 0,
+      "losses": {
+        "train": 0.07052002102136612,
+        "validation": 0.06621479988098145
+      },
+      "metrics": {
+        "absolute_amp_mae": 0.16464776141893606,
+        "amplitude_ssim": 0.8920043725827375,
+        "phase_ssim": 0.9568175256917024,
+        "phase_wrapped_mae": 0.16571944952011108
+      },
+      "run_id": "run-03"
+    }
+  ],
+  "renderer_version": "synthetic-comparison-renderer-v1",
+  "resolved_workflow_sha256": "31ae4b59ae957e1b10d4c6bf5383b851f0da838a655106eef4e44df05ed9ecef",
+  "sampling": {
+    "N": 128,
+    "channels": 1,
+    "gridsize": 1,
+    "groups_per_center": 1,
+    "neighbor_count": 1,
+    "neighbor_pool_size": 1,
+    "test_patterns": 729,
+    "train_patterns": 4489,
+    "train_raw_selection": 4489,
+    "training_groups": 4489,
+    "validation_groups": 729
+  },
+  "schema_version": "generic-runner-hybrid-resnet-gs1-quality-v1",
+  "seed_lineage": {
+    "base_seed": 3,
+    "grouping": 523213049,
+    "object": 819382448,
+    "test_coordinates": 118549108,
+    "test_noise": 2942680743,
+    "torch": 2426322228,
+    "train_coordinates": 1645421708,
+    "train_noise": 3451799802
+  },
+  "source_commit": "a3195d5d71f9d39bd9b3800148949f4e5715d71f",
+  "source_probe_sha256": "9f82cb9eb2c5a853764b98c1657b778600c0e90425296a7d1fdc6e8fdb53c906",
+  "supported_fingerprints": [
+    {
+      "allow_tf32_cudnn": true,
+      "allow_tf32_matmul": false,
+      "compute_capability": [
+        8,
+        6
+      ],
+      "cublas_workspace_config": ":4096:8",
+      "cuda_version": "12.8",
+      "cudnn_benchmark": false,
+      "cudnn_deterministic": false,
+      "cudnn_version": 91002,
+      "driver_version": "580.173.02",
+      "float32_matmul_precision": "highest",
+      "gpu_name": "NVIDIA GeForce RTX 3090",
+      "lightning_version": "2.5.5",
+      "numpy_version": "1.26.4",
+      "precision": "32-true",
+      "python_version": "3.11.13",
+      "torch_version": "2.9.1+cu128"
+    }
+  ],
+  "thresholds": {
+    "amplitude_mae_max": 0.17964776141893607,
+    "amplitude_ssim_min": 0.8570043725827374,
+    "phase_ssim_min": 0.9418175256917024,
+    "train_loss_max": 0.07757302312350274,
+    "validation_loss_max": 0.07283727986907959,
+    "wrapped_phase_mae_max": 0.19071944952011108
+  },
+  "visual_reviews": [
+    {
+      "checklist": {
+        "frame_anchor_and_crop_valid": true,
+        "line_morphology_recognizable": true,
+        "no_checkerboarding": true,
+        "no_collapse": true,
+        "no_coverage_holes": true,
+        "no_flatness": true,
+        "no_mirroring_or_transposition": true,
+        "no_saturation": true,
+        "no_seams_or_channel_quadrants": true,
+        "object_extent_stable": true,
+        "wrapped_phase_errors_plausible": true
+      },
+      "notes": "Full-size six-panel review: amplitude filaments and phase topology match truth; residuals are smooth and localized, with no collapse, seam, quadrant, crop, saturation, or coverage failure.",
+      "reviewer": "codex-visual-review-2026-08-13",
+      "run_id": "run-01",
+      "verdict": "PASS"
+    },
+    {
+      "checklist": {
+        "frame_anchor_and_crop_valid": true,
+        "line_morphology_recognizable": true,
+        "no_checkerboarding": true,
+        "no_collapse": true,
+        "no_coverage_holes": true,
+        "no_flatness": true,
+        "no_mirroring_or_transposition": true,
+        "no_saturation": true,
+        "no_seams_or_channel_quadrants": true,
+        "object_extent_stable": true,
+        "wrapped_phase_errors_plausible": true
+      },
+      "notes": "Comparison PNG is byte-identical to reviewed run-01 (SHA-256 41dadeed088f0e54479e4ed548ee5320677406ce422d3ea00390038414be513b).",
+      "reviewer": "codex-visual-review-2026-08-13",
+      "run_id": "run-02",
+      "verdict": "PASS"
+    },
+    {
+      "checklist": {
+        "frame_anchor_and_crop_valid": true,
+        "line_morphology_recognizable": true,
+        "no_checkerboarding": true,
+        "no_collapse": true,
+        "no_coverage_holes": true,
+        "no_flatness": true,
+        "no_mirroring_or_transposition": true,
+        "no_saturation": true,
+        "no_seams_or_channel_quadrants": true,
+        "object_extent_stable": true,
+        "wrapped_phase_errors_plausible": true
+      },
+      "notes": "Holdout comparison PNG is byte-identical to reviewed run-01 (SHA-256 41dadeed088f0e54479e4ed548ee5320677406ce422d3ea00390038414be513b).",
+      "reviewer": "codex-visual-review-2026-08-13",
+      "run_id": "run-03",
+      "verdict": "PASS"
+    }
+  ]
+}

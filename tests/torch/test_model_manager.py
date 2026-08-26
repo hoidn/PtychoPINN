@@ -2,9 +2,10 @@
 Tests for ptycho_torch/model_manager.py — PyTorch model persistence layer.
 
 This module validates that the PyTorch persistence functions (`save_torch_bundle`,
-`load_torch_bundle`) satisfy the reconstructor persistence contract defined in
-specs/ptychodus_api_spec.md §4.6 and maintain archival format parity with
-ptycho/model_manager.py TensorFlow implementation.
+the JSON manifest reader, and the legacy migration script) satisfy the
+reconstructor persistence contract defined in specs/ptychodus_api_spec.md §4.6
+and maintain archival format parity with the ptycho/model_manager.py TensorFlow
+implementation.
 
 Critical Behavioral Requirements (from spec §4.6 + Phase D3 callchain):
 1. save_torch_bundle MUST produce wts.h5.zip-compatible archives with dual-model structure
@@ -25,13 +26,10 @@ Artifacts (Phase D3.B):
 """
 
 import copy
-import io
+import json
 from pathlib import Path
-import tempfile
 import zipfile
 
-import json
-import numpy as np
 import pytest
 
 # Add to conftest.py TORCH_OPTIONAL_MODULES if not already present
@@ -59,13 +57,13 @@ class TestSaveTorchBundle:
     @pytest.fixture
     def minimal_training_config(self):
         """Create minimal TrainingConfig fixture with canonical params."""
-        from ptycho.config.config import TrainingConfig, ModelConfig, DataConfig, SamplingConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig
 
         model_config = ModelConfig(
             N=64,
             gridsize=2,
             model_type='pinn',
-            n_filters_scale=1,
+            n_filters_scale=1.0,
             amp_activation='sigmoid',
             object_big=False,
             probe_big=False,
@@ -74,12 +72,11 @@ class TestSaveTorchBundle:
 
         training_config = TrainingConfig(
             model=model_config,
-            data=DataConfig(
-                train_data_file=Path("/tmp/dummy_train.npz"),
-                test_data_file=Path("/tmp/dummy_test.npz"),
-                nphotons=1e9,
-            ),
-            sampling=SamplingConfig(training_groups=10, neighbor_count=4),
+            train_data_file=Path("/tmp/dummy_train.npz"),
+            test_data_file=Path("/tmp/dummy_test.npz"),
+            training_groups=10,
+            neighbor_count=4,
+            nphotons=1e9,
             nepochs=5,
             batch_size=16,
         )
@@ -137,10 +134,10 @@ class TestSaveTorchBundle:
         with manifest.json + per-model subdirectories containing params.json, model weights.
 
         TensorFlow baseline: ptycho/model_manager.py:346-378 (ModelManager.save_multiple_models)
-        Archive schema from Phase D3.A callchain (static.md):
+        Archive schema (PyTorch JSON-manifest era):
         ```
         wts.h5.zip/
-        ├── manifest.json  # {'models': ['autoencoder', 'diffraction_to_obj'], 'version': '2.0-pytorch'}
+        ├── manifest.json  # {'models': [...], 'version': '2.0-pytorch', 'manifest_version': ...}
         ├── autoencoder/
         │   ├── model.pth  # PyTorch state_dict (replaces model.keras)
         │   └── params.json  # Config-derived legacy projection (CONFIG-001)
@@ -191,7 +188,7 @@ class TestSaveTorchBundle:
             # Validate manifest.json exists
             assert 'manifest.json' in archive_files, (
                 "Archive MUST contain manifest.json at root "
-                "(TensorFlow baseline: model_manager.py:361-364)"
+                "(spec §4.6 versioned JSON manifest era)"
             )
 
             # Validate per-model subdirectories exist
@@ -245,21 +242,21 @@ class TestSaveTorchBundle:
         dummy_torch_models
     ):
         """
-        CRITICAL CONFIG-001 TEST: params.json captures the config projection.
+        CRITICAL CONFIG-001 TEST: params.dill captures the config projection.
 
         The archive must carry the flat compatibility projection needed by the
         public wrapper's post-validation CONFIG-001 restoration. The projection
         itself comes only from ``dataclass_to_legacy_dict``.
 
         Red-phase contract (Phase D3.B):
-        - params.json MUST be valid dill-serialized dictionary
+        - params.dill MUST be valid dill-serialized dictionary
         - MUST contain all CONFIG-001 critical fields: N, gridsize, model_type, nphotons
         - MUST contain intensity_scale (inference requirement per spec §4.4)
         - Values MUST match minimal_training_config after dataclass_to_legacy_dict translation
 
         Test mechanism:
-        - Call save_torch_bundle and extract params.json from archive
-        - Load params.json and validate presence of critical fields
+        - Call save_torch_bundle and extract params.dill from archive
+        - Load params.dill and validate presence of critical fields
         - Assert values match expected config bridge output
         """
         # This test will initially FAIL because ptycho_torch.model_manager doesn't exist yet
@@ -281,22 +278,22 @@ class TestSaveTorchBundle:
             config=minimal_training_config
         )
 
-        # Extract and validate params.json from autoencoder directory
+        # Extract and validate params.dill from autoencoder directory
         zip_path = Path(f"{base_path}.zip")
         with zipfile.ZipFile(zip_path, 'r') as zf:
             with zf.open('autoencoder/params.json') as params_file:
                 loaded_params = json.load(params_file)
 
-        # Validate params.json is a dictionary
+        # Validate params.dill is a dictionary
         assert isinstance(loaded_params, dict), (
-            "params.json MUST contain a dictionary (TensorFlow baseline format)"
+            "params.dill MUST contain a dictionary (TensorFlow baseline format)"
         )
 
         # Validate CONFIG-001 critical fields
-        assert 'N' in loaded_params, "params.json MUST contain 'N' (model input size)"
-        assert 'gridsize' in loaded_params, "params.json MUST contain 'gridsize' (grouping parameter)"
-        assert 'model_type' in loaded_params, "params.json MUST contain 'model_type' (pinn/supervised)"
-        assert 'nphotons' in loaded_params, "params.json MUST contain 'nphotons' (physics scaling)"
+        assert 'N' in loaded_params, "params.dill MUST contain 'N' (model input size)"
+        assert 'gridsize' in loaded_params, "params.dill MUST contain 'gridsize' (grouping parameter)"
+        assert 'model_type' in loaded_params, "params.dill MUST contain 'model_type' (pinn/supervised)"
+        assert 'nphotons' in loaded_params, "params.dill MUST contain 'nphotons' (physics scaling)"
 
         # Validate values match expected config bridge output
         assert loaded_params['N'] == 64, f"Expected N=64, got {loaded_params['N']}"
@@ -305,9 +302,9 @@ class TestSaveTorchBundle:
         assert loaded_params['nphotons'] == 1e9, f"Expected nphotons=1e9, got {loaded_params['nphotons']}"
 
         # Validate version tag for format detection
-        assert '_version' in loaded_params, "params.json MUST contain '_version' tag"
+        assert '_version' in loaded_params, "params.dill MUST contain '_version' tag"
         assert loaded_params['_version'] == '2.0-pytorch', (
-            "params.json['_version'] MUST be '2.0-pytorch' for backend identification"
+            "params.dill['_version'] MUST be '2.0-pytorch' for backend identification"
         )
 
         # Validate intensity_scale presence (inference requirement)
@@ -328,13 +325,13 @@ class TestSaveTorchBundle:
         Phase B2: Validate that save_torch_bundle persists non-default intensity_scale.
 
         This test ensures that when an explicit intensity_scale is provided to
-        save_torch_bundle, it is correctly stored in params.json and will be available
+        save_torch_bundle, it is correctly stored in params.dill and will be available
         during inference loading. This satisfies the Phase B2 requirement to persist
         the learned scale from training.
 
         Test mechanism:
         - Call save_torch_bundle with explicit intensity_scale=2.5
-        - Extract params.json from the bundle
+        - Extract params.dill from the bundle
         - Verify intensity_scale field equals the provided value
         """
         from ptycho_torch.model_manager import save_torch_bundle
@@ -351,7 +348,7 @@ class TestSaveTorchBundle:
             intensity_scale=test_intensity_scale
         )
 
-        # Extract and validate params.json contains the intensity_scale
+        # Extract and validate params.dill contains the intensity_scale
         zip_path = Path(f"{base_path}.zip")
         with zipfile.ZipFile(zip_path, 'r') as zf:
             with zf.open('diffraction_to_obj/params.json') as params_file:
@@ -359,7 +356,7 @@ class TestSaveTorchBundle:
 
         # Validate intensity_scale was persisted
         assert 'intensity_scale' in loaded_params, (
-            "params.json MUST contain 'intensity_scale' when provided to save_torch_bundle"
+            "params.dill MUST contain 'intensity_scale' when provided to save_torch_bundle"
         )
         assert loaded_params['intensity_scale'] == test_intensity_scale, (
             f"Expected intensity_scale={test_intensity_scale}, "
@@ -403,21 +400,13 @@ class TestSaveTorchBundle:
                 "diffraction_to_obj/params.json"
             )
 
-        assert json.loads(autoencoder_bytes) == json.loads(json.dumps(expected))
+        assert json.loads(autoencoder_bytes) == expected
         assert autoencoder_bytes == reconstruction_bytes
-        assert autoencoder_bytes == json.dumps(expected).encode()
+        assert autoencoder_bytes == json.dumps(expected).encode("utf-8")
         assert minimal_training_config == config_before
 
-class TestStrictBundleLoad:
-    """Loud rejection contracts for the sealed strict load path."""
-
-    def test_save_rejects_sentinel_models(self, tmp_path):
-        from ptycho.config.config import TrainingConfig, ModelConfig
+    def test_save_rejects_sentinel_models(self, tmp_path, minimal_training_config):
         from ptycho_torch.model_manager import save_torch_bundle
-
-        minimal_training_config = TrainingConfig(
-            model=ModelConfig(N=64, gridsize=2, model_type='pinn')
-        )
 
         with pytest.raises(RuntimeError, match="trained nn.Module"):
             save_torch_bundle(
@@ -429,72 +418,96 @@ class TestStrictBundleLoad:
                 minimal_training_config,
             )
 
-    def test_sentinel_weights_rejected(self, tmp_path):
-        import io
-        import zipfile
-
-        import torch
-
-        from tests.torch.era_fixtures import build_bundle
-        from ptycho_torch.workflows.bundle_io import load_inference_bundle_torch
-
-        bundle_dir = build_bundle(tmp_path, "portable_v2_json")
-        zip_path = bundle_dir / "wts.h5.zip"
-        with zipfile.ZipFile(zip_path, "r") as archive:
-            members = {name: archive.read(name) for name in archive.namelist()}
-        sentinel = io.BytesIO()
-        torch.save({"_sentinel": True}, sentinel)
-        for role in ("autoencoder", "diffraction_to_obj"):
-            members[f"{role}/model.pth"] = sentinel.getvalue()
-        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as archive:
-            for name, content in members.items():
-                archive.writestr(name, content)
-
-        with pytest.raises(RuntimeError, match="not a trained state_dict"):
-            load_inference_bundle_torch(bundle_dir)
 
 
 class TestMigrateLegacyBundle:
     """Migration script round-trip: dill metadata-free bundle -> strict load."""
 
     def test_migrates_metadata_free_dill_bundle(self, tmp_path):
+        import dill
+        import io
         import subprocess
         import sys
+        import torch
 
-        from tests.torch.era_fixtures import build_bundle
-        from ptycho_torch.workflows.components import load_inference_bundle_torch
+        from ptycho.config.config import (
+            TrainingConfig,
+            ModelConfig,
+            dataclass_to_legacy_dict,
+        )
+        from scripts.migrate_legacy_bundle import (
+            create_torch_model_with_gridsize,
+            _seal_identity,
+        )
 
         repo_root = Path(__file__).resolve().parents[2]
-        source = build_bundle(tmp_path, "dill_era")
+
+        config = TrainingConfig(model=ModelConfig(N=64, gridsize=1), nphotons=1e9)
+        archived = dataclass_to_legacy_dict(config)
+        archived["intensity_scale"] = 123.0
+        archived["_version"] = "2.0-pytorch"
+        model = create_torch_model_with_gridsize(1, 64, archived)
+
+        source = tmp_path / "legacy"
+        source.mkdir()
+        with zipfile.ZipFile(source / "wts.h5.zip", "w") as zf:
+            zf.writestr(
+                "manifest.dill",
+                dill.dumps(
+                    {
+                        "models": ["autoencoder", "diffraction_to_obj"],
+                        "version": "2.0-pytorch",
+                    }
+                ),
+            )
+            for model_name in ("autoencoder", "diffraction_to_obj"):
+                zf.writestr(
+                    f"{model_name}/params.dill",
+                    dill.dumps(archived),
+                )
+                buffer = io.BytesIO()
+                torch.save(model.state_dict(), buffer)
+                zf.writestr(f"{model_name}/model.pth", buffer.getvalue())
+
         out = tmp_path / "migrated"
         completed = subprocess.run(
             [
                 sys.executable,
-                str(repo_root / "scripts" / "migrate_legacy_bundle.py"),
+                "-m",
+                "ptycho_torch.migrate_bundle",
                 str(source),
                 str(out),
             ],
             cwd=repo_root,
             text=True,
             capture_output=True,
-            timeout=300,
+            timeout=120,
         )
         assert completed.returncode == 0, completed.stdout + completed.stderr
 
+        # Decoded-identity equality: the migrated sealed payload matches the
+        # identity a fresh legacy reconstruction would seal.
+        expected = _seal_identity(model)
         with zipfile.ZipFile(out / "wts.h5.zip", "r") as zf:
-            names = zf.namelist()
-        assert "manifest.dill" not in names
-        assert "manifest.json" in names
-        assert "torch_scaling_metadata.pt" in names
+            assert "manifest.dill" not in zf.namelist()
+            payload = torch.load(
+                io.BytesIO(zf.read("torch_scaling_metadata.pt")),
+                map_location="cpu",
+                weights_only=True,
+            )
+        assert payload == expected
+
+        from ptycho_torch.workflows.components import load_inference_bundle_torch
 
         models, params = load_inference_bundle_torch(out)
+        assert params["intensity_scale"] == 123.0
         assert params["scale_contract_version"] == "legacy_v1"
         assert params["measurement_domain"] == "normalized_amplitude"
-        assert params["artifact_schema_version"] == "torch-artifact-portable-v4"
         for name in ("autoencoder", "diffraction_to_obj"):
             loaded = models[name]
             assert loaded.data_config.scale_contract_version == "legacy_v1"
             assert loaded.data_config.measurement_domain == "normalized_amplitude"
+            assert loaded.model_config.intensity_scale == 123.0
 
     def test_dill_era_bundle_routes_to_migration_script(self, tmp_path):
         """A pre-JSON dill manifest names the migration script, not a raw KeyError."""
@@ -519,5 +532,5 @@ class TestMigrateLegacyBundle:
                 dill.dumps({"_version": "2.0-pytorch", "N": 64, "gridsize": 1}),
             )
 
-        with pytest.raises(ValueError, match=r"migrate_legacy_bundle"):
+        with pytest.raises(ValueError, match=r"migrate_bundle"):
             load_inference_bundle_torch(bundle_dir)

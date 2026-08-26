@@ -11,9 +11,8 @@ import warnings
 from dataclasses import replace
 
 #Torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 import torch
-import torch.nn as nn
 import torch.distributed as dist
 
 #Memory mapping
@@ -37,6 +36,20 @@ from ptycho_torch.scaling_contract import (
     NORMALIZED_AMPLITUDE,
     ci_scaling_active,
     resolve_scale_contract,
+)
+
+#Batch emission + collation (split out of this module in W4)
+from ptycho_torch.batch_emission import (
+    _as_tensor,
+    _canonical_bank_scalars,
+    _canonical_probe_bank,
+    _emit_ptycho_batch,
+)
+from ptycho_torch.collate import (
+    Collate,
+    Collate_Lightning,
+    TensorDictDataLoader,
+    build_ptycho_loader,
 )
 
 # --- Helper functions for the dataloader ---
@@ -192,269 +205,6 @@ def is_ddp_initialized_and_active():
 
 def get_current_rank():
     return dist.get_rank() if dist.is_available() and dist.is_initialized() else 0
-
-
-def _as_tensor(value):
-    if value is None or isinstance(value, torch.Tensor):
-        return value
-    return torch.as_tensor(np.asarray(value))
-
-
-def _canonical_probe_bank(probe, *, name="probe"):
-    """Return probes as one explicit ``(E, P, H, W)`` bank."""
-
-    probe = _as_tensor(probe)
-    if probe is None:
-        raise ValueError(f"{name} is required")
-    probe = probe.to(torch.complex64)
-    if probe.ndim == 2:
-        return probe.unsqueeze(0).unsqueeze(0)
-    if probe.ndim == 3:
-        if probe.shape[-1] == 1 and probe.shape[0] == probe.shape[1]:
-            return probe[..., 0].unsqueeze(0).unsqueeze(0)
-        return probe.unsqueeze(0)
-    if probe.ndim == 4:
-        return probe
-    raise ValueError(
-        f"{name} must have shape (H,W), (P,H,W), or (E,P,H,W); "
-        f"got {tuple(probe.shape)}."
-    )
-
-
-def _canonical_bank_scalars(value, experiments, *, name):
-    value = _as_tensor(value)
-    if value is None:
-        return torch.ones(experiments, dtype=torch.float32)
-    flat = value.to(torch.float32).reshape(-1)
-    if flat.numel() == 1:
-        return flat.expand(experiments)
-    if flat.numel() == experiments:
-        return flat
-    if experiments == 1:
-        # Old RAM batches sometimes carried one repeated per-sample value here.
-        # The tuple contract is probe scaling, so only the single probe-bank
-        # value is relevant.
-        return flat[:1]
-    raise ValueError(
-        f"{name} must contain one value per experiment; got {flat.numel()} "
-        f"values for {experiments} experiments."
-    )
-
-
-def _selected_scale(value, *, batch_size, scalar, name):
-    value = _as_tensor(value)
-    if value is None:
-        value = torch.ones(1, dtype=torch.float32)
-    value = value.to(torch.float32)
-    if scalar:
-        if value.numel() != 1:
-            value = value.reshape(-1)[0]
-        return value.reshape(1, 1, 1)
-    if value.numel() == 1:
-        return value.reshape(1, 1, 1, 1).expand(batch_size, -1, -1, -1)
-    if value.shape[0] != batch_size:
-        raise ValueError(
-            f"{name} must be scalar or sample-aligned; got shape "
-            f"{tuple(value.shape)} for batch size {batch_size}."
-        )
-    if value[0].numel() != 1:
-        raise ValueError(f"{name} must contain one scalar per sample")
-    return value.reshape(batch_size, 1, 1, 1)
-
-
-def _select_experiment_scalars(values, indices, *, name):
-    values = _as_tensor(values)
-    if values is None:
-        raise ValueError(f"{name} is required")
-    values = values.to(torch.float32).reshape(-1)
-    if values.numel() == 1:
-        return values.expand(indices.numel())
-    if indices.numel() and int(indices.max()) >= values.numel():
-        raise ValueError(f"{name} has no value for experiment {int(indices.max())}")
-    return values[indices]
-
-
-def _copy_selected_fields(selected_fields):
-    if isinstance(selected_fields, TensorDict):
-        return TensorDict(
-            {key: value for key, value in selected_fields.items()},
-            batch_size=selected_fields.batch_size,
-        )
-    if isinstance(selected_fields, Mapping):
-        return dict(selected_fields)
-    raise TypeError("selected batch fields must be a mapping or TensorDict")
-
-
-def _emit_ptycho_batch(
-    selected_fields,
-    *,
-    probes,
-    probe_scaling,
-    probes_physical=None,
-    ci_statistics=None,
-    channel_last=False,
-):
-    """Build the one Torch training tuple from selected RAM or mmap rows."""
-
-    fields = _copy_selected_fields(selected_fields)
-    images = _as_tensor(fields.get("images"))
-    if images is None:
-        raise ValueError("batch fields require images")
-    scalar = images.ndim == 3
-    if images.ndim not in (3, 4):
-        raise ValueError("images must have shape (C,H,W) or (B,C,H,W)")
-
-    def channel_first(value):
-        value = _as_tensor(value)
-        if value is None or not channel_last:
-            return value
-        if value.ndim == 4:
-            return value.permute(0, 3, 1, 2).clone(
-                memory_format=torch.contiguous_format
-            )
-        if value.ndim == 3:
-            return value.permute(2, 0, 1).clone(
-                memory_format=torch.contiguous_format
-            )
-        raise ValueError("channel-last sample fields must have rank 3 or 4")
-
-    for name in (
-        "images",
-        "observed_images",
-        "measured_intensity",
-        "label_amp",
-        "label_phase",
-    ):
-        if fields.get(name) is not None:
-            fields[name] = channel_first(fields[name])
-    images = fields["images"]
-    batch_size = 1 if scalar else int(images.shape[0])
-    channels = int(images.shape[0] if scalar else images.shape[1])
-
-    coords = _as_tensor(fields.get("coords_relative"))
-    if coords is None:
-        coords = torch.zeros(
-            (channels, 1, 2) if scalar else (batch_size, channels, 1, 2),
-            dtype=torch.float32,
-        )
-    elif channel_last:
-        if coords.ndim == 4:
-            coords = coords.permute(0, 3, 1, 2).clone(
-                memory_format=torch.contiguous_format
-            )
-        elif coords.ndim == 3:
-            coords = coords.permute(2, 0, 1).clone(
-                memory_format=torch.contiguous_format
-            )
-        else:
-            raise ValueError("coords_relative must have rank 3 or 4")
-    fields["coords_relative"] = coords.to(torch.float32)
-
-    experiment_id = _as_tensor(fields.get("experiment_id"))
-    if experiment_id is None:
-        experiment_id = torch.zeros(
-            () if scalar else batch_size, dtype=torch.long
-        )
-    experiment_id = experiment_id.to(torch.long)
-    if scalar:
-        experiment_id = experiment_id.reshape(-1)[0]
-    else:
-        experiment_id = experiment_id.reshape(-1)
-        if experiment_id.numel() == 1:
-            experiment_id = experiment_id.expand(batch_size)
-        if experiment_id.numel() != batch_size:
-            raise ValueError("experiment_id must align with the selected rows")
-    fields["experiment_id"] = experiment_id
-    if fields.get("object_index") is not None:
-        object_index = _as_tensor(fields["object_index"]).to(torch.long)
-        fields["object_index"] = (
-            object_index.reshape(-1)[0]
-            if scalar
-            else object_index.reshape(-1)
-        )
-
-    ids = experiment_id.reshape(-1)
-    probe_bank = _canonical_probe_bank(probes)
-    probe_ids = torch.zeros_like(ids) if probe_bank.shape[0] == 1 else ids
-    if probe_ids.numel() and int(probe_ids.max()) >= probe_bank.shape[0]:
-        raise ValueError(
-            f"probe bank has no entry for experiment {int(probe_ids.max())}"
-        )
-    selected_probes = probe_bank[probe_ids].unsqueeze(1).expand(
-        -1, channels, -1, -1, -1
-    )
-    scaling_bank = _canonical_bank_scalars(
-        probe_scaling,
-        int(probe_bank.shape[0]),
-        name="probe_scaling",
-    )
-    selected_probe_scaling = scaling_bank[probe_ids].reshape(-1, 1, 1, 1)
-
-    ci_active = probes_physical is not None or ci_statistics is not None
-    if ci_active:
-        if probes_physical is None or ci_statistics is None:
-            raise ValueError(
-                "CI batches require physical probes and frozen statistics"
-            )
-        physical_bank = _canonical_probe_bank(
-            probes_physical, name="probe_physical"
-        )
-        physical_ids = torch.zeros_like(ids) if physical_bank.shape[0] == 1 else ids
-        if physical_ids.numel() and int(physical_ids.max()) >= physical_bank.shape[0]:
-            raise ValueError(
-                "physical probe bank has no entry for selected experiment"
-            )
-        selected_physical = physical_bank[physical_ids].unsqueeze(1).expand(
-            -1, channels, -1, -1, -1
-        )
-        rms = _select_experiment_scalars(
-            ci_statistics.get("rms_input_scale"), ids, name="rms_input_scale"
-        ).reshape(-1, 1, 1, 1)
-        mean = _select_experiment_scalars(
-            ci_statistics.get("mean_measured_intensity"),
-            ids,
-            name="mean_measured_intensity",
-        ).reshape(-1, 1, 1, 1)
-        normalization = selected_probe_scaling.unsqueeze(-1)
-        fields["measured_intensity"] = fields.get(
-            "measured_intensity", fields["images"]
-        )
-        fields["observed_images"] = fields["measured_intensity"]
-        fields["probe_training"] = selected_probes
-        fields["probe_physical"] = selected_physical
-        fields["probe_normalization"] = normalization
-        fields["rms_input_scale"] = rms
-        fields["mean_measured_intensity"] = mean
-    else:
-        fields["observed_images"] = fields.get(
-            "observed_images", fields["images"]
-        )
-        fields["rms_scaling_constant"] = _selected_scale(
-            fields.get("rms_scaling_constant"),
-            batch_size=batch_size,
-            scalar=scalar,
-            name="rms_scaling_constant",
-        )
-        fields["physics_scaling_constant"] = _selected_scale(
-            fields.get("physics_scaling_constant"),
-            batch_size=batch_size,
-            scalar=scalar,
-            name="physics_scaling_constant",
-        )
-
-    if scalar:
-        selected_probes = selected_probes[0]
-        selected_probe_scaling = selected_probe_scaling[0]
-        if ci_active:
-            # Named probe fields retain their explicit leading batch axis even
-            # for scalar indexing; only the per-experiment statistics match
-            # the scalar TensorDict convention.
-            fields["rms_input_scale"] = fields["rms_input_scale"][0]
-            fields["mean_measured_intensity"] = fields[
-                "mean_measured_intensity"
-            ][0]
-
-    return fields, selected_probes, selected_probe_scaling
 
 
 class _PtychoContainerDataset(Dataset):
@@ -652,10 +402,10 @@ class PtychoDataset(Dataset):
         # --- Initial loading ---
         self.model_config = model_config
         self.data_config = data_config
+        self.groups_per_center = groups_per_center
         self.object_compatibility = resolve_model_object_compatibility(model_config)
         self.ci_contract_active = _ci_profile_active(model_config, data_config)
         self.defer_ci_statistics = defer_ci_statistics
-        self.groups_per_center = groups_per_center
         if not isinstance(require_complete_group_coverage, bool):
             raise TypeError(
                 "require_complete_group_coverage must be a bool"
@@ -840,7 +590,7 @@ class PtychoDataset(Dataset):
         When coordinate grouping applies, the groups are built here rather than
         estimated: group_coords can return fewer groups than there are valid
         points (a '4_quadrant' center whose quadrants are not all populated is
-        discarded), so `n_valid_points * groups_per_center` overcounts. Grouping once
+        discarded), so `n_valid_points * n_subsample` overcounts. Grouping once
         and caching it keeps the allocation, cum_length, and the tensors written
         by memory_map_data exactly consistent -- and means the grouping is not
         recomputed with different random draws on the write pass.
@@ -915,16 +665,17 @@ class PtychoDataset(Dataset):
 
             # Build the coordinate groups now so the length is the true group count.
             # groups_per_center is applied inside group_coords, so it is not multiplied in here.
+
             if group_coordinates and n_valid_points > 0:
                 nn_indices, coords_nn, center_indices = group_coords(
                     xcoords, ycoords,
                     xcoords[valid_indices], ycoords[valid_indices],
                     None,
                     valid_indices,
-                    self.data_config,
-                    C=self.data_config.gridsize * self.data_config.gridsize,
-                    groups_per_center=self.groups_per_center,
+                    self.data_config, C=self.data_config.gridsize * self.data_config.gridsize,
+
                     return_center_indices=True,
+                    groups_per_center=self.groups_per_center,
                     object_index=header.object_index,
                     experiment_id=i,
                     ensure_complete_coverage=(
@@ -1132,6 +883,7 @@ class PtychoDataset(Dataset):
         #Config grabbing/setting using stored configs
         if self.object_compatibility.layout == 'grouped_patch_components_v1':
             n_channels = self.data_config.gridsize * self.data_config.gridsize
+
         else:
             n_channels = 1
 
@@ -1700,159 +1452,3 @@ class PtychoDataset(Dataset):
             subset_dataset.data_dict["com"] = self.data_dict["com"]
         
         return subset_dataset
-        
-#Collation
-
-def _materialize_expanded_tensor(value):
-    if any(
-        size > 1 and stride == 0
-        for size, stride in zip(value.shape, value.stride())
-    ):
-        return value.clone()
-    return value
-
-
-def _materialize_expanded_tensordict(tensor_dict):
-    return tensor_dict.apply(_materialize_expanded_tensor)
-
-class TensorDictDataLoader(DataLoader):
-    """Compatibility name for the native PyTorch DataLoader implementation."""
-
-
-#Custom collation function which pins memory in order to transfer to gpu
-#Taken from: https://pytorch.org/tensordict/stable/tutorials/tensorclass_imagenet.html
-class Collate(nn.Module):
-    """
-    Classic data collation function that works with native pytorch training protocol.
-    One gpu only.
-    """
-    def __init__(self, device = None):
-        super().__init__()
-        self.device = torch.device(device) if device is not None else None
-    def __call__(self, x):
-        '''
-        Moves tensor to RAM, and then to GPU.
-
-        Inputs
-        -------
-        x: TensorDict
-        '''
-        tensor_dict, probe, scaling = _coalesce_ptycho_batch(x)
-        outputs = [
-            _materialize_batch_fields(tensor_dict),
-            _materialize_expanded_tensor(probe),
-            _materialize_expanded_tensor(scaling),
-        ]
-        
-        # Pin memory if using CUDA
-        if self.device and self.device.type == 'cuda':
-            outputs = [item.pin_memory() for item in outputs]
-            
-        # Dataset-backed values are already CPU-resident. Avoid a redundant
-        # TensorDict.to("cpu"), which synchronizes CUDA after any earlier CUDA
-        # use in the process despite this being a CPU-only collation path.
-        if self.device and self.device.type != 'cpu':
-            outputs = [item.to(self.device) for item in outputs]
-            
-        return tuple(outputs)
-
-# Modified collate function for PyTorch lightning
-
-class Collate_Lightning(nn.Module):
-    """
-    Modified data collation function that works specifically with pytorch lightning
-    This is because pytorch lightning explicitly handles device transfers so we don't need to mention any devices in this function
-    Otherwise, with multi GPU the device calls will return errors.
-    """
-    def __init__(self, pin_memory_if_cuda = True):
-        super().__init__()
-        self.pin_memory_if_cuda = pin_memory_if_cuda
-
-    def __call__(self, x):
-        """Prepare a CPU batch; DataLoader owns pinning and Lightning transfer."""
-        tensor_dict, probe, scaling = _coalesce_ptycho_batch(x)
-        outputs = [
-            _materialize_batch_fields(tensor_dict),
-            _materialize_expanded_tensor(probe),
-            _materialize_expanded_tensor(scaling),
-        ]
-        return tuple(outputs)
-
-
-def _materialize_batch_fields(fields):
-    if isinstance(fields, TensorDict):
-        return _materialize_expanded_tensordict(fields)
-    return {
-        name: (
-            _materialize_expanded_tensor(value)
-            if isinstance(value, torch.Tensor)
-            else value
-        )
-        for name, value in fields.items()
-    }
-
-
-def _stack_batch_fields(fields):
-    if isinstance(fields[0], TensorDict):
-        return torch.stack(fields, dim=0)
-    return {
-        name: torch.stack([sample[name] for sample in fields], dim=0)
-        for name in fields[0]
-    }
-
-
-def _coalesce_ptycho_batch(batch):
-    """Accept native vectorized output or a list of scalar samples."""
-
-    if isinstance(batch, list):
-        if not batch:
-            raise ValueError("cannot collate an empty ptychography batch")
-        fields, probes, scalings = zip(*batch)
-        return (
-            _stack_batch_fields(fields),
-            torch.stack(probes, dim=0),
-            torch.stack(scalings, dim=0),
-        )
-    return batch
-
-
-def build_ptycho_loader(
-    dataset,
-    *,
-    batch_size,
-    shuffle=False,
-    sampler=None,
-    seed=42,
-    num_workers=0,
-    pin_memory=False,
-    persistent_workers=False,
-    prefetch_factor=None,
-    drop_last=False,
-    collate_fn=None,
-):
-    """Construct the single native loader path used by RAM and mmap datasets."""
-
-    generator = torch.Generator()
-    generator.manual_seed(int(seed))
-    kwargs = {
-        "num_workers": int(num_workers),
-        "pin_memory": bool(pin_memory),
-    }
-    if num_workers > 0:
-        kwargs["persistent_workers"] = bool(persistent_workers)
-        if prefetch_factor is not None:
-            kwargs["prefetch_factor"] = int(prefetch_factor)
-    return TensorDictDataLoader(
-        dataset,
-        batch_size=batch_size,
-        shuffle=bool(shuffle) and sampler is None,
-        sampler=sampler,
-        generator=generator,
-        drop_last=drop_last,
-        collate_fn=(
-            Collate_Lightning(pin_memory_if_cuda=False)
-            if collate_fn is None
-            else collate_fn
-        ),
-        **kwargs,
-    )

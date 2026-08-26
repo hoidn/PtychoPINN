@@ -1,8 +1,0 @@
-model:
-  gridsize: 2
-sampling:
-  train_raw_selection: 512
-  training_groups: 512
-  neighbor_count: 4
-  subsample_seed: 42
-nepochs: 50

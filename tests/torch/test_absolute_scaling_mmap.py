@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 import torch
 
+import ptycho_torch.helper as hh
 from ptycho_torch.config_params import (
     DataConfig,
     InferenceConfig,
@@ -17,6 +18,16 @@ from ptycho_torch.scaling_contract import derive_ci_experiment_statistics
 
 
 N_PIX = 16
+CI_FIELDS = {
+    "measured_intensity",
+    "rms_input_scale",
+    "mean_measured_intensity",
+    "probe_training",
+    "probe_physical",
+    "probe_normalization",
+}
+
+
 def _count_intensity_arrays(n_images=10):
     intensity = np.arange(
         1,

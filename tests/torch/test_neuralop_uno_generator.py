@@ -33,7 +33,7 @@ def _pt_configs(*, mode: str = "Unsupervised"):
 def test_neuralop_uno_adapter_matches_locked_real_imag_shape():
     from ptycho_torch.generators.neuralop_uno import NeuralopUnoGeneratorModule
 
-    module = NeuralopUnoGeneratorModule(output_mode="real_imag")
+    module = NeuralopUnoGeneratorModule(C=1, output_mode="real_imag")
     x = torch.randn(2, 1, 128, 128)
 
     out = module(x)
@@ -53,7 +53,7 @@ def test_neuralop_uno_rejects_non_real_imag_output_modes():
     from ptycho_torch.generators.neuralop_uno import NeuralopUnoGeneratorModule
 
     with pytest.raises(ValueError, match="real_imag"):
-        NeuralopUnoGeneratorModule(output_mode="amp_phase")
+        NeuralopUnoGeneratorModule(C=1, output_mode="amp_phase")
 
 
 def test_neuralop_uno_missing_dependency_raises_actionable_error(monkeypatch):
@@ -69,7 +69,7 @@ def test_neuralop_uno_missing_dependency_raises_actionable_error(monkeypatch):
     monkeypatch.setattr(neuralop_uno.importlib, "import_module", fake_import_module)
 
     with pytest.raises(RuntimeError, match="neuraloperator==2.0.0"):
-        neuralop_uno.NeuralopUnoGeneratorModule(output_mode="real_imag")
+        neuralop_uno.NeuralopUnoGeneratorModule(C=1, output_mode="real_imag")
 
 
 def test_neuralop_uno_incompatible_dependency_raises_actionable_error(monkeypatch):
@@ -88,7 +88,7 @@ def test_neuralop_uno_incompatible_dependency_raises_actionable_error(monkeypatc
     monkeypatch.setattr(neuralop_uno.importlib, "import_module", fake_import_module)
 
     with pytest.raises(RuntimeError, match="neuralop.models.UNO"):
-        neuralop_uno.NeuralopUnoGeneratorModule(output_mode="real_imag")
+        neuralop_uno.NeuralopUnoGeneratorModule(C=1, output_mode="real_imag")
 
 
 def test_neuralop_uno_builds_unsupervised_lightning_with_uno_body():

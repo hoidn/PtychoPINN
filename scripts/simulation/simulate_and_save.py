@@ -106,8 +106,13 @@ def _generate_simulated_data_legacy(
     buffer: int,
     coordinate_seed: int | None = None,
     detector_seed: int | None = None,
+    coordinates: "tuple[np.ndarray, np.ndarray] | None" = None,
 ):
-    """Run the protected TensorFlow simulator under a bounded projection."""
+    """Run the protected TensorFlow simulator under a bounded projection.
+
+    ``coordinates`` pins explicit scan positions (raster layouts); it is
+    mutually exclusive with ``coordinate_seed``.
+    """
     from ptycho import params
     with legacy_params_scope():
         with configured_params_scope():
@@ -124,8 +129,9 @@ def _generate_simulated_data_legacy(
                 probeGuess=probe_guess,
                 buffer=buffer,
                 return_patches=True,
-                random_seed=coordinate_seed,
+                random_seed=None if coordinates is not None else coordinate_seed,
                 detector_seed=detector_seed,
+                coordinates=coordinates,
             )
 
 
@@ -157,10 +163,7 @@ def simulate_and_save(
         ),
         expected_recipe_digest=str(probe_lineage["dataset_recipe_sha256"]),
     )
-    print(
-        "Simulating "
-        f"{config.sampling.training_groups} diffraction patterns..."
-    )
+    print(f"Simulating {config.n_images} diffraction patterns...")
     raw_data_instance, ground_truth_patches = _generate_simulated_data_legacy(
         config=config,
         simulation=simulation,
@@ -215,10 +218,7 @@ def simulate_and_save(
         data_dict,
         metadata
     )
-    print(
-        "File saved successfully with metadata "
-        f"(nphotons={config.data.nphotons})."
-    )
+    print(f"File saved successfully with metadata (nphotons={config.nphotons}).")
 
     if visualize:
         print("Generating visualization plot...")

@@ -200,8 +200,10 @@ def recon_patches(patches):
     """
     chop channel dimension size to 1, then patch together a single image
     """
-    from ptycho import generate_data as data
-    return data.reassemble(patches[:, :, :, :1])[0]
+    # W3.2: import reassemble from its owner — the old `generate_data.reassemble`
+    # attribute never existed on the wrapper module (latent AttributeError).
+    from ptycho.data_preprocessing import reassemble
+    return reassemble(patches[:, :, :, :1])[0]
 
 def symmetrize(arr):
     return (arr + arr[::-1, ::-1]) / 2
