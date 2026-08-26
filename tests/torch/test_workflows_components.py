@@ -183,6 +183,53 @@ def test_rescaled_source_sha256_threads_through_training_services(
     assert persist_call["kwargs"]["rescaled_source_sha256"] == digest
 
 
+def test_existing_component_accepts_resolved_public_training_inputs(
+    monkeypatch,
+) -> None:
+    from ptycho_torch.workflows import legacy, lightning_service
+
+    payload = SimpleNamespace(tf_training_config=object())
+    train_raw = object()
+    validation_raw = object()
+    train_container = object()
+    validation_container = object()
+    container_calls = []
+
+    def fake_container(data, config):
+        container_calls.append((data, config))
+        return train_container if data is train_raw else validation_container
+
+    monkeypatch.setattr(legacy.containers, "create_torch_data_container", fake_container)
+    lightning_calls = []
+
+    def fake_lightning(*args, **kwargs):
+        lightning_calls.append((args, kwargs))
+        return {"bundle_path": Path("wts.h5.zip")}
+
+    monkeypatch.setattr(lightning_service, "_train_with_lightning", fake_lightning)
+
+    result = legacy.train_cdi_model_torch(
+        train_raw,
+        validation_raw,
+        payload.tf_training_config,
+        resolved_payload=payload,
+        persist_bundle=True,
+        rescaled_source_sha256="a" * 64,
+    )
+
+    assert container_calls == [
+        (train_raw, payload.tf_training_config),
+        (validation_raw, payload.tf_training_config),
+    ]
+    assert lightning_calls == [
+        (
+            (payload, train_container, validation_container),
+            {"persist_bundle": True, "rescaled_source_sha256": "a" * 64},
+        )
+    ]
+    assert result["bundle_path"] == Path("wts.h5.zip")
+
+
 def test_rescaled_source_sha256_threads_from_bundle_service_to_manifest_writer(
     tmp_path,
     monkeypatch,

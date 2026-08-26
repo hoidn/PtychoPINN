@@ -27,7 +27,7 @@ def _fixed_texture_model_and_scan(tmp_path):
         materialize_data_config,
         resolve_synthetic_workflow,
     )
-    from ptycho.workflows.training import _torch_model_from_snapshot
+    from ptycho.workflows.synthetic_pipeline import _torch_model_from_snapshot
     from ptycho_torch.config_bridge import to_model_config
     from ptycho_torch.config_params import InferenceConfig, TrainingConfig
     from ptycho_torch.model_spec import derive_model_spec

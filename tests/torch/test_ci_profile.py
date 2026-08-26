@@ -431,28 +431,30 @@ def test_cli_rect_s1s2_initialization_precedence_reaches_training(
 ):
     from ptycho_torch.train import cli_main
     from ptycho_torch.config_factory import create_training_payload
-    from ptycho_torch.workflows import components
 
     captured = {}
     factory_calls = []
-    monkeypatch.setattr(
-        "ptycho.raw_data.RawData.from_file",
-        lambda path: object(),
-    )
 
     def spy_factory(**kwargs):
         factory_calls.append(kwargs)
         return create_training_payload(**kwargs)
 
-    def fake_run(*args, **kwargs):
+    def fake_train(*args, **kwargs):
         captured.update(kwargs)
-        return None, None, {"models": {}}
+        output_dir = tmp_path / "outputs"
+        output_dir.mkdir()
+        bundle = output_dir / "wts.h5.zip"
+        bundle.write_bytes(b"bundle")
+        return {"bundle_path": bundle}
 
     monkeypatch.setattr(
         "ptycho_torch.config_factory.create_training_payload",
         spy_factory,
     )
-    monkeypatch.setattr("ptycho_torch.workflows.legacy.run_cdi_example_torch", fake_run)
+    monkeypatch.setattr(
+        "ptycho_torch.workflows.legacy.train_cdi_model_torch",
+        fake_train,
+    )
     argv = [
         "train.py",
         "--train_data_file", str(tiny_train_npz),

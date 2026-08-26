@@ -287,7 +287,7 @@ def test_tiled_public_adapter_runs_real_mmap_grouping_and_accumulator(
         materialize_data_config,
         resolve_synthetic_workflow,
     )
-    from ptycho.workflows.training import _torch_model_from_snapshot
+    from ptycho.workflows.synthetic_pipeline import _torch_model_from_snapshot
     from ptycho_torch.config_bridge import to_model_config
     from ptycho_torch.config_params import InferenceConfig, TrainingConfig
     from ptycho_torch.inference import reconstruct_npz_tiled

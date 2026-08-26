@@ -28,6 +28,12 @@ from ptycho.workflows.components import (  # noqa: E402
 )
 
 
+def test_notebook_update_config_door_remains_live():
+    from ptycho.workflows.config_cli import update_config_from_dict
+
+    assert callable(update_config_from_dict)
+
+
 class TestLoadInferenceBundle(unittest.TestCase):
     """Test the centralized load_inference_bundle function."""
     
