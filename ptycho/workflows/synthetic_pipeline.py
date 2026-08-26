@@ -2539,7 +2539,7 @@ def execute_reconstruction_stage(
     _validate_managed_preflight(request.output_root)
     from ptycho_torch.execution_request import resolve_runtime_execution_request
     from ptycho_torch.inference import (
-        reconstruct_npz_barycentric,
+        reconstruct,
         reconstruct_npz_tiled,
     )
 
@@ -2555,29 +2555,38 @@ def execute_reconstruction_stage(
     reconstruction_method = (
         request.resolved_workflow.inference.reconstruction_method
     )
-    reconstruction_adapters = {
-        "barycentric": reconstruct_npz_barycentric,
-        "tiled": reconstruct_npz_tiled,
-    }
-    try:
-        reconstruction_adapter = reconstruction_adapters[reconstruction_method]
-    except KeyError as error:
+    if reconstruction_method == "barycentric":
+        result = reconstruct(
+            request.bundle_path,
+            request.test_path,
+            work_dir=request.output_root,
+            groups_per_center=(request.resolved_workflow.inference.groups_per_center),
+            expected_workflow=request.resolved_workflow,
+            dataset_manifest_path=request.dataset_manifest_path,
+            device=device,
+            num_workers=execution.num_workers,
+            inference_batch_size=request.resolved_workflow.inference.batch_size,
+            precision=execution.precision,
+            quiet=True,
+        )
+    elif reconstruction_method == "tiled":
+        result = reconstruct_npz_tiled(
+            request.bundle_path,
+            request.test_path,
+            run_root=request.output_root,
+            groups_per_center=(request.resolved_workflow.inference.groups_per_center),
+            expected_workflow=request.resolved_workflow,
+            dataset_manifest_path=request.dataset_manifest_path,
+            device=device,
+            num_workers=execution.num_workers,
+            inference_batch_size=request.resolved_workflow.inference.batch_size,
+            precision=execution.precision,
+            quiet=True,
+        )
+    else:
         raise ValueError(
             f"unsupported reconstruction method {reconstruction_method!r}"
-        ) from error
-    result = reconstruction_adapter(
-        request.bundle_path,
-        request.test_path,
-        run_root=request.output_root,
-        groups_per_center=(request.resolved_workflow.inference.groups_per_center),
-        expected_workflow=request.resolved_workflow,
-        dataset_manifest_path=request.dataset_manifest_path,
-        device=device,
-        num_workers=execution.num_workers,
-        inference_batch_size=request.resolved_workflow.inference.batch_size,
-        precision=execution.precision,
-        quiet=True,
-    )
+        )
     payload = _validated_reconstruction_arrays(
         complex_canvas=result.complex_canvas,
         measurement_gauge_canvas=getattr(

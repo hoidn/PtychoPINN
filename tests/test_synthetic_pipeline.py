@@ -1700,13 +1700,13 @@ def test_default_reconstruction_adapter_persists_raw_c4_evidence_atomically(
             reassembly=SimpleNamespace(to_jsonable=lambda: reassembly),
         )
 
-    monkeypatch.setattr(inference, "reconstruct_npz_barycentric", fake_reconstruct)
+    monkeypatch.setattr(inference, "reconstruct", fake_reconstruct)
 
     result = execute_reconstruction_stage(request)
 
     assert captured["args"] == (request.bundle_path, request.test_path)
     assert captured["kwargs"] == {
-        "run_root": tmp_path,
+        "work_dir": tmp_path,
         "groups_per_center": 1,
         "expected_workflow": resolved,
         "dataset_manifest_path": request.dataset_manifest_path,
@@ -1806,7 +1806,7 @@ def test_tiled_reconstruction_dispatches_to_the_strict_mmap_tiled_adapter(
     monkeypatch.setattr(inference, "reconstruct_npz_tiled", fake_tiled, raising=False)
     monkeypatch.setattr(
         inference,
-        "reconstruct_npz_barycentric",
+        "reconstruct",
         lambda *_args, **_kwargs: pytest.fail("barycentric adapter was called"),
     )
 
@@ -1840,7 +1840,7 @@ def test_default_reconstruction_rejects_channel_reassembly_disagreement(
     inconsistent["used_scan_ids"] = [0, 1, 2]
     monkeypatch.setattr(
         inference,
-        "reconstruct_npz_barycentric",
+        "reconstruct",
         lambda *_args, **_kwargs: SimpleNamespace(
             complex_canvas=canvas,
             amplitude=np.abs(canvas),
@@ -1895,7 +1895,7 @@ def test_default_evaluation_adapter_reloads_raw_artifact_and_source_truth(
             reassembly=SimpleNamespace(to_jsonable=lambda: reassembly),
         )
 
-    monkeypatch.setattr(inference, "reconstruct_npz_barycentric", fake_reconstruct)
+    monkeypatch.setattr(inference, "reconstruct", fake_reconstruct)
     reconstruct_request = synthetic_pipeline.ReconstructionStageRequest(
         resolved_workflow=resolved,
         output_root=tmp_path,
@@ -2212,7 +2212,7 @@ def test_no_stage_selection_uses_real_default_adapters_in_complete_order(
             render={"source": "raw_arrays", "valid": True},
         )
 
-    monkeypatch.setattr(inference, "reconstruct_npz_barycentric", reconstruct)
+    monkeypatch.setattr(inference, "reconstruct", reconstruct)
     monkeypatch.setattr(
         reconstruction_evaluation,
         "evaluate_reconstruction_quality",

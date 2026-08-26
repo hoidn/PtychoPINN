@@ -670,3 +670,27 @@ def test_programmatic_train_keeps_training_digest_when_validation_also_converts(
     assert component_calls[0][1]["rescaled_source_sha256"] == hashlib.sha256(
         training_npz.read_bytes()
     ).hexdigest()
+
+
+@pytest.mark.integration
+@pytest.mark.slow
+def test_run1084_train_reconstruct_smoke(tmp_path: Path) -> None:
+    from ptycho_torch.inference import reconstruct
+    from ptycho_torch.train import train
+
+    dataset = Path("datasets/Run1084_recon3_postPC_shrunk_3.npz")
+    model = train(
+        dataset,
+        tmp_path / "run1084_cnn",
+        {
+            "architecture": "cnn",
+            "training_groups": 256,
+            "nphotons": 1e9,
+            "epochs": 1,
+        },
+    )
+    result = reconstruct(model, dataset)
+
+    assert model.is_file() and model.stat().st_size > 0
+    assert result.amplitude.size and np.isfinite(result.amplitude).all()
+    assert result.phase.size and np.isfinite(result.phase).all()

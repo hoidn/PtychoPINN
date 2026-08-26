@@ -14,7 +14,10 @@ from ptycho_torch.config_params import (
     TrainingConfig,
 )
 from ptycho_torch.dataloader import PtychoDataset
-from ptycho_torch.scaling_contract import derive_ci_experiment_statistics
+from ptycho_torch.scaling_contract import (
+    derive_ci_experiment_statistics,
+    rescale_amplitude_to_nphotons,
+)
 
 
 N_PIX = 16
@@ -96,6 +99,136 @@ def _build_file_dataset(tmp_path, payload, data_config, model_config, training_c
         data_dir=str(tmp_path / "memmap"),
         remake_map=True,
     )
+
+
+def test_rescale_uses_full_source_before_mmap_selection_and_writes_all_probes(
+    tmp_path, monkeypatch
+):
+    amplitude, xcoords, ycoords, probe, obj = _count_intensity_arrays(n_images=6)
+    amplitude = np.sqrt(amplitude).astype(np.float32)
+    simulated = np.asarray(probe[0] * np.complex64(0.5j), dtype=np.complex64)
+    ptycho_dir = tmp_path / "npz"
+    ptycho_dir.mkdir()
+    np.savez(
+        ptycho_dir / "amplitude.npz",
+        diff3d=amplitude,
+        xcoords=xcoords,
+        ycoords=ycoords,
+        probeGuess=probe,
+        probe_simulated=simulated,
+        objectGuess=obj,
+        scale_contract_version=np.asarray("legacy_v1"),
+        measurement_domain=np.asarray("normalized_amplitude"),
+    )
+    target = 2.5e6
+    expected_intensity, expected_probe, expected_simulated = (
+        rescale_amplitude_to_nphotons(amplitude, probe, target, simulated)
+    )
+    data_config, model_config, training_config = _ci_configs()
+    data_config = replace(
+        data_config,
+        nphotons=target,
+        x_bounds=(0.0, 0.5),
+        y_bounds=(0.0, 0.5),
+    )
+
+    def fail_statistics(*_args, **_kwargs):
+        raise AssertionError("reconstruction must not derive CI statistics")
+
+    monkeypatch.setattr(
+        PtychoDataset,
+        "set_ci_statistics_from_indices",
+        fail_statistics,
+    )
+    dataset = PtychoDataset(
+        ptycho_dir=str(ptycho_dir),
+        model_config=model_config,
+        data_config=data_config,
+        training_config=training_config,
+        data_dir=str(tmp_path / "memmap"),
+        remake_map=True,
+        defer_ci_statistics=True,
+        rescale_to_nphotons=target,
+    )
+
+    selected = dataset.valid_indices_per_file[0]
+    np.testing.assert_allclose(
+        np.asarray(dataset.mmap_ptycho["measured_intensity"])[:, 0],
+        expected_intensity[selected],
+    )
+    np.testing.assert_allclose(
+        dataset.data_dict["probes_physical"][0].numpy(),
+        expected_probe,
+    )
+    np.testing.assert_allclose(
+        dataset.data_dict["probe_simulated"][0].numpy(),
+        expected_simulated,
+    )
+
+
+def test_rescale_optional_simulated_probe_keeps_multi_file_experiment_slots(
+    tmp_path, monkeypatch
+):
+    source_dir = tmp_path / "npz"
+    source_dir.mkdir()
+    target = 4e6
+    expected = []
+    for index, include_simulated in enumerate((False, True)):
+        amplitude, xcoords, ycoords, probe, obj = _count_intensity_arrays(
+            n_images=4
+        )
+        amplitude = np.sqrt(amplitude * (index + 1)).astype(np.float32)
+        probe = np.asarray(probe * np.complex64(index + 1), dtype=np.complex64)
+        simulated = (
+            np.asarray(probe[0] * np.complex64(0.25j), dtype=np.complex64)
+            if include_simulated
+            else None
+        )
+        payload = {
+            "diff3d": amplitude,
+            "xcoords": xcoords,
+            "ycoords": ycoords,
+            "probeGuess": probe,
+            "objectGuess": obj,
+            "scale_contract_version": np.asarray("legacy_v1"),
+            "measurement_domain": np.asarray("normalized_amplitude"),
+        }
+        if simulated is not None:
+            payload["probe_simulated"] = simulated
+        np.savez(source_dir / f"{index}.npz", **payload)
+        expected.append(
+            rescale_amplitude_to_nphotons(amplitude, probe, target, simulated)
+        )
+
+    data_config, model_config, training_config = _ci_configs()
+    data_config = replace(data_config, nphotons=target)
+    monkeypatch.setattr(
+        PtychoDataset,
+        "set_ci_statistics_from_indices",
+        lambda *_args, **_kwargs: pytest.fail(
+            "reconstruction must not derive CI statistics"
+        ),
+    )
+
+    dataset = PtychoDataset(
+        ptycho_dir=str(source_dir),
+        model_config=model_config,
+        data_config=data_config,
+        training_config=training_config,
+        data_dir=str(tmp_path / "memmap"),
+        remake_map=True,
+        defer_ci_statistics=True,
+        rescale_to_nphotons=target,
+    )
+
+    for index, (_, expected_probe, _) in enumerate(expected):
+        np.testing.assert_allclose(
+            dataset.data_dict["probes_physical"][index].numpy(),
+            expected_probe,
+        )
+    simulated_slots = dataset.data_dict["probe_simulated"]
+    assert simulated_slots[0] is None
+    np.testing.assert_allclose(simulated_slots[1].numpy(), expected[1][2])
 
 
 def _ci_lightning_configs():

@@ -260,8 +260,34 @@ ptycho_train --train_data_file dataset.npz \
     --subsample_seed 42 --output_dir centered_run
 ```
 
-The native Torch entry point owns the training-only CI profile and rectangular
-startup override directly:
+Python and Jupyter callers use the Torch resolver's canonical setting names;
+the output directory can have any name:
+
+```python
+from ptycho_torch.inference import reconstruct
+from ptycho_torch.train import train
+
+model = train("dataset.npz", "my_run", {
+    "architecture": "ffno",
+    "training_groups": 256,
+    "gridsize": 2,  # C = gridsize**2 = 4
+    "nphotons": 1e9,
+    "epochs": 1,
+})
+result = reconstruct(model, "dataset.npz")
+```
+
+Use `help(train)` for common fields and
+[`docs/CONFIGURATION.md`](CONFIGURATION.md#canonical-programmatic-torch-training-settings)
+for the exact resolver-derived table. Unknown fields fail before output is
+created and suggest the closest canonical spelling. `training_groups` is the
+exact group count; `n_raw_frames_selected` is an optional candidate-frame cap,
+and omission uses the full acquisition. The CI profile is the default. For a
+metadata-free normalized-amplitude NPZ, author `nphotons`; omit it when the
+metadata-free NPZ is already correctly count-scaled.
+
+The native Torch entry point delegates to the same `train` function and
+exposes the rectangular startup override:
 
 ```bash
 # Omission keeps the ci profile's dose_closure default

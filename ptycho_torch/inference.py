@@ -23,6 +23,8 @@ import os
 import argparse
 import copy
 import gc
+import hashlib
+import math
 import sys
 import tempfile
 from dataclasses import dataclass, replace
@@ -306,6 +308,7 @@ def _stage_and_construct_reconstruction_dataset(
     num_workers: int,
     dataset_manifest_path: Optional[Path],
     expected_workflow: Any,
+    rescale_to_nphotons: float | None = None,
 ) -> tuple[Any, Mapping[str, np.ndarray], Any, Any]:
     """Validate and symlink-stage one flat NPZ into a mmap PtychoDataset.
 
@@ -338,6 +341,10 @@ def _stage_and_construct_reconstruction_dataset(
     staged_dir = workspace / "staged"
     staged_dir.mkdir()
     staged_dir.joinpath(test_data_path.name).symlink_to(test_data_path.resolve())
+    ci_target = (
+        runtime_data_config.scale_contract_version == "ci_intensity_v2"
+        and runtime_data_config.measurement_domain == "count_intensity"
+    )
     dataset = PtychoDataset(
         str(staged_dir),
         model.model_config,
@@ -345,8 +352,15 @@ def _stage_and_construct_reconstruction_dataset(
         training_config=runtime_training_config,
         data_dir=str(workspace / "mmap" / "memmap"),
         remake_map=True,
+        defer_ci_statistics=ci_target,
+        rescale_to_nphotons=rescale_to_nphotons,
         groups_per_center=groups_per_center,
     )
+    if ci_target:
+        statistics = model.get_ci_statistics()
+        if statistics is None:
+            raise ValueError("strict CI bundle is missing frozen training statistics")
+        dataset.data_dict["ci_statistics"] = statistics
     return dataset, source_metadata, runtime_data_config, runtime_training_config
 
 
@@ -485,17 +499,18 @@ def reconstruct_from_dataset(
     return result
 
 
-def reconstruct_npz_barycentric(
-    bundle_path: os.PathLike[str] | str,
-    test_npz_path: os.PathLike[str] | str,
+def reconstruct(
+    model: os.PathLike[str] | str,
+    dataset: os.PathLike[str] | str,
     *,
-    run_root: os.PathLike[str] | str,
+    work_dir: os.PathLike[str] | str | None = None,
     groups_per_center: int = 1,
     expected_workflow: Any = None,
     dataset_manifest_path: Optional[os.PathLike[str] | str] = None,
     scale_contract_version: Optional[str] = None,
     measurement_domain: Optional[str] = None,
     inference_config: Any = None,
+    nphotons: float | None = None,
     device: str = "cpu",
     num_workers: int = 0,
     inference_batch_size: Optional[int] = None,
@@ -522,7 +537,7 @@ def reconstruct_npz_barycentric(
     ):
         raise ValueError("inference_batch_size must be a positive integer or None")
 
-    bundle_input = Path(bundle_path)
+    bundle_input = Path(model)
     bundle_dir = (
         bundle_input.parent
         if bundle_input.name == "wts.h5.zip"
@@ -533,13 +548,14 @@ def reconstruct_npz_barycentric(
         raise FileNotFoundError(
             f"strict reconstruction requires a nonempty {archive_path}"
         )
-    test_data_path = Path(test_npz_path)
+    test_data_path = Path(dataset)
     if not test_data_path.is_file() or test_data_path.suffix.lower() != ".npz":
         raise FileNotFoundError(f"held-out NPZ does not exist: {test_data_path}")
-    output_root = Path(run_root)
-    output_root.mkdir(parents=True, exist_ok=True)
-    if not output_root.is_dir():
-        raise NotADirectoryError(f"run_root is not a directory: {output_root}")
+    workspace_parent = None if work_dir is None else Path(work_dir)
+    if workspace_parent is not None:
+        workspace_parent.mkdir(parents=True, exist_ok=True)
+        if not workspace_parent.is_dir():
+            raise NotADirectoryError(f"work_dir is not a directory: {workspace_parent}")
 
     with isolated_archived_params_scope():
         models, loader_params = load_inference_bundle_torch(
@@ -550,13 +566,13 @@ def reconstruct_npz_barycentric(
         )
     if "diffraction_to_obj" not in models:
         raise ValueError("strict bundle did not contain diffraction_to_obj")
-    model = models["diffraction_to_obj"]
-    _validate_loaded_reconstruction_identity(model)
+    loaded_model = models["diffraction_to_obj"]
+    _validate_loaded_reconstruction_identity(loaded_model)
     if inference_config is not None and not isinstance(
         inference_config, InferenceConfig
     ):
         raise TypeError("inference_config must be a Torch InferenceConfig")
-    runtime_inference_config = model.inference_config
+    runtime_inference_config = loaded_model.inference_config
     if inference_config is not None:
         # Treat the caller record as an inference-knob carrier only. Geometry,
         # trimming, and other serialized identity continue to start from the
@@ -574,13 +590,63 @@ def reconstruct_npz_barycentric(
             batch_size=inference_batch_size,
         )
     validate_bundle_matches_workflow(
-        model,
+        loaded_model,
         loader_params,
         expected_workflow,
         reconstruction_method="barycentric",
         runtime_inference_config=runtime_inference_config,
         groups_per_center=groups_per_center,
     )
+    from ptycho.acquisition import decode_acquisition
+    from ptycho_torch.scaling_contract import (
+        CI_SCALE_CONTRACT,
+        COUNT_INTENSITY,
+        LEGACY_SCALE_CONTRACT,
+        NORMALIZED_AMPLITUDE,
+    )
+
+    target_nphotons = float(loaded_model.data_config.nphotons)
+    if nphotons is not None:
+        if isinstance(nphotons, (bool, np.bool_)):
+            raise TypeError("nphotons must be a positive real scalar")
+        try:
+            supplied_nphotons = float(nphotons)
+        except (TypeError, ValueError, OverflowError) as error:
+            raise TypeError("nphotons must be a positive real scalar") from error
+        if not math.isfinite(supplied_nphotons) or supplied_nphotons <= 0:
+            raise ValueError("nphotons must be positive and finite")
+        if supplied_nphotons != target_nphotons:
+            raise ValueError(
+                "reconstruction nphotons must equal the bundle target: "
+                f"{supplied_nphotons!r} != {target_nphotons!r}"
+            )
+
+    source = decode_acquisition(test_data_path, coordinate_policy="trailing")
+    source_pair = (source.scale_contract_version, source.measurement_domain)
+    target_pair = (
+        loaded_model.data_config.scale_contract_version,
+        loaded_model.data_config.measurement_domain,
+    )
+    rescale_to_nphotons = None
+    if target_pair == (CI_SCALE_CONTRACT, COUNT_INTENSITY):
+        if source_pair == (LEGACY_SCALE_CONTRACT, NORMALIZED_AMPLITUDE):
+            rescale_to_nphotons = target_nphotons
+        elif source_pair == (None, None):
+            saved_digest = loader_params.get("rescaled_source_sha256")
+            digest_matches = False
+            if saved_digest is not None:
+                with test_data_path.open("rb") as source_file:
+                    digest_matches = (
+                        hashlib.file_digest(source_file, "sha256").hexdigest()
+                        == saved_digest
+                    )
+            if digest_matches or nphotons is not None:
+                rescale_to_nphotons = target_nphotons
+    elif target_pair == (LEGACY_SCALE_CONTRACT, NORMALIZED_AMPLITUDE):
+        if source_pair == (CI_SCALE_CONTRACT, COUNT_INTENSITY):
+            raise ValueError("count-intensity source is incompatible with a legacy bundle")
+    else:
+        raise ValueError(f"unsupported loaded measurement target {target_pair!r}")
     manifest_path = (
         Path(dataset_manifest_path)
         if dataset_manifest_path is not None
@@ -588,7 +654,7 @@ def reconstruct_npz_barycentric(
     )
     with tempfile.TemporaryDirectory(
         prefix="barycentric-workspace-",
-        dir=output_root,
+        dir=workspace_parent,
     ) as workspace_name:
         workspace = Path(workspace_name)
         (
@@ -597,7 +663,7 @@ def reconstruct_npz_barycentric(
             runtime_data_config,
             runtime_training_config,
         ) = _stage_and_construct_reconstruction_dataset(
-            model,
+            loaded_model,
             test_data_path,
             workspace=workspace,
             groups_per_center=groups_per_center,
@@ -605,9 +671,10 @@ def reconstruct_npz_barycentric(
             num_workers=num_workers,
             dataset_manifest_path=manifest_path,
             expected_workflow=expected_workflow,
+            rescale_to_nphotons=rescale_to_nphotons,
         )
         result = reconstruct_from_dataset(
-            model,
+            loaded_model,
             dataset,
             runtime_params=ReconstructionRuntimeParams(
                 data_config=runtime_data_config,
@@ -648,7 +715,7 @@ def reconstruct_from_arrays(
     derived during staging from the model, the arrays, and the
     ``device``/``num_workers`` staging arguments, and replace any caller values.
     No dataset-manifest or workflow-conformance validation: those identity
-    checks belong to the NPZ-path entry (``reconstruct_npz_barycentric``); the
+    checks belong to the NPZ-path entry (``reconstruct``); the
     arrays-in seam validates the array dtype/shape/coordinate contract only.
     """
     if not isinstance(arrays, Mapping):
@@ -1325,7 +1392,7 @@ Examples:
     if args.measurement_domain is not None:
         overrides['measurement_domain'] = args.measurement_domain
 
-    # Call factory to construct all configs and populate params.cfg
+    # Resolve the Torch-owned configs without mutating legacy params.cfg.
     try:
         payload = create_inference_payload(
             model_path=model_path,
@@ -1335,7 +1402,7 @@ Examples:
             execution_config=execution_request,
         )
 
-        # Extract configs from payload (factory already populated params.cfg)
+        # Reuse the factory-owned resolved records.
         tf_inference_config = payload.tf_inference_config
         execution_config = payload.execution_config
 
@@ -1358,10 +1425,10 @@ Examples:
         import torch
 
         device, precision = resolve_device_and_precision(execution_config)
-        result = reconstruct_npz_barycentric(
+        result = reconstruct(
             model_path,
             test_data_path,
-            run_root=output_dir,
+            work_dir=output_dir,
             groups_per_center=args.groups_per_center,
             scale_contract_version=args.scale_contract_version,
             measurement_domain=args.measurement_domain,
