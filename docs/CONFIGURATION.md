@@ -715,6 +715,147 @@ Configuration precedence is entry-point specific:
   overwrite file values.
 - Unknown simulation keys and conflicting legacy aliases are errors; not every dataclass field has a CLI flag.
 
+### Canonical programmatic Torch training settings
+
+`train(dataset, output_dir, settings)` accepts the canonical keys below through
+the existing Torch resolver. `TRAINING_INPUT_RULES` remains the owner of this
+vocabulary; a focused test checks this table against it so the guide cannot
+become a second registry. The owner names identify where each value resolves;
+the dataclasses in `ptycho_torch/config_params.py` define types and defaults.
+
+<!-- programmatic-torch-settings:start -->
+| Setting | Owner |
+|---|---|
+| `nphotons` | `data` |
+| `scale_contract_version` | `data` |
+| `measurement_domain` | `data` |
+| `N` | `data` |
+| `neighbor_count` | `data` |
+| `n_raw_frames_selected` | `data` |
+| `subsample_seed` | `data` |
+| `gridsize` | `data` |
+| `group_padding_step` | `data` |
+| `normalize` | `data` |
+| `probe_scale` | `data` |
+| `probe_normalize` | `data` |
+| `data_scaling` | `data` |
+| `phase_subtraction` | `data` |
+| `x_bounds` | `data` |
+| `y_bounds` | `data` |
+| `mode` | `model` |
+| `architecture` | `model` |
+| `fno_modes` | `model` |
+| `fno_width` | `model` |
+| `fno_blocks` | `model` |
+| `fno_cnn_blocks` | `model` |
+| `learned_input_channels` | `model` |
+| `fno_input_transform` | `model` |
+| `max_hidden_channels` | `model` |
+| `resnet_width` | `model` |
+| `ffno_encoder_blocks` | `model` |
+| `ffno_encoder_modes` | `model` |
+| `ffno_encoder_share_weights` | `model` |
+| `ffno_encoder_gate_init` | `model` |
+| `ffno_encoder_norm` | `model` |
+| `ffno_encoder_mlp_ratio` | `model` |
+| `generator_output_mode` | `model` |
+| `cnn_output_mode` | `model` |
+| `use_shared_decoder` | `model` |
+| `intensity_scale_trainable` | `model` |
+| `intensity_scale` | `model` |
+| `max_position_jitter` | `model` |
+| `num_datasets` | `model` |
+| `n_filters_scale` | `model` |
+| `amp_activation` | `model` |
+| `batch_norm` | `model` |
+| `probe_mask` | `model` |
+| `probe_mask_tensor` | `model` |
+| `probe_mask_sigma` | `model` |
+| `probe_mask_diameter` | `model` |
+| `edge_pad` | `model` |
+| `decoder_last_c_outer_fraction` | `model` |
+| `decoder_last_amp_channels` | `model` |
+| `use_legacy_decoder_channel_override` | `model` |
+| `eca_encoder` | `model` |
+| `cbam_encoder` | `model` |
+| `cbam_bottleneck` | `model` |
+| `cbam_decoder` | `model` |
+| `eca_decoder` | `model` |
+| `spatial_decoder` | `model` |
+| `decoder_spatial_kernel` | `model` |
+| `object_big` | `model` |
+| `object_layout` | `model` |
+| `training_canvas` | `model` |
+| `probe_big` | `model` |
+| `offset` | `model` |
+| `training_patch_weighting` | `model` |
+| `physics_forward_mode` | `model` |
+| `rect_s1s2_trainable` | `model` |
+| `rect_s1s2_init` | `model` |
+| `amplitude_physics_gain` | `model` |
+| `pad_object` | `model` |
+| `gaussian_smoothing_sigma` | `model` |
+| `amp_loss` | `model` |
+| `phase_loss` | `model` |
+| `amp_loss_coeff` | `model` |
+| `phase_loss_coeff` | `model` |
+| `training_directories` | `training` |
+| `framework` | `training` |
+| `orchestrator` | `training` |
+| `learning_rate` | `training` |
+| `epochs` | `training` |
+| `batch_size` | `training` |
+| `epochs_fine_tune` | `training` |
+| `fine_tune_gamma` | `training` |
+| `scheduler` | `training` |
+| `lr_warmup_epochs` | `training` |
+| `lr_min_ratio` | `training` |
+| `plateau_factor` | `training` |
+| `plateau_patience` | `training` |
+| `plateau_min_lr` | `training` |
+| `plateau_threshold` | `training` |
+| `accum_steps` | `training` |
+| `gradient_clip_val` | `training` |
+| `gradient_clip_algorithm` | `training` |
+| `optimizer` | `training` |
+| `momentum` | `training` |
+| `weight_decay` | `training` |
+| `adam_beta1` | `training` |
+| `adam_beta2` | `training` |
+| `log_grad_norm` | `training` |
+| `grad_norm_log_freq` | `training` |
+| `stage_1_epochs` | `training` |
+| `stage_2_epochs` | `training` |
+| `stage_3_epochs` | `training` |
+| `physics_weight_schedule` | `training` |
+| `stage_3_lr_factor` | `training` |
+| `torch_loss_mode` | `training` |
+| `torch_mae_pred_l2_match_target` | `training` |
+| `experiment_name` | `training` |
+| `notes` | `training` |
+| `model_name` | `training` |
+| `test_data_file` | `training` |
+| `training_groups` | `training` |
+| `middle_trim` | `inference` |
+| `inference_batch_size` | `inference` |
+| `experiment_number` | `inference` |
+| `pad_eval` | `inference` |
+| `window` | `inference` |
+| `patch_weighting` | `inference` |
+| `varpro_scaling` | `inference` |
+| `log_patch_stats` | `inference` |
+| `patch_stats_limit` | `inference` |
+| `sequential_sampling` | `bridge` |
+| `loss_function` | `derived_constraint` |
+| `nll` | `derived_constraint` |
+| `train_data_file` | `derived_constraint` |
+| `output_dir` | `derived_constraint` |
+
+Compatibility aliases (non-preferred): `model_type` → `mode` and
+`max_epochs` → `epochs`. New programmatic callers should use the canonical
+names in the table.
+<!-- programmatic-torch-settings:end -->
+
 ## Parameter Reference
 
 ### Generated data (SimulationConfig)

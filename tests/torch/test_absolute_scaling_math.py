@@ -1,10 +1,11 @@
+import numpy as np
 import pytest
 import torch
 
 from ptycho_torch.scaling_contract import (
-    adapt_normalized_amplitude_to_ci,
     derive_ci_experiment_statistics,
     normalize_ci_poisson_per_sample,
+    rescale_amplitude_to_nphotons,
 )
 
 
@@ -104,162 +105,165 @@ def test_ci_statistics_reject_nonfinite_final_rms_scale():
         derive_ci_experiment_statistics(measured, N=2)
 
 
-def test_amplitude_adapter_returns_physical_values_without_mutation():
-    amplitude = torch.tensor(
-        [[[[0.0, 0.25], [0.5, 1.0]]]],
-        dtype=torch.float64,
+@pytest.mark.parametrize("multimode", [False, True])
+def test_rescale_amplitude_to_nphotons_matches_complete_acquisition_formula(
+    multimode,
+):
+    amplitude = np.array(
+        [
+            [[0.0, 1.0], [2.0, 3.0]],
+            [[4.0, 5.0], [6.0, 7.0]],
+            [[1.5, 2.5], [3.5, 4.5]],
+        ],
+        dtype=np.float32,
     )
-    probe = torch.tensor(
-        [[[0.0 + 0.0j, 1.0 + 2.0j], [-1.0 + 0.5j, 2.0 - 1.0j]]],
-        dtype=torch.complex128,
+    single_probe = np.array(
+        [[1.0 + 2.0j, 3.0 - 1.0j], [-2.0 + 0.5j, 0.25 - 4.0j]],
+        dtype=np.complex64,
     )
-    amplitude_before = amplitude.clone()
-    probe_before = probe.clone()
+    probe = (
+        np.stack((single_probe, single_probe * np.complex64(0.25 - 0.5j)))
+        if multimode
+        else single_probe
+    )
+    probe_simulated = probe * np.complex64(-0.75 + 0.25j)
+    nphotons = 1.0e9
 
-    intensity, probe_physical = adapt_normalized_amplitude_to_ci(
+    intensity, scaled_probe, scaled_simulated = rescale_amplitude_to_nphotons(
         amplitude,
         probe,
-        count_amplitude_scale=2.0,
+        nphotons,
+        probe_simulated,
     )
 
-    expected_intensity = torch.tensor(
-        [[[[0.0, 0.25], [1.0, 4.0]]]],
-        dtype=torch.float64,
-    )
-    expected_probe = torch.tensor(
-        [[[0.0 + 0.0j, 2.0 + 4.0j], [-2.0 + 1.0j, 4.0 - 2.0j]]],
-        dtype=torch.complex128,
-    )
-    torch.testing.assert_close(intensity, expected_intensity)
-    torch.testing.assert_close(probe_physical, expected_probe)
-    torch.testing.assert_close(amplitude, amplitude_before)
-    torch.testing.assert_close(probe, probe_before)
-    assert intensity.data_ptr() != amplitude.data_ptr()
-    assert probe_physical.data_ptr() != probe.data_ptr()
-
-
-def test_amplitude_adapter_rejects_negative_amplitude():
-    amplitude = torch.tensor([[[[1.0, -0.25]]]])
-
-    with pytest.raises(ValueError, match="amplitude.*nonnegative"):
-        adapt_normalized_amplitude_to_ci(amplitude, torch.ones((1, 1, 2)), 2.0)
-
-
-@pytest.mark.parametrize("bad_value", [float("nan"), float("inf")])
-def test_amplitude_adapter_rejects_nonfinite_amplitude(bad_value):
-    amplitude = torch.tensor([[[[1.0, bad_value]]]])
-
-    with pytest.raises(ValueError, match="amplitude.*finite"):
-        adapt_normalized_amplitude_to_ci(amplitude, torch.ones((1, 1, 2)), 2.0)
-
-
-def test_amplitude_adapter_rejects_all_zero_amplitude():
-    with pytest.raises(ValueError, match="amplitude.*nonzero"):
-        adapt_normalized_amplitude_to_ci(
-            torch.zeros((2, 1, 2, 3)),
-            torch.ones((1, 2, 3), dtype=torch.complex64),
-            2.0,
+    expected_scale = np.sqrt(
+        nphotons
+        / np.mean(
+            np.sum(
+                np.square(amplitude, dtype=np.float64),
+                axis=(-2, -1),
+                dtype=np.float64,
+            ),
+            dtype=np.float64,
         )
+    )
+    np.testing.assert_array_equal(intensity, (expected_scale * amplitude) ** 2)
+    np.testing.assert_array_equal(scaled_probe, expected_scale * probe)
+    np.testing.assert_array_equal(
+        scaled_simulated,
+        expected_scale * probe_simulated,
+    )
+    np.testing.assert_allclose(
+        np.mean(np.sum(intensity, axis=(-2, -1), dtype=np.float64)),
+        nphotons,
+        rtol=2e-7,
+    )
+    assert not np.isclose(np.sum(np.abs(scaled_probe) ** 2), nphotons)
+    assert intensity.dtype == amplitude.dtype
+    assert scaled_probe.dtype == probe.dtype
+    assert scaled_simulated.dtype == probe_simulated.dtype
+
+
+def test_rescale_amplitude_to_nphotons_returns_none_for_omitted_simulated_probe():
+    result = rescale_amplitude_to_nphotons(
+        np.ones((2, 2, 2), dtype=np.float64),
+        np.ones((2, 2), dtype=np.complex128),
+        8.0,
+    )
+
+    assert len(result) == 3
+    assert result[2] is None
 
 
 @pytest.mark.parametrize(
-    "bad_value",
+    ("amplitude", "message"),
     [
-        complex(float("nan"), 0.0),
-        complex(0.0, float("nan")),
-        complex(float("inf"), 0.0),
-        complex(0.0, float("inf")),
+        (np.array([[[1.0, -1.0]]]), "nonnegative"),
+        (np.array([[[1.0, np.nan]]]), "finite"),
+        (np.zeros((2, 2, 2)), "nonzero"),
     ],
 )
-def test_amplitude_adapter_rejects_nonfinite_complex_probe_components(bad_value):
-    probe = torch.tensor([[[1.0 + 0.0j, bad_value]]], dtype=torch.complex64)
-
-    with pytest.raises(ValueError, match="probe.*finite"):
-        adapt_normalized_amplitude_to_ci(torch.ones((1, 1, 1, 2)), probe, 2.0)
-
-
-def test_amplitude_adapter_rejects_all_zero_probe():
-    with pytest.raises(ValueError, match="probe.*nonzero"):
-        adapt_normalized_amplitude_to_ci(
-            torch.ones((2, 1, 2, 3)),
-            torch.zeros((1, 2, 3), dtype=torch.complex64),
-            2.0,
+def test_rescale_amplitude_to_nphotons_rejects_invalid_amplitude(
+    amplitude,
+    message,
+):
+    with pytest.raises(ValueError, match=f"amplitude.*{message}"):
+        rescale_amplitude_to_nphotons(
+            amplitude,
+            np.ones((2, 2), dtype=np.complex64),
+            10.0,
         )
-
-
-def test_amplitude_adapter_rejects_nonfinite_converted_intensity():
-    amplitude = torch.tensor([[[[1.0e20]]]], dtype=torch.float32)
-    probe = torch.ones((1, 1, 1), dtype=torch.complex64)
-
-    assert torch.isfinite(amplitude).all()
-    with pytest.raises(ValueError, match="converted intensity.*finite"):
-        adapt_normalized_amplitude_to_ci(amplitude, probe, 2.0)
-
-
-def test_amplitude_adapter_rejects_nonfinite_converted_complex_probe():
-    amplitude = torch.ones((1, 1, 1, 1), dtype=torch.float32)
-    probe = torch.tensor([[[2.0e38 + 1.0j]]], dtype=torch.complex64)
-
-    assert torch.isfinite(probe.real).all()
-    assert torch.isfinite(probe.imag).all()
-    with pytest.raises(ValueError, match="converted probe.*finite"):
-        adapt_normalized_amplitude_to_ci(amplitude, probe, 2.0)
-
-
-def test_amplitude_adapter_accepts_nonzero_subnormal_amplitude_and_probe():
-    zero = torch.tensor(0.0, dtype=torch.float32)
-    smallest_subnormal = torch.nextafter(zero, torch.tensor(1.0, dtype=torch.float32))
-    amplitude = smallest_subnormal.reshape(1, 1, 1, 1)
-    probe = torch.complex(
-        smallest_subnormal.reshape(1, 1, 1),
-        zero.reshape(1, 1, 1),
-    )
-
-    intensity, probe_physical = adapt_normalized_amplitude_to_ci(
-        amplitude,
-        probe,
-        1.0,
-    )
-
-    assert intensity.item() == 0.0
-    torch.testing.assert_close(probe_physical, probe, rtol=0, atol=0)
-
-
-def test_amplitude_adapter_keeps_scale_differentiable():
-    amplitude = torch.ones((2, 1, 2, 3), dtype=torch.float64)
-    probe = torch.ones((1, 2, 3), dtype=torch.complex128)
-    scale = torch.tensor(4.0, dtype=torch.float64, requires_grad=True)
-
-    intensity, probe_physical = adapt_normalized_amplitude_to_ci(
-        amplitude,
-        probe,
-        scale,
-    )
-    (intensity.sum() + probe_physical.real.sum()).backward()
-
-    assert scale.grad is not None
-    assert scale.grad > 0
 
 
 @pytest.mark.parametrize(
-    "bad_scale",
-    [0, -1.0, float("nan"), float("inf"), torch.tensor([2.0, 3.0])],
+    ("probe", "message"),
+    [
+        (np.array([[1.0 + 0.0j, np.nan + 1.0j]]), "finite"),
+        (np.zeros((2, 2), dtype=np.complex64), "nonzero"),
+    ],
 )
-def test_amplitude_adapter_rejects_invalid_scale(bad_scale):
-    with pytest.raises((TypeError, ValueError), match="count_amplitude_scale"):
-        adapt_normalized_amplitude_to_ci(
-            torch.ones((2, 1, 2, 3)),
-            torch.ones((1, 2, 3), dtype=torch.complex64),
-            bad_scale,
+def test_rescale_amplitude_to_nphotons_rejects_invalid_probe(probe, message):
+    with pytest.raises(ValueError, match=f"probe.*{message}"):
+        rescale_amplitude_to_nphotons(np.ones((2, 2, 2)), probe, 10.0)
+
+
+@pytest.mark.parametrize("nphotons", [0.0, -1.0, np.nan, np.inf])
+def test_rescale_amplitude_to_nphotons_rejects_invalid_nphotons(nphotons):
+    with pytest.raises(ValueError, match="nphotons.*positive.*finite"):
+        rescale_amplitude_to_nphotons(
+            np.ones((2, 2, 2)),
+            np.ones((2, 2), dtype=np.complex64),
+            nphotons,
         )
 
 
-def test_amplitude_adapter_rejects_incompatible_tensor_devices():
-    amplitude = torch.ones((2, 1, 2, 3), device="meta")
-    probe = torch.ones((1, 2, 3), dtype=torch.complex64, device="meta")
+def test_rescale_amplitude_to_nphotons_rejects_nonfinite_derived_scale():
+    amplitude = np.full((1, 1, 1), np.nextafter(0.0, 1.0), dtype=np.float64)
 
-    with pytest.raises(ValueError, match="device"):
-        adapt_normalized_amplitude_to_ci(amplitude, probe, torch.tensor(2.0))
+    with pytest.raises(ValueError, match="derived scale.*finite"):
+        rescale_amplitude_to_nphotons(
+            amplitude,
+            np.ones((1, 1), dtype=np.complex128),
+            1.0,
+        )
+
+
+@pytest.mark.parametrize("overflow_target", ["intensity", "probe", "simulated"])
+def test_rescale_amplitude_to_nphotons_rejects_numeric_overflow(overflow_target):
+    amplitude = np.ones((1, 1, 1), dtype=np.float32)
+    probe = np.ones((1, 1), dtype=np.complex64)
+    probe_simulated = np.ones((1, 1), dtype=np.complex64)
+    nphotons = 1.0
+    if overflow_target == "intensity":
+        amplitude = np.array([[[10.0]], [[0.0]]], dtype=np.float64)
+        nphotons = 1.0e308
+    elif overflow_target == "probe":
+        probe[0, 0] = np.finfo(np.float32).max + 0j
+        nphotons = 4.0
+    else:
+        probe_simulated[0, 0] = np.finfo(np.float32).max + 0j
+        nphotons = 4.0
+
+    with pytest.raises(ValueError, match="numeric overflow"):
+        rescale_amplitude_to_nphotons(
+            amplitude,
+            probe,
+            nphotons,
+            probe_simulated,
+        )
+
+
+def test_rescale_amplitude_to_nphotons_rejects_numeric_underflow():
+    amplitude = np.ones((1, 1, 1), dtype=np.float32)
+    probe = np.ones((1, 1), dtype=np.complex64)
+
+    with pytest.raises(ValueError, match="numeric underflow"):
+        rescale_amplitude_to_nphotons(
+            amplitude,
+            probe,
+            1.0e-300,
+            probe.copy(),
+        )
 
 
 def test_poisson_normalizer_accepts_scalar_and_collated_experiment_means():

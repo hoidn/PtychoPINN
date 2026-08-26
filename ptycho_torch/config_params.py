@@ -42,7 +42,7 @@ class DataConfig:
     #Canvas padding for the grouped object patch (centered-nearest grouping
     #era): sizes the grouped canvas only; no planner reads it.
     group_padding_step: float = 3.0
-    n_raw_frames_selected: int = 7 # Training: raw frames selected before grouping
+    n_raw_frames_selected: Optional[int] = None # Training: optional raw-frame cap before grouping
     subsample_seed: Optional[int] = None # Random seed for reproducible subsampling
 
     #Miscellaneous
