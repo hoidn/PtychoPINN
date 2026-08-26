@@ -390,18 +390,6 @@ def to_training_config(
             "Provide as: overrides=dict(..., training_groups=512)"
         )
 
-    # Warn about missing test_data_file (optional but helpful for evaluation workflows)
-    # Phase B.B5.D3: Softer validation to surface absent evaluation data
-    if kwargs['test_data_file'] is None:
-        import warnings
-        warnings.warn(
-            "test_data_file not provided in TrainingConfig overrides. "
-            "Evaluation workflows require test_data_file to be set during inference update. "
-            "Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))",
-            UserWarning,
-            stacklevel=2
-        )
-
     # Convert string paths to Path objects, then back to strings for params.cfg compatibility
     # This ensures KEY_MAPPINGS in config/config.py correctly converts to strings
     for path_field in ['train_data_file', 'test_data_file', 'output_dir']:

@@ -78,10 +78,10 @@ def pytest_ignore_collect(path, config):
     if "/tests/torch/" in p:
         try:
             import torch  # noqa: F401
-            return False
+            return None
         except Exception:
             return True
-    return False
+    return None
 
 def pytest_runtest_setup(item):
     """

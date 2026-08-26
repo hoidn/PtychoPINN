@@ -620,9 +620,6 @@ def _construct_application(payload, pt_configs, ci_statistics):
         pt_inference_config,
     )
 
-    # Save hyperparameters so checkpoint can reconstruct module without external state
-    model.save_hyperparameters()
-
     if ci_statistics is not None:
         model.register_ci_statistics(ci_statistics)
 
@@ -1182,6 +1179,7 @@ def _persist_bundle(
     persist_bundle,
     intensity_scale,
     amplitude_physics_gain_record,
+    rescaled_source_sha256=None,
 ):
     """Persist the strict bundle and detach the module from its Trainer."""
     output_dir = state.output_dir
@@ -1208,6 +1206,7 @@ def _persist_bundle(
                 amplitude_physics_gain_record=amplitude_physics_gain_record,
                 checkpoint_selection=fit.checkpoint_selection,
                 training_sampling=fit.training_sampling,
+                rescaled_source_sha256=rescaled_source_sha256,
             )
         elif amplitude_physics_gain_record is not None:
             raise RuntimeError(
@@ -1236,6 +1235,7 @@ def _train_with_lightning(
     persist_bundle: bool = False,
     intensity_scale: Optional[float] = None,
     amplitude_physics_gain_record: Optional[AmplitudePhysicsGainRecord] = None,
+    rescaled_source_sha256: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Orchestrate Lightning training across five behavioral seams.
 
@@ -1270,6 +1270,7 @@ def _train_with_lightning(
     bundle = _persist_bundle(
         state, fit, model, payload.tf_training_config, persist_bundle,
         intensity_scale, amplitude_physics_gain_record,
+        rescaled_source_sha256=rescaled_source_sha256,
     )
 
     return {
@@ -1293,4 +1294,3 @@ def _train_with_lightning(
             "autoencoder": model,
         },
     }
-

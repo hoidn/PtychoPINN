@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field, fields
+from difflib import get_close_matches
 import math
 from pathlib import Path
 from types import MappingProxyType
@@ -633,7 +634,21 @@ def _normalize_raw_patch(
             for name in unknown
             if (diagnostic := retired_grouping_field_diagnostic(name)) is not None
         ]
-        detail = "; " + "; ".join(diagnostics) if diagnostics else ""
+        suggestions = [
+            f"{name}: {matches[0]}"
+            for name in unknown
+            if (matches := get_close_matches(
+                name,
+                sorted(canonical_names),
+                n=1,
+            ))
+        ]
+        details = diagnostics
+        if suggestions:
+            details.append(
+                "nearest canonical field(s): " + ", ".join(suggestions)
+            )
+        detail = "; " + "; ".join(details) if details else ""
         raise ValueError(
             f"unknown {phase} input field(s): " + ", ".join(unknown) + detail
         )
@@ -1218,6 +1233,32 @@ def resolve_training_bundle(
         data_changes.get("gridsize", baseline.data.gridsize)
     )
 
+    minimum_neighbor_count = max(1, channels - 1)
+    if "neighbor_count" in normalized.values:
+        neighbor_count = _require_exact_positive_integer(
+            normalized.values["neighbor_count"],
+            "neighbor_count",
+        )
+        if neighbor_count < minimum_neighbor_count:
+            raise ValueError(
+                f"neighbor_count={neighbor_count} must be at least "
+                f"{minimum_neighbor_count} for gridsize={gridsize}"
+            )
+    else:
+        neighbor_count = max(
+            baseline.data.neighbor_count,
+            minimum_neighbor_count,
+        )
+    data_changes["neighbor_count"] = neighbor_count
+
+    raw_cap = data_changes.get("n_raw_frames_selected")
+    if raw_cap is not None:
+        data_changes["n_raw_frames_selected"] = (
+            _require_exact_positive_integer(
+                raw_cap,
+                "n_raw_frames_selected",
+            )
+        )
 
     if "N" in normalized.values:
         resolved_N = normalized.values["N"]

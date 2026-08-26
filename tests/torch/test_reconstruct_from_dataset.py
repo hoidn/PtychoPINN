@@ -3,7 +3,7 @@
 The programmatic reconstruction kernel is ``reconstruct_from_dataset``: a
 loaded model and an already-grouped ``PtychoDataset`` in, frozen amplitude /
 phase snapshots out. This smoke test drives the full load → validate →
-construct → delegate shell (``reconstruct_npz_barycentric``) over a real
+construct → delegate shell (``reconstruct``) over a real
 fixed-pitch scan and asserts the two invariants the extraction was meant to
 guarantee:
 
@@ -27,7 +27,7 @@ def _fixed_texture_model_and_scan(tmp_path):
         materialize_data_config,
         resolve_synthetic_workflow,
     )
-    from ptycho.workflows.training import _torch_model_from_snapshot
+    from ptycho.workflows.synthetic_pipeline import _torch_model_from_snapshot
     from ptycho_torch.config_bridge import to_model_config
     from ptycho_torch.config_params import InferenceConfig, TrainingConfig
     from ptycho_torch.model_spec import derive_model_spec
@@ -128,12 +128,12 @@ def test_dataset_in_arrays_out_no_copy_single_bundle_read(tmp_path, monkeypatch)
     monkeypatch.setattr(shutil, "copy2", lambda *a, **k: copy_calls.append(a))
     monkeypatch.setattr(shutil, "copy", lambda *a, **k: copy_calls.append(a))
 
-    from ptycho_torch.inference import reconstruct_npz_barycentric
+    from ptycho_torch.inference import reconstruct
 
-    result = reconstruct_npz_barycentric(
+    result = reconstruct(
         bundle,
         acquisition.test_path,
-        run_root=tmp_path / "run",
+        work_dir=tmp_path / "run",
         expected_workflow=resolved,
         dataset_manifest_path=acquisition.manifest_path,
         device="cpu",
@@ -193,7 +193,7 @@ def test_arrays_in_arrays_out_equivalence(tmp_path, monkeypatch):
     from ptycho_torch.inference import (
         ReconstructionRuntimeParams,
         reconstruct_from_arrays,
-        reconstruct_npz_barycentric,
+        reconstruct,
     )
 
     resolved, acquisition, model = _fixed_texture_model_and_scan(tmp_path)
@@ -206,10 +206,10 @@ def test_arrays_in_arrays_out_equivalence(tmp_path, monkeypatch):
         lambda *a, **k: ({"diffraction_to_obj": model}, {}),
     )
 
-    reference = reconstruct_npz_barycentric(
+    reference = reconstruct(
         bundle,
         acquisition.test_path,
-        run_root=tmp_path / "run_ref",
+        work_dir=tmp_path / "run_ref",
         expected_workflow=resolved,
         dataset_manifest_path=acquisition.manifest_path,
         device="cpu",

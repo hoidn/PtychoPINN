@@ -1,6 +1,6 @@
 """CI count-intensity adaptation for the PtychoDataContainerTorch path.
 
-The synthetic workflow runner (``ptycho/workflows/training.py``) hands the
+The synthetic pipeline hands the
 Lightning backend a ``PtychoDataContainerTorch``, not the plain dict the
 the public synthetic workflow builds. The legacy normalized-amplitude adapter
 serves the dict path, so the container path needs its own bridge to publish the
@@ -41,7 +41,7 @@ def _count_container(n_samples: int = 6, scale: float = 3.0):
     }
     probe = (np.ones((N, N), dtype=np.complex64) * scale)
     container = PtychoDataContainerTorch(grouped, probe)
-    # Mirror ptycho/workflows/training.py: X_full is RMS-normalized by
+    # Mirror synthetic_pipeline.py: X_full is RMS-normalized by
     # RawData.generate_grouped_data; the raw grouped counts are retained
     # separately.
     container.raw_grouped_diffraction = counts

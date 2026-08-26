@@ -127,7 +127,7 @@ class TestCliRouting:
 
         with patch("ptycho_torch.cli.shared.validate_paths", MagicMock()), \
              patch("ptycho_torch.config_factory.create_inference_payload", mock_factory), \
-             patch("ptycho_torch.inference.reconstruct_npz_barycentric", barycentric_helper), \
+             patch("ptycho_torch.inference.reconstruct", barycentric_helper), \
              patch("ptycho_torch.inference.save_individual_reconstructions", MagicMock()):
             from ptycho_torch.inference import cli_main
 
@@ -223,7 +223,7 @@ class TestPublicWorkflowCliDelegation:
             )
         )
         monkeypatch.setattr(
-            inference, "reconstruct_npz_barycentric", public, raising=False
+            inference, "reconstruct", public, raising=False
         )
         monkeypatch.setattr(
             "sys.argv",
@@ -315,7 +315,7 @@ class TestPublicWorkflowCliDelegation:
             inference, "setup_inference_configuration", lambda *_args: config
         )
         monkeypatch.setattr(
-            torch_inference, "reconstruct_npz_barycentric", public, raising=False
+            torch_inference, "reconstruct", public, raising=False
         )
         monkeypatch.setattr(
             "ptycho_torch.cli.shared.build_execution_request_from_args",
@@ -405,7 +405,7 @@ class TestPublicWorkflowCliDelegation:
         )
         monkeypatch.setattr(
             torch_inference,
-            "reconstruct_npz_barycentric",
+            "reconstruct",
             MagicMock(return_value=SimpleNamespace(
                 amplitude=np.ones((8, 8)), phase=np.zeros((8, 8)))),
             raising=False,

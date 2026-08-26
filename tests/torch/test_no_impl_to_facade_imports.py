@@ -18,14 +18,12 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-# The two facades, reachable both as the ``components`` module and through the
-# workflow package proxies that re-export them.
+# The two explicit facade modules. Package initializers do not re-export them.
 FACADE = frozenset(
     {
         "ptycho_torch.workflows.components",
-        "ptycho.workflows.components",
         "ptycho_torch.workflows",
-        "ptycho.workflows",
+        "ptycho.workflows.components",
     }
 )
 
@@ -38,7 +36,6 @@ IMPL_MODULES = [
     "ptycho_torch.workflows.dataloaders",
     "ptycho_torch.workflows.legacy",
     "ptycho_torch.workflows.lightning_service",
-    "ptycho_torch.workflows.orchestration",
     "ptycho_torch.workflows.rect_s1s2",
     "ptycho_torch.batch_emission",
     "ptycho_torch.checkpoint_decode",
@@ -51,7 +48,6 @@ IMPL_MODULES = [
     "ptycho_torch.reassembly_accumulators",
     "ptycho_torch.varpro",
     "ptycho.workflows.workflow_orchestration",
-    "ptycho.workflows.training",
     "ptycho.workflows.bundle_loading",
     "ptycho.workflows.config_cli",
     "ptycho.workflows.backend_selector",
@@ -122,3 +118,12 @@ def test_facades_are_logic_free() -> None:
         "Facade(s) contain logic beyond docstring + re-export blocks + __all__:\n"
         + "\n".join(sorted(violations))
     )
+
+
+def test_displaced_training_modules_are_deleted() -> None:
+    for relative in (
+        "ptycho/workflows/training.py",
+        "ptycho_torch/workflows/orchestration.py",
+        "ptycho_torch/data_adapter.py",
+    ):
+        assert not REPO_ROOT.joinpath(relative).exists(), relative

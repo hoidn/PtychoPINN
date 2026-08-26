@@ -16,6 +16,40 @@ probe by `c` and dividing the object by `c` leaves the counts unchanged. The
 runtime name distinguishes it from the normalized training view; it does not
 by itself prove physical calibration or absolute object units.
 
+The NPZ `scale_contract_version`/`measurement_domain` pair is raw-source
+evidence; the resolved profile is the model target. The ingestion decision is:
+
+| Source evidence | CI target | Legacy target |
+|---|---|---|
+| Declared `ci_intensity_v2`/`count_intensity` | Pass through. | Fail rather than reinterpret counts as amplitude. |
+| Declared `legacy_v1`/`normalized_amplitude` | Rescale. | Pass through. |
+| Metadata-free training with caller-supplied `nphotons` | Rescale as normalized amplitude. | Pass through. |
+| Metadata-free training with omitted `nphotons` | Pass through as already scaled counts. | Pass through. |
+
+For normalized-amplitude frames `A_j`, CI conversion uses the full acquisition
+before any selection or grouping:
+
+```text
+s = sqrt(nphotons / mean_j(sum_u A_j(u)^2))
+I_j = (s A_j)^2
+P_ci = s P_source
+```
+
+The same `s` multiplies every `probeGuess` mode and every optional
+`probe_simulated` mode. There is no independent probe-L2 match. The conversion
+squares deterministically without drawing new Poisson noise; its target is an
+effective dose-normalized representation, not proof of physical calibration.
+
+Reconstruction always keeps the bundle's stored `nphotons` as the model
+target. For a CI target, a caller-supplied value requests conversion of a
+metadata-free source and must equal that target. For a CI target, a
+metadata-free source matching the bundle's optional `rescaled_source_sha256`
+is converted with the stored target without requiring the caller to repeat
+`nphotons`; another metadata-free source with omitted `nphotons` passes through
+as already scaled counts. Metadata-free legacy reconstruction always passes
+through. If its caller supplies `nphotons`, the value must still equal the
+bundle target but does not trigger conversion.
+
 A normalized training probe may improve conditioning, but its normalization is
 canceled exactly in the field:
 
@@ -61,8 +95,9 @@ Three scale operations remain distinct:
 3. `rect_s1s2_refit=dataset` and inference VarPro are post-training solves on
    their own data and must not be read as the startup gauge.
 
-The shared Torch workflow used by `ptycho_synthetic`, `ptycho_train`, and
-`ptycho_study` arms writes `training_summary.json`. Fresh records use
+The retained Torch training service used by public `ptycho_torch.train.train`,
+`ptycho_synthetic`, and delegated `ptycho_study` arms writes
+`training_summary.json`. Fresh records use
 `rect-s1s2-initialization-v2`; a dose-closure record names
 `dose_closure_seeded_uniform_unit_object` and exactly 256 sampled slots, while
 `ones` records the unit no-solve result. Strict v1 parsing remains only for
@@ -190,12 +225,17 @@ return RawData(..., X, ...)  # Return normalized data
 
 **Misconception:** "Setting nphotons=1e3 should make the data values smaller"
 
-**Reality:** nphotons affects the noise statistics in the Poisson loss, not the data values themselves.
+**Reality:** The effect depends on the source and target contract. Legacy
+physics uses `nphotons` at the physics/loss boundary without changing the raw
+stored amplitudes. Direct CI ingestion uses a caller-supplied `nphotons` to
+rescale a declared-amplitude or metadata-free amplitude source; declared
+counts pass through without double scaling.
 
 **Correct understanding:**
-- Data values remain normalized
-- Low nphotons → higher relative noise in Poisson model
-- High nphotons → lower relative noise (approaches Gaussian)
+- Declared CI counts pass through; amplitude sources converted to CI are
+  scaled to the resolved `nphotons` target.
+- Lower CI targets represent lower effective dose and higher relative Poisson noise.
+- Higher CI targets represent higher effective dose and lower relative Poisson noise.
 
 ### Pitfall 3: Double-scaling in prepare.sh workflow
 
@@ -222,6 +262,9 @@ return RawData(..., X, ...)  # Return normalized data
 
 ### PyTorch backend
 - New rectangular workflows default to CI count intensity and persist `rms_input_scale`, `mean_measured_intensity`, the profile pair, and acquisition-probe gauge metadata.
+- Normalized-amplitude sources converted for CI use the complete acquisition
+  dose factor above before raw-row selection/grouping; measurements and every
+  probe mode share one factor.
 - Mmap and in-memory loaders preserve both `probe_physical` and `probe_training`; their named tensors use `(B,C,P,H,W)` and support finite incoherent mode sums.
 - CI statistics come only from finalized training indices, are accumulated in bounded chunks, and are reused unchanged for validation, checkpoints, bundles, and inference.
 - CI training is Poisson-only. Raw count NLL is logged; the optimized data term uses physical-mean normalization.
@@ -273,6 +316,11 @@ When implementing or modifying normalization:
 
 - [ ] Is the normalization type clearly documented?
 - [ ] Is the profile pair explicit, or intentionally defaulted to CI for a new rectangular workflow?
+- [ ] Does the source/target decision use raw NPZ metadata plus caller
+      `nphotons` suppliedness without double scaling declared counts?
+- [ ] When amplitude is converted to CI, is `s` derived from the complete
+      acquisition and applied equally to every probe mode before selection or
+      grouping, with no probe-L2 match?
 - [ ] For legacy/amplitude data, is intensity_scale calculated but not applied to internal data?
 - [ ] For CI, are measured values count intensity and is the stored acquisition probe used consistently, without assuming its scalar is identifiable from diffraction?
 - [ ] Are CI statistics derived only from finalized training indices and persisted for inference?

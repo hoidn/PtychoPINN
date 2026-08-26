@@ -563,55 +563,90 @@ def normalize_ci_poisson_per_sample(
     return raw_nll / denominator
 
 
-def adapt_normalized_amplitude_to_ci(
-    amplitude: torch.Tensor,
-    probe: torch.Tensor,
-    count_amplitude_scale: Any,
-) -> tuple[torch.Tensor, torch.Tensor]:
-    """Convert normalized-amplitude data and probe to physical CI units."""
-    amplitude = _require_real_floating_tensor(amplitude, "amplitude")
-    if not isinstance(probe, torch.Tensor):
-        raise TypeError("probe must be a torch.Tensor.")
-    if not (torch.is_floating_point(probe) or torch.is_complex(probe)):
-        raise TypeError("probe must be a floating-point or complex tensor.")
-    if probe.device != amplitude.device:
-        raise ValueError("amplitude and probe must be on the same device.")
+def rescale_amplitude_to_nphotons(
+    amplitude: np.ndarray,
+    probe: np.ndarray,
+    nphotons: float,
+    probe_simulated: np.ndarray | None = None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray | None]:
+    """Scale one complete amplitude acquisition and its probes to CI counts."""
+    amplitude = np.asarray(amplitude)
+    probe = np.asarray(probe)
+    if not np.issubdtype(amplitude.dtype, np.floating):
+        raise TypeError("amplitude must be a real floating-point NumPy array")
+    if not (
+        np.issubdtype(probe.dtype, np.floating)
+        or np.issubdtype(probe.dtype, np.complexfloating)
+    ):
+        raise TypeError("probe must be a floating-point or complex NumPy array")
+    if not np.isfinite(amplitude).all():
+        raise ValueError("amplitude must contain only finite values")
+    if np.any(amplitude < 0):
+        raise ValueError("amplitude must contain nonnegative values")
+    if not np.any(amplitude):
+        raise ValueError("amplitude must have nonzero energy")
+    if not np.isfinite(probe).all():
+        raise ValueError("probe must contain only finite values")
+    if not np.any(probe):
+        raise ValueError("probe must have nonzero energy")
+    if isinstance(nphotons, (bool, np.bool_)):
+        raise TypeError("nphotons must be a real scalar")
+    try:
+        nphotons = float(nphotons)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise TypeError("nphotons must be a real scalar") from exc
+    if not math.isfinite(nphotons) or nphotons <= 0:
+        raise ValueError("nphotons must be positive and finite")
 
-    scale = _coerce_positive_scalar(
-        count_amplitude_scale,
-        "count_amplitude_scale",
-        amplitude,
+    if probe_simulated is not None:
+        probe_simulated = np.asarray(probe_simulated)
+        if not (
+            np.issubdtype(probe_simulated.dtype, np.floating)
+            or np.issubdtype(probe_simulated.dtype, np.complexfloating)
+        ):
+            raise TypeError(
+                "probe_simulated must be a floating-point or complex NumPy array"
+            )
+        if not np.isfinite(probe_simulated).all():
+            raise ValueError("probe_simulated must contain only finite values")
+        if not np.any(probe_simulated):
+            raise ValueError("probe_simulated must have nonzero energy")
+
+    mean_energy = np.mean(
+        np.sum(
+            np.square(amplitude, dtype=np.float64),
+            axis=(-2, -1),
+            dtype=np.float64,
+        ),
+        dtype=np.float64,
     )
-    if not bool(torch.isfinite(amplitude).all()):
-        raise ValueError("amplitude must contain only finite values.")
-    if bool((amplitude < 0).any()):
-        raise ValueError("amplitude must contain nonnegative values.")
-    if not bool((amplitude != 0).any()):
-        raise ValueError("amplitude must have nonzero energy.")
+    with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+        scale = np.sqrt(nphotons / mean_energy)
+    if not math.isfinite(scale) or scale <= 0:
+        raise ValueError("derived scale must be positive and finite")
 
-    probe_is_finite = torch.isfinite(probe.real).all()
-    if torch.is_complex(probe):
-        probe_is_finite = probe_is_finite & torch.isfinite(probe.imag).all()
-    if not bool(probe_is_finite):
-        raise ValueError("probe real and imaginary components must be finite.")
-    if not bool((probe != 0).any()):
-        raise ValueError("probe must have nonzero energy.")
-
-    intensity = (scale * amplitude).square()
-    probe_physical = scale * probe
-    if not bool(torch.isfinite(intensity).all()):
-        raise ValueError("converted intensity must contain only finite values.")
-
-    converted_probe_is_finite = torch.isfinite(probe_physical.real).all()
-    if torch.is_complex(probe_physical):
-        converted_probe_is_finite = (
-            converted_probe_is_finite & torch.isfinite(probe_physical.imag).all()
+    with np.errstate(over="ignore", invalid="ignore"):
+        intensity = np.square(scale * amplitude)
+        scaled_probe = scale * probe
+        scaled_simulated = (
+            None if probe_simulated is None else scale * probe_simulated
         )
-    if not bool(converted_probe_is_finite):
-        raise ValueError(
-            "converted probe real and imaginary components must be finite."
+    if (
+        not np.isfinite(intensity).all()
+        or not np.isfinite(scaled_probe).all()
+        or (
+            scaled_simulated is not None
+            and not np.isfinite(scaled_simulated).all()
         )
-    return intensity, probe_physical
+    ):
+        raise ValueError("numeric overflow while rescaling amplitude acquisition")
+    if (
+        not np.any(intensity)
+        or not np.any(scaled_probe)
+        or (scaled_simulated is not None and not np.any(scaled_simulated))
+    ):
+        raise ValueError("numeric underflow while rescaling amplitude acquisition")
+    return intensity, scaled_probe, scaled_simulated
 
 
 def resolve_scale_contract(

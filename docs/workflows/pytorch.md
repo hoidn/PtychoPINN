@@ -13,11 +13,15 @@ There are four ways to run the backend, from highest-level to lowest:
 | `ptycho_synthetic` | You want the supported synthetic simulate → train → strict-reload → mmap barycentric reconstruct → evaluate workflow |
 | Unified CLIs: `ptycho_train` / `ptycho_inference` with `--backend pytorch` | You want the backend-agnostic workflow (same flags as TensorFlow, plus `--torch-*` execution flags) |
 | Native CLIs: `python -m ptycho_torch.train` / `python -m ptycho_torch.inference` | You want direct control of torch execution flags |
-| Programmatic: `ptycho_torch.workflows.components.run_cdi_example_torch` | You are composing a custom workflow or study runner |
+| Programmatic: `ptycho_torch.train.train` / `ptycho_torch.inference.reconstruct` | You have an NPZ and want a model path followed by amplitude/phase arrays |
 
 Key properties:
 
-- **Configuration** uses the same canonical dataclasses as TensorFlow (`ptycho.config.config.TrainingConfig` / `InferenceConfig`). The config factory resolves the torch-side config singletons (`ptycho_torch/config_params.py`), and `ptycho_torch/config_bridge.py` translates those resolved Torch singletons into the TensorFlow dataclasses, which are then projected to the legacy `params.cfg` via `update_legacy_dict`. Normative field mapping: <doc-ref type="spec">docs/specs/spec-ptycho-config-bridge.md</doc-ref>.
+- **Configuration** is resolved by the existing Torch factory. Direct callers
+  pass its canonical keys in the `settings` mapping; the complete checked table
+  is in [Configuration](../CONFIGURATION.md#canonical-programmatic-torch-training-settings).
+  A legacy projection is created only for a remaining legacy consumer.
+  Normative field mapping: <doc-ref type="spec">docs/specs/spec-ptycho-config-bridge.md</doc-ref>.
 - **Training** runs through `PtychoPINN_Lightning` (`ptycho_torch/model.py`) with
   deterministic settings, Lightning checkpointing, and the full physics loss for every
   architecture.
@@ -35,7 +39,7 @@ Key properties:
 Every Torch run passes through the same four stages:
 
 ```text
-authored config (TrainingConfig / InferenceConfig)
+authored settings / inference request
   -> resolved payload (TrainingPayload / InferencePayload)   [create_training_payload / create_inference_payload]
   -> sealed identity (ModelSpec)                             [checkpoint / bundle write]
   -> restored identity (strict bundle/checkpoint decode)     [decode_checkpoint_hparams + load_inference_bundle_torch]
@@ -48,28 +52,22 @@ inference kernel (decoded bundle identity + explicit runtime argument).
 
 ### Training entry-point convergence
 
-Entry points own source-specific validation and translate their inputs into a
-neutral, resolved training request. They do not invoke one another. Training
-behavior converges on `ptycho.workflows.training.run_training_workflow`:
+The direct Python API, native Torch CLI, and unified CLI's Torch branch all use
+the same public `train` body. Synthetic training keeps its specialized truth,
+seed, and batch-order preparation local and calls the same retained training
+component directly:
 
 ```text
-ptycho_synthetic ── simulate + verify manifest ─┐
-                                                │
-ptycho_train ───── validate supplied NPZs ─────┼─> Shared training service
-                                                │      ├─ group data once
-study adapter ──── validate cached dataset ─────┘      ├─ select memory/mmap rail
-                                                       ├─ resolve model/runtime
-                                                       └─ train + save bundle
+Python/Jupyter ─┐
+native CLI ─────┼─> train -> Torch resolver -> RawData -> train_cdi_model_torch
+unified CLI ────┘
+synthetic -> specialized preparation -----------------> train_cdi_model_torch
 ```
 
-At this boundary, `ptycho_synthetic` owns simulation, manifest identity, and
-stage lifecycle; `ptycho_train` owns caller-supplied standalone NPZ inputs; and
-study adapters own any specialized cached-data translation. The shared service
-owns grouping, data-residency selection, model/runtime resolution, training,
-and bundle persistence. A compatibility entry point that still performs any of
-those shared steps locally is transitional and should converge by delegating to
-the service, not by calling another CLI or passing CLI-specific arguments into
-the shared core.
+`train` resolves before creating its output directory, loads and if necessary
+rescales the full acquisition, applies the optional raw-frame cap, then lets the
+existing container and Lightning service own grouping, training, and the
+bundle. It returns the nonempty `wts.h5.zip` path directly.
 
 ## 2. Prerequisites
 
@@ -99,30 +97,17 @@ the shared core.
    or optimization.
 
 Full execution field catalog and validation rules:
-`specs/ptychodus_api_spec.md` §4.9.
-
-```python
-from pathlib import Path
-from ptycho.config.config import TrainingConfig, ModelConfig, update_legacy_dict
-from ptycho import params
-
-config = TrainingConfig(
-    model=ModelConfig(N=64, gridsize=2, model_type='pinn', architecture='cnn'),
-    train_data_file=Path('datasets/my_train.npz'),
-    test_data_file=Path('datasets/my_test.npz'),   # optional
-    training_groups=512,
-    batch_size=4,
-    nepochs=10,
-    output_dir=Path('outputs/my_experiment'),
-)
-update_legacy_dict(params.cfg, config)   # MANDATORY before data loading
-```
+`specs/ptychodus_api_spec.md` §4.9. Direct Torch users pass strings and the
+resolver settings mapping to `train` (§4.4); they do not construct public
+`TrainingConfig`, `Path`, or `params.cfg`. `update_legacy_dict` is required only
+inside an explicitly declared TensorFlow or surviving legacy-component
+boundary.
 
 #### Training-only CI profile
 
-The native Torch CLI accepts `--profile ci`; the training factories accept
-`profile="ci"`. Both select the same named starting bundle for existing
-count-intensity NPZs. It locks `scale_contract_version=ci_intensity_v2`,
+The direct `train` function defaults to `profile="ci"`; the native Torch CLI
+delegates with the same default. Both select the same named starting bundle. It
+locks `scale_contract_version=ci_intensity_v2`,
 `measurement_domain=count_intensity`,
 `physics_forward_mode=rectangular_scaled`, `torch_loss_mode=poisson`, and
 `loss_function=Poisson`. Contradictions fail closed; the overrideable
@@ -137,6 +122,11 @@ and artifact identity controls inference, so loading does not require selecting 
 profile name again. See the
 [configuration guide](../CONFIGURATION.md#torch-training-only-ci-profile) for
 the complete field tables.
+
+For metadata-free input, omit `nphotons` when the diffraction is already in
+the expected count scale. Supply positive finite `nphotons` when the stored
+values are normalized amplitudes that must be converted. Declared CI counts
+are never scaled twice.
 
 ### 3.2. Architecture Selection (Generator Registry)
 
@@ -333,10 +323,9 @@ Two further knobs are **inference-only** (`InferenceConfig.patch_weighting`,
 `InferenceConfig.varpro_scaling`): they affect only
 `ptycho_torch.reassembly.reconstruct_image_barycentric` (the in-process reconstruction
 path) and never touch training numerics. The native and unified inference CLIs
-route to the public strict-load/mmap helper
-`ptycho_torch.inference.reconstruct_npz_barycentric` when probe weighting or
-VarPro is requested; otherwise they retain the uniform
-`helper.reassemble_patches_position_real` compatibility route.
+route general NPZ reconstruction through public
+`ptycho_torch.inference.reconstruct`; fixed-pitch synthetic tiled
+reconstruction retains its specialized path.
 
 ### 3.6. CNN Parity Diagnostic Knobs (Not A Baseline)
 
@@ -616,8 +605,8 @@ The CLI builds an `ExecutionRequest` and a separate Torch training patch through
 `ptycho_torch/cli/shared.py`
 (`build_execution_request_from_args`, `build_training_config_patch_from_args`,
 `validate_paths`). The config factory capability-resolves the request to
-`PyTorchExecutionConfig` and performs the required compatibility projection for
-this native entry point.
+`PyTorchExecutionConfig`; native Torch resolution does not read, mutate, or
+populate legacy `params.cfg`.
 
 This native CLI does not accept `--config`. Its
 `--rect-s1s2-init` argparse default is `None`: omission preserves the
@@ -628,42 +617,28 @@ while an explicit spelling is forwarded as the caller override. Use
 ### 4.4. Programmatic
 
 ```python
-from ptycho.raw_data import RawData
-from ptycho_torch.execution_request import ExecutionRequest
-from ptycho_torch.workflows.components import run_cdi_example_torch
+from ptycho_torch.inference import reconstruct
+from ptycho_torch.train import train
 
-train_data = RawData.from_file(str(config.train_data_file))
-test_data = RawData.from_file(str(config.test_data_file)) if config.test_data_file else None
-execution_request = ExecutionRequest(
-    values={"accelerator": "cuda", "num_workers": 0},
-    explicit_fields=frozenset({"accelerator", "num_workers"}),
-)
-torch_training_overrides = {
-    "learning_rate": 1e-3,
-    "scheduler": "Default",
-    "gradient_clip_val": None,
-    "accum_steps": 1,
-}
-
-amplitude, phase, results = run_cdi_example_torch(
-    train_data, test_data, config,
-    do_stitching=True,            # Synthetic workflow always sets this False
-    execution_config=execution_request,
-    overrides=torch_training_overrides,
-)
+data = "datasets/Run1084_recon3_postPC_shrunk_3.npz"
+model = train(data, "outputs/run1084_cnn", {
+    "architecture": "cnn",
+    "training_groups": 256,
+    "nphotons": 1e9,
+    "epochs": 1,
+})
+result = reconstruct(model, data)
 ```
 
-`run_cdi_example_torch` normalizes the data into `PtychoDataContainerTorch`, seeds and
-instantiates `PtychoPINN_Lightning`, runs `Trainer.fit()` (deterministic, checkpoints
-under `{output_dir}/checkpoints/`), persists the bundle, and — when
-`do_stitching=True` — runs Lightning prediction and reassembles the image
-(`flip_x`/`flip_y`/`transpose` args control coordinate transforms, `M` the stitch
-window). Component contract: `docs/architecture_torch.md` §6.
+`train` returns the nonempty bundle path consumed directly by `reconstruct`.
+Use `help(train)` for common settings and the
+[canonical resolver table](../CONFIGURATION.md#canonical-programmatic-torch-training-settings)
+for every accepted field and its owner.
 
-Study callers that already own a `PtychoDataset` mmap build it once, wrap it in
-`PrebuiltPtychoDataModule`, and pass that DataModule with the resolved payload
-to the same shared service. Held-out evaluation mmaps remain separate from the
-training validation split.
+Advanced in-memory/Ptychodus component callers may still pass an already
+prepared `RawData`, container, or `PrebuiltPtychoDataModule` to the retained
+component seam. That is not a second ordinary dataset API; held-out evaluation
+mmaps remain separate from the training validation split.
 
 ## 5. Checkpoints, Persistence, Reproducibility
 
@@ -719,19 +694,31 @@ CUDA_VISIBLE_DEVICES="0" python -m ptycho_torch.inference \
   --accelerator cuda --quiet
 ```
 
-Native inference reconstructs every bounded center on the barycentric path; it
-does not expose a group-count flag. Use the installed `ptycho_inference`
-dispatcher when `--inference_groups` is required.
-
 Additional flags: `--num-workers`, `--inference-batch-size` (default: reuse training
 batch size), probe-mask flags, `--log-patch-stats`. A legacy MLflow-run mode
 (`--run_id`, `--infer_dir`, `--file_index`) still exists but is not the default path.
-By default this CLI preserves uniform compatibility stitching. Passing
-`--patch-weighting probe` or `--varpro-scaling` routes through
-`reconstruct_npz_barycentric`, which strictly reloads the bundle, reconstructs
-the full held-out scan through mmap, and calls the barycentric reassembler.
+The CLI routes through `reconstruct`, which strictly reloads the bundle,
+reconstructs the full held-out scan through mmap, and calls the barycentric
+reassembler.
 `--groups-per-center` controls only that runtime route and does not alter the
 persisted training selection.
+
+The ordinary Python flow is:
+
+```python
+from ptycho_torch.inference import reconstruct
+from ptycho_torch.train import train
+
+model = train("dataset.npz", "any/output/name", {
+    "architecture": "cnn", "training_groups": 256, "nphotons": 1e9,
+})
+result = reconstruct(model, "dataset.npz")
+```
+
+Strings are accepted; callers need not construct `Path` objects. With no
+`work_dir`, `reconstruct` owns and removes a temporary mmap workspace. With a
+`work_dir`, it creates the temporary workspace beneath that directory and
+still removes only the workspace it created.
 
 **Programmatic reconstruction seams** (embedder-facing, no CLI, no
 `params.cfg`):
@@ -853,8 +840,9 @@ Use `ptycho_synthetic` for a single supported synthetic run.
   controls reduce but do not eliminate the risk; `hybrid_resnet` remains the
   recommended alternative (§3.6).
 - **`intensity_scale_trainable=True`** conflicts with the parity scale path (§3.6).
-- Shape mismatches at load time usually mean the `update_legacy_dict(params.cfg,
-  config)` bridge was skipped — see
+- Shape mismatches in a TensorFlow or explicitly legacy component may mean its
+  `update_legacy_dict(params.cfg, config)` bridge was skipped; direct Torch
+  `train`/`reconstruct` does not use that bridge. See
   `docs/debugging/TROUBLESHOOTING.md`.
 
 ## 11. Legacy-Bundle Migration

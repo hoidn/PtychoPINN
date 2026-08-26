@@ -942,20 +942,8 @@ class TestConfigBridgeParity:
         assert 'training_groups=' in error_msg, \
             "Error message should provide override syntax example"
 
-    def test_test_data_file_training_missing_warning(self, params_cfg_snapshot):
-        """
-        Test that missing test_data_file in TrainingConfig emits warning (optional field).
-
-        From override_matrix.md: test_data_file (training stage) remains None until
-        inference override applied. Consider warning to surface absent evaluation data.
-
-        Note: This is a softer validation than train_data_file (which is required).
-        The warning helps callers understand inference update is needed for evaluation flows.
-
-        Spec coverage: §5.2:2 (test_data_file optional)
-        Phase: B.B5.D3 override warning coverage
-        Reference: override_matrix.md row for test_data_file (training)
-        """
+    def test_test_data_file_training_is_optional(self, params_cfg_snapshot):
+        """Missing test_data_file remains valid and quiet during training."""
         import warnings
         from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig
         from ptycho_torch import config_bridge
@@ -966,27 +954,16 @@ class TestConfigBridgeParity:
 
         tf_model = config_bridge.to_model_config(pt_data, pt_model)
 
-        # Should emit warning when test_data_file omitted
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
             _ = config_bridge.to_training_config(
                 tf_model, pt_data, pt_model, pt_train,
                 overrides=dict(
                     train_data_file=Path('train.npz'),
                     training_groups=512,
                     nphotons=1e9
-                    # Missing test_data_file - should emit warning
                 )
             )
-
-            # Assert warning was issued
-            assert len(w) == 1, "Should emit exactly one warning for missing test_data_file"
-            warning_msg = str(w[0].message)
-            assert 'test_data_file' in warning_msg, \
-                "Warning should mention test_data_file"
-            assert 'evaluation' in warning_msg or 'inference' in warning_msg, \
-                "Warning should explain impact on evaluation/inference workflows"
 
     # ============================================================================
     # Test Case 6: Baseline params.cfg Comparison (Phase D.D1)

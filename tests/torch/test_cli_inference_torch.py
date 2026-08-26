@@ -348,7 +348,7 @@ class TestInferenceCLIThinWrapper:
 
         with patch('ptycho_torch.cli.shared.validate_paths', mock_validate_paths), \
              patch('ptycho_torch.config_factory.create_inference_payload', mock_factory), \
-             patch('ptycho_torch.inference.reconstruct_npz_barycentric', mock_helper), \
+             patch('ptycho_torch.inference.reconstruct', mock_helper), \
              patch('ptycho_torch.inference.save_individual_reconstructions', mock_save_fn):
             from ptycho_torch.inference import cli_main
             monkeypatch.setattr('sys.argv', ['inference.py'] + minimal_inference_args)
@@ -374,7 +374,7 @@ class TestInferenceCLIThinWrapper:
 
         with patch('ptycho_torch.cli.shared.validate_paths', mock_validate_paths), \
              patch('ptycho_torch.config_factory.create_inference_payload', mock_factory), \
-             patch('ptycho_torch.inference.reconstruct_npz_barycentric', MagicMock()), \
+             patch('ptycho_torch.inference.reconstruct', MagicMock()), \
              patch('ptycho_torch.inference.save_individual_reconstructions', MagicMock()):
             from ptycho_torch.inference import cli_main
             monkeypatch.setattr('sys.argv', ['inference.py'] + minimal_inference_args + ['--quiet'])

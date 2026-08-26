@@ -403,6 +403,17 @@ def validate_torch_bundle_manifest(manifest: Mapping[str, Any]) -> str:
             "wts.h5.zip roles must contain autoencoder and diffraction_to_obj "
             f"exactly; found {sorted(roles)}"
         )
+    if "rescaled_source_sha256" in manifest:
+        digest = manifest["rescaled_source_sha256"]
+        if (
+            not isinstance(digest, str)
+            or len(digest) != 64
+            or any(character not in "0123456789abcdef" for character in digest)
+        ):
+            raise ValueError(
+                "wts.h5.zip rescaled_source_sha256 must be a lowercase "
+                "64-character hexadecimal string"
+            )
     backend = manifest.get("backend")
     if backend is None:
         if "artifact_schema_version" in manifest:

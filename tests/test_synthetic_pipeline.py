@@ -6,6 +6,7 @@ import json
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
@@ -1049,7 +1050,27 @@ def test_default_simulation_adapter_bounds_failed_subprocess_log(tmp_path, monke
     assert len(payload) < 40_000
 
 
-def test_default_training_adapter_uses_shared_training_workflow(tmp_path, monkeypatch):
+@pytest.mark.parametrize(
+    "case",
+    [
+        "valid",
+        "loader",
+        "train_data_file",
+        "test_data_file",
+        "output_dir",
+        "training_groups",
+        "train_raw_selection",
+        "subsample_seed",
+        "neighbor_count",
+        "sequential_sampling",
+        "nphotons",
+        "N",
+        "gridsize",
+    ],
+)
+def test_default_training_adapter_prepares_distinct_containers_and_calls_component(
+    tmp_path, monkeypatch, case
+):
     from ptycho.workflows import synthetic_pipeline
     from ptycho.workflows.synthetic_config import resolve_synthetic_workflow
 
@@ -1058,6 +1079,8 @@ def test_default_training_adapter_uses_shared_training_workflow(tmp_path, monkey
             "training": {
                 "torch_training_seed": 3,
                 "batch_order_recipe": "torch-implicit-july2026-v1",
+                "validation_groups": 729,
+                "data_adapter": "loader" if case == "loader" else "dictionary_parity",
             },
             "workflow": {"output_root": tmp_path},
         }
@@ -1082,34 +1105,186 @@ def test_default_training_adapter_uses_shared_training_workflow(tmp_path, monkey
         tmp_path / "training" / "training_summary.json",
         initialization,
     )
-    captured = {}
-
-    def fake_training(workflow_request):
-        captured["request"] = workflow_request
-        return SimpleNamespace(
-            bundle_path=bundle,
-            training_summary_path=summary,
-            rect_s1s2_initialization=initialization,
-        )
-
-    monkeypatch.setattr(
-        synthetic_pipeline,
-        "_run_shared_training_workflow",
-        fake_training,
+    from ptycho_torch.config_params import (
+        DataConfig,
+        InferenceConfig,
+        ModelConfig,
+        TrainingConfig,
     )
+    from ptycho_torch.scaling_contract import resolve_amplitude_physics_gain
+
+    calls = []
+
+    class Raw:
+        metadata = None
+        objectGuess = None
+        Y = np.ones((4096, 2, 2), dtype=np.complex64)
+        diff3d = np.ones((4096, 2, 2), dtype=np.float32)
+        probeGuess = np.ones((2, 2), dtype=np.complex64)
+
+        def __init__(self, split):
+            self.split = split
+
+        def generate_grouped_data(self, **kwargs):
+            count = kwargs["nsamples"]
+            calls.append((f"group:{self.split}", count, kwargs["seed"]))
+            return {
+                "nn_indices": np.zeros((count, 4), dtype=np.int32),
+                "diffraction": np.full((count, 2, 2, 4), 7, dtype=np.float32),
+                "X_full": np.ones((count, 2, 2, 4), dtype=np.float32),
+                "Y": np.ones((count, 2, 2, 4), dtype=np.complex64),
+                "coords_relative": np.zeros((count, 1, 2, 4), dtype=np.float32),
+                "coords_offsets": np.zeros((count, 1, 2, 1), dtype=np.float64),
+            }
+
+    train_raw = Raw("train")
+    validation_raw = Raw("validation")
+
+    def load_data(path, **kwargs):
+        split = "train" if Path(path) == train_path else "validation"
+        calls.append((f"load:{split}", kwargs.get("n_subsample")))
+        return train_raw if split == "train" else validation_raw
+
+    monkeypatch.setattr("ptycho.workflows.config_cli.load_data", load_data)
+    gain = resolve_amplitude_physics_gain(
+        np.ones((1, 2, 2), dtype=np.float32),
+        None,
+        np.ones((2, 2), dtype=np.complex64),
+        probe_scale=4.0,
+        override=1.0,
+    )
+    monkeypatch.setattr(synthetic_pipeline, "_resolve_gain", lambda *_args: gain)
+    inference = InferenceConfig(
+        **{
+            item.name: getattr(resolved.inference, item.name)
+            for item in __import__("dataclasses").fields(InferenceConfig)
+        }
+    )
+    payload = SimpleNamespace(
+        tf_training_config=synthetic_pipeline._synthetic_public_config(request),
+        pt_data_config=DataConfig(
+            N=resolved.data.N,
+            gridsize=resolved.data.gridsize,
+            neighbor_count=resolved.training.neighbor_count,
+            n_raw_frames_selected=resolved.training.train_raw_selection,
+        ),
+        pt_model_config=ModelConfig(amplitude_physics_gain=gain.value),
+        pt_training_config=TrainingConfig(nll=resolved.training.nll),
+        pt_inference_config=inference,
+    )
+    if case in {"N", "gridsize"}:
+        payload.tf_training_config = replace(
+            payload.tf_training_config,
+            model=replace(
+                payload.tf_training_config.model,
+                **{
+                        case: (
+                            (64 if payload.tf_training_config.model.N != 64 else 128)
+                            if case == "N"
+                            else payload.tf_training_config.model.gridsize + 1
+                        )
+                },
+            ),
+        )
+    elif case not in {"valid", "loader"}:
+        original = getattr(payload.tf_training_config, case)
+        if case in {"train_data_file", "test_data_file", "output_dir"}:
+            changed = tmp_path / f"wrong-{case}"
+        elif case == "sequential_sampling":
+            changed = not original
+        elif case == "nphotons":
+            changed = original * 2
+        else:
+            changed = original + 1
+        payload.tf_training_config = replace(
+            payload.tf_training_config,
+            **{case: changed},
+        )
+    monkeypatch.setattr(
+        "ptycho_torch.config_factory.resolve_training_payload",
+        lambda **_kwargs: payload,
+    )
+    trained = MagicMock(
+        return_value={
+            "bundle_path": bundle,
+            "training_summary_path": summary,
+            "rect_s1s2_initialization": initialization,
+        }
+    )
+    monkeypatch.setattr("ptycho_torch.workflows.legacy.train_cdi_model_torch", trained)
+    monkeypatch.setattr(
+        "ptycho_torch.workflows.bundle_io.load_inference_bundle_torch",
+        lambda _path: ({}, {"amplitude_physics_gain_record": gain}),
+    )
+    if case not in {"valid", "loader"}:
+        with pytest.raises(ValueError, match=case):
+            execute_training_stage(request)
+        trained.assert_not_called()
+        return
+
     result = execute_training_stage(request)
 
-    shared = captured["request"]
-    assert shared.resolved_synthetic_workflow is resolved
-    assert shared.train_data_file == request.train_path
-    assert shared.test_data_file == request.test_path
-    assert shared.output_dir == tmp_path / "training"
-    assert shared.do_stitching is False
-    assert shared.torch_training_seed == 3
-    assert shared.batch_order_recipe == "torch-implicit-july2026-v1"
+    trained.assert_called_once()
+    train_container, validation_container, _config = trained.call_args.args
+    assert train_container is not validation_container
+    expected_x = 1 if case == "loader" else 7
+    assert np.all(train_container.X.numpy() == expected_x)
+    assert np.all(validation_container.X.numpy() == expected_x)
+    if case == "loader":
+        assert not hasattr(train_container, "rms_scaling_constant")
+        assert not hasattr(train_container, "physics_scaling_constant")
+        assert not hasattr(validation_container, "rms_scaling_constant")
+        assert not hasattr(validation_container, "physics_scaling_constant")
+    else:
+        assert np.all(train_container.rms_scaling_constant.numpy() == 1)
+        assert np.all(train_container.physics_scaling_constant.numpy() == 1)
+        assert np.all(validation_container.rms_scaling_constant.numpy() == 1)
+        assert np.all(validation_container.physics_scaling_constant.numpy() == 1)
+    assert calls == [
+        ("load:train", 4096),
+        ("load:validation", None),
+        ("group:train", 1024, resolved.training.subsample_seed),
+        ("group:validation", 729, resolved.training.subsample_seed),
+    ]
+    assert trained.call_args.kwargs["resolved_payload"] is payload
+    assert trained.call_args.kwargs["torch_training_seed"] == 3
+    assert trained.call_args.kwargs["batch_order_recipe"] == (
+        "torch-implicit-july2026-v1"
+    )
     assert result.bundle_path == bundle
     assert result.training_summary_path == summary
     assert result.rect_s1s2_initialization.to_jsonable() == initialization
+
+
+def test_historical_recipe_allows_explicit_torch_seed_equal_to_grouping_seed():
+    from ptycho.workflows import synthetic_pipeline
+    from ptycho.workflows.synthetic_config import resolve_synthetic_workflow
+
+    resolved = resolve_synthetic_workflow(
+        file_values={
+            "training": {
+                "subsample_seed": 3,
+                "torch_training_seed": 3,
+                "batch_order_recipe": "torch-implicit-july2026-v1",
+            }
+        }
+    )
+
+    assert synthetic_pipeline._synthetic_torch_seed(resolved) == 3
+
+
+def test_default_torch_seed_rejects_derived_grouping_seed_collision(monkeypatch):
+    from ptycho.workflows import synthetic_pipeline
+    from ptycho.workflows.synthetic_config import resolve_synthetic_workflow
+
+    resolved = resolve_synthetic_workflow()
+    monkeypatch.setattr(
+        "ptycho.simulation.flat_acquisition.derive_seed_lineage",
+        lambda _seed: {"torch": resolved.training.subsample_seed},
+    )
+
+    with pytest.raises(ValueError, match="seed streams must be distinct"):
+        synthetic_pipeline._synthetic_torch_seed(resolved)
 
 
 def test_default_training_adapter_rejects_dataset_drift_before_work(
@@ -1131,11 +1306,7 @@ def test_default_training_adapter_rejects_dataset_drift_before_work(
     manifest_path = _write_training_manifest(train_path, test_path, resolved)
     np.savez(train_path, marker=np.asarray([99], dtype=np.int64))
     calls = []
-    monkeypatch.setattr(
-        synthetic_pipeline,
-        "_run_shared_training_workflow",
-        lambda request: calls.append(request),
-    )
+    monkeypatch.setattr(synthetic_pipeline, "_resolve_gain", lambda *_a: calls.append(1))
 
     with pytest.raises(ValueError, match=r"splits\.train\.npz_sha256 mismatch"):
         execute_training_stage(
@@ -1172,11 +1343,7 @@ def test_default_training_rejects_inconsistent_split_recipe_identity(
     manifest["splits"]["train"]["split_recipe_identity"] = {"split": "corrupt"}
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
     calls = []
-    monkeypatch.setattr(
-        synthetic_pipeline,
-        "_run_shared_training_workflow",
-        lambda request: calls.append(request),
-    )
+    monkeypatch.setattr(synthetic_pipeline, "_resolve_gain", lambda *_a: calls.append(1))
 
     with pytest.raises(ValueError, match=r"split_recipe_identity mismatch"):
         execute_training_stage(
@@ -1224,11 +1391,7 @@ def test_default_training_rejects_missing_custom_probe_source_before_work(
     manifest_path = _write_training_manifest(train_path, test_path, resolved)
     probe_path.unlink()
     calls = []
-    monkeypatch.setattr(
-        synthetic_pipeline,
-        "_run_shared_training_workflow",
-        lambda request: calls.append(request),
-    )
+    monkeypatch.setattr(synthetic_pipeline, "_resolve_gain", lambda *_a: calls.append(1))
 
     with pytest.raises(FileNotFoundError, match="custom probe source"):
         execute_training_stage(
@@ -1537,13 +1700,13 @@ def test_default_reconstruction_adapter_persists_raw_c4_evidence_atomically(
             reassembly=SimpleNamespace(to_jsonable=lambda: reassembly),
         )
 
-    monkeypatch.setattr(inference, "reconstruct_npz_barycentric", fake_reconstruct)
+    monkeypatch.setattr(inference, "reconstruct", fake_reconstruct)
 
     result = execute_reconstruction_stage(request)
 
     assert captured["args"] == (request.bundle_path, request.test_path)
     assert captured["kwargs"] == {
-        "run_root": tmp_path,
+        "work_dir": tmp_path,
         "groups_per_center": 1,
         "expected_workflow": resolved,
         "dataset_manifest_path": request.dataset_manifest_path,
@@ -1643,7 +1806,7 @@ def test_tiled_reconstruction_dispatches_to_the_strict_mmap_tiled_adapter(
     monkeypatch.setattr(inference, "reconstruct_npz_tiled", fake_tiled, raising=False)
     monkeypatch.setattr(
         inference,
-        "reconstruct_npz_barycentric",
+        "reconstruct",
         lambda *_args, **_kwargs: pytest.fail("barycentric adapter was called"),
     )
 
@@ -1677,7 +1840,7 @@ def test_default_reconstruction_rejects_channel_reassembly_disagreement(
     inconsistent["used_scan_ids"] = [0, 1, 2]
     monkeypatch.setattr(
         inference,
-        "reconstruct_npz_barycentric",
+        "reconstruct",
         lambda *_args, **_kwargs: SimpleNamespace(
             complex_canvas=canvas,
             amplitude=np.abs(canvas),
@@ -1732,7 +1895,7 @@ def test_default_evaluation_adapter_reloads_raw_artifact_and_source_truth(
             reassembly=SimpleNamespace(to_jsonable=lambda: reassembly),
         )
 
-    monkeypatch.setattr(inference, "reconstruct_npz_barycentric", fake_reconstruct)
+    monkeypatch.setattr(inference, "reconstruct", fake_reconstruct)
     reconstruct_request = synthetic_pipeline.ReconstructionStageRequest(
         resolved_workflow=resolved,
         output_root=tmp_path,
@@ -2049,7 +2212,7 @@ def test_no_stage_selection_uses_real_default_adapters_in_complete_order(
             render={"source": "raw_arrays", "valid": True},
         )
 
-    monkeypatch.setattr(inference, "reconstruct_npz_barycentric", reconstruct)
+    monkeypatch.setattr(inference, "reconstruct", reconstruct)
     monkeypatch.setattr(
         reconstruction_evaluation,
         "evaluate_reconstruction_quality",

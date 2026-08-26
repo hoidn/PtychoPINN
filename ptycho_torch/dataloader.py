@@ -401,6 +401,7 @@ class PtychoDataset(Dataset):
                  training_config: 'TrainingConfig' = None,
                  data_dir: str = 'data/memmap', remake_map: bool = False,
                  defer_ci_statistics: bool = False,
+                 rescale_to_nphotons: float | None = None,
                  groups_per_center: int = 1):
         
         # --- Initial loading ---
@@ -410,6 +411,7 @@ class PtychoDataset(Dataset):
         self.object_compatibility = resolve_model_object_compatibility(model_config)
         self.ci_contract_active = _ci_profile_active(model_config, data_config)
         self.defer_ci_statistics = defer_ci_statistics
+        self.rescale_to_nphotons = rescale_to_nphotons
         self.is_ddp_active = is_ddp_initialized_and_active()
         self.current_rank = get_current_rank()
         self.data_dict = {} #Includes important tensors that don't need to be memory mapped
@@ -1013,7 +1015,26 @@ class PtychoDataset(Dataset):
                     coordinate_policy="trailing",
                     experiment_id=i,
                 )
-            diff_stack = torch.from_numpy(acquisition.diff3d).to(torch.float32)
+            diffraction = acquisition.diff3d
+            probe_data = acquisition.probeGuess
+            if self.rescale_to_nphotons is not None:
+                from ptycho_torch.scaling_contract import (
+                    rescale_amplitude_to_nphotons,
+                )
+
+                diffraction, probe_data, probe_simulated = (
+                    rescale_amplitude_to_nphotons(
+                        diffraction,
+                        probe_data,
+                        self.rescale_to_nphotons,
+                        acquisition.probe_simulated,
+                    )
+                )
+                if probe_simulated is not None:
+                    self.data_dict.setdefault(
+                        "probe_simulated", [None] * self.n_files
+                    )[i] = torch.from_numpy(np.ascontiguousarray(probe_simulated))
+            diff_stack = torch.from_numpy(diffraction).to(torch.float32)
             xcoords_full = acquisition.xcoords
             ycoords_full = acquisition.ycoords
 
@@ -1121,7 +1142,6 @@ class PtychoDataset(Dataset):
             mmap_ptycho["experiment_id"][start:end] = torch.tensor(i)
 
             #Mapping probes
-            probe_data = acquisition.probeGuess
             if probe_data.ndim == 3 and probe_data.shape[-1] == 1:
                 probe_data = probe_data[..., 0]  # Canonicalize (N, N, 1) -> (N, N)
             probe_physical = np.ascontiguousarray(

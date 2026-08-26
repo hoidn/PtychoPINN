@@ -14,11 +14,9 @@ from typing import Annotated, Any, Dict, Literal, Optional, Union, get_args, get
 import numpy as np
 import yaml
 
-from ptycho import params
 from ptycho.config import resolve_training_config
-from ptycho.config.config import ModelConfig, TrainingConfig, update_legacy_dict
-from ptycho.config.legacy_state import configured_legacy_params
-from ptycho.loader import RawData
+from ptycho.config.config import ModelConfig, TrainingConfig
+from ptycho.raw_data import RawData
 from ptycho.acquisition import (
     decode_acquisition,
     select_acquisition,
@@ -28,7 +26,6 @@ from ptycho.acquisition import (
 # Preserves pre-split log provenance: records stay on the components facade logger.
 logger = logging.getLogger('ptycho.workflows.components')
 
-@configured_legacy_params
 def update_config_from_dict(config_updates: dict):
     """
     Updates the application's configuration from a dictionary, ideal for notebook workflows.
@@ -36,38 +33,44 @@ def update_config_from_dict(config_updates: dict):
     Args:
         config_updates (dict): A dictionary of parameters to update.
     """
-    # 1. Create a mutable dictionary from the default dataclass values
-    model_defaults = {f.name: f.default for f in fields(ModelConfig)}
-    training_defaults = {f.name: f.default for f in fields(TrainingConfig) if f.name != 'model'}
-    
-    # Merge them
-    full_config_dict = {**model_defaults, **training_defaults}
+    from ptycho import params
+    from ptycho.config.config import update_legacy_dict
+    from ptycho.config.legacy_state import configured_params_scope
 
-    # 2. Update with the user's dictionary
-    for key, value in config_updates.items():
-        if key in full_config_dict:
-            full_config_dict[key] = value
-        else:
-            # Optionally warn about unused keys
-            logger.warning(f"Configuration key '{key}' is not a recognized parameter.")
-
-    # 3. Re-construct the dataclasses
-    model_args = {k: v for k, v in full_config_dict.items() if k in model_defaults}
-    training_args = {k: v for k, v in full_config_dict.items() if k in training_defaults}
-
-    # Handle required Path objects if they are not set
-    if training_args.get('train_data_file') is None:
-        # Assign a dummy path or handle as an error if it's essential for all workflows
-        training_args['train_data_file'] = Path("dummy_path.npz")
-
-    final_model_config = ModelConfig(**model_args)
-    final_training_config = TrainingConfig(model=final_model_config, **training_args)
-    
-    # 4. Update the legacy global params dictionary
-    update_legacy_dict(params.cfg, final_training_config)
-    
-    logger.info("Configuration updated programmatically for interactive session.")
-    params.print_params()
+    with configured_params_scope():
+        model_defaults = {f.name: f.default for f in fields(ModelConfig)}
+        training_defaults = {
+            f.name: f.default
+            for f in fields(TrainingConfig)
+            if f.name != "model"
+        }
+        full_config_dict = {**model_defaults, **training_defaults}
+        for key, value in config_updates.items():
+            if key in full_config_dict:
+                full_config_dict[key] = value
+            else:
+                logger.warning(
+                    "Configuration key %r is not a recognized parameter.", key
+                )
+        model_args = {
+            key: value
+            for key, value in full_config_dict.items()
+            if key in model_defaults
+        }
+        training_args = {
+            key: value
+            for key, value in full_config_dict.items()
+            if key in training_defaults
+        }
+        if training_args.get("train_data_file") is None:
+            training_args["train_data_file"] = Path("dummy_path.npz")
+        final_training_config = TrainingConfig(
+            model=ModelConfig(**model_args),
+            **training_args,
+        )
+        update_legacy_dict(params.cfg, final_training_config)
+        logger.info("Configuration updated programmatically for interactive session.")
+        params.print_params()
 
 def load_data(file_path, n_images=None, n_subsample=None, flip_x=False, flip_y=False, swap_xy=False, n_samples=1, coord_scale=1.0, subsample_seed=None, *, rng: Optional[np.random.Generator] = None):
     """
@@ -331,6 +334,13 @@ def setup_configuration(args: argparse.Namespace, yaml_path: Optional[str]) -> T
             for name, value in vars(args).items()
             if name in PUBLIC_TRAINING_INPUT_NAMES
         }
+        selected_backend = cli_patch.get("backend")
+        if selected_backend is None and isinstance(yaml_config, dict):
+            selected_backend = yaml_config.get("backend")
+        if selected_backend == "pytorch" and isinstance(yaml_config, dict):
+            yaml_config = dict(yaml_config)
+            yaml_config.pop("scale_contract_version", None)
+            yaml_config.pop("measurement_domain", None)
         for alias, target in _TRAINING_CLI_FLAG_ALIASES.items():
             value = getattr(args, alias, None)
             if value is not None:
@@ -354,4 +364,3 @@ def setup_configuration(args: argparse.Namespace, yaml_path: Optional[str]) -> T
     except (yaml.YAMLError, IOError, ValueError) as e:
         logger.error(f"Error setting up configuration: {e}")
         raise
-

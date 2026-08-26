@@ -61,7 +61,6 @@ from ptycho.config.strict_types import (
     _StrictPositiveInt,
 )
 from ptycho_torch.config_params import DataConfig, ModelConfig as TorchModelConfig
-from ptycho_torch.data_adapter import DataAdapterName, resolve_data_adapter
 
 
 __all__ = [
@@ -228,7 +227,7 @@ class SyntheticTrainingConfig:
     torch_training_seed: _StrictNonNegativeInt | None = None
     batch_order_recipe: _BatchOrderRecipe = "torch-generator-v1"
     data_adapter: Annotated[
-        DataAdapterName,
+        Literal["dictionary_parity", "loader"],
         BeforeValidator(_require_exact_str),
     ] = "dictionary_parity"
     epochs: _StrictPositiveInt = 50
@@ -1419,7 +1418,7 @@ def _derive_data_snapshot(
     C: int,
     gridsize: int,
 ) -> ResolvedDataConfig:
-    adapter = resolve_data_adapter(training.data_adapter)
+    dictionary_parity = training.data_adapter == "dictionary_parity"
     return _snapshot_data_config(
         DataConfig(
             nphotons=float(simulation.train.detector.photons_per_pattern),
@@ -1433,8 +1432,8 @@ def _derive_data_snapshot(
             x_bounds=(0.0, 1.0),
             y_bounds=(0.0, 1.0),
             probe_scale=PROBE_SCALE_DEFAULT,
-            normalize=adapter.normalize,
-            probe_normalize=adapter.probe_normalize,
+            normalize="None" if dictionary_parity else "Batch",
+            probe_normalize=not dictionary_parity,
         )
     )
 

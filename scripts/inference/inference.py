@@ -707,7 +707,7 @@ def _dispatch_pytorch_inference(config: InferenceConfig, args: argparse.Namespac
     ``ptycho_inference`` is the single installed inference door. For the
     PyTorch backend it orchestrates the torch factory chain directly
     (``build_execution_request_from_args`` -> ``create_inference_payload``
-    -> ``reconstruct_npz_barycentric``), then saves through the door's own
+    -> ``reconstruct``), then saves through the door's own
     ``save_reconstruction_images`` so the artifact contract
     (``reconstructed_amplitude.png`` / ``reconstructed_phase.png``) is shared
     with the TensorFlow path. It SHALL NOT touch the legacy bundle loader or
@@ -732,7 +732,7 @@ def _dispatch_pytorch_inference(config: InferenceConfig, args: argparse.Namespac
     )
     from ptycho_torch.config_factory import create_inference_payload
     from ptycho_torch.inference import (
-        reconstruct_npz_barycentric,
+        reconstruct,
         resolve_device_and_precision,
     )
 
@@ -787,10 +787,10 @@ def _dispatch_pytorch_inference(config: InferenceConfig, args: argparse.Namespac
     execution_config = payload.execution_config
     device, precision = resolve_device_and_precision(execution_config)
 
-    result = reconstruct_npz_barycentric(
+    result = reconstruct(
         model_path,
         test_data_path,
-        run_root=output_dir,
+        work_dir=output_dir,
         groups_per_center=getattr(args, 'groups_per_center', 1),
         inference_config=payload.pt_inference_config,
         device=device,
