@@ -22,12 +22,13 @@ if project_root not in sys.path:
 # This CLI follows `specs/compare_models_spec.md` for interface and behavior.
 
 # Import ptycho components
-from ptycho.workflows.components import (
-    create_ptycho_data_container,
-    load_data,
-    load_inference_bundle_explicit,
-    logger,
-)
+import logging
+
+from ptycho.workflows.bundle_loading import load_inference_bundle_explicit
+from ptycho.workflows.config_cli import load_data
+from ptycho.workflows.workflow_orchestration import create_ptycho_data_container
+
+logger = logging.getLogger(__name__)
 from ptycho.config.config import TrainingConfig, ModelConfig
 from ptycho.tf_helper import reassemble_position, _channel_to_flat
 from ptycho.evaluation import eval_reconstruction_explicit

@@ -1944,37 +1944,10 @@ class PtychoPINN_Lightning(L.LightningModule):
         super().__init__()
 
         # Handle checkpoint loading: convert dict kwargs back to dataclass instances
-        # (Lightning passes saved hyperparameters as dicts during load_from_checkpoint)
-        if model_spec is not None:
-            from dataclasses import fields
-            from ptycho_torch.model_spec import (
-                MODEL_SPEC_V1_MODEL_FIELDS,
-                MODEL_SPEC_V1_VERSION,
-            )
-
-            for section_name, value, config_type in (
-                ("model_config", model_config, ModelConfig),
-                ("data_config", data_config, DataConfig),
-                ("training_config", training_config, TrainingConfig),
-                ("inference_config", inference_config, InferenceConfig),
-            ):
-                if not isinstance(value, dict):
-                    continue
-                if (
-                    section_name == "model_config"
-                    and isinstance(model_spec, dict)
-                    and model_spec.get("schema_version") == MODEL_SPEC_V1_VERSION
-                ):
-                    expected = set(MODEL_SPEC_V1_MODEL_FIELDS)
-                else:
-                    expected = {item.name for item in fields(config_type)}
-                received = set(value)
-                if received != expected:
-                    raise ValueError(
-                        f"current checkpoint {section_name} field set is not exact; "
-                        f"missing={sorted(expected - received)}, "
-                        f"unknown={sorted(received - expected)}"
-                    )
+        # (Lightning passes saved hyperparameters as dicts during load_from_checkpoint).
+        # The dual-write agreement checks moved to ptycho_torch.checkpoint_decode
+        # (decode_checkpoint_hparams), which every Lightning-native loader runs
+        # before strict state loading.
         if isinstance(model_config, dict):
             model_config = ModelConfig(**model_config)
         if isinstance(data_config, dict):
@@ -1990,7 +1963,6 @@ class PtychoPINN_Lightning(L.LightningModule):
 
         decoded_model_spec = None
         if model_spec is not None:
-            from dataclasses import fields
             from ptycho_torch.model_spec import ModelSpec
 
             decoded_model_spec = (
@@ -1998,37 +1970,7 @@ class PtychoPINN_Lightning(L.LightningModule):
                 if isinstance(model_spec, ModelSpec)
                 else ModelSpec.from_payload(model_spec)
             )
-            sealed_model_config = decoded_model_spec.to_model_config()
-            model_config = resolve_torch_model_object_policy(model_config)
-            mismatches = []
-            for item in fields(ModelConfig):
-                supplied = getattr(model_config, item.name)
-                sealed = getattr(sealed_model_config, item.name)
-                if isinstance(supplied, torch.Tensor) or isinstance(sealed, torch.Tensor):
-                    equal = (
-                        isinstance(supplied, torch.Tensor)
-                        and isinstance(sealed, torch.Tensor)
-                        and torch.equal(supplied, sealed)
-                    )
-                else:
-                    equal = supplied == sealed
-                if not equal:
-                    mismatches.append(item.name)
-            if mismatches:
-                raise ValueError(
-                    "checkpoint ModelSpec conflicts with dual-written model_config "
-                    f"field(s): {sorted(mismatches)}"
-                )
-            if (
-                parity_scale_mode != decoded_model_spec.parity_scale_mode
-                or float(parity_fixed_delta) != decoded_model_spec.parity_fixed_delta
-                or parity_init_scheme != decoded_model_spec.parity_init_scheme
-            ):
-                raise ValueError(
-                    "checkpoint ModelSpec parity identity conflicts with dual-written "
-                    "Lightning parity hyperparameters"
-                )
-            model_config = sealed_model_config
+            model_config = decoded_model_spec.to_model_config()
 
         resolved_scale_contract = validate_scale_contract(
             data_config,

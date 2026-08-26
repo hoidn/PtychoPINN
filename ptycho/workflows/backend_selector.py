@@ -225,20 +225,20 @@ def run_cdi_example_with_backend(
 
     # Route to backend-specific workflow implementation
     if config.backend == 'tensorflow':
-        logger.info("Backend dispatcher: routing to TensorFlow workflow (ptycho.workflows.components)")
-        from ptycho.workflows import components as tf_components
+        logger.info("Backend dispatcher: routing to TensorFlow workflow (ptycho.workflows.workflow_orchestration)")
+        from ptycho.workflows.workflow_orchestration import run_cdi_example
 
         # Delegate to TensorFlow run_cdi_example
-        recon_amp, recon_phase, results = tf_components.run_cdi_example(
+        recon_amp, recon_phase, results = run_cdi_example(
             train_data, test_data, config, flip_x, flip_y, transpose, M, do_stitching
         )
 
     elif config.backend == 'pytorch':
-        logger.info("Backend dispatcher: routing to PyTorch workflow (ptycho_torch.workflows.components)")
+        logger.info("Backend dispatcher: routing to PyTorch workflow (ptycho_torch.workflows.legacy)")
 
         # Guarded PyTorch import
         try:
-            from ptycho_torch.workflows import components as torch_components
+            from ptycho_torch.workflows.legacy import run_cdi_example_torch
         except ImportError as e:
             raise RuntimeError(
                 "PyTorch backend selected (config.backend='pytorch') but ptycho_torch module unavailable. "
@@ -250,7 +250,7 @@ def run_cdi_example_with_backend(
             ) from e
 
         # Delegate to PyTorch run_cdi_example_torch
-        recon_amp, recon_phase, results = torch_components.run_cdi_example_torch(
+        recon_amp, recon_phase, results = run_cdi_example_torch(
             train_data, test_data, config, flip_x, flip_y, transpose, M, do_stitching,
             execution_config=torch_execution_config,
             overrides=torch_factory_overrides,
@@ -316,17 +316,17 @@ def train_cdi_model_with_backend(
 
     # Route to backend-specific training implementation
     if config.backend == 'tensorflow':
-        logger.info("Backend dispatcher: routing to TensorFlow training (ptycho.workflows.components)")
-        from ptycho.workflows import components as tf_components
+        logger.info("Backend dispatcher: routing to TensorFlow training (ptycho.workflows.workflow_orchestration)")
+        from ptycho.workflows.workflow_orchestration import train_cdi_model
 
-        results = tf_components.train_cdi_model(train_data, test_data, config)
+        results = train_cdi_model(train_data, test_data, config)
 
     elif config.backend == 'pytorch':
-        logger.info("Backend dispatcher: routing to PyTorch training (ptycho_torch.workflows.components)")
+        logger.info("Backend dispatcher: routing to PyTorch training (ptycho_torch.workflows.legacy)")
 
         # Guarded PyTorch import
         try:
-            from ptycho_torch.workflows import components as torch_components
+            from ptycho_torch.workflows.legacy import train_cdi_model_torch
         except ImportError as e:
             raise RuntimeError(
                 "PyTorch backend selected (config.backend='pytorch') but ptycho_torch module unavailable. "
@@ -337,7 +337,7 @@ def train_cdi_model_with_backend(
                 f"Original error: {e}"
             ) from e
 
-        results = torch_components.train_cdi_model_torch(
+        results = train_cdi_model_torch(
             train_data,
             test_data,
             config,
@@ -409,18 +409,18 @@ def load_inference_bundle_with_backend(
 
     # Route to backend-specific loader implementation
     if config.backend == 'tensorflow':
-        logger.info("Backend dispatcher: loading TensorFlow model (ptycho.workflows.components)")
-        from ptycho.workflows import components as tf_components
+        logger.info("Backend dispatcher: loading TensorFlow model (ptycho.workflows.bundle_loading)")
+        from ptycho.workflows.bundle_loading import load_inference_bundle
 
         # TensorFlow load_inference_bundle returns (model, params_dict)
-        model, params_dict = tf_components.load_inference_bundle(bundle_path)
+        model, params_dict = load_inference_bundle(bundle_path)
 
     elif config.backend == 'pytorch':
-        logger.info("Backend dispatcher: loading PyTorch model (ptycho_torch.workflows.components)")
+        logger.info("Backend dispatcher: loading PyTorch model (ptycho_torch.workflows.bundle_io)")
 
         # Guarded PyTorch import
         try:
-            from ptycho_torch.workflows import components as torch_components
+            from ptycho_torch.workflows.bundle_io import load_inference_bundle_torch
         except ImportError as e:
             raise RuntimeError(
                 "PyTorch backend selected (config.backend='pytorch') but ptycho_torch module unavailable. "
@@ -433,7 +433,7 @@ def load_inference_bundle_with_backend(
 
         # PyTorch load_inference_bundle_torch returns (models_dict, params_dict)
         # Extract single model from dict for API parity with TensorFlow
-        models_dict, params_dict = torch_components.load_inference_bundle_torch(
+        models_dict, params_dict = load_inference_bundle_torch(
             bundle_path, model_name=model_name
         )
         model = models_dict.get(model_name)

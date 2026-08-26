@@ -109,7 +109,6 @@ Primary Consumers:
 - ptycho.workflows.components (1 import): High-level workflow orchestration
 """
 import numpy as np
-import tensorflow as tf
 from typing import Tuple, Optional
 from scipy.spatial import cKDTree
 import os
@@ -119,8 +118,6 @@ from ptycho import params
 from ptycho import grouping
 from ptycho.acquisition import canonicalize_identity_index
 from ptycho.autotest.debug import debug
-from ptycho import diffsim as datasets
-from ptycho import tf_helper as hh
 
 # Constants, # TODO cleanup / refactor
 local_offset_sign = -1
@@ -687,6 +684,9 @@ def get_image_patches(gt_image, global_offsets, local_offsets, N=None, gridsize=
     Returns:
         tensor: Image patches in channel format.
     """
+    import tensorflow as tf
+    from ptycho import tf_helper as hh
+
     # Use explicit parameters if provided, otherwise fall back to global params
     # This follows the project's hybrid modernization pattern
     N = N if N is not None else params.get('N')
@@ -768,7 +768,7 @@ def normalize_data(dset: dict, N: int) -> np.ndarray:
     X_full = dset['diffraction']
     # NORMALIZE-DATA-UINT16-001: cast to float64 before squaring to avoid uint16 overflow
     X_full_norm = np.float32(np.sqrt(
-            ((N / 2)**2) / np.mean(tf.reduce_sum(np.square(dset['diffraction'].astype(np.float64)), axis=[1, 2]))
+            ((N / 2)**2) / np.mean(np.sum(np.square(dset['diffraction'].astype(np.float64)), axis=(1, 2)))
             ))
     # Force float32 output: under numpy>=2 (NEP 50) a float64 scalar would
     # promote the product to float64, violating the float32 contract

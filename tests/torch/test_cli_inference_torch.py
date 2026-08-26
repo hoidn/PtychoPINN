@@ -70,7 +70,7 @@ class TestInferenceCLI:
         mock_bundle_loader = MagicMock(return_value=({}, {}))
 
         with patch('ptycho_torch.config_factory.create_inference_payload', mock_factory), \
-             patch('ptycho_torch.workflows.components.load_inference_bundle_torch', mock_bundle_loader):
+             patch('ptycho_torch.workflows.bundle_io.load_inference_bundle_torch', mock_bundle_loader):
             test_args = minimal_inference_args + ['--accelerator', 'cpu']
 
             from ptycho_torch.inference import cli_main
@@ -103,7 +103,7 @@ class TestInferenceCLI:
         mock_bundle_loader = MagicMock(return_value=({}, {}))
 
         with patch('ptycho_torch.config_factory.create_inference_payload', mock_factory), \
-             patch('ptycho_torch.workflows.components.load_inference_bundle_torch', mock_bundle_loader):
+             patch('ptycho_torch.workflows.bundle_io.load_inference_bundle_torch', mock_bundle_loader):
             test_args = minimal_inference_args + ['--num-workers', '4']
 
             from ptycho_torch.inference import cli_main
@@ -136,7 +136,7 @@ class TestInferenceCLI:
         mock_bundle_loader = MagicMock(return_value=({}, {}))
 
         with patch('ptycho_torch.config_factory.create_inference_payload', mock_factory), \
-             patch('ptycho_torch.workflows.components.load_inference_bundle_torch', mock_bundle_loader):
+             patch('ptycho_torch.workflows.bundle_io.load_inference_bundle_torch', mock_bundle_loader):
             test_args = minimal_inference_args + ['--inference-batch-size', '32']
 
             from ptycho_torch.inference import cli_main
@@ -173,7 +173,7 @@ class TestInferenceCLI:
         mock_bundle_loader = MagicMock(return_value=({}, {}))
 
         with patch('ptycho_torch.config_factory.create_inference_payload', mock_factory), \
-             patch('ptycho_torch.workflows.components.load_inference_bundle_torch', mock_bundle_loader):
+             patch('ptycho_torch.workflows.bundle_io.load_inference_bundle_torch', mock_bundle_loader):
             test_args = minimal_inference_args + [
                 '--accelerator', 'gpu',
                 '--num-workers', '8',
@@ -392,7 +392,7 @@ class TestInferenceCLIThinWrapper:
 
         with patch('ptycho_torch.cli.shared.validate_paths', mock_validate_paths), \
              patch('ptycho_torch.config_factory.create_inference_payload', mock_factory), \
-             patch('ptycho_torch.workflows.components.load_inference_bundle_torch', mock_bundle_loader), \
+             patch('ptycho_torch.workflows.bundle_io.load_inference_bundle_torch', mock_bundle_loader), \
              patch('ptycho.raw_data.RawData.from_file', return_value=mock_raw_data):
 
             from ptycho_torch.inference import cli_main
@@ -439,7 +439,7 @@ class TestInferenceCLIThinWrapper:
 
         with patch('ptycho_torch.cli.shared.validate_paths', mock_validate_paths), \
              patch('ptycho_torch.config_factory.create_inference_payload', mock_factory), \
-             patch('ptycho_torch.workflows.components.load_inference_bundle_torch', mock_bundle_loader), \
+             patch('ptycho_torch.workflows.bundle_io.load_inference_bundle_torch', mock_bundle_loader), \
              patch('ptycho.raw_data.RawData.from_file', mock_raw_data_from_file):
 
             from ptycho_torch.inference import cli_main
@@ -485,7 +485,7 @@ class TestInferenceCLIThinWrapper:
 
         with patch('ptycho_torch.cli.shared.validate_paths', mock_validate_paths), \
              patch('ptycho_torch.config_factory.create_inference_payload', mock_factory), \
-             patch('ptycho_torch.workflows.components.load_inference_bundle_torch', mock_bundle_loader), \
+             patch('ptycho_torch.workflows.bundle_io.load_inference_bundle_torch', mock_bundle_loader), \
              patch('ptycho.raw_data.RawData.from_file', return_value=mock_raw_data), \
              patch('ptycho_torch.inference._run_inference_and_reconstruct', mock_helper):
 
@@ -541,7 +541,7 @@ class TestInferenceCLIThinWrapper:
 
         with patch('ptycho_torch.cli.shared.validate_paths', mock_validate_paths), \
              patch('ptycho_torch.config_factory.create_inference_payload', mock_factory), \
-             patch('ptycho_torch.workflows.components.load_inference_bundle_torch', mock_bundle_loader), \
+             patch('ptycho_torch.workflows.bundle_io.load_inference_bundle_torch', mock_bundle_loader), \
              patch('ptycho.raw_data.RawData.from_file', return_value=mock_raw_data), \
              patch('ptycho_torch.inference._run_inference_and_reconstruct', mock_helper), \
              patch('ptycho_torch.inference.save_individual_reconstructions', mock_save_fn):
@@ -589,7 +589,7 @@ class TestInferenceCLIThinWrapper:
 
         with patch('ptycho_torch.cli.shared.validate_paths', mock_validate_paths), \
              patch('ptycho_torch.config_factory.create_inference_payload', mock_factory), \
-             patch('ptycho_torch.workflows.components.load_inference_bundle_torch', mock_bundle_loader), \
+             patch('ptycho_torch.workflows.bundle_io.load_inference_bundle_torch', mock_bundle_loader), \
              patch('ptycho.raw_data.RawData.from_file', return_value=mock_raw_data), \
              patch('ptycho_torch.inference._run_inference_and_reconstruct', mock_helper), \
              patch('ptycho_torch.inference.save_individual_reconstructions', MagicMock()):

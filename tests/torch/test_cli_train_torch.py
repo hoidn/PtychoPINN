@@ -433,7 +433,7 @@ class TestExecutionConfigCLI:
             monkeypatch.setattr('sys.argv', ['train.py'] + minimal_train_args)
 
             # Patch run_cdi_example_torch in the workflows.components module
-            with patch('ptycho_torch.workflows.components.run_cdi_example_torch',
+            with patch('ptycho_torch.workflows.legacy.run_cdi_example_torch',
                       side_effect=mock_run_cdi_example_torch):
                 try:
                     cli_main()

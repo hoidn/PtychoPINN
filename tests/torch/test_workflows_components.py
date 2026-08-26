@@ -51,13 +51,11 @@ def _isolate_effective_runtime_artifacts(monkeypatch):
     from ptycho_torch.workflows import components
 
     monkeypatch.setattr(
-        components,
-        "_build_effective_runtime",
+        "ptycho_torch.workflows.lightning_service._build_effective_runtime",
         lambda seed, *_args, **_kwargs: {"seed": seed},
     )
     monkeypatch.setattr(
-        components,
-        "write_effective_runtime_json",
+        "ptycho_torch.workflows.lightning_service.write_effective_runtime_json",
         lambda *_args, **_kwargs: None,
     )
 
@@ -86,7 +84,7 @@ def rect_s1s2_init_spy(monkeypatch):
         )
         return record
 
-    monkeypatch.setattr(components, "_initialize_rect_s1s2", fake_initialize)
+    monkeypatch.setattr("ptycho_torch.workflows.rect_s1s2._initialize_rect_s1s2", fake_initialize)
     return SimpleNamespace(calls=calls, record=record)
 
 
@@ -163,8 +161,7 @@ def test_train_with_lightning_accepts_selected_datamodule_unchanged(
         lambda *_args, **_kwargs: StubModel(),
     )
     monkeypatch.setattr(
-        components,
-        "_build_lightning_dataloaders",
+        "ptycho_torch.workflows.dataloaders._build_lightning_dataloaders",
         lambda *_args, **_kwargs: pytest.fail(
             "a selected DataModule must not be rebuilt"
         ),
@@ -328,8 +325,7 @@ class TestWorkflowsComponentsScaffold:
             }
 
         monkeypatch.setattr(
-            torch_components,
-            "train_cdi_model_torch",
+            "ptycho_torch.workflows.legacy.train_cdi_model_torch",
             mock_train_cdi_model_torch,
         )
 
@@ -369,10 +365,9 @@ class TestWorkflowsComponentsTraining:
             raise AssertionError("modern Torch training entered a legacy outer scope")
 
         monkeypatch.setattr(legacy_state, "legacy_params_scope", forbidden_scope)
-        monkeypatch.setattr(components, "_ensure_container", lambda data, config: data)
+        monkeypatch.setattr("ptycho_torch.workflows.containers._ensure_container", lambda data, config: data)
         monkeypatch.setattr(
-            components,
-            "_train_with_lightning",
+            "ptycho_torch.workflows.lightning_service._train_with_lightning",
             lambda train, test, config: {
                 "history": {},
                 "train_container": train,
@@ -525,8 +520,7 @@ class TestWorkflowsComponentsTraining:
 
         events = []
         monkeypatch.setattr(
-            components,
-            "_ensure_container",
+            "ptycho_torch.workflows.containers._ensure_container",
             lambda *_args: events.append("container"),
         )
 
@@ -658,8 +652,7 @@ class TestWorkflowsComponentsTraining:
             fake_application_factory,
         )
         monkeypatch.setattr(
-            components,
-            "_build_lightning_dataloaders",
+            "ptycho_torch.workflows.dataloaders._build_lightning_dataloaders",
             lambda *_args, **_kwargs: (object(), None),
         )
         monkeypatch.setattr(
@@ -667,8 +660,7 @@ class TestWorkflowsComponentsTraining:
             FakeTrainer,
         )
         monkeypatch.setattr(
-            components,
-            "validate_scale_contract",
+            "ptycho_torch.workflows.lightning_service.validate_scale_contract",
             lambda *_args: None,
         )
 
@@ -713,8 +705,7 @@ class TestWorkflowsComponentsTraining:
         resolved_payload = object()
         captured = {}
         monkeypatch.setattr(
-            components,
-            "_ensure_container",
+            "ptycho_torch.workflows.containers._ensure_container",
             lambda data, _config: data,
         )
 
@@ -727,7 +718,7 @@ class TestWorkflowsComponentsTraining:
                 "test_container": None,
             }
 
-        monkeypatch.setattr(components, "_train_with_lightning", fake_train)
+        monkeypatch.setattr("ptycho_torch.workflows.lightning_service._train_with_lightning", fake_train)
 
         components.run_cdi_example_torch(
             train_data=dummy_raw_data,
@@ -758,13 +749,11 @@ class TestWorkflowsComponentsTraining:
             return object()
 
         monkeypatch.setattr(
-            components,
-            "build_ptycho_loader",
+            "ptycho_torch.workflows.dataloaders.build_ptycho_loader",
             fake_build_ptycho_loader,
         )
         monkeypatch.setattr(
-            components,
-            "validate_scale_contract",
+            "ptycho_torch.workflows.dataloaders.validate_scale_contract",
             lambda *_args: None,
         )
         execution = PyTorchExecutionConfig(
@@ -817,6 +806,7 @@ class TestWorkflowsComponentsTraining:
             ModelConfig,
             TrainingConfig,
         )
+        from ptycho_torch.dataloader import PtychoDataset
         from ptycho_torch.workflows import components
 
         execution = PyTorchExecutionConfig(
@@ -846,7 +836,7 @@ class TestWorkflowsComponentsTraining:
             execution_config=execution,
         )
 
-        dataset = components.PtychoDataset.__new__(components.PtychoDataset)
+        dataset = PtychoDataset.__new__(PtychoDataset)
         dataset.data_dir_path = Path("/unused")
         result = components._build_lightning_dataloaders(
             dataset,
@@ -993,11 +983,11 @@ class TestWorkflowsComponentsTraining:
 
         # Patch internal helpers (Phase D2.B implemented)
         monkeypatch.setattr(
-            "ptycho_torch.workflows.components._ensure_container",
+            "ptycho_torch.workflows.containers._ensure_container",
             mock_ensure_container
         )
         monkeypatch.setattr(
-            "ptycho_torch.workflows.components._train_with_lightning",
+            "ptycho_torch.workflows.lightning_service._train_with_lightning",
             mock_lightning_orchestrator
         )
 
@@ -1713,7 +1703,7 @@ class TestWorkflowsComponentsRun:
 
         # Patch train_cdi_model_torch
         monkeypatch.setattr(
-            "ptycho_torch.workflows.components.train_cdi_model_torch",
+            "ptycho_torch.workflows.legacy.train_cdi_model_torch",
             mock_train_cdi_model_torch
         )
 
@@ -1796,7 +1786,7 @@ class TestWorkflowsComponentsRun:
             }
 
         monkeypatch.setattr(
-            "ptycho_torch.workflows.components.train_cdi_model_torch",
+            "ptycho_torch.workflows.legacy.train_cdi_model_torch",
             mock_train_cdi_model_torch
         )
 
@@ -1852,11 +1842,11 @@ class TestWorkflowsComponentsRun:
             "version": "2.0-pytorch",
         }
         monkeypatch.setattr(
-            "ptycho_torch.workflows.components._read_torch_bundle_manifest_and_params",
+            "ptycho_torch.workflows.bundle_io._read_torch_bundle_manifest_and_params",
             lambda _base_path: (manifest, archived),
         )
         monkeypatch.setattr(
-            "ptycho_torch.workflows.components._read_bundle_scaling_metadata",
+            "ptycho_torch.workflows.bundle_io._read_bundle_scaling_metadata",
             lambda _zip_path: None,
         )
         loaded_model = SimpleNamespace()
@@ -1880,8 +1870,7 @@ class TestWorkflowsComponentsRun:
             return reconstructed, decoded, None
 
         monkeypatch.setattr(
-            torch_components,
-            "_reconstruct_inference_bundle_explicit",
+            "ptycho_torch.workflows.bundle_io._reconstruct_inference_bundle_explicit",
             reconstruct_explicit,
         )
         params.cfg.clear()
@@ -1953,10 +1942,8 @@ class TestWorkflowsComponentsRun:
             return reconstructed, params_dict
 
         monkeypatch.setattr(
-            components,
-            "_reconstruct_torch_bundle_explicit",
+            "ptycho_torch.workflows.bundle_io._reconstruct_torch_bundle_explicit",
             reconstruct_explicit,
-            raising=False,
         )
         params.cfg.clear()
         params.cfg.update({"N": 999, "gridsize": 9, "poison": True})
@@ -2403,15 +2390,14 @@ def test_reassemble_uses_training_execution_carrier(monkeypatch):
         def eval(self):
             return self
 
-    monkeypatch.setattr(components, "_ensure_container", lambda *_args: object())
+    monkeypatch.setattr("ptycho_torch.workflows.containers._ensure_container", lambda *_args: object())
 
     def stop_after_loader(_container, _config, execution_config=None):
         seen.append(execution_config)
         raise RuntimeError("stop after loader")
 
     monkeypatch.setattr(
-        components,
-        "_build_inference_dataloader",
+        "ptycho_torch.workflows.dataloaders._build_inference_dataloader",
         stop_after_loader,
     )
 
@@ -2838,8 +2824,7 @@ class TestReassembleCdiImageTorchGreen:
             return results
 
         monkeypatch.setattr(
-            torch_components,
-            "_train_with_lightning",
+            "ptycho_torch.workflows.lightning_service._train_with_lightning",
             mock_train_with_lightning
         )
 
@@ -3835,7 +3820,7 @@ class TestLightningCheckpointCallbacks:
         from ptycho_torch.workflows.components import _train_with_lightning
 
         # Patch callbacks and Trainer
-        with patch('ptycho_torch.workflows.components._ServingModelCheckpoint', mock_checkpoint_cls), \
+        with patch('ptycho_torch.workflows.lightning_service._ServingModelCheckpoint', mock_checkpoint_cls), \
              patch('lightning.pytorch.Trainer', mock_trainer_cls):
             try:
                 _train_with_lightning(
@@ -4011,7 +3996,7 @@ class TestLightningCheckpointCallbacks:
         from ptycho_torch.workflows.components import _train_with_lightning
 
         # Patch at import site inside the function
-        with patch('ptycho_torch.workflows.components._ServingModelCheckpoint', mock_checkpoint_cls), \
+        with patch('ptycho_torch.workflows.lightning_service._ServingModelCheckpoint', mock_checkpoint_cls), \
              patch('lightning.pytorch.callbacks.EarlyStopping', mock_early_stop_cls), \
              patch('lightning.pytorch.Trainer', mock_trainer_cls):
             try:
@@ -4111,8 +4096,7 @@ class TestLightningExecutionConfig:
             lambda *_args, **_kwargs: StubLightningModule(),
         )
         monkeypatch.setattr(
-            components,
-            "_build_lightning_dataloaders",
+            "ptycho_torch.workflows.dataloaders._build_lightning_dataloaders",
             lambda *_args, **_kwargs: ([], []),
         )
         monkeypatch.setattr("lightning.pytorch.Trainer", StubTrainer)
@@ -4168,8 +4152,7 @@ class TestLightningExecutionConfig:
             lambda *_args, **_kwargs: StubLightningModule(),
         )
         monkeypatch.setattr(
-            components,
-            "_build_lightning_dataloaders",
+            "ptycho_torch.workflows.dataloaders._build_lightning_dataloaders",
             lambda *_args, **_kwargs: ([], []),
         )
         captured = {}
@@ -4268,7 +4251,7 @@ class TestLightningExecutionConfig:
         from ptycho_torch.workflows.components import _train_with_lightning
 
         # Patch at import sites
-        with patch('ptycho_torch.workflows.components._ServingModelCheckpoint', mock_checkpoint_cls), \
+        with patch('ptycho_torch.workflows.lightning_service._ServingModelCheckpoint', mock_checkpoint_cls), \
              patch('lightning.pytorch.callbacks.EarlyStopping', mock_early_stop_cls), \
              patch('lightning.pytorch.Trainer', mock_trainer_cls):
             try:

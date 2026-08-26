@@ -221,16 +221,14 @@ def test_non_global_rank_training_result_does_not_publish_bundle(
         output_dir=tmp_path,
     )
     monkeypatch.setattr(
-        components,
-        "train_cdi_model_torch",
+        "ptycho_torch.workflows.legacy.train_cdi_model_torch",
         lambda *_args, **_kwargs: {
             "models": {"autoencoder": object(), "diffraction_to_obj": object()},
             "should_persist": False,
         },
     )
     monkeypatch.setattr(
-        components,
-        "save_torch_bundle",
+        "ptycho_torch.workflows.lightning_service.save_torch_bundle",
         lambda **_kwargs: pytest.fail("non-global rank attempted bundle publication"),
     )
 
@@ -415,7 +413,7 @@ def test_real_lightning_ddp_shares_selection_token_and_only_rank_zero_publishes(
             from torch.utils.data import DataLoader, TensorDataset
 
             sys.path.insert(0, sys.argv[2])
-            from ptycho_torch.workflows import components
+            from ptycho_torch.workflows import components, lightning_service
 
 
             class TinyModule(L.LightningModule):
@@ -484,14 +482,14 @@ def test_real_lightning_ddp_shares_selection_token_and_only_rank_zero_publishes(
                     selection_token=uuid.uuid4().hex,
                 )
 
-                write_selection = components._write_checkpoint_selection_atomic
+                write_selection = lightning_service._write_checkpoint_selection_atomic
 
                 def tracked_write(path, record):
                     rank = torch.distributed.get_rank()
                     (output_dir / f"published-by-rank-{rank}").touch()
                     write_selection(path, record)
 
-                components._write_checkpoint_selection_atomic = tracked_write
+                lightning_service._write_checkpoint_selection_atomic = tracked_write
                 trainer = L.Trainer(
                     accelerator="cpu",
                     devices=2,
@@ -582,7 +580,7 @@ def test_shared_service_cpu_ddp_spawn_returns_parent_artifacts(tmp_path):
                 TrainingConfig,
             )
             from ptycho_torch.train_utils import PrebuiltPtychoDataModule
-            from ptycho_torch.workflows import components
+            from ptycho_torch.workflows import bundle_io, components, lightning_service
 
 
             class TinyModule(L.LightningModule):
@@ -708,8 +706,8 @@ def test_shared_service_cpu_ddp_spawn_returns_parent_artifacts(tmp_path):
                     )
                     Path(f"{base_path}.zip").write_bytes(b"selected weights observed")
 
-                components.save_torch_bundle = save_bundle
-                components._persist_bundle_scaling_metadata = lambda *_args, **_kwargs: None
+                lightning_service.save_torch_bundle = save_bundle
+                bundle_io._persist_bundle_scaling_metadata = lambda *_args, **_kwargs: None
                 data_module = SpawnDataModule(
                     output_dir / "map",
                     model,

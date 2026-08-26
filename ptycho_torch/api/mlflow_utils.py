@@ -100,6 +100,12 @@ def register_lightning_model_to_mlflow(
         
         # 2. Load and log the model
         print(f"Loading model from checkpoint: {checkpoint_path}")
+        from ptycho_torch.checkpoint_decode import decode_checkpoint_hparams
+
+        checkpoint = torch.load(
+            checkpoint_path, map_location="cpu", weights_only=False
+        )
+        decode_checkpoint_hparams(checkpoint.get("hyper_parameters"))
         model = model_class.load_from_checkpoint(checkpoint_path)
         
         # Log model to MLflow

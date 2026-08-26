@@ -260,8 +260,7 @@ def test_backend_workflow_entrypoint_contains_legacy_bridge(
 
         monkeypatch.setattr(backend_selector, "update_legacy_dict", bridge)
         monkeypatch.setattr(
-            torch_components,
-            "run_cdi_example_torch",
+            "ptycho_torch.workflows.legacy.run_cdi_example_torch",
             lambda *_args, **_kwargs: (None, None, {}),
         )
         train_path = tmp_path / "train.npz"
@@ -367,8 +366,7 @@ def test_outer_bundle_route_rolls_back_inner_success(monkeypatch, tmp_path):
         return {"autoencoder": object()}, {"N": 64, "gridsize": 1}
 
     monkeypatch.setattr(
-        torch_components,
-        "load_inference_bundle_torch",
+        "ptycho_torch.workflows.bundle_io.load_inference_bundle_torch",
         successful_inner_load,
     )
 

@@ -175,7 +175,7 @@ class TestCliRouting:
 
         with patch("ptycho_torch.cli.shared.validate_paths", MagicMock()), \
              patch("ptycho_torch.config_factory.create_inference_payload", mock_factory), \
-             patch("ptycho_torch.workflows.components.load_inference_bundle_torch", mock_bundle_loader), \
+             patch("ptycho_torch.workflows.bundle_io.load_inference_bundle_torch", mock_bundle_loader), \
              patch("ptycho.raw_data.RawData.from_file", return_value=mock_raw_data), \
              patch("ptycho_torch.inference._run_inference_and_reconstruct", uniform_helper), \
              patch("ptycho_torch.inference.reconstruct_npz_barycentric", barycentric_helper), \
@@ -381,7 +381,7 @@ class TestPublicWorkflowCliDelegation:
         ), patch(
             "ptycho_torch.config_factory.create_inference_payload", mock_factory
         ), patch(
-            "ptycho_torch.workflows.components.load_inference_bundle_torch",
+            "ptycho_torch.workflows.bundle_io.load_inference_bundle_torch",
             side_effect=AssertionError("CLI preloaded the bundle"),
         ), patch(
             "ptycho_torch.inference.save_individual_reconstructions", MagicMock()

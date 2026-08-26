@@ -307,11 +307,10 @@ def test_current_checkpoint_rejects_missing_dual_written_config_field(tmp_path):
     checkpoint["hyper_parameters"]["data_config"].pop("N")
     torch.save(checkpoint, checkpoint_path)
 
+    from ptycho_torch.checkpoint_decode import decode_checkpoint_hparams
+
     with pytest.raises(ValueError, match=r"data_config.*missing.*N"):
-        PtychoPINN_Lightning.load_from_checkpoint(
-            checkpoint_path,
-            map_location="cpu",
-        )
+        decode_checkpoint_hparams(checkpoint["hyper_parameters"])
 
 
 def test_config_logger_dual_writes_current_sidecar_identity(tmp_path):

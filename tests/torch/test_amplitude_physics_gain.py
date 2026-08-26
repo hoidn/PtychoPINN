@@ -827,13 +827,11 @@ class TestAmplitudePhysicsGainBundleRecord:
             return models, dict(kwargs["params_dict"]), kwargs["identity"]
 
         monkeypatch.setattr(
-            components,
-            "_read_bundle_scaling_metadata",
+            "ptycho_torch.workflows.bundle_io._read_bundle_scaling_metadata",
             read_metadata_then_replace,
         )
         monkeypatch.setattr(
-            components,
-            "_reconstruct_inference_bundle_explicit",
+            "ptycho_torch.workflows.bundle_io._reconstruct_inference_bundle_explicit",
             reconstruct_from_supplied_generation,
         )
 
@@ -910,8 +908,7 @@ class TestAmplitudePhysicsGainBundleRecord:
                 amplitude_physics_gain_record_to_json(self._record()),
             )
         monkeypatch.setattr(
-            components,
-            "_reconstruct_inference_bundle_explicit",
+            "ptycho_torch.workflows.bundle_io._reconstruct_inference_bundle_explicit",
             lambda *_args, **_kwargs: pytest.fail(
                 "record/ModelSpec mismatch reached model reconstruction"
             ),
@@ -938,8 +935,7 @@ class TestAmplitudePhysicsGainBundleRecord:
             return {"diffraction_to_obj": object()}, dict(kwargs["params_dict"]), kwargs["identity"]
 
         monkeypatch.setattr(
-            components,
-            "_reconstruct_inference_bundle_explicit",
+            "ptycho_torch.workflows.bundle_io._reconstruct_inference_bundle_explicit",
             fake_reconstruct,
         )
         params_before = dict(params.cfg)
@@ -986,8 +982,7 @@ class TestAmplitudePhysicsGainBundleRecord:
         captured = {}
 
         monkeypatch.setattr(
-            components,
-            "_ensure_container",
+            "ptycho_torch.workflows.containers._ensure_container",
             lambda *_args, **_kwargs: object(),
         )
 
@@ -1002,8 +997,7 @@ class TestAmplitudePhysicsGainBundleRecord:
             }
 
         monkeypatch.setattr(
-            components,
-            "_train_with_lightning",
+            "ptycho_torch.workflows.lightning_service._train_with_lightning",
             fake_train,
         )
 

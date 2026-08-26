@@ -506,6 +506,12 @@ class PtychoModel:
             )
         
         print(f"Loading model from {checkpoint_path}")
+        from ptycho_torch.checkpoint_decode import decode_checkpoint_hparams
+
+        checkpoint = torch.load(
+            str(checkpoint_path), map_location="cpu", weights_only=False
+        )
+        decode_checkpoint_hparams(checkpoint.get("hyper_parameters"))
         model = model_class.load_from_checkpoint(str(checkpoint_path),
                                                  model_config = model_config,
                                                  data_config = data_config,

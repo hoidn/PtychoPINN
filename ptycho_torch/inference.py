@@ -912,7 +912,7 @@ def reconstruct_npz_barycentric(
     """Strictly reload one bundle and reconstruct one flat NPZ through mmap."""
     from ptycho.config.legacy_state import isolated_archived_params_scope
     from ptycho_torch.config_params import InferenceConfig
-    from ptycho_torch.workflows.components import load_inference_bundle_torch
+    from ptycho_torch.workflows.bundle_io import load_inference_bundle_torch
 
     if isinstance(groups_per_center, bool) or not isinstance(groups_per_center, int):
         raise TypeError("groups_per_center must be a positive integer")
@@ -1011,33 +1011,6 @@ def reconstruct_npz_barycentric(
         precision=precision,
         quiet=quiet,
     )
-
-
-def _run_barycentric_inference_and_reconstruct(
-    model,
-    test_data_path,
-    pt_inference_config,
-    execution_config,
-    device,
-    output_dir,
-    quiet=False,
-):
-    """Compatibility adapter for already-loaded callers; public CLIs load once."""
-    result = _reconstruct_loaded_npz_barycentric(
-        model,
-        Path(test_data_path),
-        run_root=Path(output_dir),
-        groups_per_center=1,
-        inference_config=pt_inference_config,
-        device=device,
-        num_workers=int(getattr(execution_config, "num_workers", 0) or 0),
-        inference_batch_size=getattr(
-            execution_config, "inference_batch_size", None
-        ),
-        precision=getattr(execution_config, "precision", "32-true"),
-        quiet=quiet,
-    )
-    return result.amplitude, result.phase
 
 
 def _run_inference_and_reconstruct(model, raw_data, config, execution_config, device, quiet=False, intensity_scale=None):
@@ -1599,7 +1572,7 @@ Examples:
     # Replaces manual checkpoint search with factory-validated wts.h5.zip loading
     try:
         import torch
-        from ptycho_torch.workflows.components import load_inference_bundle_torch
+        from ptycho_torch.workflows.bundle_io import load_inference_bundle_torch
 
         # load_inference_bundle_torch expects bundle_dir containing wts.h5.zip
         # It handles CONFIG-001 (restores params.cfg from archive) and returns
@@ -1658,26 +1631,15 @@ Examples:
 
     # --- Phase D.C C3: Delegate to inference helper (Conformance D4 routing) ---
     try:
-        if reassembly_route == 'barycentric':
-            amplitude, phase = _run_barycentric_inference_and_reconstruct(
-                model=model,
-                test_data_path=test_data_path,
-                pt_inference_config=payload.pt_inference_config,
-                execution_config=execution_config,
-                device=device,
-                output_dir=output_dir,
-                quiet=args.quiet,
-            )
-        else:
-            amplitude, phase = _run_inference_and_reconstruct(
-                model=model,
-                raw_data=raw_data,
-                config=tf_inference_config,
-                execution_config=execution_config,
-                device=device,
-                quiet=args.quiet,
-                intensity_scale=params_dict.get('intensity_scale'),
-            )
+        amplitude, phase = _run_inference_and_reconstruct(
+            model=model,
+            raw_data=raw_data,
+            config=tf_inference_config,
+            execution_config=execution_config,
+            device=device,
+            quiet=args.quiet,
+            intensity_scale=params_dict.get('intensity_scale'),
+        )
 
         # Save individual reconstructions (required by test contract)
         save_individual_reconstructions(amplitude, phase, output_dir)

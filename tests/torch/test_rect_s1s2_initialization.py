@@ -1367,8 +1367,7 @@ def test_training_entry_initializes_before_fit_and_persists_same_summary_record(
     config, payload = _resolved_training_case(tmp_path)
     _, loader, _ = _known_gauge_loader()
     monkeypatch.setattr(
-        components,
-        "_build_lightning_dataloaders",
+        "ptycho_torch.workflows.dataloaders._build_lightning_dataloaders",
         lambda *args, **kwargs: (loader, None),
     )
     record = _initialization_payload()
@@ -1387,7 +1386,7 @@ def test_training_entry_initializes_before_fit_and_persists_same_summary_record(
         summary_callback.on_fit_start(self, model)
         events.append(("fit", model, kwargs))
 
-    monkeypatch.setattr(components, "_initialize_rect_s1s2", fake_initialize)
+    monkeypatch.setattr("ptycho_torch.workflows.rect_s1s2._initialize_rect_s1s2", fake_initialize)
     monkeypatch.setattr(L.Trainer, "fit", fake_fit)
     caplog.set_level("INFO", logger=components.__name__)
 
@@ -1474,8 +1473,7 @@ def test_supervised_training_publishes_ones_record_without_rectangular_scaler(
         )
     ]
     monkeypatch.setattr(
-        components,
-        "_build_lightning_dataloaders",
+        "ptycho_torch.workflows.dataloaders._build_lightning_dataloaders",
         lambda *_args, **_kwargs: (train_loader, None),
     )
 
@@ -1526,8 +1524,7 @@ def test_training_summary_publication_is_rank_zero_atomic_and_all_rank_barrier(
             events.append(("barrier", self.rank, name, summary_path.exists()))
 
     monkeypatch.setattr(
-        components,
-        "_write_training_summary_atomic",
+        "ptycho_torch.workflows.rect_s1s2._write_training_summary_atomic",
         observed_write,
     )
 

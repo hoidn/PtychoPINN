@@ -608,6 +608,9 @@ def load_checkpoint_with_configs(checkpoint_path: str,
     data_config, model_config, training_config, inference_config, datagen_config = configs
 
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+    from ptycho_torch.checkpoint_decode import decode_checkpoint_hparams
+
+    decode_checkpoint_hparams(checkpoint.get("hyper_parameters"))
     profile = resolve_scale_contract(
         data_config.scale_contract_version,
         data_config.measurement_domain,

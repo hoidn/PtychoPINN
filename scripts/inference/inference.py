@@ -43,7 +43,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from ptycho.raw_data import RawData
-from ptycho.workflows.components import load_data
+from ptycho.workflows.config_cli import load_data
 from ptycho.workflows.backend_selector import load_inference_bundle_with_backend
 from ptycho.config import resolve_inference_config
 from ptycho.config.config import InferenceConfig, load_yaml_config

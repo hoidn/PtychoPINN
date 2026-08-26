@@ -181,7 +181,7 @@ class TestBackendSelection:
         )
 
         # Mock PyTorch components to avoid full workflow execution
-        with patch('ptycho_torch.workflows.components.run_cdi_example_torch') as mock_torch_run:
+        with patch('ptycho_torch.workflows.legacy.run_cdi_example_torch') as mock_torch_run:
             mock_torch_run.return_value = (None, None, {'history': {}})
 
             # Mock update_legacy_dict to spy on it (patch in backend_selector module)
@@ -368,8 +368,7 @@ class TestBackendSelection:
             lambda *_args: events.append("bridge"),
         )
         monkeypatch.setattr(
-            tf_components,
-            "run_cdi_example",
+            "ptycho.workflows.workflow_orchestration.run_cdi_example",
             lambda *_args, **_kwargs: (
                 events.append("delegate") or (None, None, {})
             ),
@@ -491,7 +490,7 @@ class TestBackendSelection:
             "update_legacy_dict",
             bridge,
         )
-        monkeypatch.setattr(tf_components, "load_inference_bundle", loader)
+        monkeypatch.setattr("ptycho.workflows.bundle_loading.load_inference_bundle", loader)
 
         backend_selector.load_inference_bundle_with_backend(
             model_path,
@@ -544,7 +543,7 @@ class TestBackendSelection:
             "update_legacy_dict",
             bridge,
         )
-        monkeypatch.setattr(tf_components, "load_inference_bundle", loader)
+        monkeypatch.setattr("ptycho.workflows.bundle_loading.load_inference_bundle", loader)
 
         backend_selector.load_inference_bundle_with_backend(alias, config)
 

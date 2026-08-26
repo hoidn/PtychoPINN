@@ -261,7 +261,7 @@ class TestTrainingCliBackendDispatch:
         delegate = MagicMock(
             return_value=(None, None, {"backend": "pytorch"})
         )
-        monkeypatch.setattr(torch_components, "run_cdi_example_torch", delegate)
+        monkeypatch.setattr("ptycho_torch.workflows.legacy.run_cdi_example_torch", delegate)
         monkeypatch.setattr(
             backend_selector,
             "validate_training_config_structure",
@@ -325,8 +325,7 @@ class TestTrainingCliBackendDispatch:
             lambda *_args: events.append("bridge"),
         )
         monkeypatch.setattr(
-            torch_components,
-            "run_cdi_example_torch",
+            "ptycho_torch.workflows.legacy.run_cdi_example_torch",
             lambda *_args, **_kwargs: events.append("delegate"),
         )
         config = TrainingConfig(
@@ -363,8 +362,7 @@ class TestTrainingCliBackendDispatch:
         )
         delegate = MagicMock(return_value={})
         monkeypatch.setattr(
-            torch_components,
-            "train_cdi_model_torch",
+            "ptycho_torch.workflows.legacy.train_cdi_model_torch",
             delegate,
         )
         monkeypatch.setattr(
@@ -699,12 +697,12 @@ class TestTrainingCliBackendDispatch:
                 "ptycho_torch.application_factory.build_ptychopinn_application",
                 return_value=mock_lightning_module,
             ) as build_application, patch(
-                "ptycho_torch.workflows.components._build_effective_runtime",
+                "ptycho_torch.workflows.lightning_service._build_effective_runtime",
                 return_value={},
             ), patch(
-                "ptycho_torch.workflows.components.write_effective_runtime_json"
+                "ptycho_torch.workflows.lightning_service.write_effective_runtime_json"
             ):
-                with patch('ptycho_torch.workflows.components._build_lightning_dataloaders', return_value=(mock_train_loader, None)):
+                with patch('ptycho_torch.workflows.dataloaders._build_lightning_dataloaders', return_value=(mock_train_loader, None)):
                     with patch('lightning.pytorch.Trainer') as mock_trainer_class:
                         mock_trainer = MagicMock()
                         mock_trainer.fit = MagicMock()
@@ -794,12 +792,12 @@ class TestTrainingCliBackendDispatch:
                 "ptycho_torch.application_factory.build_ptychopinn_application",
                 return_value=mock_lightning_module,
             ) as build_application, patch(
-                "ptycho_torch.workflows.components._build_effective_runtime",
+                "ptycho_torch.workflows.lightning_service._build_effective_runtime",
                 return_value={},
             ), patch(
-                "ptycho_torch.workflows.components.write_effective_runtime_json"
+                "ptycho_torch.workflows.lightning_service.write_effective_runtime_json"
             ):
-                with patch('ptycho_torch.workflows.components._build_lightning_dataloaders',
+                with patch('ptycho_torch.workflows.dataloaders._build_lightning_dataloaders',
                           return_value=(mock_train_loader, mock_val_loader)):
                     with patch(
                         "lightning.pytorch.Trainer",
@@ -1246,8 +1244,7 @@ def test_unified_cli_defers_projection_to_backend_selector(
         load_data_before_dispatch,
     )
     monkeypatch.setattr(
-        components,
-        "run_cdi_example",
+        "ptycho.workflows.workflow_orchestration.run_cdi_example",
         tensorflow_delegate,
     )
     monkeypatch.setattr(

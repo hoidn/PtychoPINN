@@ -37,7 +37,7 @@ if str(REPO_ROOT / "scripts" / "studies") not in sys.path:
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("tf_reference_cnn_runner")
 
-from ptycho.workflows.components import setup_configuration, load_data
+from ptycho.workflows.config_cli import setup_configuration, load_data
 from ptycho.workflows.backend_selector import run_cdi_example_with_backend
 from ptycho.config import TrainingConfig
 from ptycho.config.config import update_legacy_dict
