@@ -176,8 +176,7 @@ def test_public_synthetic_ffno_gs1_ci_five_epoch_quality(tmp_path: Path) -> None
     assert resolved["profile"] == "synthetic-lines"
     assert resolved["model"]["architecture"] == "ffno"
     assert resolved["data"]["N"] == 128
-    assert resolved["data"]["grid_size"] == [1, 1]
-    assert resolved["data"]["C"] == 1
+    assert resolved["data"]["gridsize"] == 1
     assert resolved["data"]["scale_contract_version"] == "ci_intensity_v2"
     assert resolved["data"]["measurement_domain"] == "count_intensity"
     assert resolved["model"]["physics_forward_mode"] == "rectangular_scaled"

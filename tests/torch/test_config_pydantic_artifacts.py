@@ -271,38 +271,40 @@ def test_portable_v1_is_an_exact_explicit_projection_and_historical_data_is_reje
         decode_artifact_identity(from_json_payload(raw))
 
 
-def test_portable_v2_is_current_structurally_and_historical_data_is_rejected():
+def test_portable_v3_is_a_frozen_historical_era_and_historical_data_is_rejected():
     from ptycho_torch.artifact_schema import (
-        CURRENT_ARTIFACT_SCHEMA_VERSION,
+        ARTIFACT_SCHEMA_V3_VERSION,
         decode_artifact_identity,
         from_json_payload,
     )
     from ptycho_torch.model_spec import (
         CURRENT_MODEL_SPEC_VERSION,
-        MODEL_SPEC_V2_MODEL_FIELDS,
+        MODEL_SPEC_V3_MODEL_FIELDS,
     )
 
     raw_v1 = _read_payload("pydantic_pre_migration_portable_v1.json")
-    raw_v2 = _read_payload("pydantic_pre_migration_portable_v2.json")
+    raw_v3 = _read_payload("pydantic_pre_migration_portable_v2.json")
 
-    assert raw_v2["schema_version"] == CURRENT_ARTIFACT_SCHEMA_VERSION
-    assert raw_v2["model_spec"]["schema_version"] == CURRENT_MODEL_SPEC_VERSION
-    assert set(raw_v2["model_spec"]["model_config"]) == set(
-        MODEL_SPEC_V2_MODEL_FIELDS
+    assert raw_v3["schema_version"] == ARTIFACT_SCHEMA_V3_VERSION
+    assert raw_v3["model_spec"]["schema_version"] == CURRENT_MODEL_SPEC_VERSION
+    assert set(raw_v3["model_spec"]["model_config"]) == set(
+        MODEL_SPEC_V3_MODEL_FIELDS
     )
-    assert "object_big" not in raw_v2["model_spec"]["model_config"]
-    assert raw_v2["model_spec"]["model_config"]["object_layout"] == (
+    assert "object_big" not in raw_v3["model_spec"]["model_config"]
+    assert raw_v3["model_spec"]["model_config"]["object_layout"] == (
         "grouped_patches"
     )
 
     assert raw_v1["model_spec"]["model_config"]["rect_s1s2_init"] == "data"
-    assert raw_v2["model_spec"]["model_config"]["rect_s1s2_init"] == "data"
-    assert raw_v2["data_config"] == raw_v1["data_config"]
-    assert raw_v2["training_config"] == raw_v1["training_config"]
-    assert raw_v2["inference_config"] == raw_v1["inference_config"]
-    assert raw_v2["ci_statistics"] == raw_v1["ci_statistics"]
+    assert raw_v3["model_spec"]["model_config"]["rect_s1s2_init"] == "data"
+    # v1 states channel identity three ways (C/grid_size/n_subsample); v3 once.
+    assert set(raw_v1["data_config"]) >= {"C", "grid_size", "n_subsample"}
+    assert set(raw_v3["data_config"]) >= {"gridsize", "n_raw_frames_selected"}
+    assert raw_v3["training_config"] == raw_v1["training_config"]
+    assert raw_v3["inference_config"] == raw_v1["inference_config"]
+    assert raw_v3["ci_statistics"] == raw_v1["ci_statistics"]
 
-    for raw in (raw_v1, raw_v2):
+    for raw in (raw_v1, raw_v3):
         with pytest.raises(
             ValueError,
             match=r"data.*unsupported.*ones.*dose_closure.*historical code or retraining",

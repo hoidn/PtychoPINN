@@ -3,6 +3,7 @@
 Owns the serving-checkpoint-selection state machine, the Lightning callbacks,
 and ``_train_with_lightning``.
 """
+import dataclasses
 import hashlib
 import logging
 from pathlib import Path
@@ -456,6 +457,42 @@ def _validate_training_execution_input(
     normalize_execution_input(execution_config, mode="training")
 
 
+_OMIT_FIELD = object()
+
+
+@dataclasses.dataclass(frozen=True)
+class _TrainerAssembly:
+    """Frozen Trainer construction record (typed seam; mutation raises)."""
+
+    max_epochs: int
+    accelerator: Any
+    strategy: Any
+    deterministic: Any
+    gradient_clip_val: Any
+    accumulate_grad_batches: Any
+    enable_progress_bar: Any
+    enable_checkpointing: Any
+    callbacks: list
+    devices: Any
+    precision: Any
+    log_every_n_steps: Any
+    default_root_dir: Any
+    logger: Any
+    gradient_clip_algorithm: Any = _OMIT_FIELD
+
+def _trainer_kwargs_as_dict(record: "_TrainerAssembly") -> dict:
+    """Shallow field projection; never deepcopies callbacks/strategy objects.
+
+    Fields set to _OMIT_FIELD are excluded entirely, preserving the historical
+    kwargs contract (gradient_clip_algorithm present iff automatic optimization).
+    """
+    return {
+        field.name: getattr(record, field.name)
+        for field in dataclasses.fields(record)
+        if getattr(record, field.name) is not _OMIT_FIELD
+    }
+
+
 def _train_with_lightning(
     train_container: Union[
         'PtychoDataContainerTorch',
@@ -538,13 +575,13 @@ def _train_with_lightning(
         ) from e
 
     logger.info("_train_with_lightning orchestrating Lightning training")
-    logger.info(f"Training config: nepochs={config.nepochs}, n_groups={config.sampling.n_groups}")
+    logger.info(f"Training config: nepochs={config.nepochs}, training_groups={config.sampling.training_groups}")
 
     # B2.1: Use the pure config resolver to derive PyTorch configs with correct
     # channel propagation. The compatibility factory remains for declared
     # CONFIG-001 callers.
     # CRITICAL (Phase C4.D B2): Factory ensures C = gridsize**2 is propagated to
-    # pt_model_config.C_model and pt_model_config.C_forward, preventing channel mismatch
+    # the single gridsize-derived channel identity, preventing channel mismatch
     # when gridsize > 1 (see docs/findings.md#BUG-TF-001).
     from ptycho_torch.config_factory import (
         build_training_factory_overrides,
@@ -665,7 +702,7 @@ def _train_with_lightning(
                 )
         except StopIteration:
             raise RuntimeError(
-                f"Training dataloader is empty. Check dataset path and n_groups configuration."
+                f"Training dataloader is empty. Check dataset path and training_groups configuration."
             )
 
     # B2.5: Configure Trainer with settings from config
@@ -871,7 +908,7 @@ def _train_with_lightning(
             "Lightning automatic optimization accepts only 'norm' or 'value'"
         )
 
-    trainer_kwargs = dict(
+    trainer_kwargs = _TrainerAssembly(
         max_epochs=total_training_epochs,
         # Execution config overrides (ADR-003 Phase C3)
         accelerator=execution_config.accelerator,  # CPU-safe default, GPU via override
@@ -897,10 +934,11 @@ def _train_with_lightning(
         log_every_n_steps=1,
         default_root_dir=str(output_dir),
         logger=lightning_logger,  # Phase EB3.B: Use configured logger (False if disabled)
+        gradient_clip_algorithm=(
+            effective_clip_algorithm if automatic_optimization else _OMIT_FIELD
+        ),
     )
-    if automatic_optimization:
-        trainer_kwargs["gradient_clip_algorithm"] = effective_clip_algorithm
-    trainer = L.Trainer(**trainer_kwargs)
+    trainer = L.Trainer(**_trainer_kwargs_as_dict(trainer_kwargs))
     dataloader_settings = rect_s1s2._effective_dataloader_settings(
         data_product,
         train_loader,
@@ -968,7 +1006,7 @@ def _train_with_lightning(
 
     effective_runtime = _build_effective_runtime(
         effective_torch_training_seed,
-        trainer_kwargs,
+        _trainer_kwargs_as_dict(trainer_kwargs),
         execution_config,
         dataloader_settings,
         trainer=trainer,

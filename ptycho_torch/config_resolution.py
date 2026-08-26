@@ -314,11 +314,11 @@ _TRAINING_INPUTS_BY_OWNER: tuple[
             "scale_contract_version",
             "measurement_domain",
             "N",
-            "K",
+            "neighbor_count",
             "K_quadrant",
-            "n_subsample",
+            "n_raw_frames_selected",
             "subsample_seed",
-            "grid_size",
+            "gridsize",
             "neighbor_function",
             "min_neighbor_distance",
             "max_neighbor_distance",
@@ -432,7 +432,7 @@ _TRAINING_INPUTS_BY_OWNER: tuple[
             "notes",
             "model_name",
             "test_data_file",
-            "n_groups",
+            "training_groups",
         ),
     ),
     (
@@ -460,9 +460,6 @@ _TRAINING_INPUTS_BY_OWNER: tuple[
     (
         "derived_constraint",
         (
-            "C",
-            "C_model",
-            "C_forward",
             "loss_function",
             "nll",
             "train_data_file",
@@ -478,8 +475,8 @@ _INFERENCE_INPUTS_BY_OWNER: tuple[
         "data",
         (
             "N",
-            "K",
-            "grid_size",
+            "neighbor_count",
+            "gridsize",
             "probe_scale",
             "subsample_seed",
             "scale_contract_version",
@@ -518,16 +515,13 @@ _INFERENCE_INPUTS_BY_OWNER: tuple[
     (
         "bridge",
         (
-            "n_groups",
-            "n_subsample",
+            "inference_groups",
+            "n_raw_frames_selected",
         ),
     ),
     (
         "derived_constraint",
         (
-            "C",
-            "C_model",
-            "C_forward",
             "model_path",
             "test_data_file",
             "output_dir",
@@ -537,16 +531,18 @@ _INFERENCE_INPUTS_BY_OWNER: tuple[
 
 _TRAINING_ALIASES = MappingProxyType(
     {
-        "gridsize": "grid_size",
-        "neighbor_count": "K",
         "model_type": "mode",
         "max_epochs": "epochs",
     }
 )
 _INFERENCE_ALIASES = MappingProxyType(
     {
-        "gridsize": "grid_size",
-        "neighbor_count": "K",
+        # Documented external-contract fence (not a fallback): the legacy
+        # inference-group-count spelling "training_groups" is permanently
+        # accepted; specs/ptychodus_api_spec.md and config_factory docstrings
+        # historically named this key for the inference patch. Normalization
+        # maps it to the canonical "inference_groups".
+        "training_groups": "inference_groups",
         "model_type": "mode",
     }
 )
@@ -590,10 +586,6 @@ def _canonicalize_value(
     source_name: str,
     value: object,
 ) -> object:
-    if source_name == "gridsize":
-        return (value, value)
-    if canonical == "grid_size" and isinstance(value, list):
-        return tuple(value)
     return value
 
 
@@ -747,13 +739,10 @@ def training_factory_baseline(
     data = DataConfig(
         nphotons=1e9,
         N=64,
-        C=1,
-        grid_size=(1, 1),
+        gridsize=1,
     )
     model = resolve_torch_model_object_policy(
         ModelConfig(
-            C_model=1,
-            C_forward=1,
             loss_function="Poisson",
         )
     )
@@ -836,16 +825,13 @@ def inference_factory_baseline() -> TorchConfigBaseline:
 
     data = DataConfig(
         N=64,
-        C=1,
-        K=4,
-        grid_size=(1, 1),
+        gridsize=1,
+        neighbor_count=4,
         scale_contract_version="ci_intensity_v2",
         measurement_domain="count_intensity",
     )
     model = resolve_torch_model_object_policy(
         ModelConfig(
-            C_model=1,
-            C_forward=1,
         )
     )
     return TorchConfigBaseline(
@@ -900,41 +886,13 @@ def _owned_values(
     }
 
 
-def _derive_channel_count(grid_size: object) -> tuple[tuple[int, int], int]:
-    if isinstance(grid_size, list):
-        grid_size = tuple(grid_size)
-    if (
-        not isinstance(grid_size, tuple)
-        or len(grid_size) != 2
-        or any(
-            isinstance(value, bool)
-            or not isinstance(value, int)
-            or value <= 0
-            for value in grid_size
-        )
-    ):
+def _derive_channel_count(gridsize: object) -> tuple[int, int]:
+    """Single derivation site: C = gridsize**2 (channel identity stated once)."""
+    if isinstance(gridsize, bool) or not isinstance(gridsize, int) or gridsize <= 0:
         raise ValueError(
-            "grid_size must contain exactly two positive integers, "
-            f"got {grid_size!r}"
+            f"gridsize must be a positive integer, got {gridsize!r}"
         )
-    normalized_grid = (grid_size[0], grid_size[1])
-    return normalized_grid, normalized_grid[0] * normalized_grid[1]
-
-
-def _check_derived_channel_constraints(
-    normalized: NormalizedPatch,
-    derived_channels: int,
-) -> None:
-    for field_name in ("C", "C_model", "C_forward"):
-        if (
-            field_name in normalized.values
-            and normalized.values[field_name] != derived_channels
-        ):
-            raise ValueError(
-                f"{field_name}={normalized.values[field_name]!r} conflicts "
-                "with the channel count derived from grid_size "
-                f"({derived_channels})"
-            )
+    return gridsize, gridsize * gridsize
 
 
 def _check_path_constraint(
@@ -1050,14 +1008,15 @@ def _validate_training_bridge_domains(
         )
 
     enable_oversampling = bridge_values.get("enable_oversampling", False)
-    if enable_oversampling and data.grid_size != (1, 1):
+    if enable_oversampling and data.gridsize != 1:
         effective_pool_size = (
-            data.K if neighbor_pool_size is None else neighbor_pool_size
+            data.neighbor_count if neighbor_pool_size is None else neighbor_pool_size
         )
-        if effective_pool_size < data.C:
+        derived_channels = data.gridsize * data.gridsize
+        if effective_pool_size < derived_channels:
             raise ValueError(
-                "enable_oversampling requires neighbor_pool_size or K >= "
-                f"derived C={data.C} for grid_size={data.grid_size}, "
+                "enable_oversampling requires neighbor_pool_size or neighbor_count >= "
+                f"derived C={derived_channels} for gridsize={data.gridsize}, "
                 f"got {effective_pool_size}"
             )
 
@@ -1201,13 +1160,15 @@ def _validate_data_and_model(
 def _required_group_count(
     normalized: NormalizedPatch,
     baseline_value: int | None,
+    *,
+    canonical_name: str,
 ) -> int:
-    value = normalized.values.get("n_groups", baseline_value)
+    value = normalized.values.get(canonical_name, baseline_value)
     if value is None:
         raise ValueError(
-            "n_groups is required in the phase patch (no default)"
+            f"{canonical_name} is required in the phase patch (no default)"
         )
-    return _require_positive_integer(value, "n_groups")
+    return _require_positive_integer(value, canonical_name)
 
 
 def _resolve_training_owner_precedence(
@@ -1282,10 +1243,9 @@ def resolve_training_bundle(
         )
     _prepare_object_policy_changes(normalized, model_changes)
 
-    grid_size, channels = _derive_channel_count(
-        data_changes.get("grid_size", baseline.data.grid_size)
+    gridsize, channels = _derive_channel_count(
+        data_changes.get("gridsize", baseline.data.gridsize)
     )
-    _check_derived_channel_constraints(normalized, channels)
 
     if "N" in normalized.values:
         resolved_N = normalized.values["N"]
@@ -1311,8 +1271,7 @@ def resolve_training_bundle(
 
     data_changes.update(
         {
-            "grid_size": grid_size,
-            "C": channels,
+            "gridsize": gridsize,
             "N": resolved_N,
             "nphotons": resolved_nphotons,
         }
@@ -1327,14 +1286,15 @@ def resolve_training_bundle(
         )
     )
 
-    n_groups = _required_group_count(
+    training_groups = _required_group_count(
         normalized,
-        baseline.training.n_groups,
+        baseline.training.training_groups,
+        canonical_name="training_groups",
     )
     candidate_training = _fresh_config(
         candidate_training,
         {
-            "n_groups": n_groups,
+            "training_groups": training_groups,
             "train_data_file": str(observations.train_data_file),
             "output_dir": str(observations.output_dir),
             "test_data_file": (
@@ -1354,10 +1314,9 @@ def resolve_training_bundle(
     )
     _validate_training_owner_domains(candidate_training)
 
+    del channels  # channel identity is derived at consumption (C = gridsize**2)
     model_changes.update(
         {
-            "C_model": channels,
-            "C_forward": channels,
             "loss_function": loss_function,
         }
     )
@@ -1377,13 +1336,13 @@ def resolve_training_bundle(
     bridge: dict[str, object] = {
         "train_data_file": observations.train_data_file,
         "output_dir": observations.output_dir,
-        "n_groups": n_groups,
+        "training_groups": training_groups,
         "nphotons": data.nphotons,
     }
     if candidate_training.test_data_file is not None:
         bridge["test_data_file"] = candidate_training.test_data_file
-    if "n_subsample" in normalized.values:
-        bridge["n_subsample"] = data.n_subsample
+    if "n_raw_frames_selected" in normalized.values:
+        bridge["train_raw_selection"] = data.n_raw_frames_selected
     if "subsample_seed" in normalized.values:
         bridge["subsample_seed"] = data.subsample_seed
     bridge_values = {
@@ -1418,13 +1377,9 @@ def resolve_training_bundle(
             "N_source": N_source,
             "nphotons": data.nphotons,
             "nphotons_source": nphotons_source,
-            "grid_size": data.grid_size,
-            "C": data.C,
-            "C_source": "derived:grid_size",
-            "C_model": model.C_model,
-            "C_model_source": "derived:grid_size",
-            "C_forward": model.C_forward,
-            "C_forward_source": "derived:grid_size",
+            "gridsize": data.gridsize,
+            "C": data.gridsize * data.gridsize,
+            "C_source": "derived:gridsize",
             "loss_function": model.loss_function,
             "loss_function_source": "derived:torch_loss_mode",
             "nll": candidate_training.nll,
@@ -1489,10 +1444,9 @@ def resolve_inference_bundle(
         "inference",
     )
 
-    grid_size, channels = _derive_channel_count(
-        data_changes.get("grid_size", baseline.data.grid_size)
+    gridsize, channels = _derive_channel_count(
+        data_changes.get("gridsize", baseline.data.gridsize)
     )
-    _check_derived_channel_constraints(normalized, channels)
 
     if "N" in normalized.values:
         resolved_N = normalized.values["N"]
@@ -1501,21 +1455,15 @@ def resolve_inference_bundle(
         resolved_N = observations.inferred_probe_size
         N_source = "observation"
     resolved_N = _require_positive_integer(resolved_N, "N")
+    del channels  # channel identity is derived at consumption (C = gridsize**2)
     data_changes.update(
         {
-            "grid_size": grid_size,
-            "C": channels,
+            "gridsize": gridsize,
             "N": resolved_N,
         }
     )
     data = _fresh_config(baseline.data, data_changes)
 
-    model_changes.update(
-        {
-            "C_model": channels,
-            "C_forward": channels,
-        }
-    )
     model = resolve_torch_model_object_policy(
         _fresh_config(baseline.model, model_changes)
     )
@@ -1525,15 +1473,19 @@ def resolve_inference_bundle(
     _validate_inference_domains(inference)
 
     baseline_group_count = None
-    n_groups = _required_group_count(normalized, baseline_group_count)
+    inference_groups = _required_group_count(
+        normalized,
+        baseline_group_count,
+        canonical_name="inference_groups",
+    )
     bridge: dict[str, object] = {
         "model_path": observations.model_path,
         "test_data_file": observations.test_data_file,
         "output_dir": observations.output_dir,
-        "n_groups": n_groups,
+        "inference_groups": inference_groups,
     }
-    if "n_subsample" in normalized.values:
-        bridge["n_subsample"] = normalized.values["n_subsample"]
+    if "n_raw_frames_selected" in normalized.values:
+        bridge["inference_raw_selection"] = normalized.values["n_raw_frames_selected"]
     if "subsample_seed" in normalized.values:
         bridge["subsample_seed"] = data.subsample_seed
 
@@ -1542,13 +1494,9 @@ def resolve_inference_bundle(
         {
             "N": data.N,
             "N_source": N_source,
-            "grid_size": data.grid_size,
-            "C": data.C,
-            "C_source": "derived:grid_size",
-            "C_model": model.C_model,
-            "C_model_source": "derived:grid_size",
-            "C_forward": model.C_forward,
-            "C_forward_source": "derived:grid_size",
+            "gridsize": data.gridsize,
+            "C": data.gridsize * data.gridsize,
+            "C_source": "derived:gridsize",
             "model_path": str(observations.model_path),
             "test_data_file": str(observations.test_data_file),
             "output_dir": str(observations.output_dir),

@@ -13,7 +13,7 @@ def _build_lightning_module(training_config):
     update_legacy_dict(params.cfg, training_config)
     return PtychoPINN_Lightning(
         model_config=ModelConfig(),
-        data_config=DataConfig(N=64, C=1, grid_size=(1, 1)),
+        data_config=DataConfig(N=64, gridsize=1),
         training_config=training_config,
         inference_config=InferenceConfig(),
     )
@@ -27,7 +27,7 @@ def test_configure_optimizers_scheduler_plateau_uses_resolved_learning_rate():
     from ptycho_torch.model import PtychoPINN_Lightning
 
     model_cfg = ModelConfig()
-    data_cfg = DataConfig(N=64, C=1, grid_size=(1, 1))
+    data_cfg = DataConfig(N=64, gridsize=1)
     train_cfg = TrainingConfig(
         train_data_file="train.npz",
         test_data_file="test.npz",
@@ -123,7 +123,7 @@ def test_manual_gradient_clip_uses_resolved_training_config(
     update_legacy_dict(params.cfg, training_config)
     module = PtychoPINN_Lightning(
         model_config=ModelConfig(),
-        data_config=DataConfig(N=64, C=1, grid_size=(1, 1)),
+        data_config=DataConfig(N=64, gridsize=1),
         training_config=training_config,
         inference_config=InferenceConfig(),
     )

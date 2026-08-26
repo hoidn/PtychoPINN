@@ -70,8 +70,6 @@ def test_decoder_outer_latent_channels_follow_semantic_components(
 ) -> None:
     """Normal CNN heads reserve one outer latent per emitted component."""
     model_cfg = ModelConfig(
-        C_model=channels,
-        C_forward=channels,
         object_big=object_big,
         probe_big=True,
         decoder_last_c_outer_fraction=0.125,
@@ -79,7 +77,7 @@ def test_decoder_outer_latent_channels_follow_semantic_components(
     )
     decoder = Decoder_last(
         model_cfg,
-        DataConfig(N=64, C=channels, grid_size=(1, channels)),
+        DataConfig(N=64, gridsize=1),
         in_channels=64,
         out_channels=channels,
         activation=lambda value: value,
@@ -95,14 +93,12 @@ def test_decoder_outer_path_fills_only_complementary_border() -> None:
     channels = 4
     decoder = Decoder_last(
         ModelConfig(
-            C_model=channels,
-            C_forward=channels,
             object_big=True,
             probe_big=True,
             decoder_last_c_outer_fraction=0.125,
             use_legacy_decoder_channel_override=False,
         ),
-        DataConfig(N=64, C=channels, grid_size=(2, 2)),
+        DataConfig(N=64, gridsize=2),
         in_channels=64,
         out_channels=channels,
         activation=lambda value: value,
@@ -174,8 +170,8 @@ def test_merge_extract_roundtrip_pins_group_geometry():
 
     Pins docs/plans/2026-07-06-generator-gridsize2-support.md Task 2 Step 1.
     """
-    data_cfg = DataConfig(N=N, C=C, grid_size=GRID, max_neighbor_distance=MND)
-    model_cfg = ModelConfig(object_big=True, C_model=C, C_forward=C)
+    data_cfg = DataConfig(N=N, gridsize=2, max_neighbor_distance=MND)
+    model_cfg = ModelConfig(object_big=True)
     M = get_padded_size(data_cfg, model_cfg)
 
     obj_t = _smooth_object(M)
@@ -242,8 +238,8 @@ def test_object_big_reassemble_matches_tf_offset_sign():
     patch[1, n // 2, n // 2] = 1.0
     offsets_np = np.array([[[[dx, 0.0]]], [[[-dx, 0.0]]]], dtype=np.float32)  # (B=2,C=1,1,2)
 
-    data_cfg = DataConfig(N=n, grid_size=(1, 1), C=1)
-    model_cfg = ModelConfig(C_forward=1, C_model=1, object_big=True)
+    data_cfg = DataConfig(N=n, gridsize=1)
+    model_cfg = ModelConfig(object_big=True)
     torch_out, _, _ = reassemble_patches_position_real(
         torch.from_numpy(patch).reshape(2, 1, n, n),
         torch.from_numpy(offsets_np),
@@ -336,8 +332,8 @@ def test_bridge_and_reassemble_net_convention_matches_tf():
     # Production reshape (ptycho_torch/workflows/components.py): (B,1,2,C) -> (B,C,1,2).
     positions = container.local_offsets.to(torch.float32).permute(0, 3, 1, 2).contiguous()
 
-    data_cfg = DataConfig(N=n, grid_size=(1, 1), C=1)
-    model_cfg = ModelConfig(C_forward=1, C_model=1, object_big=True)
+    data_cfg = DataConfig(N=n, gridsize=1)
+    model_cfg = ModelConfig(object_big=True)
     torch_out, _, _ = reassemble_patches_position_real(
         torch.from_numpy(patch).reshape(2, 1, n, n),
         positions, data_cfg, model_cfg, agg=True, padded_size=padded,
@@ -392,7 +388,7 @@ def _build_lightning(stub, data_cfg):
     """Inject a stub generator via the Lightning constructor (no registry changes)."""
     output = "amp_phase" if isinstance(stub, _AmpPhaseStub) else "real_imag"
     model_cfg = ModelConfig(
-        object_big=True, C_model=C, C_forward=C, architecture="cnn",
+        object_big=True, architecture="cnn",
         physics_forward_mode="amplitude", intensity_scale_trainable=False,
     )
     model = PtychoPINN_Lightning(
@@ -425,8 +421,8 @@ def test_oracle_generator_realimag_reproduces_reference_diffraction():
     generator-format contract (the edge treatment of reassemble/extract is identical
     on both paths and cancels).
     """
-    data_cfg = DataConfig(N=N, C=C, grid_size=GRID, max_neighbor_distance=MND)
-    model_cfg = ModelConfig(object_big=True, C_model=C, C_forward=C)
+    data_cfg = DataConfig(N=N, gridsize=2, max_neighbor_distance=MND)
+    model_cfg = ModelConfig(object_big=True)
     M = get_padded_size(data_cfg, model_cfg)
 
     obj_t = _smooth_object(M)
@@ -472,3 +468,5 @@ def test_oracle_generator_realimag_reproduces_reference_diffraction():
         "shifted oracle loss was not strictly larger than the aligned oracle loss "
         f"({loss_shifted:.3e} vs {loss_true:.3e})"
     )
+
+

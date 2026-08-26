@@ -31,7 +31,7 @@ def update_config_from_dict(config_updates: dict):
     Update global config from a nested dict, ideal for notebook workflows.
 
     config_updates must use the nested TrainingConfig structure, e.g.:
-        {'model': {'N': 64}, 'nepochs': 100, 'sampling': {'n_groups': 512}}
+        {'model': {'N': 64}, 'nepochs': 100, 'sampling': {'training_groups': 512}}
     """
     config = resolve_training_config(config_updates, None)
     update_legacy_dict(params.cfg, config)
@@ -130,7 +130,7 @@ def add_public_training_config_arguments(
     """Register TrainingConfig CLI arguments on an existing argparse parser.
 
     Arguments are auto-derived from the TrainingConfig model structure.
-    Nested sub-config fields use dotted names, e.g. --sampling.n_groups.
+    Nested sub-config fields use dotted names, e.g. --sampling.training_groups.
     """
     CliSettingsSource(TrainingConfig, root_parser=parser, cli_parse_args=False)
     return parser
@@ -163,8 +163,8 @@ def load_yaml_config(file_path: str) -> Dict[str, Any]:
 def _namespace_to_training_patch(args: argparse.Namespace) -> dict[str, Any]:
     """Convert a parsed argparse Namespace to a nested TrainingConfig dict.
 
-    CliSettingsSource registers dotted argument names (e.g. --sampling.n_groups),
-    so vars(args) contains keys like 'sampling.n_groups'. This function rebuilds
+    CliSettingsSource registers dotted argument names (e.g. --sampling.training_groups),
+    so vars(args) contains keys like 'sampling.training_groups'. This function rebuilds
     the nested dict that resolve_training_config expects.
     """
     training_fields = frozenset(TrainingConfig.model_fields)

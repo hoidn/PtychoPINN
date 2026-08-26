@@ -15,10 +15,8 @@ def _identity_sections():
     )
     from ptycho_torch.model_spec import derive_model_spec
 
-    data = DataConfig(N=64, C=1, grid_size=(1, 1), probe_scale=4.0)
+    data = DataConfig(N=64, gridsize=1, probe_scale=4.0)
     model = ModelConfig(
-        C_model=1,
-        C_forward=1,
         object_layout="single_patch",
         training_canvas="independent",
         training_patch_weighting="uniform",
@@ -49,16 +47,34 @@ def _v1_model_spec_payload(spec):
     )
 
     model = spec.to_model_config()
+    legacy = {}
+    for name in MODEL_SPEC_V1_MODEL_FIELDS:
+        if name in ("C_model", "C_forward"):
+            legacy[name] = 1  # derived at decode; dropped by the upgrade
+        else:
+            legacy[name] = getattr(model, name)
     return {
         "schema_version": MODEL_SPEC_V1_VERSION,
-        "model_config": {
-            name: getattr(model, name)
-            for name in MODEL_SPEC_V1_MODEL_FIELDS
-        },
+        "model_config": legacy,
         "parity_scale_mode": spec.parity_scale_mode,
         "parity_fixed_delta": spec.parity_fixed_delta,
         "parity_init_scheme": spec.parity_init_scheme,
     }
+
+def _v1_data_config_payload(data):
+    from ptycho_torch.artifact_schema import PORTABLE_V1_DATA_FIELDS
+
+    channels = data.gridsize * data.gridsize
+    legacy = {
+        name: getattr(data, name)
+        for name in PORTABLE_V1_DATA_FIELDS
+        if name not in ("C", "grid_size", "n_subsample", "K")
+    }
+    legacy["C"] = channels
+    legacy["grid_size"] = (data.gridsize, data.gridsize)
+    legacy["n_subsample"] = data.n_raw_frames_selected
+    legacy["K"] = data.neighbor_count
+    return legacy
 
 
 def test_new_artifact_identity_is_v2_with_nested_model_spec_v2():
@@ -71,10 +87,10 @@ def test_new_artifact_identity_is_v2_with_nested_model_spec_v2():
     spec, data, training, inference = _identity_sections()
     payload = encode_artifact_identity(spec, data, training, inference)
 
-    assert CURRENT_ARTIFACT_SCHEMA_VERSION == "torch-artifact-portable-v2"
-    assert payload["schema_version"] == "torch-artifact-portable-v2"
+    assert CURRENT_ARTIFACT_SCHEMA_VERSION == "torch-artifact-portable-v4"
+    assert payload["schema_version"] == "torch-artifact-portable-v4"
     assert payload["model_spec"]["schema_version"] == (
-        "torch-model-spec-portable-v2"
+        "torch-model-spec-portable-v3"
     )
     decoded = decode_artifact_identity(payload)
     assert decoded.model_spec.to_model_config() == spec.to_model_config()
@@ -91,10 +107,13 @@ def test_outer_artifact_v1_with_nested_model_spec_v1_upgrades_to_v2():
     payload = encode_artifact_identity(spec, data, training, inference)
     payload["schema_version"] = ARTIFACT_SCHEMA_V1_VERSION
     payload["model_spec"] = _v1_model_spec_payload(spec)
-
+    payload["data_config"] = _v1_data_config_payload(data)
+    training_config = dict(payload["training_config"])
+    training_config["n_groups"] = training_config.pop("training_groups")
+    payload["training_config"] = training_config
     decoded = decode_artifact_identity(payload)
 
-    assert decoded.model_spec.schema_version == "torch-model-spec-portable-v2"
+    assert decoded.model_spec.schema_version == "torch-model-spec-portable-v3"
     assert decoded.model_spec.to_model_config() == spec.to_model_config()
 
 

@@ -44,7 +44,7 @@ def test_inference_reassembles_all_patches():
     )
 
     class SimpleConfig:
-        n_groups = 2
+        inference_groups = 2
         stitch_crop_size = 4
 
     amp, _ = _run_inference_and_reconstruct(

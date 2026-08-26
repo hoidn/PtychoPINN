@@ -303,14 +303,14 @@ class TestSubsampling(unittest.TestCase):
             sampling=SamplingConfig(n_images=500, n_subsample=200, subsample_seed=42),
         )
 
-        self.assertEqual(config.sampling.n_subsample, 200)
+        self.assertEqual(config.sampling.train_raw_selection, 200)
         self.assertEqual(config.sampling.subsample_seed, 42)
 
         config_default = TrainingConfig(
             model=ModelConfig(N=64),
             sampling=SamplingConfig(n_images=500),
         )
-        self.assertIsNone(config_default.sampling.n_subsample)
+        self.assertIsNone(config_default.sampling.train_raw_selection)
         self.assertIsNone(config_default.sampling.subsample_seed)
 
     def test_load_data_keeps_canonical_diffraction_when_n_scans_less_than_n(self):

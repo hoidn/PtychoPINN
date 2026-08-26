@@ -130,7 +130,7 @@ def test_nongrid_public_adapter_forwards_the_callers_seed(monkeypatch):
     )
     config = TrainingConfig(
         model=ModelConfig(N=8, gridsize=1, object_big=False),
-        sampling=SamplingConfig(n_groups=1),
+        sampling=SamplingConfig(training_groups=1),
     )
 
     result = nongrid_simulation.generate_simulated_data(
@@ -151,7 +151,7 @@ def test_nongrid_rejects_ambiguous_coordinate_seed_sources():
 
     config = TrainingConfig(
         model=ModelConfig(N=8, gridsize=1, object_big=False),
-        sampling=SamplingConfig(n_groups=1),
+        sampling=SamplingConfig(training_groups=1),
     )
 
     with pytest.raises(ValueError, match="random_seed.*coordinate_rng"):
@@ -249,7 +249,7 @@ def test_singleton_extraction_scope_does_not_rewrite_logical_gs2(monkeypatch):
     logical = TrainingConfig(
         model=ModelConfig(N=8, gridsize=2, object_big=True),
         data=DataConfig(nphotons=1e5),
-        sampling=SamplingConfig(n_groups=2),
+        sampling=SamplingConfig(training_groups=2),
     )
     ambient = {"N": 17, "gridsize": 9, "marker": "ambient"}
     monkeypatch.setattr(params, "cfg", dict(ambient))
@@ -294,7 +294,7 @@ def test_detector_seed_is_independent_of_identical_coordinate_stream(monkeypatch
     config = TrainingConfig(
         model=ModelConfig(N=8, gridsize=1, object_big=False),
         data=DataConfig(nphotons=1e5),
-        sampling=SamplingConfig(n_groups=2),
+        sampling=SamplingConfig(training_groups=2),
     )
     observed_coordinates: list[tuple[np.ndarray, np.ndarray]] = []
     numpy_seeds: list[int] = []

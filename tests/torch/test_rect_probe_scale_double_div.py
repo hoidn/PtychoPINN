@@ -83,10 +83,9 @@ def _normalized_probe(N: int, probe_scale: float) -> torch.Tensor:
 def test_rectangular_scaled_intensity_matches_count_reference():
     torch.manual_seed(0)
     N = 32
-    data_cfg = DataConfig(N=N, C=1, grid_size=(1, 1))
+    data_cfg = DataConfig(N=N, gridsize=1)
     model_cfg = ModelConfig(
-        object_big=False, C_model=1, C_forward=1,
-        physics_forward_mode="rectangular_scaled",
+        object_big=False, physics_forward_mode="rectangular_scaled",
     )
     train_cfg = TrainingConfig()
 
@@ -129,11 +128,9 @@ def test_rectangular_scaled_intensity_matches_count_reference():
 def test_ci_inverse_q_compensation_has_no_hidden_probe_or_output_scale():
     torch.manual_seed(9)
     N = 16
-    data_cfg = DataConfig(N=N, C=1, grid_size=(1, 1), probe_scale=6.25)
+    data_cfg = DataConfig(N=N, gridsize=1, probe_scale=6.25)
     model_cfg = ModelConfig(
         object_big=False,
-        C_model=1,
-        C_forward=1,
         physics_forward_mode="rectangular_scaled",
     )
     train_cfg = TrainingConfig()
@@ -179,8 +176,8 @@ def test_ci_inverse_q_compensation_has_no_hidden_probe_or_output_scale():
 def test_amplitude_forward_probe_division_byte_identical():
     torch.manual_seed(1)
     N = 32
-    data_cfg = DataConfig(N=N, C=1, grid_size=(1, 1))
-    model_cfg = ModelConfig(object_big=False, C_model=1, C_forward=1)
+    data_cfg = DataConfig(N=N, gridsize=1)
+    model_cfg = ModelConfig(object_big=False)
     train_cfg = TrainingConfig()
     assert model_cfg.physics_forward_mode == "amplitude"
 

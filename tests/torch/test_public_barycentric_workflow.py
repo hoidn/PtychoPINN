@@ -66,10 +66,9 @@ def _model_stub(
 ):
     data_config = DataConfig(
         N=N,
-        C=C,
-        K=max(C, 4),
-        grid_size=(2, 2),
-        n_subsample=4096,
+        neighbor_count=max(C, 4),
+        gridsize=2,
+        n_raw_frames_selected=4096,
         subsample_seed=31415,
         scale_contract_version="legacy_v1",
         measurement_domain="normalized_amplitude",
@@ -78,8 +77,6 @@ def _model_stub(
     )
     model_config = ModelConfig(
         architecture="cnn",
-        C_model=C,
-        C_forward=C,
         object_layout="grouped_patches",
         training_canvas="relative_overlap",
         physics_forward_mode=physics_forward_mode,
@@ -93,7 +90,7 @@ def _model_stub(
         data_config=data_config,
         model_config=model_config,
         training_config=TrainingConfig(
-            device="cpu", num_workers=0, n_groups=training_groups
+            device="cpu", num_workers=0, training_groups=training_groups
         ),
         inference_config=InferenceConfig(
             patch_weighting="probe",
@@ -125,7 +122,7 @@ def _expected_workflow_for_model(
     training_values = {
         name: value
         for name, value in vars(model.training_config).items()
-        if name != "n_groups"
+        if name != "training_groups"
     }
     return _ExpectedWorkflow(
         data=SimpleNamespace(**vars(model.data_config)),
@@ -284,8 +281,8 @@ def test_public_workflow_strict_loads_and_returns_frozen_snapshots(
         [0.0, 1.0],
         [1.0, 1.0],
     ]
-    assert model.data_config.n_subsample == 4096
-    assert runtime_configs[0].n_subsample == 1
+    assert model.data_config.n_raw_frames_selected == 4096
+    assert runtime_configs[0] is model.data_config
     assert result.effective_data_config is runtime_configs[0]
     assert result.complex_canvas.shape == (10, 10)
     assert result.prescale_canvas.shape == (10, 10)
@@ -327,10 +324,12 @@ def test_bundle_modelspec_must_agree_with_dual_written_model_config(
 
     bundle, test_npz, run_root = _paths(tmp_path)
     model = _model_stub()
-    model.model_config = replace(model.model_config, C_model=1)
+    # Channel twins are retired; provoke the ModelSpec/dual-write disagreement
+    # through a surviving structural field instead.
+    model.model_config = replace(model.model_config, n_filters_scale=7)
     _, _, _, reconstruct = _install_stubs(monkeypatch, model)
 
-    with pytest.raises(ValueError, match=r"ModelSpec.*C_model"):
+    with pytest.raises(ValueError, match=r"ModelSpec.*n_filters_scale"):
         reconstruct_npz_barycentric(bundle, test_npz, run_root=run_root)
     reconstruct.assert_not_called()
 
@@ -376,7 +375,7 @@ def test_training_groups_alias_must_match_loaded_training_config(tmp_path, monke
     _, _, _, reconstruct = _install_stubs(monkeypatch, model)
 
     with pytest.raises(
-        ValueError, match=r"training\.training_groups.*training_config\.n_groups"
+        ValueError, match=r"resolved_workflow\.training\.training_groups mismatch"
     ):
         reconstruct_npz_barycentric(
             bundle,

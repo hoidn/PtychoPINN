@@ -1002,7 +1002,7 @@ def main():
     final_config = TrainingConfig(
         model=ModelConfig(N=test_data_raw.probeGuess.shape[0], gridsize=restored_gridsize),  # Use restored gridsize!
         train_data_file=Path("dummy.npz"),
-        n_groups=n_groups_to_use,  # Use requested test groups for oversampling
+        training_groups=n_groups_to_use,  # Use requested test groups for oversampling
         neighbor_count=7  # Enable K-choose-C oversampling
     )
     logger.info(f"Final configuration: gridsize={restored_gridsize}, N={test_data_raw.probeGuess.shape[0]}, n_images={test_data_raw.diff3d.shape[0]}")

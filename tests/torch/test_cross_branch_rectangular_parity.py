@@ -92,7 +92,13 @@ def _rebuild_configs(metadata):
     ``training_patch_weighting`` -- comes straight from the fixture's own stored
     metadata so the second knob is verified to survive, not hardcoded here.
     """
-    data_cfg = DataConfig(**_filtered_kwargs(metadata["data_config"], DataConfig))
+    data_meta = dict(metadata["data_config"])
+    if "grid_size" in data_meta:
+        grid = data_meta.pop("grid_size")
+        data_meta["gridsize"] = int(grid[0])
+    if "n_subsample" in data_meta:
+        data_meta["n_raw_frames_selected"] = data_meta.pop("n_subsample")
+    data_cfg = DataConfig(**_filtered_kwargs(data_meta, DataConfig))
     model_kwargs = _filtered_kwargs(metadata["model_config"], ModelConfig)
     model_kwargs["physics_forward_mode"] = "rectangular_scaled"
     return data_cfg, ModelConfig(**model_kwargs)

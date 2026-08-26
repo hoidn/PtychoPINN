@@ -93,11 +93,11 @@ def test_resolve_ci_profile_passes_through_non_contract_overrides():
     from ptycho_torch.config_factory import resolve_ci_profile
 
     resolved = resolve_ci_profile(
-        {"n_groups": 4, "batch_size": 8, "rect_s1s2_init": "ones"}
+        {"training_groups": 4, "batch_size": 8, "rect_s1s2_init": "ones"}
     )
     # User wins for non-contract fields (rect_s1s2_init is profile-defaulted
     # but not one of the five fail-closed contract fields).
-    assert resolved["n_groups"] == 4
+    assert resolved["training_groups"] == 4
     assert resolved["batch_size"] == 8
     assert resolved["rect_s1s2_init"] == "ones"
     # Contract fields stay canonical.
@@ -108,9 +108,9 @@ def test_resolve_ci_profile_passes_through_non_contract_overrides():
 def test_resolve_ci_profile_does_not_mutate_caller_overrides():
     from ptycho_torch.config_factory import resolve_ci_profile
 
-    user = {"n_groups": 4}
+    user = {"training_groups": 4}
     resolve_ci_profile(user)
-    assert user == {"n_groups": 4}
+    assert user == {"training_groups": 4}
 
 
 @pytest.mark.parametrize(
@@ -145,7 +145,7 @@ def test_create_training_payload_ci_profile_resolves_coherent_payload(
     payload = create_training_payload(
         train_data_file=tiny_train_npz,
         output_dir=tmp_path / "out",
-        overrides={"n_groups": 4, "gridsize": 1, "batch_size": 4},
+        overrides={"training_groups": 4, "gridsize": 1, "batch_size": 4},
         profile="ci",
     )
     assert payload.pt_data_config.scale_contract_version == "ci_intensity_v2"
@@ -175,7 +175,7 @@ def test_create_training_payload_ci_profile_rejects_contradiction(
         create_training_payload(
             train_data_file=tiny_train_npz,
             output_dir=tmp_path / "out",
-            overrides={"n_groups": 4, "torch_loss_mode": "mae"},
+            overrides={"training_groups": 4, "torch_loss_mode": "mae"},
             profile="ci",
         )
 
@@ -185,14 +185,14 @@ def test_create_training_payload_rejects_unknown_profile(tiny_train_npz, tmp_pat
         create_training_payload(
             train_data_file=tiny_train_npz,
             output_dir=tmp_path / "out",
-            overrides={"n_groups": 4},
+            overrides={"training_groups": 4},
             profile="paper",
         )
 
 
 def test_profile_none_is_bit_identical_to_default(tiny_train_npz, tmp_path):
     overrides = {
-        "n_groups": 4,
+        "training_groups": 4,
         "gridsize": 1,
         "batch_size": 8,
         "torch_loss_mode": "mae",
@@ -226,7 +226,7 @@ def test_bare_default_legacy_construction_remains_valid(tiny_train_npz, tmp_path
     payload = create_training_payload(
         train_data_file=tiny_train_npz,
         output_dir=tmp_path / "out",
-        overrides={"n_groups": 4},
+        overrides={"training_groups": 4},
     )
     assert payload.pt_model_config.physics_forward_mode == "amplitude"
     assert payload.pt_data_config.scale_contract_version == "ci_intensity_v2"
@@ -239,7 +239,7 @@ def test_half_configured_ci_intent_via_overrides_raises(tiny_train_npz, tmp_path
         create_training_payload(
             train_data_file=tiny_train_npz,
             output_dir=tmp_path / "out",
-            overrides={"n_groups": 4, "rect_s1s2_init": "dose_closure"},
+            overrides={"training_groups": 4, "rect_s1s2_init": "dose_closure"},
         )
 
 
@@ -248,7 +248,7 @@ def test_retired_data_rect_s1s2_init_is_rejected(tiny_train_npz, tmp_path):
         create_training_payload(
             train_data_file=tiny_train_npz,
             output_dir=tmp_path / "out",
-            overrides={"n_groups": 4, "rect_s1s2_init": "data"},
+            overrides={"training_groups": 4, "rect_s1s2_init": "data"},
         )
 
 
@@ -260,7 +260,7 @@ def test_count_intensity_mae_rectangular_raises_at_factory(
             train_data_file=tiny_train_npz,
             output_dir=tmp_path / "out",
             overrides={
-                "n_groups": 4,
+                "training_groups": 4,
                 "physics_forward_mode": "rectangular_scaled",
                 "torch_loss_mode": "mae",
             },

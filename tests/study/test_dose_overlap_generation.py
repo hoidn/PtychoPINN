@@ -65,7 +65,7 @@ def test_build_simulation_plan(mock_base_npz, design_params):
 
     # Verify n_images matches base dataset length
     assert plan.n_images == 100  # from mock_base_npz
-    assert plan.training_config.sampling.n_groups == 100
+    assert plan.training_config.sampling.training_groups == 100
 
     # Verify seed propagates from design
     assert plan.seed == design_params['rng_seeds']['simulation']
@@ -204,7 +204,7 @@ def test_generate_dataset_config_construction(mock_base_npz, design_params, tmp_
     # Verify config was captured and has correct values
     assert captured_config is not None
     assert captured_config.data.nphotons == int(dose)
-    assert captured_config.sampling.n_groups == 100  # from mock_base_npz
+    assert captured_config.sampling.training_groups == 100  # from mock_base_npz
     assert captured_config.model.gridsize == 1
     # Verify n_images is set (required for legacy simulator coordinate arrays)
     assert captured_config.sampling.n_images == 100  # must match base dataset length

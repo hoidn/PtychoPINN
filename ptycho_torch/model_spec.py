@@ -26,7 +26,9 @@ from ptycho_torch.object_compatibility import (
 
 
 MODEL_SPEC_V1_VERSION = "torch-model-spec-portable-v1"
-CURRENT_MODEL_SPEC_VERSION = "torch-model-spec-portable-v2"
+MODEL_SPEC_V2_VERSION = "torch-model-spec-portable-v2"
+MODEL_SPEC_V3_VERSION = "torch-model-spec-portable-v3"
+CURRENT_MODEL_SPEC_VERSION = MODEL_SPEC_V3_VERSION
 
 # Frozen field order for the family-free Torch model schema carried by main.
 # This is deliberately not derived from ``fields(ModelConfig)``: adding or
@@ -153,14 +155,82 @@ PORTABLE_V2_MODEL_FIELDS = (
     "phase_loss_coeff",
 )
 
+# portable-v3 drops the C-family channel twins carried by v1/v2 (channel
+# identity now derives from DataConfig.gridsize at consumption). Written as an
+# independent frozen literal, NOT derived from PORTABLE_V2_MODEL_FIELDS, so a
+# future edit to one era can never silently rewrite the other (Decision 6).
+PORTABLE_V3_MODEL_FIELDS = (
+    "mode",
+    "architecture",
+    "fno_modes",
+    "fno_width",
+    "fno_blocks",
+    "fno_cnn_blocks",
+    "learned_input_channels",
+    "fno_input_transform",
+    "max_hidden_channels",
+    "resnet_width",
+    "spectral_bottleneck_blocks",
+    "spectral_bottleneck_modes",
+    "spectral_bottleneck_share_weights",
+    "spectral_bottleneck_gate_init",
+    "spectral_bottleneck_gate_mode",
+    "generator_output_mode",
+    "cnn_output_mode",
+    "use_shared_decoder",
+    "intensity_scale_trainable",
+    "intensity_scale",
+    "max_position_jitter",
+    "num_datasets",
+    "n_filters_scale",
+    "amp_activation",
+    "batch_norm",
+    "probe_mask",
+    "probe_mask_tensor",
+    "probe_mask_sigma",
+    "probe_mask_diameter",
+    "edge_pad",
+    "decoder_last_c_outer_fraction",
+    "decoder_last_amp_channels",
+    "use_legacy_decoder_channel_override",
+    "eca_encoder",
+    "cbam_encoder",
+    "cbam_bottleneck",
+    "cbam_decoder",
+    "eca_decoder",
+    "spatial_decoder",
+    "decoder_spatial_kernel",
+    "object_layout",
+    "training_canvas",
+    "probe_big",
+    "offset",
+    "training_patch_weighting",
+    "physics_forward_mode",
+    "rect_s1s2_trainable",
+    "rect_s1s2_init",
+    "amplitude_physics_gain",
+    "pad_object",
+    "gaussian_smoothing_sigma",
+    "loss_function",
+    "amp_loss",
+    "phase_loss",
+    "amp_loss_coeff",
+    "phase_loss_coeff",
+)
+
 MODEL_SPEC_V1_MODEL_FIELDS = PORTABLE_V1_MODEL_FIELDS
 MODEL_SPEC_V2_MODEL_FIELDS = PORTABLE_V2_MODEL_FIELDS
+MODEL_SPEC_V3_MODEL_FIELDS = PORTABLE_V3_MODEL_FIELDS
 
 _RUNTIME_MODEL_FIELDS = tuple(item.name for item in fields(ModelConfig))
-for _schema_fields in (PORTABLE_V1_MODEL_FIELDS, PORTABLE_V2_MODEL_FIELDS):
+for _schema_fields in (
+    PORTABLE_V1_MODEL_FIELDS,
+    PORTABLE_V2_MODEL_FIELDS,
+    PORTABLE_V3_MODEL_FIELDS,
+):
     if len(_schema_fields) != len(set(_schema_fields)):
         raise RuntimeError("portable ModelSpec field declaration contains duplicates")
-if set(_RUNTIME_MODEL_FIELDS) != set(PORTABLE_V2_MODEL_FIELDS) | {"object_big"}:
+if set(_RUNTIME_MODEL_FIELDS) != set(PORTABLE_V3_MODEL_FIELDS) | {"object_big"}:
     raise RuntimeError(
         "Torch ModelConfig fields changed without a ModelSpec schema revision: "
         f"runtime={_RUNTIME_MODEL_FIELDS!r}"
@@ -197,7 +267,7 @@ _CANONICAL_TO_TORCH = {
 CANONICAL_MODEL_FIELDS = frozenset(_CANONICAL_TO_TORCH)
 TORCH_COMPATIBILITY_ALIAS_FIELDS = frozenset({"object_big"})
 TORCH_EXTENSION_FIELDS = frozenset(
-    PORTABLE_V2_MODEL_FIELDS
+    PORTABLE_V3_MODEL_FIELDS
 ) - CANONICAL_MODEL_FIELDS
 
 _PARITY_SCALE_MODES = frozenset({"off", "tied", "input", "output", "fixed"})
@@ -253,7 +323,7 @@ class ModelSpec:
                 f"unsupported current ModelSpec schema {self.schema_version!r}; "
                 f"expected {CURRENT_MODEL_SPEC_VERSION!r}"
             )
-        expected = set(PORTABLE_V2_MODEL_FIELDS)
+        expected = set(PORTABLE_V3_MODEL_FIELDS)
         received = set(self._model_fields)
         if received != expected:
             missing = sorted(expected - received)
@@ -359,13 +429,48 @@ class ModelSpec:
             else:
                 values["object_layout"] = "single_patch"
                 values["training_canvas"] = "independent"
-        elif schema_version == CURRENT_MODEL_SPEC_VERSION:
+        elif schema_version == MODEL_SPEC_V2_VERSION:
+            expected_v2 = set(PORTABLE_V2_MODEL_FIELDS)
+            received_v2 = set(model_fields)
+            if received_v2 != expected_v2:
+                raise ValueError(
+                    "torch-model-spec-portable-v2 model fields are not exact; "
+                    f"missing={sorted(expected_v2 - received_v2)}, "
+                    f"unknown={sorted(received_v2 - expected_v2)}"
+                )
+            values = dict(model_fields)
+        elif schema_version == MODEL_SPEC_V3_VERSION:
+            expected_v3 = set(PORTABLE_V3_MODEL_FIELDS)
+            received_v3 = set(model_fields)
+            if received_v3 != expected_v3:
+                raise ValueError(
+                    "torch-model-spec-portable-v3 model fields are not exact; "
+                    f"missing={sorted(expected_v3 - received_v3)}, "
+                    f"unknown={sorted(received_v3 - expected_v3)}"
+                )
             values = dict(model_fields)
         else:
             raise ValueError(
                 f"unsupported ModelSpec schema {schema_version!r}; expected "
-                f"{MODEL_SPEC_V1_VERSION!r} or {CURRENT_MODEL_SPEC_VERSION!r}"
+                f"{MODEL_SPEC_V1_VERSION!r}, {MODEL_SPEC_V2_VERSION!r}, or "
+                f"{MODEL_SPEC_V3_VERSION!r}"
             )
+        if schema_version in (MODEL_SPEC_V1_VERSION, MODEL_SPEC_V2_VERSION):
+            c_model = model_fields["C_model"]
+            c_forward = model_fields["C_forward"]
+            if c_model != c_forward:
+                raise ValueError(
+                    f"{schema_version} model section channel identity is "
+                    f"unfaithful: stored C_model={c_model} conflicts with "
+                    f"stored C_forward={c_forward}"
+                )
+        # v1/v2 eras store the derived C-family; drop it to land on the current
+        # (v3) runtime shape, where channel identity derives from gridsize.
+        values = {
+            name: value
+            for name, value in values.items()
+            if name not in {"C_model", "C_forward"}
+        }
         return cls(
             schema_version=CURRENT_MODEL_SPEC_VERSION,
             _model_fields=values,
@@ -423,26 +528,19 @@ def derive_model_spec(
             f"canonical ModelConfig.N={canonical_model.N} conflicts with "
             f"data_config.N={data_config.N}"
         )
-    expected_grid = (canonical_model.gridsize, canonical_model.gridsize)
-    if tuple(data_config.grid_size) != expected_grid:
+    if data_config.gridsize != canonical_model.gridsize:
         raise ValueError(
             f"canonical gridsize={canonical_model.gridsize} conflicts with "
-            f"data_config.grid_size={data_config.grid_size}"
+            f"data_config.gridsize={data_config.gridsize}"
         )
     if not _values_match(canonical_model.probe_scale, data_config.probe_scale):
         raise ValueError(
             f"canonical probe_scale={canonical_model.probe_scale} conflicts with "
             f"data_config.probe_scale={data_config.probe_scale}"
         )
-    for name in ("C_model", "C_forward"):
-        if getattr(torch_model, name) != data_config.C:
-            raise ValueError(
-                f"{name}={getattr(torch_model, name)} conflicts with data_config.C={data_config.C}"
-            )
-
     values = {
         name: _copy_value(getattr(torch_model, name))
-        for name in PORTABLE_V2_MODEL_FIELDS
+        for name in PORTABLE_V3_MODEL_FIELDS
     }
     return ModelSpec(
         schema_version=CURRENT_MODEL_SPEC_VERSION,

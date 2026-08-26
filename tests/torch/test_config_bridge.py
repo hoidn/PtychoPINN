@@ -8,7 +8,7 @@ of the legacy params.cfg dictionary through the standard update_legacy_dict() fu
 MVP Test Coverage (9 fields):
 - N, gridsize, model_type (model essentials)
 - train_data_file, test_data_file, model_path (lifecycle paths)
-- n_groups, neighbor_count (data grouping)
+- training_groups, neighbor_count (data grouping)
 - nphotons (physics scaling)
 
 Test Strategy:
@@ -40,9 +40,9 @@ _TF_TRAIN_NESTED_PATHS = {
     "torch_loss_mode": ("loss", "torch_loss_mode"),
     "torch_mae_pred_l2_match_target": ("loss", "torch_mae_pred_l2_match_target"),
     "sequential_sampling": ("sampling", "sequential_sampling"),
-    "n_subsample": ("sampling", "n_subsample"),
+    "train_raw_selection": ("sampling", "train_raw_selection"),
     "subsample_seed": ("sampling", "subsample_seed"),
-    "n_groups": ("sampling", "n_groups"),
+    "training_groups": ("sampling", "training_groups"),
     "neighbor_count": ("sampling", "neighbor_count"),
     "nphotons": ("data", "nphotons"),
     "train_data_file": ("data", "train_data_file"),
@@ -112,9 +112,9 @@ class TestConfigBridgeMVP(unittest.TestCase):
         # 1. Instantiate PyTorch configs with MVP-aligned values
         pt_data = DataConfig(
             N=128,
-            grid_size=(2, 2),
+            gridsize=2,
             nphotons=1e9,
-            K=7  # Maps to neighbor_count in TensorFlow
+            neighbor_count=7  # Maps to neighbor_count in TensorFlow
         )
 
         pt_model = ModelConfig(
@@ -142,7 +142,7 @@ class TestConfigBridgeMVP(unittest.TestCase):
             pt_train,
             overrides=dict(
                 train_data_file=Path('train.npz'),
-                n_groups=512,
+                training_groups=512,
                 neighbor_count=7,
                 nphotons=1e9
             )
@@ -155,7 +155,7 @@ class TestConfigBridgeMVP(unittest.TestCase):
             overrides=dict(
                 model_path=Path('model_dir'),
                 test_data_file=Path('test.npz'),
-                n_groups=512,
+                inference_groups=512,
                 neighbor_count=7
             )
         )
@@ -179,7 +179,7 @@ class TestConfigBridgeMVP(unittest.TestCase):
                        "model_path should be converted to string")
 
         # Data grouping
-        self.assertEqual(params.cfg['n_groups'], 512, "n_groups should pass through")
+        self.assertEqual(params.cfg['training_groups'], 512, "training_groups should pass through")
         self.assertEqual(params.cfg['neighbor_count'], 7, "neighbor_count should map from K")
 
         # Physics scaling
@@ -274,7 +274,7 @@ class TestConfigBridgeParity:
         tf_model = config_bridge.to_model_config(pt_data, pt_model)
         tf_train = config_bridge.to_training_config(
             tf_model, pt_data, pt_model, pt_train,
-            overrides=dict(train_data_file=Path('train.npz'), n_groups=512, nphotons=1e9)
+            overrides=dict(train_data_file=Path('train.npz'), training_groups=512, nphotons=1e9)
         )
 
         assert _tf_train_get(tf_train, field_name) == expected_tf_value, \
@@ -285,7 +285,6 @@ class TestConfigBridgeParity:
     # ============================================================================
 
     @pytest.mark.parametrize('pt_field,pt_value,tf_field,tf_value', [
-        pytest.param('grid_size', (3, 3), 'gridsize', 3, id='gridsize-tuple-to-int'),
         pytest.param('mode', 'Unsupervised', 'model_type', 'pinn', id='model_type-unsupervised'),
         pytest.param('mode', 'Supervised', 'model_type', 'supervised', id='model_type-supervised'),
         pytest.param('amp_activation', 'silu', 'amp_activation', 'swish', id='amp_activation-silu'),
@@ -302,12 +301,8 @@ class TestConfigBridgeParity:
         from ptycho_torch import config_bridge
 
         # Create PyTorch config with test value
-        if pt_field in ['grid_size']:
-            pt_data = DataConfig(**{pt_field: pt_value})
-            pt_model = ModelConfig()
-        else:
-            pt_data = DataConfig()
-            pt_model = ModelConfig(**{pt_field: pt_value})
+        pt_data = DataConfig()
+        pt_model = ModelConfig(**{pt_field: pt_value})
 
         # Translate to TensorFlow
         tf_model = config_bridge.to_model_config(pt_data, pt_model)
@@ -337,7 +332,7 @@ class TestConfigBridgeParity:
         tf_model = config_bridge.to_model_config(pt_data, pt_model)
         tf_train = config_bridge.to_training_config(
             tf_model, pt_data, pt_model, pt_train,
-            overrides=dict(train_data_file=Path('train.npz'), n_groups=512, nphotons=1e9)
+            overrides=dict(train_data_file=Path('train.npz'), training_groups=512, nphotons=1e9)
         )
 
         assert _tf_train_get(tf_train, tf_field) == tf_value, \
@@ -399,7 +394,7 @@ class TestConfigBridgeParity:
         pt_train = TrainingConfig()
 
         # Build overrides dict (always include required fields including nphotons to avoid validation error)
-        overrides = dict(train_data_file=Path('train.npz'), n_groups=512, nphotons=1e9)
+        overrides = dict(train_data_file=Path('train.npz'), training_groups=512, nphotons=1e9)
         if override_value is not None:
             overrides[field_name] = override_value
 
@@ -432,7 +427,7 @@ class TestConfigBridgeParity:
         overrides = dict(
             model_path=Path('model_dir'),
             test_data_file=Path('test.npz'),
-            n_groups=512
+            inference_groups=512
         )
         if override_value is not None:
             overrides[field_name] = override_value
@@ -538,7 +533,7 @@ class TestConfigBridgeParity:
             tf_model = config_bridge.to_model_config(pt_data, pt_model)
             tf_train = config_bridge.to_training_config(
                 tf_model, pt_data, pt_model, pt_train,
-                overrides=dict(train_data_file=Path('train.npz'), n_groups=512, nphotons=test_value)
+                overrides=dict(train_data_file=Path('train.npz'), training_groups=512, nphotons=test_value)
             )
             actual_value = _tf_train_get(tf_train, field_name)
 
@@ -555,22 +550,8 @@ class TestConfigBridgeParity:
     # Test Case 5: Error Handling & Validation
     # ============================================================================
 
-    @pytest.mark.parametrize('invalid_value,expected_error,error_fragment', [
-        pytest.param((2, 3), ValueError, 'Non-square grids', id='gridsize-non-square'),
-    ])
-    def test_gridsize_error_handling(self, params_cfg_snapshot, invalid_value, expected_error, error_fragment):
-        """Test grid_size validation (non-square grids should raise ValueError)."""
-        from ptycho_torch.config_params import DataConfig, ModelConfig
-        from ptycho_torch import config_bridge
-
-        pt_data = DataConfig(grid_size=invalid_value)
-        pt_model = ModelConfig()
-
-        with pytest.raises(expected_error) as exc_info:
-            config_bridge.to_model_config(pt_data, pt_model)
-
-        assert error_fragment in str(exc_info.value), \
-            f"Error message should contain '{error_fragment}'"
+    # Non-square grid rejection retired with torch-artifact-portable-v4:
+    # DataConfig.gridsize is a plain int, non-square is structurally impossible.
 
     @pytest.mark.parametrize('invalid_value,expected_error,error_fragment', [
         pytest.param('InvalidMode', ValueError, 'Invalid mode', id='model_type-invalid-enum'),
@@ -620,7 +601,7 @@ class TestConfigBridgeParity:
         with pytest.raises(ValueError) as exc_info:
             config_bridge.to_training_config(
                 tf_model, pt_data, pt_model, pt_train,
-                overrides=dict(n_groups=512, nphotons=1e9)  # Missing train_data_file but include nphotons
+                overrides=dict(training_groups=512, nphotons=1e9)  # Missing train_data_file but include nphotons
             )
 
         assert 'train_data_file is required' in str(exc_info.value), \
@@ -640,7 +621,7 @@ class TestConfigBridgeParity:
         with pytest.raises(ValueError) as exc_info:
             config_bridge.to_inference_config(
                 tf_model, pt_data, pt_infer,
-                overrides=dict(test_data_file=Path('test.npz'), n_groups=512)  # Missing model_path
+                overrides=dict(test_data_file=Path('test.npz'), inference_groups=512)  # Missing model_path
             )
 
         assert 'model_path is required' in str(exc_info.value), \
@@ -675,7 +656,7 @@ class TestConfigBridgeParity:
         with pytest.raises(ValueError) as exc_info:
             config_bridge.to_training_config(
                 tf_model, pt_data, pt_model, pt_train,
-                overrides=dict(train_data_file=Path('train.npz'), n_groups=512)
+                overrides=dict(train_data_file=Path('train.npz'), training_groups=512)
                 # Missing nphotons override - should trigger validation error
             )
 
@@ -713,7 +694,7 @@ class TestConfigBridgeParity:
             tf_model, pt_data, pt_model, pt_train,
             overrides=dict(
                 train_data_file=Path('train.npz'),
-                n_groups=512,
+                training_groups=512,
                 nphotons=1e9  # Explicit override resolves divergence
             )
         )
@@ -723,153 +704,153 @@ class TestConfigBridgeParity:
             "nphotons override should be applied successfully"
 
     # ============================================================================
-    # Test Case 5.6: n_subsample Override Validation (Phase C.C1-C2)
+    # Test Case 5.6: train_raw_selection Override Validation (Phase C.C1-C2)
     # ============================================================================
 
     def test_training_config_n_subsample_missing_override_uses_none(self, params_cfg_snapshot):
         """
-        Test that missing n_subsample override defaults to None in TrainingConfig.
+        Test that missing train_raw_selection override defaults to None in TrainingConfig.
 
-        Semantic collision context: PyTorch DataConfig.n_subsample exists but has
+        Semantic collision context: PyTorch DataConfig.train_raw_selection exists but has
         different semantics (coordinate subsampling factor, not sample count). The
-        adapter must NOT propagate PyTorch n_subsample to TensorFlow; explicit
+        adapter must NOT propagate PyTorch train_raw_selection to TensorFlow; explicit
         override is required to set training sample count.
 
-        Spec coverage: §5.2:12 (n_subsample override_required)
-        Phase: Phase C.C1-C2 (n_subsample parity)
+        Spec coverage: §5.2:12 (train_raw_selection override_required)
+        Phase: Phase C.C1-C2 (train_raw_selection parity)
         Reference: field_matrix.md row 51
         """
         from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig
         from ptycho_torch import config_bridge
 
-        # PyTorch config with n_subsample=7 (coordinate subsampling, not sample count)
-        pt_data = DataConfig(n_subsample=7)
+        # PyTorch config with train_raw_selection=7 (coordinate subsampling, not sample count)
+        pt_data = DataConfig(n_raw_frames_selected=7)
         pt_model = ModelConfig()
         pt_train = TrainingConfig()
 
         tf_model = config_bridge.to_model_config(pt_data, pt_model)
 
-        # Do NOT provide n_subsample override
+        # Do NOT provide train_raw_selection override
         tf_train = config_bridge.to_training_config(
             tf_model, pt_data, pt_model, pt_train,
             overrides=dict(
                 train_data_file=Path('train.npz'),
-                n_groups=512,
+                training_groups=512,
                 nphotons=1e9
             )
         )
 
         # Assert PyTorch value is NOT propagated (semantic collision protection)
-        assert tf_train.sampling.n_subsample is None, \
-            "n_subsample should default to None when not in overrides (semantic collision guard)"
-        assert tf_train.sampling.n_subsample != 7, \
-            "PyTorch DataConfig.n_subsample should NOT propagate to TensorFlow (different semantics)"
+        assert tf_train.sampling.train_raw_selection is None, \
+            "train_raw_selection should default to None when not in overrides (semantic collision guard)"
+        assert tf_train.sampling.train_raw_selection != 7, \
+            "PyTorch DataConfig.train_raw_selection should NOT propagate to TensorFlow (different semantics)"
 
     def test_training_config_n_subsample_explicit_override(self, params_cfg_snapshot):
         """
-        Test that explicit n_subsample override is applied to TrainingConfig.
+        Test that explicit train_raw_selection override is applied to TrainingConfig.
 
-        Green path confirming that when caller provides explicit n_subsample value,
+        Green path confirming that when caller provides explicit train_raw_selection value,
         adapter applies it to TensorFlow config regardless of PyTorch value.
 
-        Spec coverage: §5.2:12 (n_subsample override pattern)
-        Phase: Phase C.C1-C2 (n_subsample parity)
+        Spec coverage: §5.2:12 (train_raw_selection override pattern)
+        Phase: Phase C.C1-C2 (train_raw_selection parity)
         """
         from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig
         from ptycho_torch import config_bridge
 
-        pt_data = DataConfig(n_subsample=7)  # PyTorch coordinate subsampling
+        pt_data = DataConfig(n_raw_frames_selected=7)  # PyTorch coordinate subsampling
         pt_model = ModelConfig()
         pt_train = TrainingConfig()
 
         tf_model = config_bridge.to_model_config(pt_data, pt_model)
 
-        # Provide explicit n_subsample override for TensorFlow sample count
+        # Provide explicit train_raw_selection override for TensorFlow sample count
         tf_train = config_bridge.to_training_config(
             tf_model, pt_data, pt_model, pt_train,
             overrides=dict(
                 train_data_file=Path('train.npz'),
-                n_groups=512,
+                training_groups=512,
                 nphotons=1e9,
-                n_subsample=1000  # Explicit TensorFlow sample count override
+                train_raw_selection=1000  # Explicit TensorFlow sample count override
             )
         )
 
         # Assert override value is used (not PyTorch value)
-        assert tf_train.sampling.n_subsample == 1000, \
-            "n_subsample override should be applied successfully"
-        assert tf_train.sampling.n_subsample != 7, \
+        assert tf_train.sampling.train_raw_selection == 1000, \
+            "train_raw_selection override should be applied successfully"
+        assert tf_train.sampling.train_raw_selection != 7, \
             "Override should replace PyTorch value (semantic collision resolved)"
 
     def test_inference_config_n_subsample_missing_override_uses_none(self, params_cfg_snapshot):
         """
-        Test that missing n_subsample override defaults to None in InferenceConfig.
+        Test that missing inference_raw_selection override defaults to None in InferenceConfig.
 
-        Same semantic collision as TrainingConfig: PyTorch n_subsample has different
+        Same semantic collision as TrainingConfig: PyTorch inference_raw_selection has different
         meaning, so adapter must not propagate without explicit override.
 
-        Spec coverage: §5.3:5 (n_subsample override_required)
-        Phase: Phase C.C1-C2 (n_subsample parity)
+        Spec coverage: §5.3:5 (inference_raw_selection override_required)
+        Phase: Phase C.C1-C2 (inference_raw_selection parity)
         Reference: field_matrix.md row 69
         """
         from ptycho_torch.config_params import DataConfig, ModelConfig, InferenceConfig
         from ptycho_torch import config_bridge
 
-        pt_data = DataConfig(n_subsample=7)  # PyTorch coordinate subsampling
+        pt_data = DataConfig(n_raw_frames_selected=7)  # PyTorch coordinate subsampling
         pt_model = ModelConfig()
         pt_infer = InferenceConfig()
 
         tf_model = config_bridge.to_model_config(pt_data, pt_model)
 
-        # Do NOT provide n_subsample override
+        # Do NOT provide inference_raw_selection override
         tf_infer = config_bridge.to_inference_config(
             tf_model, pt_data, pt_infer,
             overrides=dict(
                 model_path=Path('model_dir'),
                 test_data_file=Path('test.npz'),
-                n_groups=512
+                inference_groups=512
             )
         )
 
         # Assert PyTorch value is NOT propagated
-        assert tf_infer.n_subsample is None, \
-            "n_subsample should default to None when not in overrides"
-        assert tf_infer.n_subsample != 7, \
-            "PyTorch DataConfig.n_subsample should NOT propagate to InferenceConfig"
+        assert tf_infer.inference_raw_selection is None, \
+            "inference_raw_selection should default to None when not in overrides"
+        assert tf_infer.inference_raw_selection != 7, \
+            "PyTorch DataConfig.train_raw_selection should NOT propagate to InferenceConfig"
 
     def test_inference_config_n_subsample_explicit_override(self, params_cfg_snapshot):
         """
-        Test that explicit n_subsample override is applied to InferenceConfig.
+        Test that explicit inference_raw_selection override is applied to InferenceConfig.
 
         Green path for inference-time sample count control.
 
-        Spec coverage: §5.3:5 (n_subsample override pattern)
-        Phase: Phase C.C1-C2 (n_subsample parity)
+        Spec coverage: §5.3:5 (inference_raw_selection override pattern)
+        Phase: Phase C.C1-C2 (inference_raw_selection parity)
         """
         from ptycho_torch.config_params import DataConfig, ModelConfig, InferenceConfig
         from ptycho_torch import config_bridge
 
-        pt_data = DataConfig(n_subsample=7)
+        pt_data = DataConfig(n_raw_frames_selected=7)
         pt_model = ModelConfig()
         pt_infer = InferenceConfig()
 
         tf_model = config_bridge.to_model_config(pt_data, pt_model)
 
-        # Provide explicit n_subsample override
+        # Provide explicit inference_raw_selection override
         tf_infer = config_bridge.to_inference_config(
             tf_model, pt_data, pt_infer,
             overrides=dict(
                 model_path=Path('model_dir'),
                 test_data_file=Path('test.npz'),
-                n_groups=512,
-                n_subsample=500  # Explicit inference sample count
+                inference_groups=512,
+                inference_raw_selection=500  # Explicit inference sample count
             )
         )
 
         # Assert override value is used
-        assert tf_infer.n_subsample == 500, \
-            "n_subsample override should be applied successfully"
-        assert tf_infer.n_subsample != 7, \
+        assert tf_infer.inference_raw_selection == 500, \
+            "inference_raw_selection override should be applied successfully"
+        assert tf_infer.inference_raw_selection != 7, \
             "Override should replace PyTorch value"
 
     # ============================================================================
@@ -900,7 +881,7 @@ class TestConfigBridgeParity:
             tf_model, pt_data, pt_model, pt_train,
             overrides=dict(
                 train_data_file=Path('train.npz'),
-                n_groups=512,
+                training_groups=512,
                 nphotons=1e9
             )
         )
@@ -929,7 +910,7 @@ class TestConfigBridgeParity:
             tf_model, pt_data, pt_model, pt_train,
             overrides=dict(
                 train_data_file=Path('train.npz'),
-                n_groups=512,
+                training_groups=512,
                 nphotons=1e9,
                 subsample_seed=99  # Override value
             )
@@ -952,15 +933,15 @@ class TestConfigBridgeParity:
 
     def test_n_groups_missing_override_warning(self, params_cfg_snapshot):
         """
-        Test that missing n_groups override in TrainingConfig raises warning/error.
+        Test that missing training_groups override in TrainingConfig raises warning/error.
 
-        From override_matrix.md: n_groups training stage with no override leaves
-        params.cfg['n_groups'] = None if inference also omits value, breaking
+        From override_matrix.md: training_groups training stage with no override leaves
+        params.cfg['training_groups'] = None if inference also omits value, breaking
         downstream workflows that expect a valid integer.
 
-        Spec coverage: §5.2:10 (n_groups override_required)
+        Spec coverage: §5.2:10 (training_groups override_required)
         Phase: B.B5.D3 override warning coverage
-        Reference: override_matrix.md row for n_groups
+        Reference: override_matrix.md row for training_groups
         """
         from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig
         from ptycho_torch import config_bridge
@@ -977,17 +958,17 @@ class TestConfigBridgeParity:
                 overrides=dict(
                     train_data_file=Path('train.npz'),
                     nphotons=1e9
-                    # Missing n_groups override - should trigger validation error
+                    # Missing training_groups override - should trigger validation error
                 )
             )
 
         # Assert error message contains actionable guidance
         error_msg = str(exc_info.value)
-        assert 'n_groups' in error_msg, \
-            "Error message should identify missing n_groups"
+        assert 'training_groups' in error_msg, \
+            "Error message should identify missing training_groups"
         assert 'overrides' in error_msg, \
             "Error message should mention overrides parameter"
-        assert 'n_groups=' in error_msg, \
+        assert 'training_groups=' in error_msg, \
             "Error message should provide override syntax example"
 
     def test_test_data_file_training_missing_warning(self, params_cfg_snapshot):
@@ -1022,7 +1003,7 @@ class TestConfigBridgeParity:
                 tf_model, pt_data, pt_model, pt_train,
                 overrides=dict(
                     train_data_file=Path('train.npz'),
-                    n_groups=512,
+                    training_groups=512,
                     nphotons=1e9
                     # Missing test_data_file - should emit warning
                 )
@@ -1080,8 +1061,8 @@ class TestConfigBridgeParity:
         # Instantiate PyTorch configs with canonical values from supervisor_summary.md
         pt_data = DataConfig(
             N=128,
-            grid_size=(3, 3),  # Produces gridsize=3
-            K=6,  # Produces neighbor_count=6
+            gridsize=3,  # Produces gridsize=3
+            neighbor_count=6,  # Produces neighbor_count=6
             nphotons=5e8,
             probe_scale=2.0
         )
@@ -1113,8 +1094,8 @@ class TestConfigBridgeParity:
         training_overrides = dict(
             train_data_file=Path('/canonical/baseline/train_data.npz'),
             test_data_file=Path('/canonical/baseline/test_data.npz'),
-            n_groups=1024,  # Note: baseline uses 512 for inference, but training captures this
-            n_subsample=2048,  # Baseline doesn't show this, but we'll check after
+            training_groups=1024,  # Note: baseline uses 512 for inference, but training captures this
+            train_raw_selection=2048,  # Baseline doesn't show this, but we'll check after
             subsample_seed=42,  # Baseline shows 99 (from inference), will be overridden
             output_dir=Path('/canonical/baseline/training_outputs'),
             mae_weight=0.3,
@@ -1130,8 +1111,8 @@ class TestConfigBridgeParity:
         inference_overrides = dict(
             model_path=Path('/canonical/baseline/model_directory'),
             test_data_file=Path('/canonical/baseline/inference_data.npz'),
-            n_groups=512,  # Baseline inference value
-            n_subsample=1024,  # Baseline inference value
+            inference_groups=512,  # Baseline inference value
+            inference_raw_selection=1024,  # Baseline inference value
             subsample_seed=99,  # Baseline inference value
             output_dir=Path('/canonical/baseline/inference_outputs'),
             debug=True
@@ -1206,7 +1187,7 @@ class TestConfigBridgeParity:
         tf_model = config_bridge.to_model_config(pt_data, pt_model)
         tf_train = config_bridge.to_training_config(
             tf_model, pt_data, pt_model, pt_train,
-            overrides=dict(train_data_file=Path('train.npz'), n_groups=512, nphotons=1e9)
+            overrides=dict(train_data_file=Path('train.npz'), training_groups=512, nphotons=1e9)
         )
 
         # Assert TF dataclass has the field
@@ -1224,7 +1205,7 @@ class TestConfigBridgeParity:
         from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig
         from ptycho_torch import config_bridge
 
-        pt_data = DataConfig(nphotons=1e9, K=4, grid_size=(2, 2))
+        pt_data = DataConfig(nphotons=1e9, neighbor_count=4, gridsize=2)
         pt_model = ModelConfig()
         pt_train = TrainingConfig()
 
@@ -1236,7 +1217,7 @@ class TestConfigBridgeParity:
             pt_train,
             overrides={
                 "train_data_file": Path("train.npz"),
-                "n_groups": 32,
+                "training_groups": 32,
                 "nphotons": 1e9,
                 "enable_oversampling": True,
                 "neighbor_pool_size": 7,
@@ -1274,7 +1255,7 @@ class TestConfigBridgeParity:
         tf_model = config_bridge.to_model_config(pt_data, pt_model)
         tf_train = config_bridge.to_training_config(
             tf_model, pt_data, pt_model, pt_train,
-            overrides=dict(train_data_file=Path('train.npz'), n_groups=512, nphotons=1e9)
+            overrides=dict(train_data_file=Path('train.npz'), training_groups=512, nphotons=1e9)
         )
 
         assert tf_train.optimizer.algorithm == 'sgd'
@@ -1295,7 +1276,7 @@ class TestConfigBridgeArchitecture:
         from ptycho_torch.config_params import DataConfig, ModelConfig
         from ptycho_torch import config_bridge
 
-        pt_data = DataConfig(N=64, grid_size=(1, 1))
+        pt_data = DataConfig(N=64, gridsize=1)
         pt_model = ModelConfig()
 
         tf_model = config_bridge.to_model_config(
@@ -1311,7 +1292,7 @@ class TestConfigBridgeArchitecture:
         from ptycho_torch.config_params import DataConfig, ModelConfig
         from ptycho_torch import config_bridge
 
-        pt_data = DataConfig(N=64, grid_size=(1, 1))
+        pt_data = DataConfig(N=64, gridsize=1)
         pt_model = ModelConfig()
 
         tf_model = config_bridge.to_model_config(pt_data, pt_model)
@@ -1323,7 +1304,7 @@ class TestConfigBridgeArchitecture:
         from ptycho_torch.config_params import DataConfig, ModelConfig
         from ptycho_torch import config_bridge
 
-        pt_data = DataConfig(N=64, grid_size=(1, 1))
+        pt_data = DataConfig(N=64, gridsize=1)
         pt_model = ModelConfig(architecture='fno')
 
         tf_model = config_bridge.to_model_config(pt_data, pt_model)
@@ -1335,7 +1316,7 @@ class TestConfigBridgeArchitecture:
         from ptycho_torch.config_params import DataConfig, ModelConfig
         from ptycho_torch import config_bridge
 
-        pt_data = DataConfig(N=64, grid_size=(1, 1))
+        pt_data = DataConfig(N=64, gridsize=1)
         pt_model = ModelConfig(architecture='fno')
         pt_model.fno_input_transform = 'sqrt'
 
@@ -1359,7 +1340,7 @@ class TestConfigBridgeArchitecture:
         tf_model = config_bridge.to_model_config(pt_data, pt_model)
         tf_train = config_bridge.to_training_config(
             tf_model, pt_data, pt_model, pt_train,
-            overrides=dict(train_data_file=Path('train.npz'), n_groups=512, nphotons=1e9)
+            overrides=dict(train_data_file=Path('train.npz'), training_groups=512, nphotons=1e9)
         )
 
         assert tf_train.scheduler.kind == 'WarmupCosine'

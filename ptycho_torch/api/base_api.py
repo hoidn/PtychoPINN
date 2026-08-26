@@ -509,7 +509,7 @@ class PtychoModel:
         from ptycho_torch.checkpoint_decode import decode_checkpoint_hparams
 
         checkpoint = torch.load(
-            str(checkpoint_path), map_location="cpu", weights_only=False
+            str(checkpoint_path), map_location="cpu", weights_only=True
         )
         decode_checkpoint_hparams(checkpoint.get("hyper_parameters"))
         model = model_class.load_from_checkpoint(str(checkpoint_path),
@@ -639,7 +639,7 @@ class PtychoModel:
         bridge_values = {
             "train_data_file": self.training_config.train_data_file,
             "output_dir": self.training_config.output_dir,
-            "n_groups": self.training_config.n_groups,
+            "training_groups": self.training_config.training_groups,
             "nphotons": self.data_config.nphotons,
         }
         if self.training_config.test_data_file is not None:

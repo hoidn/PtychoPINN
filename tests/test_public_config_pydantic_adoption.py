@@ -175,7 +175,7 @@ def test_f3_public_records_remain_reflection_neutral_stdlib_dataclasses():
     assert "N" in model_signature.parameters
 
     model = ModelConfig()
-    training = TrainingConfig(model, sampling=SamplingConfig(n_groups=7))
+    training = TrainingConfig(model, sampling=SamplingConfig(training_groups=7))
     assert ModelConfig() == model
     assert hash(ModelConfig()) == hash(model)
     assert replace(training, batch_size=8).batch_size == 8
@@ -191,7 +191,7 @@ def test_f4_cached_complete_adapters_report_nested_dotted_paths():
     with pytest.raises(ValueError, match=r"training\.model\.gridsize"):
         resolve_training_config({"model": {"gridsize": "2"}}, {})
 
-    mutated = TrainingConfig(ModelConfig(), sampling=SamplingConfig(n_groups=7))
+    mutated = TrainingConfig(ModelConfig(), sampling=SamplingConfig(training_groups=7))
     mutated.model = "not-a-model"
     with pytest.raises(ValueError, match=r"training\.model"):
         validate_training_config_structure(mutated)
@@ -289,7 +289,7 @@ def test_strict_instance_boundaries_reject_closed_string_subclasses(
                     object_layout="single_patch",
                     training_canvas="relative_overlap",
                 ),
-                sampling=SamplingConfig(n_groups=7),
+                sampling=SamplingConfig(training_groups=7),
             ),
         ),
         (
@@ -477,18 +477,18 @@ def test_strict_instance_path_validation_rejects_non_path(owner, field, dotted_p
 
 def test_f7_post_init_alias_and_default_behavior_is_stable():
     defaulted = resolve_training_config({"model": {}}, {})
-    assert defaulted.sampling.n_groups == 512
+    assert defaulted.sampling.training_groups == 512
 
     with pytest.warns(DeprecationWarning, match="n_images") as caught:
         directly_adapted = resolution._TRAINING_CONFIG_ADAPTER.validate_python(
             {"model": {}, "sampling": {"n_images": 8}}
         )
-    assert directly_adapted.sampling.n_groups == 8
+    assert directly_adapted.sampling.training_groups == 8
     assert len(caught) == 1
 
     with pytest.warns(DeprecationWarning, match="n_images") as caught:
         aliased = resolve_training_config({"model": {}, "sampling": {"n_images": 9}}, {})
-    assert aliased.sampling.n_groups == 9
+    assert aliased.sampling.training_groups == 9
     assert len(caught) == 1
 
     with warnings.catch_warnings(record=True) as caught:
@@ -498,7 +498,7 @@ def test_f7_post_init_alias_and_default_behavior_is_stable():
             {},
         )
         validate_training_config_structure(canonical)
-    assert canonical.sampling.n_groups == 9
+    assert canonical.sampling.training_groups == 9
     assert caught == []
 
 
@@ -509,7 +509,7 @@ def test_f7_post_init_alias_and_default_behavior_is_stable():
             TrainingConfig(
                 ModelConfig(),
                 data=DataConfig(train_data_file=Path("train.npz")),
-                sampling=SamplingConfig(n_groups=7),
+                sampling=SamplingConfig(training_groups=7),
             ),
             lambda: resolution._TRAINING_CONFIG_ADAPTER,
         ),

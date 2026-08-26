@@ -27,8 +27,8 @@ def test_reassembly_applies_distinct_offsets():
         M=20,
     ).numpy()
 
-    data_cfg = DataConfig(N=N, grid_size=(1, 1), C=1)
-    model_cfg = ModelConfig(C_forward=1, C_model=1, object_big=True)
+    data_cfg = DataConfig(N=N, gridsize=1)
+    model_cfg = ModelConfig(object_big=True)
     offsets_torch = torch.from_numpy(offsets_tf).permute(0, 3, 1, 2)  # (B, 1, 1, 2)
     torch_out, _, _ = reassemble_patches_position_real(
         torch.from_numpy(patches).permute(0, 3, 1, 2),

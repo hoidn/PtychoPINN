@@ -105,14 +105,14 @@ def test_train_with_lightning_accepts_selected_datamodule_unchanged(
         model=PublicModelConfig(N=64),
         train_data_file=train_npz,
         output_dir=tmp_path,
-        n_groups=10,
+        training_groups=10,
         nphotons=1e9,
         nepochs=1,
     )
     payload = resolve_training_payload(
         train_data_file=train_npz,
         output_dir=tmp_path,
-        overrides={"n_groups": 10, "nphotons": 1e9},
+        overrides={"training_groups": 10, "nphotons": 1e9},
         execution_config=_execution_request(
             accelerator="cpu",
             devices=2,
@@ -292,7 +292,7 @@ class TestWorkflowsComponentsScaffold:
                 test_data_file=Path("/tmp/dummy_test.npz"),
                 nphotons=1e9,
             ),
-            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
+            sampling=SamplingConfig(training_groups=10, neighbor_count=4),
         )
 
         return training_config
@@ -410,7 +410,7 @@ class TestWorkflowsComponentsTraining:
                 test_data_file=Path("/tmp/dummy_test.npz"),
                 nphotons=1e9,
             ),
-            sampling=SamplingConfig(n_groups=10, neighbor_count=1),  # No neighbors
+            sampling=SamplingConfig(training_groups=10, neighbor_count=1),  # No neighbors
             nepochs=2,  # Small number for testing
         )
 
@@ -489,7 +489,7 @@ class TestWorkflowsComponentsTraining:
                 test_data_file=Path("/tmp/dummy_test.npz"),
                 nphotons=1e9,
             ),
-            sampling=SamplingConfig(n_groups=10, neighbor_count=1),
+            sampling=SamplingConfig(training_groups=10, neighbor_count=1),
             nepochs=1,
         )
 
@@ -584,7 +584,7 @@ class TestWorkflowsComponentsTraining:
             train_data_file=train_file,
             output_dir=tmp_path / "out",
             overrides={
-                "n_groups": 1,
+                "training_groups": 1,
                 "gridsize": 1,
                 "max_epochs": 1,
                 "accum_steps": 4,
@@ -764,8 +764,8 @@ class TestWorkflowsComponentsTraining:
             prefetch_factor=7,
         )
         payload = SimpleNamespace(
-            pt_data_config=DataConfig(N=64, C=1, grid_size=(1, 1)),
-            pt_model_config=ModelConfig(C_forward=1, C_model=1),
+            pt_data_config=DataConfig(N=64, gridsize=1),
+            pt_model_config=ModelConfig(),
             pt_training_config=TrainingConfig(batch_size=5),
             execution_config=execution,
         )
@@ -823,12 +823,11 @@ class TestWorkflowsComponentsTraining:
             tf_training_config=canonical,
             pt_data_config=DataConfig(
                 N=64,
-                C=1,
-                grid_size=(1, 1),
+                gridsize=1,
                 scale_contract_version="legacy_v1",
                 measurement_domain="normalized_amplitude",
             ),
-            pt_model_config=ModelConfig(C_forward=1, C_model=1),
+            pt_model_config=ModelConfig(),
             pt_training_config=TrainingConfig(
                 strategy="auto",
                 num_workers=99,
@@ -893,7 +892,7 @@ class TestWorkflowsComponentsTraining:
                 test_data_file=dataset_path,
                 nphotons=1e9,
             ),
-            sampling=SamplingConfig(n_groups=2, neighbor_count=1),
+            sampling=SamplingConfig(training_groups=2, neighbor_count=1),
             output_dir=tmp_path / "out",
             nepochs=1,
         )
@@ -1288,15 +1287,12 @@ class TestWorkflowsComponentsTraining:
         c = minimal_training_config.model.gridsize ** 2
         pt_data_config = DataConfig(
             N=minimal_training_config.model.N,
-            C=c,
-            grid_size=(minimal_training_config.model.gridsize, minimal_training_config.model.gridsize),
+            gridsize=minimal_training_config.model.gridsize,
         )
 
         pt_model_config = PTModelConfig(
             mode='Unsupervised',  # 'pinn' in TF maps to 'Unsupervised' in PyTorch
             n_filters_scale=minimal_training_config.model.n_filters_scale,
-            C_model=c,
-            C_forward=c,
         )
 
         pt_training_config = PTTrainingConfig(
@@ -1350,7 +1346,7 @@ class TestWorkflowsComponentsTraining:
 
         Design contract (phase_c4d_blockers/plan.md §B1-B2):
         - When config.model.gridsize=2, PyTorch DataConfig MUST set C=4 (2×2)
-        - ModelConfig MUST set C_model=4 and C_forward=4 to match grouping
+        - channel identity derives from gridsize (C = gridsize**2) to match grouping
         - PtychoPINN_Lightning first conv layer MUST expect 4 input channels (not 1)
 
         Test mechanism:
@@ -1360,14 +1356,14 @@ class TestWorkflowsComponentsTraining:
         - Assert first conv layer has in_channels == gridsize**2 == 4
 
         Expected failure mode (RED phase):
-        - _train_with_lightning manually builds PTDataConfig with default C=1
-        - Lightning module created with C_model=1 → first conv expects 1 channel
+        - _train_with_lightning manually builds PTDataConfig with default gridsize
+        - Lightning module created with gridsize=1 → first conv expects 1 channel
         - Assertion fails: in_channels=1 != expected 4
 
         GREEN phase fix:
         - Refactor _train_with_lightning to reuse config_factory.create_training_payload
         - Factory propagates gridsize → C via grid_size tuple → C = grid_size[0]*grid_size[1]
-        - ModelConfig receives C_model=4, Lightning module conv layers match
+        - ModelConfig receives Lightning module conv layers match
         """
         from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
         from ptycho_torch.workflows import components as torch_components
@@ -1460,7 +1456,7 @@ class TestWorkflowsComponentsTraining:
                 test_data_file=dummy_npz,   # Reuse for test data
                 nphotons=1e9,
             ),
-            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
+            sampling=SamplingConfig(training_groups=10, neighbor_count=4),
             nepochs=2,
         )
 
@@ -1548,7 +1544,7 @@ class TestWorkflowsComponentsTraining:
                 train_data_file=Path("/tmp/dummy_train.npz"),
                 nphotons=1e9,
             ),
-            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
+            sampling=SamplingConfig(training_groups=10, neighbor_count=4),
             nepochs=2,
             batch_size=16,  # Explicit batch size for shape check
         )
@@ -1626,7 +1622,7 @@ class TestWorkflowsComponentsRun:
                 test_data_file=Path("/tmp/dummy_test.npz"),
                 nphotons=1e9,
             ),
-            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
+            sampling=SamplingConfig(training_groups=10, neighbor_count=4),
             nepochs=2,
         )
 
@@ -1799,7 +1795,7 @@ class TestWorkflowsComponentsRun:
                 test_data_file=Path("/tmp/dummy_test.npz"),
                 nphotons=1e9,
             ),
-            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
+            sampling=SamplingConfig(training_groups=10, neighbor_count=4),
             output_dir=tmp_path,  # Enable persistence
         )
 
@@ -1840,14 +1836,21 @@ class TestWorkflowsComponentsRun:
         manifest = {
             "models": ["autoencoder", "diffraction_to_obj"],
             "version": "2.0-pytorch",
+            "backend": "pytorch",
+            "artifact_schema_version": "torch-artifact-portable-v4",
         }
+        metadata = {"schema_version": "torch-artifact-portable-v4"}
         monkeypatch.setattr(
             "ptycho_torch.workflows.bundle_io._read_torch_bundle_manifest_and_params",
             lambda _base_path: (manifest, archived),
         )
         monkeypatch.setattr(
             "ptycho_torch.workflows.bundle_io._read_bundle_scaling_metadata",
-            lambda _zip_path: None,
+            lambda _zip_path: metadata,
+        )
+        monkeypatch.setattr(
+            "ptycho_torch.workflows.bundle_io._decode_bundle_metadata",
+            lambda _metadata: object(),
         )
         loaded_model = SimpleNamespace()
         reconstructed = {
@@ -1867,7 +1870,7 @@ class TestWorkflowsComponentsRun:
                 scale_contract_version="legacy_v1",
                 measurement_domain="normalized_amplitude",
             )
-            return reconstructed, decoded, None
+            return reconstructed, decoded, kwargs["identity"]
 
         monkeypatch.setattr(
             "ptycho_torch.workflows.bundle_io._reconstruct_inference_bundle_explicit",
@@ -1895,12 +1898,11 @@ class TestWorkflowsComponentsRun:
 
     def test_explicit_archive_reconstruction_ignores_poisoned_global(
         self,
-        monkeypatch,
         tmp_path,
         params_cfg_snapshot,
     ):
-        """The modern archive core receives decoded params/identity explicitly."""
-        from types import SimpleNamespace
+        """The retired identity-free route raises loudly without touching cfg."""
+        import pytest as _pytest
 
         from ptycho import params
         from ptycho_torch.workflows import components
@@ -1914,37 +1916,6 @@ class TestWorkflowsComponentsRun:
             "models": ["autoencoder", "diffraction_to_obj"],
             "version": "2.0-pytorch",
         }
-        loaded_model = SimpleNamespace(
-            data_config=SimpleNamespace(
-                scale_contract_version=None,
-                measurement_domain=None,
-            )
-        )
-        reconstructed = {
-            "autoencoder": loaded_model,
-            "diffraction_to_obj": loaded_model,
-        }
-        captured = {}
-
-        def reconstruct_explicit(
-            base_path,
-            *,
-            manifest,
-            params_dict,
-            model_name,
-        ):
-            captured.update(
-                base_path=base_path,
-                manifest=manifest,
-                params_dict=params_dict,
-                model_name=model_name,
-            )
-            return reconstructed, params_dict
-
-        monkeypatch.setattr(
-            "ptycho_torch.workflows.bundle_io._reconstruct_torch_bundle_explicit",
-            reconstruct_explicit,
-        )
         params.cfg.clear()
         params.cfg.update({"N": 999, "gridsize": 9, "poison": True})
         poisoned = dict(params.cfg)
@@ -1955,26 +1926,20 @@ class TestWorkflowsComponentsRun:
         )
 
         assert callable(reconstruct)
-        models, decoded, identity = reconstruct(
-            tmp_path / "wts.h5",
-            tmp_path / "wts.h5.zip",
-            manifest=manifest,
-            params_dict=archived,
-            identity=None,
-            explicit_profile=(
-                "legacy_v1",
-                "normalized_amplitude",
-            ),
-            model_name="diffraction_to_obj",
-        )
+        with _pytest.raises(ValueError, match="migrate_legacy_bundle"):
+            reconstruct(
+                tmp_path / "wts.h5",
+                tmp_path / "wts.h5.zip",
+                manifest=manifest,
+                params_dict=archived,
+                identity=None,
+                explicit_profile=(
+                    "legacy_v1",
+                    "normalized_amplitude",
+                ),
+                model_name="diffraction_to_obj",
+            )
 
-        assert models is reconstructed
-        assert decoded is not archived
-        assert decoded["scale_contract_version"] == "legacy_v1"
-        assert decoded["measurement_domain"] == "normalized_amplitude"
-        assert identity is None
-        assert captured["manifest"] is manifest
-        assert captured["params_dict"] is archived
         assert params.cfg == poisoned
 
 
@@ -2028,7 +1993,7 @@ class TestTrainWithLightningRed:
                 test_data_file=test_data_file,
                 nphotons=1e9,
             ),
-            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
+            sampling=SamplingConfig(training_groups=10, neighbor_count=4),
             nepochs=2,
         )
 
@@ -2470,7 +2435,7 @@ class TestReassembleCdiImageTorchGreen:
                 test_data_file=Path("dummy_test.npz"),
                 nphotons=1e9,
             ),
-            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
+            sampling=SamplingConfig(training_groups=10, neighbor_count=4),
             batch_size=2,
             nepochs=1,
             output_dir=tmp_path,
@@ -2974,7 +2939,7 @@ class TestReassembleCdiImageTorchFloat32:
                 test_data_file=Path("/tmp/dummy_test.npz"),
                 nphotons=1e9,
             ),
-            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
+            sampling=SamplingConfig(training_groups=10, neighbor_count=4),
             batch_size=16,
         )
 
@@ -3224,7 +3189,7 @@ class TestDecoderLastShapeParity:
         )
         data_config = DataConfig(
             N=64,
-            grid_size=(1, 1)  # gridsize=1
+            gridsize=1  # gridsize=1
         )
 
         # --- 2. Construct representative decoder input ---
@@ -3298,7 +3263,7 @@ class TestDecoderLastShapeParity:
         )
         data_config = DataConfig(
             N=64,
-            grid_size=(1, 1)
+            gridsize=1
         )
 
         # --- 2. Construct decoder input (same dims as test_probe_big_shape_alignment) ---
@@ -3395,7 +3360,7 @@ class TestTrainWithLightningGreen:
                 test_data_file=test_data_file,
                 nphotons=1e9,
             ),
-            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
+            sampling=SamplingConfig(training_groups=10, neighbor_count=4),
             nepochs=2,
         )
 
@@ -3649,7 +3614,7 @@ class TestInferenceExecutionConfig:
                 test_data_file=Path("/tmp/dummy_test.npz"),
                 nphotons=1e9,
             ),
-            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
+            sampling=SamplingConfig(training_groups=10, neighbor_count=4),
             batch_size=16,
         )
 
@@ -3756,7 +3721,7 @@ class TestLightningCheckpointCallbacks:
                 train_data_file=Path("/tmp/dummy_train.npz"),
                 nphotons=1e9,
             ),
-            sampling=SamplingConfig(n_groups=10, neighbor_count=1),
+            sampling=SamplingConfig(training_groups=10, neighbor_count=1),
             batch_size=16,
             nepochs=2,
         )
@@ -4058,7 +4023,7 @@ class TestLightningExecutionConfig:
                 train_data_file=train_file,
                 test_data_file=test_file,  # Validation data present
             ),
-            sampling=SamplingConfig(n_groups=64),
+            sampling=SamplingConfig(training_groups=64),
             batch_size=16,
             nepochs=2,
             output_dir=tmp_path / "outputs",

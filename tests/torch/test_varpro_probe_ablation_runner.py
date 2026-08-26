@@ -394,6 +394,8 @@ def test_repr_realimag_routes_cnn_real_imag():
     assert model_config.cnn_output_mode == "real_imag"
 
 
+
+
 def test_phase1_arm_model_config_matches_dataclass_defaults_for_new_knobs():
     """architecture stays at its ModelConfig default for a Phase-1 base arm
     (unaffected by Task B1). physics_forward_mode and cnn_output_mode are the
@@ -423,7 +425,7 @@ def test_cli_architecture_and_cnn_output_mode_overrides_reach_model_config():
         "--train-npz", "dummy_train.npz",
         "--test-npz", "dummy_test.npz",
         "--output-root", "dummy_out",
-        "--architecture", "fno",
+        "--architecture", "ffno",
         "--cnn-output-mode", "real_imag",
     ])
 
@@ -432,7 +434,7 @@ def test_cli_architecture_and_cnn_output_mode_overrides_reach_model_config():
     )
     _, model_config, _, _, _ = runner.build_configs(arm_cfg, batch_size=2, epochs=1)
 
-    assert model_config.architecture == "fno"
+    assert model_config.architecture == "ffno"
     assert model_config.cnn_output_mode == "real_imag"
 
 
@@ -1165,7 +1167,7 @@ def test_cbam_scheduler_absent_defaults_leave_gs1_trainable_configs_byte_identic
     expected_model_config = ModelConfig(
         training_patch_weighting=arm_cfg["training_patch_weighting"],
         rect_s1s2_trainable=arm_cfg["rect_s1s2_trainable"],
-        C_model=1, C_forward=1, object_big=False,
+        object_big=False,
         physics_forward_mode=arm_cfg["physics_forward_mode"],
         cnn_output_mode=arm_cfg["cnn_output_mode"],
     )

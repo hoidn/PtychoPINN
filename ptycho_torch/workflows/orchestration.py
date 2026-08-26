@@ -89,8 +89,8 @@ def _public_config_from_synthetic(
             nphotons=data_config.nphotons,
         ),
         sampling=SamplingConfig(
-            n_groups=training.training_groups,
-            n_subsample=training.train_raw_selection,
+            training_groups=training.training_groups,
+            train_raw_selection=training.train_raw_selection,
             subsample_seed=training.subsample_seed,
             neighbor_count=training.neighbor_count,
             enable_oversampling=training.enable_oversampling,
@@ -239,8 +239,8 @@ def _synthetic_factory_overrides(
             else item.name
         )
         overrides[target] = getattr(resolved.inference, item.name)
-    overrides["n_groups"] = resolved.training.training_groups
-    overrides["n_subsample"] = resolved.training.train_raw_selection
+    overrides["training_groups"] = resolved.training.training_groups
+    overrides["n_raw_frames_selected"] = resolved.training.train_raw_selection
     return overrides
 
 
@@ -338,14 +338,14 @@ def _validate_payload_selection_identity(
             payload_config.output_dir,
         ),
         (
-            "sampling.n_groups",
-            selected_config.sampling.n_groups,
-            payload_config.sampling.n_groups,
+            "sampling.training_groups",
+            selected_config.sampling.training_groups,
+            payload_config.sampling.training_groups,
         ),
         (
-            "sampling.n_subsample",
-            selected_config.sampling.n_subsample,
-            payload_config.sampling.n_subsample,
+            "sampling.train_raw_selection",
+            selected_config.sampling.train_raw_selection,
+            payload_config.sampling.train_raw_selection,
         ),
         (
             "sampling.subsample_seed",
@@ -401,9 +401,9 @@ def _validate_synthetic_payload_identity(
 ) -> None:
     """Check the synthetic data/loss/gain owners agree after factory resolution."""
 
-    if payload.pt_data_config.n_subsample != resolved.training.train_raw_selection:
+    if payload.pt_data_config.n_raw_frames_selected != resolved.training.train_raw_selection:
         raise ValueError("resolved payload changed synthetic train raw selection")
-    if payload.pt_data_config.K != resolved.training.neighbor_count:
+    if payload.pt_data_config.neighbor_count != resolved.training.neighbor_count:
         raise ValueError("resolved payload changed synthetic neighbor count")
     if payload.pt_training_config.nll is not resolved.training.nll:
         raise ValueError("resolved payload changed synthetic nll identity")

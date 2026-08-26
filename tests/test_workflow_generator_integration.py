@@ -17,7 +17,7 @@ class TestTFWorkflowGeneratorIntegration:
         return TrainingConfig(
             model=model_config,
             data=DataConfig(train_data_file=Path("/tmp/dummy.npz")),
-            sampling=SamplingConfig(n_groups=10),
+            sampling=SamplingConfig(training_groups=10),
             nepochs=1,
         )
 

@@ -87,7 +87,6 @@ class TestCascadedFNOGenerator:
             fno_blocks=2,
             cnn_blocks=1,
             modes=8,
-            C=4,
         )
         x = torch.randn(2, 4, 64, 64)
         out = model(x)
@@ -122,7 +121,6 @@ class TestFnoVanillaGenerator:
             hidden_channels=16,
             n_blocks=2,
             modes=8,
-            C=4,
         )
         x = torch.randn(2, 4, 32, 32)
         out = model(x)
@@ -155,7 +153,7 @@ class TestGeneratorRegistry:
         from ptycho_torch.model import PtychoPINN_Lightning
 
         pt_configs = {
-            "data_config": DataConfig(N=64, C=4),
+            "data_config": DataConfig(N=64, gridsize=2),
             "model_config": PTModelConfig(architecture='fno'),
             "training_config": PTTrainingConfig(),
             "inference_config": PTInferenceConfig(),

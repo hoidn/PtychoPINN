@@ -28,8 +28,8 @@ def test_reassembly_crop_matches_tf():
     if tf_out.ndim == 3 and tf_out.shape[-1] == 1:
         tf_out = np.squeeze(tf_out, axis=-1)
 
-    data_cfg = DataConfig(N=N, grid_size=(1, 1), C=1)
-    model_cfg = ModelConfig(C_forward=1, C_model=1, object_big=True)
+    data_cfg = DataConfig(N=N, gridsize=1)
+    model_cfg = ModelConfig(object_big=True)
     torch_out, _, _ = reassemble_patches_position_real(
         torch.from_numpy(patch).permute(0, 3, 1, 2),
         torch.from_numpy(offsets.astype(np.float32)),

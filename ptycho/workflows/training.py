@@ -142,9 +142,9 @@ def interpret_sampling_parameters(config: TrainingConfig):
     sampling = config.sampling
     enable_oversampling = sampling.enable_oversampling
     neighbor_pool_size = sampling.neighbor_pool_size
-    if sampling.n_subsample is not None:
-        n_subsample = sampling.n_subsample
-        n_groups = sampling.n_groups
+    if sampling.train_raw_selection is not None:
+        n_subsample = sampling.train_raw_selection
+        n_groups = sampling.training_groups
         if gridsize == 1:
             message = (
                 f"Independent sampling control: subsampling {n_subsample} images, "
@@ -157,8 +157,8 @@ def interpret_sampling_parameters(config: TrainingConfig):
                 f"{n_groups * gridsize * gridsize} patterns from groups)"
             )
     else:
-        n_subsample = sampling.n_groups
-        n_groups = sampling.n_groups
+        n_subsample = sampling.training_groups
+        n_groups = sampling.training_groups
         if gridsize == 1:
             message = f"Legacy mode: using {n_groups} groups (gridsize=1)"
         else:
@@ -241,7 +241,7 @@ def _group_raw_data(
     group_count: int | None = None,
 ) -> dict:
     sampling = config.sampling
-    expected_groups = sampling.n_groups if group_count is None else group_count
+    expected_groups = sampling.training_groups if group_count is None else group_count
     grouped = raw_data.generate_grouped_data(
         N=config.model.N,
         K=sampling.neighbor_count,
@@ -422,7 +422,7 @@ def run_training_workflow(
     n_subsample, n_groups, _, _, message = interpret_sampling_parameters(config)
     logger.info(message)
     config = config.model_copy(update={
-        "sampling": config.sampling.model_copy(update={"n_groups": n_groups})
+        "sampling": config.sampling.model_copy(update={"training_groups": n_groups})
     })
 
     with _legacy_data_preparation_scope(config):

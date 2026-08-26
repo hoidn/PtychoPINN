@@ -262,7 +262,7 @@ def build_training_factory_overrides(
     optimizer = config.optimizer
     scheduler = config.scheduler
     overrides: Dict[str, Any] = {
-        "n_groups": sampling.n_groups,
+        "training_groups": sampling.training_groups,
         "gridsize": model.gridsize,
         "architecture": model.architecture,
         "model_type": mode,
@@ -311,8 +311,8 @@ def build_training_factory_overrides(
     }
     if model.model_type == "supervised":
         overrides["torch_loss_mode"] = "mae"
-    if sampling.n_subsample is not None:
-        overrides["n_subsample"] = sampling.n_subsample
+    if sampling.train_raw_selection is not None:
+        overrides["n_raw_frames_selected"] = sampling.train_raw_selection
     for name in (
         "fno_modes",
         "fno_width",
@@ -375,7 +375,7 @@ def _resolve_training_payload(
     Centralizes all config construction logic for PyTorch training workflows.
     Eliminates duplicated wiring in CLI and workflow entry points by providing
     a single factory function that:
-    1. Validates required arguments (train_data_file, output_dir, n_groups)
+    1. Validates required arguments (train_data_file, output_dir, training_groups)
     2. Infers probe size from NPZ metadata (or uses override)
     3. Constructs PyTorch singleton configs (DataConfig, ModelConfig, TrainingConfig, InferenceConfig)
     4. Applies CLI overrides with precedence rules
@@ -388,7 +388,7 @@ def _resolve_training_payload(
         train_data_file: Path to training NPZ dataset (must exist per DATA-001)
         output_dir: Path to output directory for checkpoints/logs (created if missing)
         overrides: Dict of field overrides (highest precedence). Required keys:
-            - n_groups: Number of grouped samples (no default, raises error if missing)
+            - training_groups: Number of grouped samples (no default, raises error if missing)
             Optional keys: batch_size, gridsize, max_epochs, nphotons, etc.
         execution_config: Unresolved runtime request. ``None`` uses request
             defaults. A resolved ``PyTorchExecutionConfig`` is not an input.
@@ -410,7 +410,7 @@ def _resolve_training_payload(
 
     Raises:
         FileNotFoundError: train_data_file does not exist
-        ValueError: n_groups missing in overrides (required field)
+        ValueError: training_groups missing in overrides (required field)
         ValueError: Invalid field values (N <= 0, batch_size <= 0, etc.)
 
     Example:
@@ -419,7 +419,7 @@ def _resolve_training_payload(
         ...     train_data_file=Path('datasets/train.npz'),
         ...     output_dir=Path('outputs/exp001'),
         ...     overrides={
-        ...         'n_groups': 512,
+        ...         'training_groups': 512,
         ...         'batch_size': 16,
         ...         'gridsize': 2,
         ...         'max_epochs': 10,
@@ -430,7 +430,7 @@ def _resolve_training_payload(
         ...     ),
         ... )
         >>> assert isinstance(payload.tf_training_config, TrainingConfig)
-        >>> assert payload.tf_training_config.sampling.n_groups == 512
+        >>> assert payload.tf_training_config.sampling.training_groups == 512
 
     See also:
         - Design: plans/active/ADR-003-BACKEND-API/reports/.../factory_design.md §3.1
@@ -568,7 +568,7 @@ def _resolve_inference_payload(
     Centralizes all config construction logic for PyTorch inference workflows.
     Eliminates duplicated wiring in CLI and workflow entry points by providing
     a single factory function that:
-    1. Validates required arguments (model_path, test_data_file, output_dir, n_groups)
+    1. Validates required arguments (model_path, test_data_file, output_dir, inference_groups)
     2. Loads checkpoint config from model_path (or infers from NPZ)
     3. Constructs PyTorch singleton configs (DataConfig, InferenceConfig)
     4. Applies CLI overrides with precedence rules
@@ -582,7 +582,7 @@ def _resolve_inference_payload(
         test_data_file: Path to test NPZ dataset (must exist per DATA-001)
         output_dir: Path to output directory for reconstructions (created if missing)
         overrides: Dict of field overrides (highest precedence). Required keys:
-            - n_groups: Number of grouped samples (no default, raises error if missing)
+            - inference_groups: Number of grouped samples (no default, raises error if missing)
             Optional keys: gridsize, batch_size, middle_trim, pad_eval, etc.
         execution_config: Unresolved runtime request. ``None`` uses request
             defaults. A resolved ``PyTorchExecutionConfig`` is not an input.
@@ -598,7 +598,7 @@ def _resolve_inference_payload(
     Raises:
         FileNotFoundError: model_path or test_data_file does not exist
         ValueError: model_path missing wts.h5.zip
-        ValueError: n_groups missing in overrides (required field)
+        ValueError: inference_groups missing in overrides (required field)
 
     Example:
         >>> payload = create_inference_payload(
@@ -606,7 +606,7 @@ def _resolve_inference_payload(
         ...     test_data_file=Path('datasets/test.npz'),
         ...     output_dir=Path('outputs/exp001/inference'),
         ...     overrides={
-        ...         'n_groups': 128,
+        ...         'inference_groups': 128,
         ...         'gridsize': 2,
         ...     },
         ...     execution_config=ExecutionRequest(
@@ -814,7 +814,7 @@ def create_training_payload_from_resolved_configs(
     *,
     train_data_file: Path,
     output_dir: Path,
-    n_groups: int | None,
+    training_groups: int | None,
     test_data_file: Path | None = None,
     parity_scale_mode: str = "off",
     parity_fixed_delta: float = 0.0,
@@ -832,12 +832,12 @@ def create_training_payload_from_resolved_configs(
     for value, value_type, name in expected:
         if not isinstance(value, value_type):
             raise TypeError(f"{name} must be a {value_type.__name__}")
-    if n_groups is not None and (
-        isinstance(n_groups, bool)
-        or not isinstance(n_groups, int)
-        or n_groups <= 0
+    if training_groups is not None and (
+        isinstance(training_groups, bool)
+        or not isinstance(training_groups, int)
+        or training_groups <= 0
     ):
-        raise ValueError("n_groups must be a positive integer")
+        raise ValueError("training_groups must be a positive integer")
 
     from ptycho_torch.config_bridge import to_model_config, to_training_config
 
@@ -853,16 +853,16 @@ def create_training_payload_from_resolved_configs(
                 Path(test_data_file) if test_data_file is not None else None
             ),
             "output_dir": Path(output_dir),
-            "n_groups": n_groups,
+            "training_groups": training_groups,
             "nphotons": data_config.nphotons,
         },
         require_group_count=False,
     )
-    if n_groups is None:
+    if training_groups is None:
         canonical_training = canonical_training.model_copy(
             update={
                 "sampling": canonical_training.sampling.model_copy(
-                    update={"n_groups": None}
+                    update={"training_groups": None}
                 )
             }
         )
@@ -986,10 +986,10 @@ def populate_legacy_params(
         >>> config = TrainingConfig(
         ...     model=ModelConfig(N=64, gridsize=2),
         ...     train_data_file=Path('data.npz'),
-        ...     n_groups=512,
+        ...     training_groups=512,
         ... )
         >>> populate_legacy_params(config)
-        # params.cfg now contains: {'N': 64, 'gridsize': 2, 'n_groups': 512, ...}
+        # params.cfg now contains: {'N': 64, 'gridsize': 2, 'training_groups': 512, ...}
 
     See also:
         - Bridge function: ptycho/config/config.py update_legacy_dict()

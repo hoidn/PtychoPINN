@@ -69,7 +69,7 @@ class TestLightningCheckpointSerialization:
         # Create PyTorch config objects directly
         data_cfg = DataConfig(
             N=64,
-            grid_size=(1, 1),  # Minimal gridsize for fast test
+            gridsize=1,  # Minimal gridsize for fast test
         )
 
         model_cfg = ModelConfig(
@@ -97,7 +97,7 @@ class TestLightningCheckpointSerialization:
         tf_train_cfg = TFTrainingConfig(
             model=tf_model_cfg,
             data=TFDataConfig(train_data_file=Path('dummy_train.npz'), test_data_file=None, nphotons=1e6),
-            sampling=TFSamplingConfig(n_groups=16, neighbor_count=4),
+            sampling=TFSamplingConfig(training_groups=16, neighbor_count=4),
             batch_size=16,
             nepochs=0,
             output_dir=tmp_path,
@@ -363,8 +363,7 @@ class TestLightningCheckpointSerialization:
         image_size = 128 if architecture == "neuralop_uno" else 64
         data_cfg = DataConfig(
             N=image_size,
-            C=1,
-            grid_size=(1, 1),
+            gridsize=1,
         )
         model_cfg = ModelConfig(
             mode=mode,
@@ -395,7 +394,7 @@ class TestLightningCheckpointSerialization:
         tf_train_cfg = TFTrainingConfig(
             model=tf_model_cfg,
             data=TFDataConfig(train_data_file=Path('dummy_train.npz'), test_data_file=None, nphotons=1e6),
-            sampling=TFSamplingConfig(n_groups=2, neighbor_count=4),
+            sampling=TFSamplingConfig(training_groups=2, neighbor_count=4),
             loss=TFLossConfig(torch_loss_mode="mae" if mode == "Supervised" else "poisson"),
             batch_size=2,
             nepochs=0,

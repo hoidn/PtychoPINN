@@ -42,7 +42,7 @@ Workflow Integration:
     config = TrainingConfig(
         model=ModelConfig(N=128, model_type='pinn'),
         data=DataConfig(train_data_file='data.npz'),
-        sampling=SamplingConfig(n_groups=512),
+        sampling=SamplingConfig(training_groups=512),
         nepochs=100,
     )
     
@@ -590,9 +590,9 @@ class DataConfig(BaseModel):
 class SamplingConfig(BaseModel):
     """Group sampling and neighbor selection settings."""
     model_config = _SUB_CONFIG_DICT
-    n_groups: _StrictNonNegativeInt | None = None
-    n_images: _StrictNonNegativeInt | None = None  # DEPRECATED: use n_groups
-    n_subsample: _StrictNonNegativeInt | None = None
+    training_groups: _StrictNonNegativeInt | None = None
+    n_images: _StrictNonNegativeInt | None = None  # DEPRECATED: use training_groups
+    train_raw_selection: _StrictNonNegativeInt | None = None
     subsample_seed: _StrictNonNegativeInt | None = None
     neighbor_count: _StrictPositiveInt = 4
     enable_oversampling: _StrictBool = False
@@ -605,30 +605,30 @@ class SamplingConfig(BaseModel):
         if not isinstance(values, Mapping):
             return values
         n_images = values.get('n_images')
-        n_groups = values.get('n_groups')
+        training_groups = values.get('training_groups')
         if n_images is not None:
-            if n_groups is None:
+            if training_groups is None:
                 warnings.warn(
                     "Parameter 'n_images' is deprecated and will be removed in a future version. "
-                    "Use 'n_groups' instead, which always means the number of groups regardless of gridsize.",
+                    "Use 'training_groups' instead, which always means the number of groups regardless of gridsize.",
                     DeprecationWarning,
                     stacklevel=2,
                 )
-                values = {**values, 'n_groups': n_images, 'n_images': None}
-            elif n_images != n_groups:
+                values = {**values, 'training_groups': n_images, 'n_images': None}
+            elif n_images != training_groups:
                 raise ValueError(
-                    f"'n_images' ({n_images}) conflicts with canonical 'n_groups' ({n_groups})"
+                    f"'n_images' ({n_images}) conflicts with canonical 'training_groups' ({training_groups})"
                 )
             else:
                 warnings.warn(
                     "Parameter 'n_images' is deprecated and will be removed in a future version. "
-                    "Use 'n_groups' instead, which always means the number of groups regardless of gridsize.",
+                    "Use 'training_groups' instead, which always means the number of groups regardless of gridsize.",
                     DeprecationWarning,
                     stacklevel=2,
                 )
                 values = {**values, 'n_images': None}
-        if values.get('n_groups') is None:
-            values = {**values, 'n_groups': 512}
+        if values.get('training_groups') is None:
+            values = {**values, 'training_groups': 512}
         return values
 
 
@@ -697,9 +697,9 @@ _LEGACY_TRAINING_ROOT_ALIASES: dict[str, tuple[str, str]] = {
     'nll_weight': ('tf_loss', 'nll_weight'),
     'realspace_mae_weight': ('tf_loss', 'realspace_mae_weight'),
     'realspace_weight': ('tf_loss', 'realspace_weight'),
-    'n_groups': ('sampling', 'n_groups'),
+    'training_groups': ('sampling', 'training_groups'),
     'n_images': ('sampling', 'n_images'),
-    'n_subsample': ('sampling', 'n_subsample'),
+    'train_raw_selection': ('sampling', 'train_raw_selection'),
     'subsample_seed': ('sampling', 'subsample_seed'),
     'neighbor_count': ('sampling', 'neighbor_count'),
     'enable_oversampling': ('sampling', 'enable_oversampling'),
@@ -813,9 +813,9 @@ class InferenceConfig:
     model: ModelConfig
     model_path: _PublicPath
     test_data_file: _PublicPath
-    n_groups: _StrictNonNegativeInt | None = None  # Number of groups to use (None = use all)
-    n_images: _StrictNonNegativeInt | None = None  # DEPRECATED: Use n_groups instead (kept for backward compatibility)
-    n_subsample: _StrictNonNegativeInt | None = None  # Number of images to subsample for inference (independent control)
+    inference_groups: _StrictNonNegativeInt | None = None  # Number of groups to use (None = use all)
+    n_images: _StrictNonNegativeInt | None = None  # DEPRECATED: Use inference_groups instead (kept for backward compatibility)
+    inference_raw_selection: _StrictNonNegativeInt | None = None  # Number of images to subsample for inference (independent control)
     subsample_seed: _StrictNonNegativeInt | None = None  # Random seed for reproducible subsampling
     neighbor_count: _StrictPositiveInt = 4  # K value: number of nearest neighbors for grouping (use higher values like 7 for K choose C oversampling)
     enable_oversampling: _StrictBool = False  # Explicit opt-in for K choose C oversampling (requires gridsize>1 and neighbor_pool_size>=C)
@@ -825,17 +825,17 @@ class InferenceConfig:
     backend: Annotated[Literal['tensorflow', 'pytorch'], BeforeValidator(_require_exact_str)] = 'tensorflow'  # Backend selection: defaults to TensorFlow for backward compatibility
     
     def __post_init__(self):
-        """Handle backward compatibility for n_images → n_groups migration."""
+        """Handle backward compatibility for n_images → inference_groups migration."""
         # Handle the deprecated n_images parameter
-        if self.n_images is not None and self.n_groups is None:
+        if self.n_images is not None and self.inference_groups is None:
             warnings.warn(
                 "Parameter 'n_images' is deprecated and will be removed in a future version. "
-                "Use 'n_groups' instead, which always means the number of groups regardless of gridsize.",
+                "Use 'inference_groups' instead, which always means the number of groups regardless of gridsize.",
                 DeprecationWarning,
                 stacklevel=2
             )
             # Use object.__setattr__ to modify dataclass
-            object.__setattr__(self, 'n_groups', self.n_images)
+            object.__setattr__(self, 'inference_groups', self.n_images)
 
 def _validate_execution_pre_environment_values(
     values: Mapping[str, Any],
@@ -1214,9 +1214,9 @@ def _training_config_to_legacy_dict(obj: TrainingConfig) -> Dict[str, Any]:
     d['test_data_file_path'] = str(obj.data.test_data_file) if obj.data.test_data_file is not None else None
 
     # SamplingConfig fields
-    d['n_groups'] = obj.sampling.n_groups
+    d['training_groups'] = obj.sampling.training_groups
     d['n_images'] = obj.sampling.n_images
-    d['n_subsample'] = obj.sampling.n_subsample
+    d['train_raw_selection'] = obj.sampling.train_raw_selection
     d['subsample_seed'] = obj.sampling.subsample_seed
     d['neighbor_count'] = obj.sampling.neighbor_count
     d['enable_oversampling'] = obj.sampling.enable_oversampling

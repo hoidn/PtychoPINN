@@ -52,7 +52,7 @@ def test_inference_helper_uses_reassembly(tmp_path):
     model = StubModel()
 
     # Minimal configs for the helper
-    tf_infer_cfg = SimpleNamespace(n_groups=B, stitch_crop_size=20)  # map to number of patches taken
+    tf_infer_cfg = SimpleNamespace(inference_groups=B, stitch_crop_size=20)  # map to number of patches taken
     exec_cfg = SimpleNamespace(accelerator='cpu')
 
     # Current inference helper output (was averaging pre-fix)
@@ -82,11 +82,10 @@ def test_inference_helper_uses_reassembly(tmp_path):
         offsets = torch.stack([dx, dy], dim=-1).view(B, 1, 1, 2)
 
         # Minimal configs for reassembly padding (collapse patches into channel dimension)
-        data_cfg = DataConfig(N=N, grid_size=(1, 1))
+        data_cfg = DataConfig(N=N, gridsize=1)
         model_cfg = ModelConfig()
         inputs_reassemble = inputs.reshape(1, -1, N, N)
         offsets_reassemble = offsets.reshape(1, -1, 1, 2)
-        model_cfg.C_forward = int(inputs_reassemble.shape[1])
         imgs_merged, _, _ = hh.reassemble_patches_position_real(
             inputs_reassemble, offsets_reassemble, data_cfg, model_cfg, crop_size=tf_infer_cfg.stitch_crop_size
         )
@@ -130,7 +129,7 @@ def test_reassembly_canvas_padding_invariants(monkeypatch):
             return torch.ones((x.shape[0], 1, x.shape[-1], x.shape[-1]), dtype=torch.complex64, device=x.device)
 
     model = StubModel()
-    tf_infer_cfg = SimpleNamespace(n_groups=B, stitch_crop_size=20)
+    tf_infer_cfg = SimpleNamespace(inference_groups=B, stitch_crop_size=20)
     exec_cfg = SimpleNamespace(accelerator='cpu')
 
     captured = {}

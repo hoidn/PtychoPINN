@@ -12,20 +12,18 @@ Architecture:
 MVP Scope (9 fields):
     - Model essentials: N, gridsize, model_type
     - Lifecycle paths: train_data_file, test_data_file, model_path
-    - Data grouping: n_groups, neighbor_count
+    - Data grouping: training_groups, neighbor_count
     - Physics scaling: nphotons
 
 Design Decisions:
     1. Side-effect free: Functions return new dataclass instances without mutating inputs
     2. Override pattern: Accept dict parameter for fields missing from PyTorch configs
-    3. Type conversion: Handle tuple→int (grid_size), enum mapping (mode→model_type), field renames (epochs→nepochs, K→neighbor_count)
+    3. Type conversion: enum mapping (mode→model_type), field renames (epochs→nepochs)
     4. Modular for future refactor: Designed to support eventual migration to shared dataclasses (Open Question Q1)
 
 Critical Transformations:
-    - grid_size: Tuple[int, int] → gridsize: int (extract first element, assumes square grids)
     - mode: 'Unsupervised' | 'Supervised' → model_type: 'pinn' | 'supervised' (enum mapping)
     - epochs: int → nepochs: int (field rename)
-    - K: int → neighbor_count: int (semantic mapping)
     - nll: bool → nll_weight: float (bool→float conversion: True→1.0, False→0.0)
 
 Usage:
@@ -36,7 +34,7 @@ Usage:
     import ptycho.params as params
 
     # Instantiate PyTorch configs
-    pt_data = DataConfig(N=128, grid_size=(2, 2), nphotons=1e9, K=7)
+    pt_data = DataConfig(N=128, gridsize=2, nphotons=1e9, neighbor_count=7)
     pt_model = ModelConfig(mode='Unsupervised', amp_activation='silu')
     pt_train = TrainingConfig(epochs=50)
 
@@ -44,7 +42,7 @@ Usage:
     tf_model = to_model_config(pt_data, pt_model)
     tf_train = to_training_config(
         tf_model, pt_data, pt_model, pt_train,
-        overrides=dict(train_data_file=Path('data.npz'), n_groups=512)
+        overrides=dict(train_data_file=Path('data.npz'), training_groups=512)
     )
 
     # Populate params.cfg
@@ -95,13 +93,12 @@ def to_model_config(
     Translate PyTorch DataConfig and ModelConfig to TensorFlow ModelConfig.
 
     Performs critical field transformations:
-    - grid_size tuple → gridsize int (extracts first element, assumes square grids)
     - mode enum → model_type enum ('Unsupervised'→'pinn', 'Supervised'→'supervised')
     - amp_activation normalization (silu→swish, SiLU→swish)
     - Merges fields from both PyTorch configs into single TensorFlow ModelConfig
 
     Args:
-        data: PyTorch DataConfig instance (provides N, grid_size, nphotons)
+        data: PyTorch DataConfig instance (provides N, gridsize, nphotons)
         model: PyTorch ModelConfig instance (provides mode, architecture params)
         overrides: Optional dict of additional fields to override defaults
 
@@ -109,7 +106,7 @@ def to_model_config(
         TensorFlow ModelConfig instance with translated fields
 
     Raises:
-        ValueError: If grid_size is non-square, mode has invalid value, or activation unknown
+        ValueError: If mode has invalid value or activation unknown
     """
     overrides = overrides or {}
     from ptycho_torch.object_compatibility import (
@@ -117,14 +114,8 @@ def to_model_config(
     )
     model = resolve_torch_model_object_policy(model)
 
-    # Extract gridsize from grid_size tuple (assumes square grids)
-    grid_h, grid_w = data.grid_size
-    if grid_h != grid_w:
-        raise ValueError(
-            f"Non-square grids not supported by TensorFlow backend: "
-            f"grid_size={data.grid_size}. Use square grids (e.g., (2, 2))."
-        )
-    gridsize = grid_h
+    # DataConfig.gridsize is a single square side length; no tuple to unpack.
+    gridsize = data.gridsize
 
     # Map mode enum to model_type enum
     mode_to_model_type = {
@@ -235,26 +226,25 @@ def to_training_config(
 
     Performs critical field transformations:
     - epochs → nepochs (field rename)
-    - K → neighbor_count (semantic mapping)
     - nll bool → tf_loss.nll_weight float (True→1.0, False→0.0)
     - intensity_scale_trainable from PyTorch ModelConfig (moved to TrainingConfig)
-    - Accepts overrides for fields missing in PyTorch (train_data_file, n_groups, etc.)
+    - Accepts overrides for fields missing in PyTorch (train_data_file, training_groups, etc.)
 
     Args:
         model: TensorFlow ModelConfig (already translated via to_model_config)
-        data: PyTorch DataConfig instance (provides K, nphotons)
+        data: PyTorch DataConfig instance (provides neighbor_count, nphotons)
         pt_model: PyTorch ModelConfig instance (provides intensity_scale_trainable)
         training: PyTorch TrainingConfig instance (provides epochs, batch_size, nll)
         overrides: Optional dict with flat field names that override defaults.
-            Supported keys: train_data_file, test_data_file, nphotons, n_groups,
-            n_subsample, subsample_seed, enable_oversampling,
+            Supported keys: train_data_file, test_data_file, nphotons, training_groups,
+            train_raw_selection, subsample_seed, enable_oversampling,
             neighbor_pool_size, sequential_sampling, output_dir.
 
     Returns:
         TensorFlow TrainingConfig instance with translated fields
 
     Raises:
-        ValueError: If required fields (train_data_file, n_groups) are missing
+        ValueError: If required fields (train_data_file, training_groups) are missing
     """
     import warnings
     overrides = overrides or {}
@@ -263,8 +253,8 @@ def to_training_config(
     train_data_file = overrides.get('train_data_file', training.train_data_file)
     test_data_file = overrides.get('test_data_file', training.test_data_file)
     nphotons = overrides.get('nphotons', data.nphotons)
-    n_groups = overrides.get('n_groups', training.n_groups)
-    n_subsample = overrides.get('n_subsample', None)
+    training_groups = overrides.get('training_groups', training.training_groups)
+    train_raw_selection = overrides.get('train_raw_selection', None)
     subsample_seed = overrides.get('subsample_seed', getattr(data, 'subsample_seed', None))
     output_dir = overrides.get('output_dir', training.output_dir)
     enable_oversampling = overrides.get('enable_oversampling', False)
@@ -287,13 +277,13 @@ def to_training_config(
             f"overrides=dict(..., nphotons={tensorflow_default_nphotons})"
         )
 
-    # Validate n_groups: Missing override leaves params.cfg['n_groups'] = None
+    # Validate training_groups: Missing override leaves params.cfg['training_groups'] = None
     # breaking downstream workflows that expect valid integer (Phase B.B5.D3)
-    if require_group_count and n_groups is None:
+    if require_group_count and training_groups is None:
         raise ValueError(
-            "n_groups is required in overrides for TrainingConfig. "
-            "Missing override leaves params.cfg['n_groups'] = None, breaking downstream workflows. "
-            "Provide as: overrides=dict(..., n_groups=512)"
+            "training_groups is required in overrides for TrainingConfig. "
+            "Missing override leaves params.cfg['training_groups'] = None, breaking downstream workflows. "
+            "Provide as: overrides=dict(..., training_groups=512)"
         )
 
     if test_data_file is None:
@@ -337,10 +327,10 @@ def to_training_config(
             nphotons=nphotons,
         ),
         sampling=TFSamplingConfig(
-            n_groups=n_groups,
-            n_subsample=n_subsample,
+            training_groups=training_groups,
+            train_raw_selection=train_raw_selection,
             subsample_seed=subsample_seed,
-            neighbor_count=data.K,
+            neighbor_count=data.neighbor_count,
             enable_oversampling=enable_oversampling,
             neighbor_pool_size=neighbor_pool_size,
             sequential_sampling=sequential_sampling,
@@ -391,12 +381,11 @@ def to_inference_config(
     Translate PyTorch configs to TensorFlow InferenceConfig.
 
     Performs critical field transformations:
-    - K → neighbor_count (semantic mapping)
-    - Accepts overrides for fields missing in PyTorch (model_path, test_data_file, n_groups)
+    - Accepts overrides for fields missing in PyTorch (model_path, test_data_file, inference_groups)
 
     Args:
         model: TensorFlow ModelConfig (already translated via to_model_config)
-        data: PyTorch DataConfig instance (provides K)
+        data: PyTorch DataConfig instance (provides neighbor_count)
         inference: PyTorch InferenceConfig instance (provides batch_size, etc.)
         overrides: Required dict containing model_path, test_data_file, and other missing fields
 
@@ -413,7 +402,7 @@ def to_inference_config(
         'model': model,
 
         # From DataConfig
-        'neighbor_count': data.K,  # Semantic mapping
+        'neighbor_count': data.neighbor_count,  # Semantic mapping
 
         # Backend selection: propagate PyTorch backend
         'backend': 'pytorch',  # E1.C2: Mark this config as coming from PyTorch stack
@@ -424,8 +413,8 @@ def to_inference_config(
         # Fields that must come from overrides (not in PyTorch configs)
         'model_path': None,
         'test_data_file': None,
-        'n_groups': None,
-        'n_subsample': None,
+        'inference_groups': None,
+        'inference_raw_selection': None,
         'subsample_seed': None,
         'output_dir': Path('inference_outputs'),
     }

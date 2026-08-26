@@ -460,9 +460,8 @@ def build_configs(arm_cfg: Dict[str, Any], batch_size: int = 16, epochs: int = 5
     )
 
     g = arm_cfg["gridsize"]
-    channels = g * g
     data_config = DataConfig(
-        N=arm_cfg["N"], grid_size=(g, g), C=channels, nphotons=arm_cfg["nphotons"],
+        N=arm_cfg["N"], gridsize=g, nphotons=arm_cfg["nphotons"],
     )
     # object_big derived from gridsize (matches both canonical config paths:
     # train.py:823 'object_big': args.gridsize > 1; utils.py:187-189 C_value > 1)
@@ -480,8 +479,7 @@ def build_configs(arm_cfg: Dict[str, Any], batch_size: int = 16, epochs: int = 5
     model_config = ModelConfig(
         training_patch_weighting=arm_cfg["training_patch_weighting"],
         rect_s1s2_trainable=arm_cfg["rect_s1s2_trainable"],
-        C_model=channels, C_forward=channels,
-        object_big=(g > 1),
+                object_big=(g > 1),
         **extra,
     )
     # torch_loss_mode='poisson': main's native loss, which requires count-convention
@@ -579,7 +577,7 @@ def run_training(
         execution_config,
         train_data_file=train_npz,
         output_dir=run_dir,
-        n_groups=runtime_training_config.n_groups,
+        training_groups=runtime_training_config.training_groups,
         parity_scale_mode=parity_scale_mode,
         parity_fixed_delta=parity_fixed_delta,
         parity_init_scheme=parity_init_scheme,

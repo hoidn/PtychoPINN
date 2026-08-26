@@ -10,6 +10,8 @@ from pathlib import Path
 import numpy as np
 import torch
 import torch.nn as nn
+import math
+
 import pytest
 
 FNO_REAL_IMAG_FIXTURE = (
@@ -75,8 +77,8 @@ def test_ptychopinn_with_custom_generator():
     from ptycho_torch.config_params import ModelConfig, DataConfig, TrainingConfig
 
     # Create minimal configs
-    model_config = ModelConfig(mode='Unsupervised', C_model=4)
-    data_config = DataConfig(N=64, C=4, grid_size=(2, 2))
+    model_config = ModelConfig(mode='Unsupervised')
+    data_config = DataConfig(N=64, gridsize=2)
     training_config = TrainingConfig()
 
     # Mock generator that outputs (B, H, W, C, 2) real/imag format
@@ -114,8 +116,8 @@ def test_ptychopinn_predict_complex_real_imag():
     from ptycho_torch.model import PtychoPINN
     from ptycho_torch.config_params import ModelConfig, DataConfig, TrainingConfig
 
-    model_config = ModelConfig(mode='Unsupervised', C_model=4)
-    data_config = DataConfig(N=64, C=4, grid_size=(2, 2))
+    model_config = ModelConfig(mode='Unsupervised')
+    data_config = DataConfig(N=64, gridsize=2)
     training_config = TrainingConfig()
 
     # Mock generator returning fixed real/imag values
@@ -234,8 +236,8 @@ def test_fno_real_imag_tensor_path_byte_identical():
     C = 1
     generator = _DeterministicTensorGenerator(H, W, C)
 
-    model_config = ModelConfig(architecture='fno', mode='Unsupervised', C_model=C)
-    data_config = DataConfig(N=64, C=C, grid_size=(1, 1))
+    model_config = ModelConfig(architecture='fno', mode='Unsupervised')
+    data_config = DataConfig(N=64, gridsize=math.isqrt(C))
     training_config = TrainingConfig()
 
     model = PtychoPINN(

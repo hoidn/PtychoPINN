@@ -1,5 +1,4 @@
 import json
-import dill
 import io
 import subprocess
 import sys
@@ -58,16 +57,13 @@ def _tiny_configs(*, legacy: bool = False):
     if legacy:
         data_config = DataConfig(
             N=64,
-            C=1,
-            grid_size=(1, 1),
+            gridsize=1,
             scale_contract_version=LEGACY_SCALE_CONTRACT,
             measurement_domain=NORMALIZED_AMPLITUDE,
         )
     else:
-        data_config = DataConfig(N=64, C=1, grid_size=(1, 1))
+        data_config = DataConfig(N=64, gridsize=1)
     model_config = ModelConfig(
-        C_model=1,
-        C_forward=1,
         object_big=False,
         probe_big=False,
         n_filters_scale=1,
@@ -158,7 +154,7 @@ def test_rectangular_factory_defaults_to_ci_profile(tmp_path):
         train_data_file=train_npz,
         output_dir=tmp_path / "output",
         overrides={
-            "n_groups": 4,
+            "training_groups": 4,
             "gridsize": 1,
             "physics_forward_mode": "rectangular_scaled",
             "cnn_output_mode": "real_imag",
@@ -191,7 +187,7 @@ def test_factory_rejects_partial_or_contradictory_profile_overrides(
         create_training_payload(
             train_data_file=train_npz,
             output_dir=tmp_path / "output",
-            overrides={"n_groups": 4, **overrides},
+            overrides={"training_groups": 4, **overrides},
         )
 
 
@@ -209,13 +205,13 @@ def test_factory_accepts_explicit_legacy_pair_for_training_and_inference(tmp_pat
     training = create_training_payload(
         train_data_file=data_npz,
         output_dir=tmp_path / "train-output",
-        overrides={"n_groups": 4, **profile},
+        overrides={"training_groups": 4, **profile},
     )
     inference = create_inference_payload(
         model_path=model_dir,
         test_data_file=data_npz,
         output_dir=tmp_path / "inference-output",
-        overrides={"n_groups": 4, **profile},
+        overrides={"training_groups": 4, **profile},
     )
 
     assert training.pt_data_config.scale_contract_version == LEGACY_SCALE_CONTRACT
@@ -328,18 +324,16 @@ def test_ci_bundle_recovers_profile_configs_and_frozen_statistics(tmp_path):
     )
 
     with zipfile.ZipFile(base_path.with_suffix(".h5.zip"), "r") as archive:
-        manifest = dill.loads(archive.read("manifest.dill"))
+        manifest = json.loads(archive.read("manifest.json"))
         persisted_identity = torch.load(
             io.BytesIO(archive.read("torch_scaling_metadata.pt")),
             map_location="cpu",
             weights_only=False,
         )
     assert manifest["backend"] == "pytorch"
-    assert manifest["artifact_schema_version"] == "torch-artifact-portable-v2"
-    assert persisted_identity["schema_version"] == "torch-artifact-portable-v2"
-    assert persisted_identity["model_spec"]["schema_version"] == (
-        "torch-model-spec-portable-v2"
-    )
+    assert manifest["artifact_schema_version"] == "torch-artifact-portable-v4"
+    assert persisted_identity["schema_version"] == "torch-artifact-portable-v4"
+    assert persisted_identity["model_spec"]["schema_version"] == "torch-model-spec-portable-v3"
 
     models, params = components.load_inference_bundle_torch(tmp_path / "bundle")
 

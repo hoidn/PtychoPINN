@@ -205,9 +205,8 @@ def test_save_pytorch_projects_resolved_owners_without_reading_legacy_global(
 ):
     data_config = DataConfig(
         N=128,
-        C=4,
-        K=7,
-        grid_size=(2, 2),
+        neighbor_count=7,
+        gridsize=2,
         nphotons=2.5e6,
     )
     model_config = ModelConfig(
@@ -219,7 +218,7 @@ def test_save_pytorch_projects_resolved_owners_without_reading_legacy_global(
         train_data_file=str(tmp_path / "train.npz"),
         test_data_file=str(tmp_path / "test.npz"),
         output_dir=str(tmp_path / "training"),
-        n_groups=23,
+        training_groups=23,
         epochs=7,
         batch_size=3,
     )
@@ -249,7 +248,7 @@ def test_save_pytorch_projects_resolved_owners_without_reading_legacy_global(
             "train_data_file": training_config.train_data_file,
             "test_data_file": training_config.test_data_file,
             "output_dir": training_config.output_dir,
-            "n_groups": training_config.n_groups,
+            "training_groups": training_config.training_groups,
             "nphotons": data_config.nphotons,
         },
     )

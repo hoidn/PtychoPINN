@@ -1,5 +1,5 @@
 # tests/torch/test_fno_reconstruction_quality.py
-"""Quality comparison tests for FNO vs CNN generators."""
+"""Quality comparison tests for FNO/Hybrid vs CNN generators."""
 import pytest
 import torch
 import numpy as np
@@ -66,6 +66,8 @@ def test_fno_quality_comparable_to_random_baseline():
     assert np.isfinite(model_var), "Model variance is not finite"
 
 
+
+
 @pytest.mark.slow
 def test_generator_output_improves_with_training():
     """Verify generator output becomes more consistent after training."""
@@ -123,7 +125,6 @@ def test_generators_handle_different_input_sizes():
             modes=min(8, N // 4),
             C=1,
         )
-
         x = torch.randn(2, 1, N, N)
 
         with torch.no_grad():

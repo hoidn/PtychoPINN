@@ -438,7 +438,7 @@ def load_configs_from_checkpoint(
             checkpoint = torch.load(
                 checkpoint_path,
                 map_location="cpu",
-                weights_only=False,
+                weights_only=True,
             )
             marker = checkpoint.get("ptychopinn_artifact")
             expected_marker = {
@@ -548,7 +548,7 @@ def load_configs_from_checkpoint(
         checkpoint_hparams = torch.load(
             checkpoint_path,
             map_location="cpu",
-            weights_only=False,
+            weights_only=True,
         ).get("hyper_parameters", {})
     from ptycho_torch.artifact_schema import upgrade_unversioned_sections
 
@@ -607,7 +607,7 @@ def load_checkpoint_with_configs(checkpoint_path: str,
     )
     data_config, model_config, training_config, inference_config, datagen_config = configs
 
-    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
     from ptycho_torch.checkpoint_decode import decode_checkpoint_hparams
 
     decode_checkpoint_hparams(checkpoint.get("hyper_parameters"))

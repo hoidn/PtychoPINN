@@ -50,7 +50,7 @@ def _tiny_rect_scaled_module():
         train_data_file=npz_path,
         output_dir=tmpdir / "out",
         overrides={
-            "n_groups": B,
+            "training_groups": B,
             "gridsize": 1,
             "architecture": "cnn",
             "model_type": "Unsupervised",
@@ -413,8 +413,6 @@ class _RealRectBoundary(torch.nn.Module):
             object_layout="single_patch",
             training_canvas="independent",
             probe_big=False,
-            C_model=channels,
-            C_forward=channels,
             num_datasets=num_datasets,
             probe_mask=probe_mask,
             probe_mask_diameter=(
@@ -424,8 +422,7 @@ class _RealRectBoundary(torch.nn.Module):
         )
         data_config = DataConfig(
             N=detector_size,
-            C=channels,
-            grid_size=(1, 1) if channels == 1 else (3, 3),
+            gridsize=1 if channels == 1 else (3, 3),
         )
         self.model = torch.nn.Module()
         self.model.forward_model = ForwardModel(model_config, data_config)
@@ -1337,7 +1334,7 @@ def _resolved_training_case(tmp_path, *, mode=_OMIT_INIT_OVERRIDE):
         ycoords=np.arange(patterns, dtype=np.float32),
     )
     overrides = {
-        "n_groups": patterns,
+        "training_groups": patterns,
         "batch_size": 4,
         "gridsize": 1,
         "object_big": False,
@@ -1451,7 +1448,7 @@ def test_supervised_training_publishes_ones_record_without_rectangular_scaler(
         train_data_file=train_path,
         output_dir=tmp_path / "output",
         overrides={
-            "n_groups": 1,
+            "training_groups": 1,
             "batch_size": 1,
             "gridsize": 1,
             "architecture": "ffno",

@@ -2,50 +2,39 @@
 PyTorch model persistence layer for PtychoPINN.
 
 This module provides wts.h5.zip-compatible archive creation and loading functions
-for PyTorch models, maintaining format parity with the TensorFlow ModelManager
-implementation in ptycho/model_manager.py while supporting torch-optional execution.
+for PyTorch models, maintaining layout parity with the TensorFlow ModelManager
+implementation in ptycho/model_manager.py.
 
 Critical Design Requirements:
-- Archive format MUST match TensorFlow baseline (manifest.dill + per-model subdirs)
+- Archive layout matches the TensorFlow baseline (root manifest + per-model
+  subdirs), but PyTorch archives use a versioned JSON manifest (`manifest.json`)
+  and per-model `params.json` (spec §4.6). TensorFlow archives keep
+  `manifest.dill`.
 - Legacy projection snapshots MUST come from dataclass_to_legacy_dict (CONFIG-001)
 - Dual-model bundle support MUST be maintained (spec §4.6 requirement)
-- All functions MUST be torch-optional (importable when PyTorch unavailable)
 
 Architecture Role:
-    Persistence shim bridging PyTorch training (Lightning-based) and the reconstructor
-    contract defined in specs/ptychodus_api_spec.md §4.5-4.6. Enables cross-backend
-    compatibility by preserving TensorFlow archive schema.
+    Persistence shim bridging PyTorch training (Lightning-based) and the
+    reconstructor contract defined in specs/ptychodus_api_spec.md §4.5-4.6.
 
 Core Functionality:
     - save_torch_bundle: Create wts.h5.zip archives from trained PyTorch models
-    - load_torch_bundle: Restore models with CONFIG-001-compliant params restoration
+    - _read_torch_bundle_manifest_and_params: JSON-only bundle identity/params reader
 
-File Format:
-    Identical to TensorFlow except model.pth (state_dict) replaces model.keras,
-    with version='2.0-pytorch' tag for backend detection.
-
-Usage Example:
-    # Training - save dual-model bundle
-    models = {'autoencoder': model1, 'diffraction_to_obj': model2}
-    save_torch_bundle(models, 'output/wts.h5', config)
-
-    # Inference - load with params restoration
-    models, params_dict = load_torch_bundle('output/wts.h5')
+Pre-JSON (dill-container) PyTorch archives are supported exclusively via
+`python scripts/migrate_legacy_bundle.py`; the in-process dill-era restore
+path was retired (Decision 3: delete before abstracting).
 
 References:
-- TensorFlow baseline: ptycho/model_manager.py:346-378 (save_multiple_models)
-- Phase D3 callchain: plans/active/INTEGRATE-PYTORCH-001/reports/2025-10-17T104700Z/phase_d3_callchain/
-- Spec contract: specs/ptychodus_api_spec.md:192-202
+- TensorFlow baseline: ptycho/model_manager.py (save_multiple_models)
+- Spec contract: specs/ptychodus_api_spec.md §4.6
 """
 
+import json
 import os
-import dill
 import tempfile
 import zipfile
-import shutil
 from typing import Dict, Any, Tuple, Optional
-from pathlib import Path
-from ptycho.config.legacy_state import archived_params_scope
 
 # PyTorch is now a mandatory dependency (Phase F3.1/F3.2)
 try:
@@ -53,8 +42,8 @@ try:
     import torch.nn as nn
 except ImportError as e:
     raise RuntimeError(
-        "PyTorch is required for ptycho_torch modules. "
-        "Install PyTorch >= 2.2 with: pip install torch>=2.2"
+        "PyTorch is required for ptycho_torch.model_manager. "
+        "Install torch to use the PyTorch persistence layer."
     ) from e
 
 
@@ -68,18 +57,20 @@ def save_torch_bundle(
     Save PyTorch models to wts.h5.zip-compatible archive with dual-model structure.
 
     Creates a zip archive matching the TensorFlow ModelManager.save_multiple_models
-    format, enabling cross-backend compatibility and satisfying the reconstructor
+    layout, enabling cross-backend compatibility and satisfying the reconstructor
     persistence contract (spec §4.6).
 
     Archive Structure:
         {base_path}.zip/
-        ├── manifest.dill  # {'models': [...], 'version': '2.0-pytorch'}
+        ├── manifest.json  # {'models': [...], 'version': '2.0-pytorch',
+        │                  #  'manifest_version': 'torch-manifest-v1',
+        │                  #  'backend': 'pytorch'}
         ├── autoencoder/
-        │   ├── model.pth  # PyTorch state_dict
-        │   └── params.dill  # Config-derived legacy projection (CONFIG-001)
+        │   ├── model.pth   # PyTorch state_dict
+        │   └── params.json # Config-derived legacy projection (CONFIG-001)
         └── diffraction_to_obj/
             ├── model.pth
-            └── params.dill
+            └── params.json
 
     Args:
         models_dict: Dictionary mapping model names to nn.Module instances.
@@ -93,14 +84,7 @@ def save_torch_bundle(
 
     Raises:
         ValueError: If models_dict is empty or missing required model names.
-        RuntimeError: If PyTorch is unavailable and models are not sentinel dicts.
-
-    Example:
-        >>> from ptycho.config.config import TrainingConfig, ModelConfig
-        >>> config = TrainingConfig(model=ModelConfig(N=64, gridsize=2), ...)
-        >>> models = {'autoencoder': ae_model, 'diffraction_to_obj': recon_model}
-        >>> save_torch_bundle(models, 'output/wts.h5', config)
-        >>> # Creates output/wts.h5.zip with dual-model structure
+        RuntimeError: If a model is not a trained nn.Module.
     """
     from ptycho.config.config import dataclass_to_legacy_dict
 
@@ -133,15 +117,22 @@ def save_torch_bundle(
 
     # Create archive in temporary directory
     with tempfile.TemporaryDirectory() as temp_dir:
-        # Save manifest
+        # Save manifest (versioned JSON era for PyTorch archives, spec §4.6)
+        from ptycho_torch.artifact_schema import (
+            TORCH_MANIFEST_JSON_VERSION,
+            TORCH_MANIFEST_MEMBER,
+            TORCH_PARAMS_MEMBER,
+        )
+
         manifest = {
             'models': list(models_dict.keys()),
             'version': '2.0-pytorch',
+            'manifest_version': TORCH_MANIFEST_JSON_VERSION,
             'backend': 'pytorch',
         }
-        manifest_path = os.path.join(temp_dir, 'manifest.dill')
-        with open(manifest_path, 'wb') as f:
-            dill.dump(manifest, f)
+        manifest_path = os.path.join(temp_dir, TORCH_MANIFEST_MEMBER)
+        with open(manifest_path, 'w') as f:
+            json.dump(manifest, f)
 
         # Save each model
         for model_name, model in models_dict.items():
@@ -158,10 +149,10 @@ def save_torch_bundle(
                 )
             torch.save(model.state_dict(), model_path)
 
-            # Save params snapshot (CONFIG-001 critical)
-            params_path = os.path.join(model_dir, 'params.dill')
-            with open(params_path, 'wb') as f:
-                dill.dump(params_snapshot.copy(), f)
+            # Save params snapshot (CONFIG-001 critical; JSON-native projection)
+            params_path = os.path.join(model_dir, TORCH_PARAMS_MEMBER)
+            with open(params_path, 'w') as f:
+                json.dump(params_snapshot.copy(), f)
 
         # Create zip archive
         with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
@@ -172,147 +163,39 @@ def save_torch_bundle(
                     zf.write(full_path, arc_path)
 
 
-def create_torch_model_with_gridsize(
-    gridsize: int,
-    N: int,
-    params_dict: Optional[dict] = None
-) -> nn.Module:
-    """
-    Create PyTorch Lightning model with specified gridsize and N (Phase D3.C helper).
-
-    Reconstructs PtychoPINN_Lightning module architecture from decoded params, mirroring
-    TensorFlow create_model_with_gridsize in ptycho/model_manager.py:45-86. Required
-    by the explicit Torch bundle reconstruction core.
-
-    Args:
-        gridsize: Group size parameter (e.g., 2 means 2x2 = 4 adjacent patterns).
-        N: Diffraction pattern size (e.g., 64 means 64x64 pixels).
-        params_dict: Optional decoded legacy projection. If None, uses defaults.
-
-    Returns:
-        nn.Module: Reconstructed PtychoPINN_Lightning instance with uninitialized weights.
-                   Caller must load state_dict separately.
-
-    Example:
-        >>> model = create_torch_model_with_gridsize(gridsize=2, N=64)
-        >>> model.load_state_dict(torch.load('model.pth'))
-    """
-    from ptycho_torch.config_params import ModelConfig, DataConfig, TrainingConfig, InferenceConfig
-
-    # Extract config values from params_dict (with sensible defaults)
-    params_dict = params_dict or {}
-
-    channels = int(params_dict.get('C', gridsize * gridsize))
-    # Build DataConfig from params
-    if params_dict.get('model_type', 'pinn') != 'pinn':
-        raise ValueError(
-            "metadata-free legacy_v1 wts.h5.zip supports only the declared "
-            "unsupervised CNN model_type='pinn' era"
-        )
-
-    data_config = DataConfig(
-        N=N,
-        C=channels,
-        grid_size=(gridsize, gridsize),
-        K=params_dict.get('neighbor_count', 6),
-        nphotons=params_dict.get('nphotons', 1e5),
-        scale_contract_version='legacy_v1',
-        measurement_domain='normalized_amplitude',
-    )
-
-    # Build ModelConfig from params
-    model_config = ModelConfig(
-        architecture='cnn',
-        C_model=channels,
-        C_forward=channels,
-        n_filters_scale=int(params_dict.get('n_filters_scale', 2)),
-        amp_activation=params_dict.get('amp_activation', 'silu'),
-        mode='Unsupervised',
-        cnn_output_mode='amp_phase',
-        use_shared_decoder=False,
-        batch_norm=False,
-        edge_pad=10,
-        decoder_last_c_outer_fraction=0.125,
-        decoder_last_amp_channels=1,
-        use_legacy_decoder_channel_override=False,
-        eca_encoder=False,
-        cbam_encoder=True,
-        cbam_bottleneck=False,
-        cbam_decoder=False,
-        eca_decoder=False,
-        spatial_decoder=False,
-        decoder_spatial_kernel=7,
-        object_big=params_dict.get('object.big', False),
-        probe_big=params_dict.get('probe.big', True),
-        physics_forward_mode='amplitude',
-        training_patch_weighting='central_mask',
-        loss_function=params_dict.get('loss_function', 'Poisson'),
-        intensity_scale=params_dict.get('intensity_scale', 1.0),
-        intensity_scale_trainable=params_dict.get('intensity_scale.trainable', False),
-    )
-
-    # Build TrainingConfig (minimal — weights will override from checkpoint)
-    training_config = TrainingConfig(
-        epochs=params_dict.get('nepochs', 50),
-        batch_size=params_dict.get('batch_size', 16),
-        learning_rate=params_dict.get('learning_rate', 1e-3),
-        torch_loss_mode='poisson',
-    )
-
-    # Build InferenceConfig (minimal)
-    inference_config = InferenceConfig(
-        batch_size=params_dict.get('batch_size', 1000),
-    )
-
-    # Instantiate Lightning module
-    from ptycho_torch.model import PtychoPINN_Lightning
-    model = PtychoPINN_Lightning(
-        model_config=model_config,
-        data_config=data_config,
-        training_config=training_config,
-        inference_config=inference_config,
-    )
-
-    return model
-
-
-def load_torch_bundle(
-    base_path: str,
-    model_name: str = None
-) -> Tuple[Dict[str, Any], dict]:
-    """Legacy/API wrapper that commits archive state after strict reconstruction."""
-    manifest, params_dict = _read_torch_bundle_manifest_and_params(base_path)
-    models_dict, decoded_params = _reconstruct_torch_bundle_explicit(
-        base_path,
-        manifest=manifest,
-        params_dict=params_dict,
-        model_name=model_name,
-    )
-
-    with archived_params_scope(decoded_params):
-        return models_dict, decoded_params
-
-
 def _read_torch_bundle_manifest_and_params(base_path: str) -> Tuple[dict, dict]:
     """Read bundle identity and archived flat state without constructing a model."""
     zip_path = f"{base_path}.zip"
     if not os.path.exists(zip_path):
         raise FileNotFoundError(f"Model archive not found: {zip_path}")
 
+    from ptycho_torch.artifact_schema import (
+        TORCH_MANIFEST_MEMBER,
+        TORCH_PARAMS_MEMBER,
+        validate_torch_bundle_manifest,
+    )
+
     with zipfile.ZipFile(zip_path, "r") as archive:
+        names = set(archive.namelist())
         try:
-            manifest = dill.loads(archive.read("manifest.dill"))
+            manifest = json.loads(archive.read(TORCH_MANIFEST_MEMBER))
             available_models = manifest["models"]
             if not available_models:
                 raise ValueError("Bundle manifest contains no models.")
-            params_dict = dill.loads(
-                archive.read(f"{available_models[0]}/params.dill")
-            )
+            params_member = f"{available_models[0]}/{TORCH_PARAMS_MEMBER}"
+            params_dict = json.loads(archive.read(params_member))
         except KeyError as exc:
+            if "manifest.dill" in names or any(
+                name.endswith("/params.dill") for name in names
+            ):
+                raise ValueError(
+                    "wts.h5.zip is a legacy pre-JSON bundle; run "
+                    "`python scripts/migrate_legacy_bundle.py SOURCE_DIR OUT_DIR` "
+                    "to migrate it to the versioned JSON manifest era."
+                ) from exc
             raise ValueError(
                 f"Malformed Torch bundle: missing required archive member {exc}."
             ) from exc
-    from ptycho_torch.artifact_schema import validate_torch_bundle_manifest
 
     validate_torch_bundle_manifest(manifest)
     if params_dict.get("_version") != "2.0-pytorch":
@@ -321,85 +204,3 @@ def _read_torch_bundle_manifest_and_params(base_path: str) -> Tuple[dict, dict]:
             f"{params_dict.get('_version')!r}; expected '2.0-pytorch'"
         )
     return manifest, params_dict
-
-
-def _reconstruct_torch_bundle_explicit(
-    base_path: str,
-    *,
-    manifest: dict,
-    params_dict: dict,
-    model_name: str = None,
-) -> Tuple[Dict[str, Any], dict]:
-    """
-    Reconstruct both Torch bundle roles from explicitly decoded archive inputs.
-
-    This modern core is independent of ``params.cfg``. The public
-    ``load_torch_bundle`` wrapper owns the remaining post-validation legacy
-    commit required by CONFIG-001.
-
-    ``model_name`` remains accepted for the historical call signature but both
-    required roles are always reconstructed.
-    """
-    del model_name
-
-    zip_path = f"{base_path}.zip"
-    if not os.path.exists(zip_path):
-        raise FileNotFoundError(f"Model archive not found: {zip_path}")
-
-    available_models = manifest["models"]
-    required_fields = ["N", "gridsize"]
-    missing = [field for field in required_fields if field not in params_dict]
-    if missing:
-        raise ValueError(
-            f"params.dill missing required fields: {missing}. "
-            "Cannot reconstruct model architecture."
-        )
-
-    expected_models = {"autoencoder", "diffraction_to_obj"}
-    if set(available_models) != expected_models:
-        raise RuntimeError(
-            "Torch bundle does not contain the required dual-model weights "
-            f"{sorted(expected_models)}; found {sorted(available_models)}. "
-            "Regenerate the bundle from a successful training result."
-        )
-
-    with tempfile.TemporaryDirectory() as temp_dir:
-        with zipfile.ZipFile(zip_path, "r") as zf:
-            zf.extractall(temp_dir)
-
-        gridsize = params_dict["gridsize"]
-        N = params_dict["N"]
-
-        models_dict = {}
-        for model_name_iter in available_models:
-            model = create_torch_model_with_gridsize(gridsize, N, params_dict)
-
-            model_path = os.path.join(temp_dir, model_name_iter, "model.pth")
-            if not os.path.isfile(model_path):
-                raise RuntimeError(
-                    f"Bundle weights are missing for model '{model_name_iter}'. "
-                    "Regenerate the bundle from a successful training result."
-                )
-            state_dict = torch.load(
-                model_path,
-                map_location="cpu",
-                weights_only=False,
-            )
-            if not isinstance(state_dict, dict) or "_sentinel" in state_dict:
-                raise RuntimeError(
-                    f"Bundle weights for model '{model_name_iter}' are not a trained "
-                    "state_dict. Regenerate the bundle from a successful training result."
-                )
-            try:
-                model.load_state_dict(state_dict, strict=True)
-            except RuntimeError as exc:
-                raise RuntimeError(
-                    f"Bundle architecture-era incompatibility for model "
-                    f"'{model_name_iter}': strict weight loading failed. Do not use "
-                    "strict=False; regenerate this bundle with the current architecture. "
-                    f"Original error: {exc}"
-                ) from exc
-
-            models_dict[model_name_iter] = model
-
-        return models_dict, params_dict

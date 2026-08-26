@@ -17,11 +17,9 @@ from ptycho_torch.model_spec import derive_model_spec
 @pytest.mark.parametrize("architecture", sorted(_REGISTRY))
 def test_registry_and_model_spec_construction_have_one_state_signature(architecture):
     image_size = 128 if architecture == "neuralop_uno" else 64
-    data = DataConfig(N=image_size, C=1, grid_size=(1, 1), probe_scale=4.0)
+    data = DataConfig(N=image_size, gridsize=1, probe_scale=4.0)
     model = ModelConfig(
         architecture=architecture,
-        C_model=1,
-        C_forward=1,
         object_big=False,
         probe_big=False,
         n_filters_scale=1,

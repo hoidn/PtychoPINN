@@ -19,11 +19,9 @@ def _build_model_and_batch(*, use_legacy_decoder_channel_override=False):
     np.random.seed(SEED)
     torch.manual_seed(SEED)
 
-    data_cfg = DataConfig(N=64, C=4, grid_size=(2, 2))
+    data_cfg = DataConfig(N=64, gridsize=2)
     model_cfg = ModelConfig(
         object_big=True,
-        C_model=4,
-        C_forward=4,
         use_legacy_decoder_channel_override=use_legacy_decoder_channel_override,
     )
     train_cfg = TrainingConfig()
@@ -32,7 +30,7 @@ def _build_model_and_batch(*, use_legacy_decoder_channel_override=False):
     model = PtychoPINN_Lightning(model_cfg, data_cfg, train_cfg, infer_cfg)
     model.eval()
 
-    B, C, N = 2, data_cfg.C, data_cfg.N
+    B, C, N = 2, (data_cfg.gridsize ** 2), data_cfg.N
     gen = torch.Generator().manual_seed(SEED)
 
     images = torch.rand((B, C, N, N), generator=gen, dtype=torch.float32)

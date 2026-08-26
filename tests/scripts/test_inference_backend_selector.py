@@ -296,7 +296,7 @@ class TestInferenceCliBackendDispatch:
                 output_dir=str(output_dir),
                 debug=False,
                 n_images=None,
-                n_subsample=None,
+                inference_raw_selection=None,
                 subsample_seed=None,
                 backend=backend_value
             )
@@ -320,7 +320,7 @@ class TestInferenceCliBackendDispatch:
             'output_dir',
             'debug',
             'n_images',
-            'n_subsample',
+            'inference_raw_selection',
             'subsample_seed',
             'backend',
         ):
@@ -342,7 +342,7 @@ class TestInferenceCliBackendDispatch:
                 [
                     f'model_path: {tmp_path / "model.zip"}',
                     f'test_data_file: {tmp_path / "test.npz"}',
-                    'n_groups: 6',
+                    'inference_groups: 6',
                     'neighbor_count: 7',
                     'subsample_seed: 123',
                     'debug: true',
@@ -367,7 +367,7 @@ class TestInferenceCliBackendDispatch:
 
         assert config.model_path == tmp_path / 'model.zip'
         assert config.test_data_file == tmp_path / 'test.npz'
-        assert config.n_groups == 6
+        assert config.inference_groups == 6
         assert config.neighbor_count == 7
         assert config.subsample_seed == 123
         assert config.debug is True
@@ -432,7 +432,7 @@ class TestInferenceCliBackendDispatch:
                 [
                     f'model_path: {tmp_path / "model.zip"}',
                     f'test_data_file: {test_data_path}',
-                    'n_groups: 1',
+                    'inference_groups: 1',
                     'neighbor_count: 7',
                     f'output_dir: {output_dir}',
                     'backend: tensorflow',
@@ -499,7 +499,7 @@ class TestInferenceCliBackendDispatch:
                 [
                     f'model_path: {tmp_path / "model.zip"}',
                     f'test_data_file: {tmp_path / "test.npz"}',
-                    'n_groups: 1',
+                    'inference_groups: 1',
                     'debug: true',
                     f'output_dir: {tmp_path / "output"}',
                     'backend: pytorch',
@@ -583,7 +583,7 @@ class TestInferenceCliBackendDispatch:
             test_data_file=test_path,
             output_dir=output_path,
             backend='pytorch',
-            n_groups=1,
+            inference_groups=1,
         )
         args = argparse.Namespace(
             config=None,
@@ -699,7 +699,7 @@ class TestInferenceCliBackendDispatch:
             test_data_file=test_path,
             output_dir=tmp_path / 'output',
             backend='pytorch',
-            n_groups=1,
+            inference_groups=1,
         )
         args = argparse.Namespace(
             config=None,
@@ -823,7 +823,7 @@ class TestInferenceCliBackendDispatch:
             model=ModelConfig(gridsize=2),
             model_path=Path('model.zip'),
             test_data_file=Path('test.npz'),
-            n_groups=3,
+            inference_groups=3,
         )
 
         n_subsample, n_groups, message = interpret_sampling_parameters(
@@ -987,7 +987,7 @@ def test_inference_file_only_main_uses_resolved_root_fields(
             [
                 f'model_path: {tmp_path / "model"}',
                 f'test_data_file: {test_data_path}',
-                'n_groups: 1',
+                'inference_groups: 1',
                 'neighbor_count: 7',
                 f'output_dir: {output_dir}',
                 'backend: tensorflow',
@@ -1056,7 +1056,7 @@ def test_inference_sampling_uses_authoritative_archive_gridsize(
             [
                 f'model_path: {tmp_path / "model"}',
                 f'test_data_file: {tmp_path / "test.npz"}',
-                'n_subsample: 8',
+                'inference_raw_selection: 8',
                 f'output_dir: {tmp_path / "output"}',
                 'backend: tensorflow',
             ]

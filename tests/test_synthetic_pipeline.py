@@ -1783,7 +1783,7 @@ def test_no_stage_selection_uses_real_default_adapters_in_complete_order(
     def reconstruct(*_args, **kwargs):
         calls.append("reconstruct")
         canvas = np.full((10, 10), 1.0 + 0.25j, dtype=np.complex64)
-        channels = int(kwargs["expected_workflow"].data.C)
+        channels = int(kwargs["expected_workflow"].data.gridsize) ** 2
         return SimpleNamespace(
             complex_canvas=canvas,
             amplitude=np.abs(canvas),

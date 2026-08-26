@@ -45,8 +45,8 @@ def run_backend(backend: str, out_dir: Path) -> None:
         test_data_file=DATA,
         backend=backend,
         output_dir=out_dir / "train_outputs",
-        n_groups=4,
-        n_subsample=16,
+        training_groups=4,
+        train_raw_selection=16,
         neighbor_count=7,
         batch_size=16,
         nepochs=1,
@@ -76,8 +76,8 @@ def run_backend(backend: str, out_dir: Path) -> None:
         model_path=train_cfg.output_dir,
         test_data_file=DATA,
         backend=backend,
-        n_groups=4,
-        n_subsample=16,
+        inference_groups=4,
+        inference_raw_selection=16,
         output_dir=out_dir / "inference_outputs",
     )
     model, params_dict = load_inference_bundle_with_backend(infer_cfg.model_path, infer_cfg)

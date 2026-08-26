@@ -307,7 +307,7 @@ class TestInferenceCLI:
             test_data_file=Path('test.npz'),
             backend='pytorch',
             output_dir=Path('outputs/inference'),
-            n_groups=10
+            inference_groups=10
         )
 
         execution_config = PyTorchExecutionConfig(
@@ -383,7 +383,7 @@ class TestInferenceCLIThinWrapper:
         mock_validate_paths = MagicMock()
         mock_factory = MagicMock()
         mock_factory.return_value = MagicMock(
-            tf_inference_config=MagicMock(n_groups=32),
+            tf_inference_config=MagicMock(inference_groups=32),
             pt_data_config=MagicMock(),
             execution_config=MagicMock(accelerator='cpu'),
         )
@@ -430,7 +430,7 @@ class TestInferenceCLIThinWrapper:
         mock_validate_paths = MagicMock()
         mock_factory = MagicMock()
         mock_factory.return_value = MagicMock(
-            tf_inference_config=MagicMock(n_groups=32),
+            tf_inference_config=MagicMock(inference_groups=32),
             pt_data_config=MagicMock(),
             execution_config=MagicMock(accelerator='cpu'),
         )
@@ -475,7 +475,7 @@ class TestInferenceCLIThinWrapper:
         mock_validate_paths = MagicMock()
         mock_factory = MagicMock()
         mock_factory.return_value = MagicMock(
-            tf_inference_config=MagicMock(n_groups=32),
+            tf_inference_config=MagicMock(inference_groups=32),
             pt_data_config=MagicMock(),
             execution_config=MagicMock(accelerator='cpu'),
         )
@@ -528,7 +528,7 @@ class TestInferenceCLIThinWrapper:
         mock_validate_paths = MagicMock()
         mock_factory = MagicMock()
         mock_factory.return_value = MagicMock(
-            tf_inference_config=MagicMock(n_groups=32),
+            tf_inference_config=MagicMock(inference_groups=32),
             pt_data_config=MagicMock(),
             execution_config=MagicMock(accelerator='cpu'),
         )
@@ -579,7 +579,7 @@ class TestInferenceCLIThinWrapper:
         mock_validate_paths = MagicMock()
         mock_factory = MagicMock()
         mock_factory.return_value = MagicMock(
-            tf_inference_config=MagicMock(n_groups=32),
+            tf_inference_config=MagicMock(inference_groups=32),
             pt_data_config=MagicMock(),
             execution_config=MagicMock(accelerator='cpu', enable_progress_bar=False),
         )

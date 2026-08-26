@@ -627,7 +627,6 @@ def _count_batches(n_modes=1, *, s1=1.2, s2=0.7):
         batches.append((batch_data, 0.01 * probe, torch.ones(1, 1, 1, 1)))
     data_config = DataConfig(
         N=n,
-        C=1,
         scale_contract_version="ci_intensity_v2",
         measurement_domain="count_intensity",
     )
@@ -743,7 +742,7 @@ def test_fitted_count_metrics_marks_legacy_profile_not_applicable():
     result = reassembly.evaluate_fitted_count_metrics(
         object(),
         [],
-        DataConfig(N=8, C=1),
+        DataConfig(N=8, gridsize=1),
         ModelConfig(),
         s1=1.0,
         s2=1.0,
@@ -852,7 +851,6 @@ def _run_tiny_reconstruction(
     if legacy:
         data_config = DataConfig(
             N=8,
-            C=1,
             scale_contract_version="legacy_v1",
             measurement_domain="normalized_amplitude",
         )

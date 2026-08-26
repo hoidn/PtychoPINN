@@ -159,7 +159,7 @@ def simulate_and_save(
     )
     print(
         "Simulating "
-        f"{config.sampling.n_groups} diffraction patterns..."
+        f"{config.sampling.training_groups} diffraction patterns..."
     )
     raw_data_instance, ground_truth_patches = _generate_simulated_data_legacy(
         config=config,

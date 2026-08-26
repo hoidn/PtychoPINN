@@ -55,7 +55,7 @@ class TestPatchStatsCLI:
 
         # Create a minimal mock payload to avoid downstream errors
         mock_payload = MagicMock()
-        mock_payload.pt_data_config = MagicMock(N=64, grid_size=(2,2))
+        mock_payload.pt_data_config = MagicMock(N=64, gridsize=2)
         mock_payload.pt_training_config = MagicMock(epochs=2)
         mock_payload.pt_model_config = MagicMock()
         mock_payload.tf_training_config = MagicMock()
@@ -104,7 +104,7 @@ class TestPatchStatsCLI:
         """
         mock_factory = MagicMock()
         mock_payload = MagicMock()
-        mock_payload.pt_data_config = MagicMock(N=64, grid_size=(2,2))
+        mock_payload.pt_data_config = MagicMock(N=64, gridsize=2)
         mock_payload.pt_training_config = MagicMock(epochs=2)
         mock_payload.pt_model_config = MagicMock()
         mock_payload.tf_training_config = MagicMock()
@@ -164,7 +164,7 @@ class TestPatchStatsCLI:
             train_data_file=train_file,
             output_dir=tmp_path / "outputs",
             overrides={
-                'n_groups': 8,
+                'training_groups': 8,
                 'log_patch_stats': True,
                 'patch_stats_limit': 2,
             }
@@ -202,7 +202,7 @@ class TestPatchStatsCLI:
         payload = create_training_payload(
             train_data_file=train_file,
             output_dir=tmp_path / "outputs",
-            overrides={'n_groups': 8}
+            overrides={'training_groups': 8}
         )
 
         # Assert pt_inference_config has defaults

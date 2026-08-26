@@ -18,11 +18,9 @@ from ptycho_torch.scaling_contract import (
 
 
 def _identity_parts(*, tensor_mask=False):
-    data = DataConfig(N=64, C=1, grid_size=(1, 1), probe_scale=4.0)
+    data = DataConfig(N=64, gridsize=1, probe_scale=4.0)
     mask = torch.arange(16, dtype=torch.float32).reshape(4, 4) if tensor_mask else None
     model = ModelConfig(
-        C_model=1,
-        C_forward=1,
         object_big=False,
         probe_big=False,
         probe_mask=bool(tensor_mask),
@@ -33,6 +31,97 @@ def _identity_parts(*, tensor_mask=False):
     canonical = to_model_config(data, model)
     spec = derive_model_spec(canonical, model, data)
     return spec, data, training, inference
+
+
+def _legacy_data_payload(data) -> dict:
+    """Project a live (v4) DataConfig onto the historical unversioned wire shape."""
+    payload = asdict(data)
+    gridsize = payload.pop("gridsize")
+    payload["C"] = gridsize * gridsize
+    payload["grid_size"] = (gridsize, gridsize)
+    payload["n_subsample"] = payload.pop("n_raw_frames_selected")
+    payload["K"] = payload.pop("neighbor_count")
+    return payload
+
+
+def _legacy_artifact_payload(*, era, c_model, c_forward, data_c, grid_size):
+    """Build a legacy artifact payload with chosen model twins and data grid.
+
+    The model section stores ``C_model``/``C_forward`` and the data section
+    stores ``C``/``grid_size``; callers may make the two sides disagree to pin
+    the cross-section channel-faithfulness rejection.
+    """
+    from ptycho_torch.artifact_schema import encode_artifact_identity
+
+    spec, data, training, inference = _identity_parts()
+    payload = encode_artifact_identity(spec, data, training, inference)
+
+    spec_version = (
+        "torch-model-spec-portable-v1"
+        if era == "torch-artifact-portable-v1"
+        else "torch-model-spec-portable-v2"
+    )
+    model_fields = dict(payload["model_spec"]["model_config"])
+    model_fields["C_model"] = c_model
+    model_fields["C_forward"] = c_forward
+    if era == "torch-artifact-portable-v1":
+        grouped = model_fields.pop("object_layout") == "grouped_patches"
+        model_fields.pop("training_canvas")
+        model_fields["object_big"] = grouped
+    payload["model_spec"] = {
+        **payload["model_spec"],
+        "schema_version": spec_version,
+        "model_config": model_fields,
+    }
+    payload["schema_version"] = era
+
+    data_section = _legacy_data_payload(data)
+    data_section["C"] = data_c
+    data_section["grid_size"] = grid_size
+    payload["data_config"] = data_section
+    return payload
+
+
+@pytest.mark.parametrize(
+    "era",
+    ["torch-artifact-portable-v1", "torch-artifact-portable-v2"],
+)
+def test_legacy_artifact_rejects_model_data_channel_disagreement(era):
+    from ptycho_torch.artifact_schema import decode_artifact_identity
+
+    payload = _legacy_artifact_payload(
+        era=era,
+        c_model=1,
+        c_forward=1,
+        data_c=4,
+        grid_size=(2, 2),
+    )
+    with pytest.raises(
+        ValueError,
+        match=r"C_model=1 conflicts with data section grid product 4",
+    ):
+        decode_artifact_identity(payload)
+
+
+def test_unversioned_upgrade_rejects_model_data_channel_disagreement():
+    from ptycho_torch.artifact_schema import upgrade_unversioned_sections
+
+    spec, data, training, inference = _identity_parts()
+    data_payload = _legacy_data_payload(data)
+    data_payload["C"] = 4
+    data_payload["grid_size"] = (2, 2)
+    model_payload = dict(spec.to_payload()["model_config"], C_model=1, C_forward=1)
+
+    with pytest.raises(
+        ValueError,
+        match=r"C_model=1 conflicts with data section grid product 4",
+    ):
+        upgrade_unversioned_sections(
+            data_config=data_payload,
+            model_config=model_payload,
+            training_config=asdict(training),
+            inference_config=asdict(inference),
+        )
 
 
 def test_current_artifact_roundtrip_preserves_model_spec_and_tensor_values():
@@ -106,12 +195,12 @@ def test_unversioned_current_sections_require_exact_field_sets():
     from ptycho_torch.artifact_schema import upgrade_unversioned_sections
 
     spec, data, training, inference = _identity_parts()
-    model_payload = spec.to_payload()["model_config"]
+    model_payload = dict(spec.to_payload()["model_config"], object_big=False)
     model_payload.pop("fno_width")
 
     with pytest.raises(ValueError, match=r"unversioned.*model_config.*missing.*fno_width"):
         upgrade_unversioned_sections(
-            data_config=asdict(data),
+            data_config=_legacy_data_payload(data),
             model_config=model_payload,
             training_config=asdict(training),
             inference_config=asdict(inference),
@@ -122,13 +211,13 @@ def test_known_metadata_free_legacy_upgrade_adds_only_explicit_profile():
     from ptycho_torch.artifact_schema import upgrade_unversioned_sections
 
     spec, data, training, inference = _identity_parts()
-    data_payload = asdict(data)
+    data_payload = _legacy_data_payload(data)
     data_payload.pop("scale_contract_version")
     data_payload.pop("measurement_domain")
 
     decoded = upgrade_unversioned_sections(
         data_config=data_payload,
-        model_config=spec.to_payload()["model_config"],
+        model_config=dict(spec.to_payload()["model_config"], object_big=False),
         training_config=asdict(training),
         inference_config=asdict(inference),
         explicit_profile=(LEGACY_SCALE_CONTRACT, NORMALIZED_AMPLITUDE),
@@ -190,7 +279,7 @@ def test_current_application_checkpoint_dual_writes_identity_and_reloads(tmp_pat
         "schema_version": CURRENT_ARTIFACT_SCHEMA_VERSION,
     }
     assert checkpoint["hyper_parameters"]["model_spec"]["schema_version"] == (
-        "torch-model-spec-portable-v2"
+        "torch-model-spec-portable-v3"
     )
 
     loaded = PtychoPINN_Lightning.load_from_checkpoint(
@@ -401,7 +490,7 @@ def test_transitional_ci_entrypoints_bundle_upgrades_and_strict_loads(tmp_path):
     )
     transitional = {
         "schema_version": "ci-entrypoints-v1",
-        "data_config": asdict(data),
+        "data_config": _legacy_data_payload(data),
         "model_config": asdict(model.model_config),
         "training_config": asdict(training),
         "inference_config": asdict(inference),

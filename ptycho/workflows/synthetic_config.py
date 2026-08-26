@@ -394,8 +394,6 @@ _MODEL_VALIDATION_TYPES.update(
         "learned_input_channels": _StrictPositiveInt,
         "max_hidden_channels": _StrictPositiveInt | None,
         "resnet_width": _StrictPositiveInt | None,
-        "C_model": _StrictPositiveInt,
-        "C_forward": _StrictPositiveInt,
         "object_big": _StrictBool | None,
         "probe_big": _StrictBool,
         "probe_mask": _StrictBool,
@@ -424,12 +422,11 @@ _DATA_VALIDATION_TYPES.update(
     {
         "nphotons": _StrictFinitePositiveNumber,
         "N": _StrictPositiveInt,
-        "C": _StrictPositiveInt,
-        "K": _StrictPositiveInt,
+        "gridsize": _StrictPositiveInt,
+        "neighbor_count": _StrictPositiveInt,
         "K_quadrant": _StrictPositiveInt,
-        "n_subsample": _StrictPositiveInt,
+        "n_raw_frames_selected": _StrictPositiveInt,
         "subsample_seed": _StrictNonNegativeInt | None,
-        "grid_size": tuple[_StrictPositiveInt, _StrictPositiveInt],
         "min_neighbor_distance": _StrictFiniteNonNegativeNumber,
         "max_neighbor_distance": _StrictFinitePositiveNumber,
         "probe_scale": _StrictFinitePositiveNumber,
@@ -506,8 +503,6 @@ _PROFILE_VALUES: dict[str, dict[str, Any]] = {
         "max_hidden_channels": None,
         "resnet_width": None,
         "generator_output_mode": "real_imag",
-        "C_model": None,
-        "C_forward": None,
         "object_big": None,
         "object_layout": None,
         "training_canvas": None,
@@ -921,12 +916,6 @@ def _adapt_data(values: Mapping[str, Any]) -> ResolvedDataConfig:
         name: _adapt(adapter, values[name], root=f"data.{name}")
         for name, adapter in _DATA_FIELD_ADAPTERS.items()
     }
-    expected_channels = validated["grid_size"][0] * validated["grid_size"][1]
-    if validated["C"] != expected_channels:
-        raise ValueError(
-            "data.C conflicts with data.grid_size: "
-            f"expected {expected_channels}, got {validated['C']}"
-        )
     if validated["min_neighbor_distance"] > validated["max_neighbor_distance"]:
         raise ValueError(
             "data.min_neighbor_distance must be <= data.max_neighbor_distance"
@@ -984,7 +973,6 @@ def _adapt_model(values: Mapping[str, Any]) -> SyntheticModelConfig:
 def _resolve_model(
     values: Mapping[str, Any],
     *,
-    C: int,
     N: int,
     gridsize: int,
 ) -> SyntheticModelConfig:
@@ -1005,7 +993,6 @@ def _resolve_model(
             "training_patch_weighting": "probe",
             "probe_big": True,
         }
-    expected.update({"C_model": C, "C_forward": C})
     for name, expected_value in expected.items():
         supplied = candidate[name]
         if supplied is not None and not _values_equal(supplied, expected_value):
@@ -1214,7 +1201,6 @@ def _derive_data_snapshot(
     simulation: SyntheticSimulationConfig,
     training: SyntheticTrainingConfig,
     *,
-    C: int,
     gridsize: int,
 ) -> ResolvedDataConfig:
     return _snapshot_data_config(
@@ -1223,11 +1209,10 @@ def _derive_data_snapshot(
             scale_contract_version=simulation.scale_contract_version,
             measurement_domain=simulation.measurement_domain,
             N=simulation.train.N,
-            C=C,
-            K=training.neighbor_count,
-            n_subsample=training.train_raw_selection,
+            neighbor_count=training.neighbor_count,
+            n_raw_frames_selected=training.train_raw_selection,
             subsample_seed=training.subsample_seed,
-            grid_size=(gridsize, gridsize),
+            gridsize=gridsize,
             x_bounds=(0.0, 1.0),
             y_bounds=(0.0, 1.0),
             probe_scale=4.0,
@@ -1346,7 +1331,6 @@ def _validate_resolved_workflow(resolved: ResolvedSyntheticWorkflow) -> None:
     _raise_first_record_difference("model", resolved.model, model)
     expected_model = _resolve_model(
         _record_values(model),
-        C=C,
         N=simulation.train.N,
         gridsize=gridsize,
     )
@@ -1385,7 +1369,6 @@ def _validate_resolved_workflow(resolved: ResolvedSyntheticWorkflow) -> None:
     expected_data = _derive_data_snapshot(
         simulation,
         training,
-        C=C,
         gridsize=gridsize,
     )
     _raise_first_record_difference("data", data, expected_data)
@@ -1426,7 +1409,6 @@ def resolve_synthetic_workflow(
     C = gridsize**2
     model = _resolve_model(
         merged["model"],
-        C=C,
         N=simulation.train.N,
         gridsize=gridsize,
     )
@@ -1458,7 +1440,6 @@ def resolve_synthetic_workflow(
     data = _derive_data_snapshot(
         simulation,
         training,
-        C=C,
         gridsize=gridsize,
     )
     resolved = ResolvedSyntheticWorkflow(

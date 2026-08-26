@@ -376,7 +376,7 @@ Examples:
 
         # Build overrides dict from CLI arguments
         overrides = {
-            'n_groups': args.n_images,
+            'training_groups': args.n_images,
             'batch_size': args.batch_size,
             'gridsize': args.gridsize,
             'max_epochs': args.max_epochs,
@@ -409,7 +409,7 @@ Examples:
             )
 
             print(f"✓ Factory created configs: N={payload.pt_data_config.N}, "
-                  f"gridsize={payload.pt_data_config.grid_size}, "
+                  f"gridsize={payload.pt_data_config.gridsize}, "
                   f"epochs={payload.pt_training_config.epochs}")
             print(f"✓ Execution config: accelerator={payload.execution_config.accelerator}, "
                   f"deterministic={payload.execution_config.deterministic}, "

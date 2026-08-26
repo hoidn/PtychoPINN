@@ -31,8 +31,8 @@ MAX_NEIGHBOR = 4.0  # -> get_bigN = N + (2-1)*4 = 36 padded canvas
 
 
 def _configs():
-    data_cfg = DataConfig(N=N, C=C, grid_size=GRID, max_neighbor_distance=MAX_NEIGHBOR)
-    model_cfg = ModelConfig(object_big=True, C_forward=C, C_model=C, max_position_jitter=0)
+    data_cfg = DataConfig(N=N, gridsize=2, max_neighbor_distance=MAX_NEIGHBOR)
+    model_cfg = ModelConfig(object_big=True, max_position_jitter=0)
     return data_cfg, model_cfg
 
 

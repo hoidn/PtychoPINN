@@ -329,7 +329,7 @@ def group_from_config(
     return raw_data.generate_grouped_data(
         N=config.model.N,
         K=sampling.neighbor_count,
-        nsamples=sampling.n_groups,
+        nsamples=sampling.training_groups,
         dataset_path=dataset_path,
         seed=sampling.subsample_seed,
         sequential_sampling=sampling.sequential_sampling,

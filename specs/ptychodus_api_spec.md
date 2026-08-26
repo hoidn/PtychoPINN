@@ -55,8 +55,8 @@ These types, defined in `config/config.py`, are the primary way to specify confi
   - `model`: A nested `ModelConfig` instance.
   - `data`: A nested `DataConfig` containing `train_data_file`,
     `test_data_file`, and `nphotons`.
-  - `sampling`: A nested `SamplingConfig` containing `n_groups`, deprecated
-    `n_images`, raw-row selection, neighbor grouping, and oversampling controls.
+  - `sampling`: A nested `SamplingConfig` containing `training_groups`, deprecated
+    `n_images`, `train_raw_selection`, neighbor grouping, and oversampling controls.
   - `loss` and `tf_loss`: Nested Torch loss selection and TensorFlow loss
     weights, respectively.
   - `gradient_clip`, `optimizer`, and `scheduler`: Nested optimization-policy
@@ -73,19 +73,22 @@ These types, defined in `config/config.py`, are the primary way to specify confi
   - Deprecated compatibility: the historical flat root spellings of the
     `data`, `tf_loss`, and `sampling` fields (`train_data_file`,
     `test_data_file`, `nphotons`, `mae_weight`, `nll_weight`,
-    `realspace_mae_weight`, `realspace_weight`, `n_groups`, `n_images`,
-    `n_subsample`, `subsample_seed`, `neighbor_count`, `enable_oversampling`,
-    `neighbor_pool_size`, `sequential_sampling`) are accepted at the root and
-    lifted into their nested owners during validation, emitting
-    `DeprecationWarning`. An equal flat/nested duplicate is accepted once; an
-    unequal duplicate is rejected with both spellings identified. All other
-    root extras remain forbidden. New callers must use the nested fields.
+    `realspace_mae_weight`, `realspace_weight`, `training_groups`, `n_images`,
+    `train_raw_selection`, `subsample_seed`, `neighbor_count`,
+    `enable_oversampling`, `neighbor_pool_size`, `sequential_sampling`) are
+    accepted at the root and lifted into their nested owners during
+    validation, emitting `DeprecationWarning`. The legacy flat spellings
+    `n_groups` and `n_subsample` are retired; the deprecated `n_images` alias
+    remains accepted and maps to `sampling.training_groups`. An equal
+    flat/nested duplicate is accepted once; an unequal duplicate is rejected
+    with both spellings identified. All other root extras remain forbidden.
+    New callers must use the nested fields.
 
 - **`InferenceConfig`**: Defines parameters for the reconstruction (inference) workflow.
   - `model`: A nested `ModelConfig` instance.
   - `model_path`: `pathlib.Path` to the trained model directory.
   - `test_data_file`: `pathlib.Path` to the data to be reconstructed.
-  - Extended options used by `ptychodus`, including `n_groups`, `n_subsample`, `neighbor_count`, `debug`, and `output_dir`
+  - Extended options used by `ptychodus`, including `inference_groups`, `inference_raw_selection`, `neighbor_count`, `debug`, and `output_dir`
     (`ptycho.config.config.InferenceConfig`, `ptychodus.model.ptychopinn.reconstructor`).
 
 #### 2.2. Legacy Global Dictionary (`params.py`)
@@ -122,9 +125,17 @@ This is the most critical part of the configuration API. It translates modern co
   - **Purpose**: Translate Torch-side configuration objects to public configuration instances, enabling PyTorch workflows to populate `params.cfg` through `update_legacy_dict`.
   - **Key Functions**:
     - `to_model_config(data: DataConfig, model: ModelConfig, overrides=None) -> TFModelConfig`: Converts PyTorch `DataConfig` and `ModelConfig` to TensorFlow `ModelConfig`, handling critical transformations such as `grid_size` tuple → `gridsize` int, `mode` enum → `model_type` enum, and activation name normalization.
-    - `to_training_config(model: TFModelConfig, data: DataConfig, pt_model: ModelConfig, training: TrainingConfig, overrides=None) -> TFTrainingConfig`: Translates PyTorch training parameters to TensorFlow `TrainingConfig`, converting `epochs` → `nepochs`, `K` → `neighbor_count`, `nll` bool → `nll_weight` float, and requiring explicit `overrides` for fields missing in PyTorch configs (e.g., `train_data_file`, `n_groups`).
-    - `to_inference_config(model: TFModelConfig, data: DataConfig, inference: InferenceConfig, overrides=None) -> TFInferenceConfig`: Converts PyTorch inference parameters to TensorFlow `InferenceConfig`, mapping `K` → `neighbor_count` and requiring `overrides` for `model_path` and `test_data_file`.
+    - `to_training_config(model: TFModelConfig, data: DataConfig, pt_model: ModelConfig, training: TrainingConfig, overrides=None) -> TFTrainingConfig`: Translates PyTorch training parameters to TensorFlow `TrainingConfig`, converting `epochs` → `nepochs` and `nll` bool → `nll_weight` float; the neighbor-count quantity flows from `DataConfig.neighbor_count` (the retired `K` spelling is gone). Requires explicit `overrides` for fields missing in PyTorch configs (e.g., `train_data_file`, `training_groups`).
+    - `to_inference_config(model: TFModelConfig, data: DataConfig, inference: InferenceConfig, overrides=None) -> TFInferenceConfig`: Converts PyTorch inference parameters to TensorFlow `InferenceConfig`; the neighbor-count quantity flows from `DataConfig.neighbor_count` and the adapter requires `overrides` for `model_path`, `test_data_file`, and `inference_groups`.
   - **Contract**: These adapters MUST produce public configuration records compatible with `update_legacy_dict` and maintain behavioral parity with direct public construction. Consumers (e.g., `ptychodus` PyTorch integration) MUST call these adapters before invoking `update_legacy_dict` to ensure correct `params.cfg` population. Implementation details and field mappings are documented in `ptycho_torch.config_bridge` and tested via `tests/torch/test_config_bridge.py`.
+
+- **Inference-patch fence (`ptycho_torch.config_resolution`):** The legacy
+  inference-group-count spelling `training_groups` is permanently accepted in
+  the inference phase patch and normalized to the canonical
+  `inference_groups` key. This is a documented external-contract fence, not a
+  general fallback: it exists so that callers which historically named the
+  inference-group key `training_groups` continue to resolve without a code
+  change.
 
 ### 3. API Specification and Data Flow
 
@@ -306,25 +317,43 @@ Scaling
 
 Archive identification and backend tagging
 - File name: Model archives SHALL use the canonical base name `wts.h5` with a zip extension, i.e. `wts.h5.zip`.
-- Manifest: Archives SHALL include a `manifest.dill` at the root with, at minimum, `{'models': [...], 'version': 'X.Y'}`.
-  PyTorch archives MUST additionally include `backend: 'pytorch'`; TensorFlow MAY omit this field and defaults to `'tensorflow'`.
+- Manifest: TensorFlow archives SHALL include a `manifest.dill` at the root with, at minimum, `{'models': [...], 'version': 'X.Y'}`.
+  PyTorch archives SHALL instead include a `manifest.json` at the root with, at minimum, `{'models': [...], 'version': 'X.Y'}`, an
+  explicit `manifest_version` marker (currently `'torch-manifest-v1'`), and `backend: 'pytorch'`; TensorFlow MAY omit `backend`
+  and defaults to `'tensorflow'`. Per-model config projections are stored as `params.json` (PyTorch) rather than `params.dill`.
+  Pre-JSON PyTorch archives (`manifest.dill` + per-model `params.dill`) are supported exclusively via
+  `python scripts/migrate_legacy_bundle.py`, which migrates the manifest, params, and sealed identity together.
+  `python -m ptycho_torch.migrate_bundle SRC OUT` is the single era-detecting recovery door: it routes dill-era /
+  unsealed archives to that legacy migrator, then re-encodes any historical sealed identity in the same pass so
+  the output lands at the current era; versioned `torch-artifact-portable-v1..v3` archives are re-encoded directly,
+  all without changing model weights.
 - Contents: TensorFlow archives contain Keras/SavedModel payloads and serialized custom objects; PyTorch archives contain Lightning
   `.ckpt` payload(s) and serialized hyperparameters required for state-free reload. The outer archive structure remains identical.
 - PyTorch object-policy identity: newly written PyTorch archives use
-  `artifact_schema_version='torch-artifact-portable-v2'` and a nested
-  `torch-model-spec-portable-v2`. The v2 structural model payload stores
-  `object_layout`, `training_canvas`, and `training_patch_weighting`; it does
-  not treat `object_big` as a second structural owner. The outer archive
-  version remains `2.0-pytorch` and the exact model roles remain
+  `artifact_schema_version='torch-artifact-portable-v4'` and a nested
+  `torch-model-spec-portable-v3` (the model-spec wire is unchanged by the v4
+  artifact era; the v4 delta is purely the config-field naming). The v4
+  structural model payload stores `object_layout`, `training_canvas`, and
+  `training_patch_weighting`; it does not treat `object_big` as a second
+  structural owner, and it states channel identity once via `gridsize` (the
+  retired `C`/`grid_size`/`C_model`/`C_forward` fields are derived at
+  consumption, never stored). The v4 config sections use one name per
+  quantity: `neighbor_count` (data), `training_groups` (training), and
+  `inference_groups` (inference); the retired `K`/`n_groups`/`n_subsample`
+  spellings exist only inside the frozen v1/v2/v3 wire literals. The outer
+  archive version remains `2.0-pytorch` and the exact model roles remain
   `autoencoder` and `diffraction_to_obj`.
-- Compatibility decoding: `torch-artifact-portable-v1` and
-  `torch-model-spec-portable-v1` are
-  immutable historical schemas. New loaders require their frozen exact field
-  sets and deterministically upgrade the persisted `object_big` representation
-  to the v2 in-memory identity before model construction or state loading.
-  TensorFlow archive version `1.0` and its flat derived `object.big` value are
-  unchanged. Old installed binaries are not required to read new v2 PyTorch
-  artifacts.
+- Compatibility decoding: `torch-artifact-portable-v1`,
+  `torch-artifact-portable-v2`, and `torch-artifact-portable-v3` are immutable
+  historical schemas (as are `torch-model-spec-portable-v1` and
+  `torch-model-spec-portable-v2`). New loaders require their frozen exact field
+  sets, reject an internally inconsistent payload (stored `C` disagreeing with
+  the `grid_size` product, or `C_model`/`C_forward` disagreeing with each
+  other), and deterministically upgrade the persisted `object_big`,
+  channel-twin, `K`, `n_groups`, and `n_subsample` representations to the v4
+  in-memory identity before model construction or state loading. TensorFlow
+  archive version `1.0` and its flat derived `object.big` value are unchanged.
+  Old installed binaries are not required to read new v4 PyTorch artifacts.
 - Cross-backend loading: Not required. When unsupported, loaders MUST raise a descriptive error stating the archived backend and
   the active loader backend.
 
@@ -492,8 +521,9 @@ updated in lockstep.
 
 The nested spellings below are canonical. The historical flat root spellings
 of `data.*`, `tf_loss.*`, and `sampling.*` fields remain accepted as
-deprecated aliases (see §2.1) so existing external callers such as
-`ptychodus` continue to validate.
+deprecated aliases (see §2.1); the retired flat `n_groups`/`n_subsample`
+spellings are no longer accepted, so external callers such as `ptychodus`
+must use the canonical `training_groups`/`train_raw_selection` fields.
 
 | Field | Legacy `params.cfg` key | Primary consumers | Notes |
 | :----- | :---------------------- | :----------------- | :----- |
@@ -502,9 +532,9 @@ deprecated aliases (see §2.1) so existing external callers such as
 | `data.nphotons` | `nphotons` | model/train scaling paths | Photon-count compatibility value for already-materialized data. |
 | `batch_size` | `batch_size` | legacy training loops via `params.cfg` | Maintained for compatibility with legacy CLI pipelines; current PINN training reads it from `params.cfg` when constructing datasets. |
 | `nepochs` | `nepochs` | legacy training scripts | Number of optimizer epochs; propagated to legacy CLI workflows. |
-| `sampling.n_groups` | `n_groups` | workflow components, `RawData.generate_grouped_data` | Determines grouped samples requested from the dataset; omitted input validates to 512. |
-| `sampling.n_images` *(deprecated)* | `n_images` | Pydantic alias validator and compatibility paths | Alias converted to `sampling.n_groups` and cleared during validation; unequal alias/canonical values fail. |
-| `sampling.n_subsample` | `n_subsample` | workflow sampling paths | Optional independent raw-row selection count before grouping. |
+| `sampling.training_groups` | `training_groups` | workflow components, `RawData.generate_grouped_data` | Determines grouped samples requested from the dataset; omitted input validates to 512. |
+| `sampling.n_images` *(deprecated)* | `n_images` | Pydantic alias validator and compatibility paths | Alias converted to `sampling.training_groups` and cleared during validation; unequal alias/canonical values fail. |
+| `sampling.train_raw_selection` | `train_raw_selection` | workflow sampling paths | Optional independent raw-row selection count before grouping. |
 | `sampling.subsample_seed` | `subsample_seed` | workflow sampling paths | Ensures reproducible subsampling when provided. |
 | `sampling.neighbor_count` | `neighbor_count` | workflow components, `RawData.generate_grouped_data` | Sets nearest-neighbor query width. |
 | `sampling.enable_oversampling` | `enable_oversampling` | workflow sampling paths | Explicitly enables combination-based oversampling. |
@@ -542,9 +572,9 @@ deprecated aliases (see §2.1) so existing external callers such as
 | :----- | :---------------------- | :----------------- | :----- |
 | `model_path` | `model_path` | Ptychodus reconstructor, `load_inference_bundle` | Directory containing `wts.h5.zip`; consumed by `load_inference_bundle` / `ModelManager`. |
 | `test_data_file` | `test_data_file_path` | workflow components | Optional NPZ path for inference data preparation. |
-| `n_groups` | `n_groups` | workflow components | Controls requested grouped samples during inference workflows. |
-| `n_images` *(deprecated)* | `n_images` | config `__post_init__` and compatibility workflow paths | Legacy alias; converted to `n_groups` by `InferenceConfig.__post_init__`. |
-| `n_subsample` | `n_subsample` | workflow sampling paths | Optional inference-time subsampling before grouping. |
+| `inference_groups` | `inference_groups` | workflow components | Controls requested grouped samples during inference workflows. |
+| `n_images` *(deprecated)* | `n_images` | config `__post_init__` and compatibility workflow paths | Legacy alias; converted to `inference_groups` by `InferenceConfig.__post_init__`. |
+| `inference_raw_selection` | `inference_raw_selection` | workflow sampling paths | Optional inference-time subsampling before grouping. |
 | `subsample_seed` | `subsample_seed` | workflow sampling paths | Seed for reproducible inference subsampling. |
 | `neighbor_count` | `neighbor_count` | workflow components | Sets K-nearest-neighbor search width during inference grouping. |
 | `debug` | `debug` | logging/debug decorators | Enables verbose debug logging decorators throughout the pipeline. |

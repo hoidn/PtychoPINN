@@ -58,7 +58,7 @@ Basic simulation from NPZ file:
     >>> model_config = ModelConfig(N=64, gridsize=2)
     >>> training_config = TrainingConfig(
     ...     model=model_config,
-    ...     sampling=SamplingConfig(n_groups=2000),
+    ...     sampling=SamplingConfig(training_groups=2000),
     ... )
     >>> 
     >>> # Simulate non-grid data from experimental object/probe
@@ -180,10 +180,10 @@ def _generate_simulated_data_legacy_params(
         else coordinate_rng
     )
 
-    # Use n_groups (modern) with fallback to n_images (deprecated) for compatibility
-    n_positions = config.sampling.n_groups if config.sampling.n_groups is not None else config.sampling.n_images
+    # Use training_groups (modern) with fallback to n_images (deprecated) for compatibility
+    n_positions = config.sampling.training_groups if config.sampling.training_groups is not None else config.sampling.n_images
     if n_positions is None:
-        raise ValueError("Either n_groups or n_images must be specified in config")
+        raise ValueError("Either training_groups or n_images must be specified in config")
 
     xcoords = rng.uniform(buffer, width - buffer, n_positions)
     ycoords = rng.uniform(buffer, height - buffer, n_positions)

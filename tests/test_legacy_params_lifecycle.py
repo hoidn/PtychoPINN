@@ -306,40 +306,18 @@ def test_tensorflow_bundle_failure_rolls_back_archived_state(tmp_path):
 
 
 def test_torch_bundle_failure_rolls_back_archived_state(tmp_path, monkeypatch):
-    from ptycho_torch import model_manager
+    import ptycho_torch.application_factory as application_factory
+    from ptycho_torch.workflows.bundle_io import load_inference_bundle_torch
+    from tests.torch.era_fixtures import build_bundle
 
-    base_path = tmp_path / "wts.h5"
-    archive = Path(f"{base_path}.zip")
-    source = tmp_path / "archive"
-    source.mkdir()
-    model_names = ["autoencoder", "diffraction_to_obj"]
-    with (source / "manifest.dill").open("wb") as handle:
-        dill.dump({"models": model_names, "version": "2.0-pytorch"}, handle)
-    for model_name in model_names:
-        model_dir = source / model_name
-        model_dir.mkdir(parents=True)
-        with (model_dir / "params.dill").open("wb") as handle:
-            dill.dump(
-                {
-                    "_version": "2.0-pytorch",
-                    "N": 64,
-                    "gridsize": 1,
-                    "loaded_only": True,
-                },
-                handle,
-            )
-    with zipfile.ZipFile(archive, "w") as bundle:
-        bundle.write(source / "manifest.dill", "manifest.dill")
-        for model_name in model_names:
-            bundle.write(
-                source / model_name / "params.dill",
-                f"{model_name}/params.dill",
-            )
+    bundle_dir = build_bundle(tmp_path, "portable_v2_json")
 
     monkeypatch.setattr(
-        model_manager,
-        "create_torch_model_with_gridsize",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("build failed")),
+        application_factory,
+        "build_ptychopinn_application",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            RuntimeError("build failed")
+        ),
     )
 
     original = dict(params.cfg)
@@ -347,7 +325,7 @@ def test_torch_bundle_failure_rolls_back_archived_state(tmp_path, monkeypatch):
         params.cfg["archive_marker"] = "root"
 
         with pytest.raises(RuntimeError, match="build failed"):
-            model_manager.load_torch_bundle(str(base_path))
+            load_inference_bundle_torch(bundle_dir)
 
         assert params.cfg["archive_marker"] == "root"
         assert "loaded_only" not in params.cfg

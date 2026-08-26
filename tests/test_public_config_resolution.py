@@ -152,7 +152,7 @@ def test_inference_file_value_survives_omitted_cli_value():
         {},
     )
 
-    assert config.n_groups == 9
+    assert config.training_groups == 9
     assert config.model.N == 128
 
 
@@ -162,7 +162,7 @@ def test_inference_explicit_cli_value_overrides_file():
         {"n_groups": 3},
     )
 
-    assert config.n_groups == 3
+    assert config.training_groups == 3
 
 
 def test_inference_yaml_root_values_and_explicit_defaults_resolve_by_precedence():
@@ -185,7 +185,7 @@ def test_inference_yaml_root_values_and_explicit_defaults_resolve_by_precedence(
         },
     )
 
-    assert config.n_groups == 3
+    assert config.training_groups == 3
     assert config.neighbor_count == 4
     assert config.subsample_seed == 45
     assert config.debug is False
@@ -240,7 +240,7 @@ def test_n_images_alone_resolves_to_canonical_n_groups(
         config = resolver(source_factory(n_images=7), {})
 
     _assert_single_n_images_deprecation(caught_warnings)
-    assert _sampling(config).n_groups == 7
+    assert _sampling(config).training_groups == 7
     assert _sampling(config).n_images is None
 
 
@@ -259,7 +259,7 @@ def test_equal_n_images_and_n_groups_in_one_source_are_accepted_once(
         )
 
     _assert_single_n_images_deprecation(caught_warnings)
-    assert _sampling(config).n_groups == 7
+    assert _sampling(config).training_groups == 7
     assert _sampling(config).n_images is None
 
 
@@ -292,7 +292,7 @@ def test_file_n_images_then_cli_n_groups_uses_cli_canonical_value_inference():
         )
 
     _assert_single_n_images_deprecation(caught_warnings)
-    assert config.n_groups == 11
+    assert config.training_groups == 11
     assert config.n_images is None
 
 
@@ -323,7 +323,7 @@ def test_file_n_images_only_training_resolves_to_n_groups():
         )
 
     _assert_single_n_images_deprecation(caught_warnings)
-    assert config.sampling.n_groups == 11
+    assert config.sampling.training_groups == 11
     assert config.sampling.n_images is None
 
 
@@ -335,7 +335,7 @@ def test_file_n_groups_then_cli_n_images_uses_cli_alias_value_inference():
         )
 
     _assert_single_n_images_deprecation(caught_warnings)
-    assert config.n_groups == 11
+    assert config.training_groups == 11
     assert config.n_images is None
 
 
@@ -366,7 +366,7 @@ def test_n_groups_without_n_images_emits_no_compatibility_warning(
         warnings.simplefilter("always")
         config = resolver(source_factory(n_groups=7), {})
 
-    assert _sampling(config).n_groups == 7
+    assert _sampling(config).training_groups == 7
     assert _sampling(config).n_images is None
     assert caught_warnings == []
 
@@ -433,7 +433,7 @@ def test_direct_inference_config_n_images_construction_retains_post_init_behavio
         config = _direct_inference_config(n_images=7)
 
     _assert_single_n_images_deprecation(caught_warnings)
-    assert config.n_groups == 7
+    assert config.training_groups == 7
     assert config.n_images == 7
 
 
@@ -444,7 +444,7 @@ def test_direct_training_config_n_images_construction_clears_n_images():
         config = _direct_training_config(n_images=7)
 
     _assert_single_n_images_deprecation(caught_warnings)
-    assert config.sampling.n_groups == 7
+    assert config.sampling.training_groups == 7
     assert config.sampling.n_images is None
 
 
@@ -454,7 +454,7 @@ def test_direct_inference_config_n_images_n_groups_conflict_remains_accepted():
         warnings.simplefilter("always")
         config = _direct_inference_config(n_images=7, n_groups=9)
 
-    assert config.n_groups == 9
+    assert config.training_groups == 9
     assert config.n_images == 7
     assert caught_warnings == []
 
@@ -837,7 +837,7 @@ def test_resolved_training_legacy_projection_matches_equivalent_direct_config():
     direct = public_config.TrainingConfig(
         model=public_config.ModelConfig(N=128),
         data=public_config.DataConfig(train_data_file=Path("data/train.npz"), test_data_file=None),
-        sampling=public_config.SamplingConfig(n_groups=7),
+        sampling=public_config.SamplingConfig(training_groups=7),
         output_dir=Path("outputs/train"),
     )
 
@@ -1194,20 +1194,20 @@ def test_public_training_parser_unwraps_direct_and_optional_literal_choices(
     monkeypatch,
 ):
     # CliSettingsSource returns all values as strings.
-    # Dotted sub-config args (--sampling.n_groups) become dotted Namespace attrs.
+    # Dotted sub-config args (--sampling.training_groups) become dotted Namespace attrs.
     # Direct TrainingConfig fields (--backend) are plain attrs.
     args = _parse_public_training_args(
         monkeypatch,
         "--backend",
         "pytorch",
-        "--sampling.n_groups",
+        "--sampling.training_groups",
         "11",
     )
 
     assert args.backend == "pytorch"
     assert type(args.backend) is str
-    assert getattr(args, "sampling.n_groups") == "11"
-    assert type(getattr(args, "sampling.n_groups")) is str
+    assert getattr(args, "sampling.training_groups") == "11"
+    assert type(getattr(args, "sampling.training_groups")) is str
 
 
 def test_public_training_parser_boolean_actions_preserve_explicitness(
@@ -1284,13 +1284,13 @@ def test_public_training_parser_literal_help_keeps_existing_cli_spellings(
     capsys,
 ):
     # CliSettingsSource uses dotted names for sub-config fields.
-    # Sampling fields appear as --sampling.n_groups, --sampling.n_images, etc.
+    # Sampling fields appear as --sampling.training_groups, --sampling.n_images, etc.
     with pytest.raises(SystemExit) as error:
         _parse_public_training_args(monkeypatch, "--help")
 
     assert error.value.code == 0
     help_text = capsys.readouterr().out
-    assert "--sampling.n_groups" in help_text
+    assert "--sampling.training_groups" in help_text
     assert "--sampling.n_images" in help_text
     assert "--sampling.neighbor_count" in help_text
     assert "--backend {tensorflow,pytorch}" in help_text

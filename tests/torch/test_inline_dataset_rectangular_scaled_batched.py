@@ -63,14 +63,11 @@ def _training_payload(
     return SimpleNamespace(
         pt_data_config=PTDataConfig(
             N=64,
-            C=1,
-            grid_size=(1, 1),
+            gridsize=1,
             scale_contract_version="legacy_v1",
             measurement_domain="normalized_amplitude",
         ),
         pt_model_config=PTModelConfig(
-            C_model=1,
-            C_forward=1,
             physics_forward_mode=physics_forward_mode,
             loss_function="MAE",
         ),
@@ -129,7 +126,7 @@ def test_inline_dataset_collate_shapes_match_native_contract(
     tf_training_cfg = TFTrainingConfig(
         model=tf_model_cfg,
         data=TFDataConfig(train_data_file=None),
-        sampling=TFSamplingConfig(n_groups=n_samples),
+        sampling=TFSamplingConfig(training_groups=n_samples),
         output_dir=tmp_path,
         batch_size=batch_size,
     )
@@ -176,7 +173,7 @@ def test_inline_dataset_amplitude_mode_emits_documented_probe_layout(
     tf_training_cfg = TFTrainingConfig(
         model=tf_model_cfg,
         data=TFDataConfig(train_data_file=None),
-        sampling=TFSamplingConfig(n_groups=n_samples),
+        sampling=TFSamplingConfig(training_groups=n_samples),
         output_dir=tmp_path,
         batch_size=batch_size,
     )
@@ -224,7 +221,7 @@ def test_inline_dataset_collate_rectangular_scaled_forward_no_crash(
     tf_training_cfg = TFTrainingConfig(
         model=tf_model_cfg,
         data=TFDataConfig(train_data_file=None),
-        sampling=TFSamplingConfig(n_groups=n_samples),
+        sampling=TFSamplingConfig(training_groups=n_samples),
         output_dir=tmp_path,
         batch_size=batch_size,
     )

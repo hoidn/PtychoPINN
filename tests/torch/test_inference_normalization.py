@@ -46,7 +46,7 @@ def test_inference_uses_training_normalization_scale(monkeypatch):
 
     monkeypatch.setattr(hh, "reassemble_patches_position_real", fake_reassemble)
 
-    config = SimpleNamespace(n_groups=2)
+    config = SimpleNamespace(inference_groups=2)
     inference._run_inference_and_reconstruct(
         DummyModel(),
         raw_data,
@@ -67,10 +67,8 @@ def test_simplified_ci_inference_fails_before_computing_output_scale(monkeypatch
     )
 
     class CIModel:
-        data_config = DataConfig(N=4, C=1, grid_size=(1, 1))
+        data_config = DataConfig(N=4, gridsize=1)
         model_config = ModelConfig(
-            C_model=1,
-            C_forward=1,
             physics_forward_mode="rectangular_scaled",
             cnn_output_mode="real_imag",
         )
@@ -95,7 +93,7 @@ def test_simplified_ci_inference_fails_before_computing_output_scale(monkeypatch
         inference._run_inference_and_reconstruct(
             CIModel(),
             raw_data,
-            SimpleNamespace(n_groups=2),
+            SimpleNamespace(inference_groups=2),
             execution_config=None,
             device=torch.device("cpu"),
             quiet=True,
@@ -115,14 +113,11 @@ def test_explicit_legacy_simplified_inference_remains_available(monkeypatch):
         torch_loss_mode = "poisson"
         data_config = DataConfig(
             N=4,
-            C=1,
-            grid_size=(1, 1),
+            gridsize=1,
             scale_contract_version="legacy_v1",
             measurement_domain="normalized_amplitude",
         )
         model_config = ModelConfig(
-            C_model=1,
-            C_forward=1,
             physics_forward_mode="rectangular_scaled",
             cnn_output_mode="real_imag",
         )
@@ -149,7 +144,7 @@ def test_explicit_legacy_simplified_inference_remains_available(monkeypatch):
     amplitude, phase = inference._run_inference_and_reconstruct(
         LegacyModel(),
         raw_data,
-        SimpleNamespace(n_groups=2),
+        SimpleNamespace(inference_groups=2),
         execution_config=None,
         device=torch.device("cpu"),
         quiet=True,

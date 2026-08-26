@@ -53,11 +53,11 @@ TRAINING_INPUTS_BY_OWNER = {
         "scale_contract_version",
         "measurement_domain",
         "N",
-        "K",
+        "neighbor_count",
         "K_quadrant",
-        "n_subsample",
+        "n_raw_frames_selected",
         "subsample_seed",
-        "grid_size",
+        "gridsize",
         "neighbor_function",
         "min_neighbor_distance",
         "max_neighbor_distance",
@@ -165,7 +165,7 @@ TRAINING_INPUTS_BY_OWNER = {
         "notes",
         "model_name",
         "test_data_file",
-        "n_groups",
+        "training_groups",
     },
     "inference": {
         "middle_trim",
@@ -184,9 +184,6 @@ TRAINING_INPUTS_BY_OWNER = {
         "sequential_sampling",
     },
     "derived_constraint": {
-        "C",
-        "C_model",
-        "C_forward",
         "loss_function",
         "nll",
         "train_data_file",
@@ -197,8 +194,8 @@ TRAINING_INPUTS_BY_OWNER = {
 INFERENCE_INPUTS_BY_OWNER = {
     "data": {
         "N",
-        "K",
-        "grid_size",
+        "neighbor_count",
+        "gridsize",
         "probe_scale",
         "subsample_seed",
         "scale_contract_version",
@@ -228,13 +225,10 @@ INFERENCE_INPUTS_BY_OWNER = {
         "patch_stats_limit",
     },
     "bridge": {
-        "n_groups",
-        "n_subsample",
+        "inference_groups",
+        "n_raw_frames_selected",
     },
     "derived_constraint": {
-        "C",
-        "C_model",
-        "C_forward",
         "model_path",
         "test_data_file",
         "output_dir",
@@ -242,14 +236,11 @@ INFERENCE_INPUTS_BY_OWNER = {
 }
 
 TRAINING_ALIASES = {
-    "gridsize": "grid_size",
-    "neighbor_count": "K",
     "model_type": "mode",
     "max_epochs": "epochs",
 }
 INFERENCE_ALIASES = {
-    "gridsize": "grid_size",
-    "neighbor_count": "K",
+    "training_groups": "inference_groups",
     "model_type": "mode",
 }
 
@@ -269,13 +260,13 @@ def _aliases_from_rules(rules):
 
 
 def test_training_registry_matches_literal_phase_inventory() -> None:
-    assert len(TRAINING_INPUT_RULES) == 132
+    assert len(TRAINING_INPUT_RULES) == 129
     assert _rules_by_owner(TRAINING_INPUT_RULES) == TRAINING_INPUTS_BY_OWNER
     assert _aliases_from_rules(TRAINING_INPUT_RULES) == TRAINING_ALIASES
 
 
 def test_inference_registry_matches_literal_phase_inventory() -> None:
-    assert len(INFERENCE_INPUT_RULES) == 34
+    assert len(INFERENCE_INPUT_RULES) == 31
     assert _rules_by_owner(INFERENCE_INPUT_RULES) == INFERENCE_INPUTS_BY_OWNER
     assert _aliases_from_rules(INFERENCE_INPUT_RULES) == INFERENCE_ALIASES
 
@@ -315,26 +306,14 @@ def test_inference_patch_rejects_sorted_unknown_names() -> None:
         ),
         (
             normalize_training_patch,
-            {"neighbor_count": 4, "K": 4},
-            "K",
-            4,
-        ),
-        (
-            normalize_training_patch,
             {"model_type": "Supervised", "mode": "Supervised"},
             "mode",
             "Supervised",
         ),
         (
-            normalize_training_patch,
-            {"gridsize": 2, "grid_size": (2, 2)},
-            "grid_size",
-            (2, 2),
-        ),
-        (
             normalize_inference_patch,
-            {"neighbor_count": 4, "K": 4},
-            "K",
+            {"training_groups": 4, "inference_groups": 4},
+            "inference_groups",
             4,
         ),
         (
@@ -342,12 +321,6 @@ def test_inference_patch_rejects_sorted_unknown_names() -> None:
             {"model_type": "Supervised", "mode": "Supervised"},
             "mode",
             "Supervised",
-        ),
-        (
-            normalize_inference_patch,
-            {"gridsize": 2, "grid_size": (2, 2)},
-            "grid_size",
-            (2, 2),
         ),
     ],
 )
@@ -379,39 +352,21 @@ def test_equal_alias_and_canonical_are_consumed_once(
         ),
         (
             normalize_training_patch,
-            {"neighbor_count": 5, "K": 4},
-            "neighbor_count",
-            "K",
-        ),
-        (
-            normalize_training_patch,
-            {"model_type": "Supervised", "mode": "Unsupervised"},
-            "model_type",
-            "mode",
-        ),
-        (
-            normalize_training_patch,
-            {"gridsize": 2, "grid_size": (3, 3)},
-            "gridsize",
-            "grid_size",
-        ),
-        (
-            normalize_inference_patch,
-            {"neighbor_count": 5, "K": 4},
-            "neighbor_count",
-            "K",
-        ),
-        (
-            normalize_inference_patch,
             {"model_type": "Supervised", "mode": "Unsupervised"},
             "model_type",
             "mode",
         ),
         (
             normalize_inference_patch,
-            {"gridsize": 2, "grid_size": (3, 3)},
-            "gridsize",
-            "grid_size",
+            {"training_groups": 5, "inference_groups": 4},
+            "training_groups",
+            "inference_groups",
+        ),
+        (
+            normalize_inference_patch,
+            {"model_type": "Supervised", "mode": "Unsupervised"},
+            "model_type",
+            "mode",
         ),
     ],
 )
@@ -500,12 +455,9 @@ def test_factory_specific_baselines_lock_all_phase_divergences() -> None:
     training = training_factory_baseline()
     inference = inference_factory_baseline()
 
-    assert training.data.grid_size == (1, 1)
-    assert training.data.C == 1
-    assert training.data.K == 6
+    assert training.data.gridsize == 1
+    assert training.data.neighbor_count == 6
     assert training.data.nphotons == 1e9
-    assert training.model.C_model == 1
-    assert training.model.C_forward == 1
     assert training.model.loss_function == "Poisson"
     assert training.model.object_layout == "grouped_patches"
     assert training.model.training_canvas == "relative_overlap"
@@ -517,14 +469,11 @@ def test_factory_specific_baselines_lock_all_phase_divergences() -> None:
     assert training.inference.log_patch_stats is False
     assert training.inference.patch_stats_limit is None
 
-    assert inference.data.grid_size == (1, 1)
-    assert inference.data.C == 1
-    assert inference.data.K == 4
+    assert inference.data.gridsize == 1
+    assert inference.data.neighbor_count == 4
     assert inference.data.nphotons == DataConfig().nphotons
     assert inference.data.scale_contract_version == "ci_intensity_v2"
     assert inference.data.measurement_domain == "count_intensity"
-    assert inference.model.C_model == 1
-    assert inference.model.C_forward == 1
     assert inference.model.object_layout == "grouped_patches"
     assert inference.model.training_canvas == "relative_overlap"
     assert inference.model.training_patch_weighting == "central_mask"
@@ -555,10 +504,8 @@ def test_training_resolution_returns_fresh_records_without_mutating_inputs() -> 
     probe_mask = torch.ones(4, 4)
     directories = ["existing"]
     baseline = TorchConfigBaseline(
-        data=DataConfig(grid_size=(1, 1), C=1, N=64, nphotons=1e9),
+        data=DataConfig(gridsize=1, N=64, nphotons=1e9),
         model=ModelConfig(
-            C_model=1,
-            C_forward=1,
             probe_mask_tensor=probe_mask,
         ),
         training=TrainingConfig(
@@ -567,7 +514,7 @@ def test_training_resolution_returns_fresh_records_without_mutating_inputs() -> 
         ),
         inference=InferenceConfig(batch_size=8),
     )
-    patch = {"epochs": 9, "n_groups": 16}
+    patch = {"epochs": 9, "training_groups": 16}
     normalized = normalize_training_patch(patch)
 
     resolved = resolve_training_bundle(
@@ -579,7 +526,7 @@ def test_training_resolution_returns_fresh_records_without_mutating_inputs() -> 
     assert resolved.data.N == 128
     assert resolved.data.nphotons == 2.5e8
     assert resolved.training.epochs == 9
-    assert resolved.training.n_groups == 16
+    assert resolved.training.training_groups == 16
     assert resolved.training.train_data_file == "train.npz"
     assert resolved.training.output_dir == "out"
     assert resolved.data is not baseline.data
@@ -595,11 +542,11 @@ def test_training_resolution_returns_fresh_records_without_mutating_inputs() -> 
     assert baseline.data.N == 64
     assert baseline.data.nphotons == 1e9
     assert baseline.training.epochs == 3
-    assert baseline.training.n_groups is None
+    assert baseline.training.training_groups is None
     assert baseline.training.train_data_file is None
     assert baseline.training.output_dir == "training_outputs"
     assert directories == ["existing"]
-    assert patch == {"epochs": 9, "n_groups": 16}
+    assert patch == {"epochs": 9, "training_groups": 16}
     assert resolved.audit["amplitude_physics_gain"] == 1.0
     assert resolved.audit["learning_rate"] == baseline.training.learning_rate
 
@@ -610,7 +557,7 @@ def test_mutable_patch_values_are_independent_snapshots() -> None:
     patch = {
         "x_bounds": x_bounds,
         "probe_mask_tensor": probe_mask,
-        "n_groups": 1,
+        "training_groups": 1,
     }
 
     normalized = normalize_training_patch(patch)
@@ -710,7 +657,7 @@ def test_environment_resolution_snapshots_mutable_execution_values() -> None:
 
 
 def test_training_resolver_rejects_inference_normalized_patch() -> None:
-    normalized = normalize_inference_patch({"n_groups": 1})
+    normalized = normalize_inference_patch({"inference_groups": 1})
 
     with pytest.raises(ValueError, match=r"inference.*training"):
         resolve_training_bundle(
@@ -721,7 +668,7 @@ def test_training_resolver_rejects_inference_normalized_patch() -> None:
 
 
 def test_inference_resolver_rejects_training_normalized_patch() -> None:
-    normalized = normalize_training_patch({"n_groups": 1})
+    normalized = normalize_training_patch({"training_groups": 1})
 
     with pytest.raises(ValueError, match=r"training.*inference"):
         resolve_inference_bundle(
@@ -735,7 +682,7 @@ def test_inference_resolver_rejects_training_normalized_patch() -> None:
     ("patch", "metadata", "expected_n", "expected_nphotons", "n_source", "p_source"),
     [
         (
-            {"N": 256, "nphotons": 7.0, "n_groups": 1},
+            {"N": 256, "nphotons": 7.0, "training_groups": 1},
             9.0,
             256,
             7.0,
@@ -743,7 +690,7 @@ def test_inference_resolver_rejects_training_normalized_patch() -> None:
             "explicit",
         ),
         (
-            {"n_groups": 1},
+            {"training_groups": 1},
             9.0,
             128,
             9.0,
@@ -751,7 +698,7 @@ def test_inference_resolver_rejects_training_normalized_patch() -> None:
             "metadata",
         ),
         (
-            {"n_groups": 1},
+            {"training_groups": 1},
             None,
             128,
             1e9,
@@ -800,54 +747,44 @@ def test_training_resolution_rejects_invalid_effective_owner_domain(
         resolve_training_bundle(
             baseline=training_factory_baseline(),
             normalized=normalize_training_patch(
-                {"n_groups": 1, field_name: invalid}
+                {"training_groups": 1, field_name: invalid}
             ),
             observations=_training_observations(),
         )
 
 
 @pytest.mark.parametrize("field_name", ["C", "C_model", "C_forward"])
-def test_training_rejects_conflicting_explicit_derived_channel(
+def test_training_rejects_retired_channel_fields_as_unknown(
     field_name: str,
 ) -> None:
     with pytest.raises(
         ValueError,
-        match=rf"{field_name}.*grid_size.*4",
+        match=rf"unknown training input field\(s\): {field_name}",
     ):
-        resolve_training_bundle(
-            baseline=training_factory_baseline(),
-            normalized=normalize_training_patch(
-                {
-                    "grid_size": (2, 2),
-                    field_name: 3,
-                    "n_groups": 1,
-                }
-            ),
-            observations=_training_observations(),
+        normalize_training_patch(
+            {
+                "gridsize": 2,
+                field_name: 3,
+                "training_groups": 1,
+            }
         )
 
 
-def test_equal_explicit_derived_channels_are_accepted_once() -> None:
+def test_derived_channel_is_recorded_once_from_gridsize() -> None:
     resolved = resolve_training_bundle(
         baseline=training_factory_baseline(),
         normalized=normalize_training_patch(
             {
-                "grid_size": (2, 2),
-                "C": 4,
-                "C_model": 4,
-                "C_forward": 4,
-                "n_groups": 1,
+                "gridsize": 2,
+                "training_groups": 1,
             }
         ),
         observations=_training_observations(),
     )
 
-    assert resolved.data.C == 4
-    assert resolved.model.C_model == 4
-    assert resolved.model.C_forward == 4
-    assert resolved.audit["C_source"] == "derived:grid_size"
-    assert resolved.audit["C_model_source"] == "derived:grid_size"
-    assert resolved.audit["C_forward_source"] == "derived:grid_size"
+    assert resolved.data.gridsize == 2
+    assert resolved.audit["C"] == 4
+    assert resolved.audit["C_source"] == "derived:gridsize"
 
 
 @pytest.mark.parametrize(
@@ -865,7 +802,7 @@ def test_loss_identity_resolves_coherently(
     resolved = resolve_training_bundle(
         baseline=training_factory_baseline(),
         normalized=normalize_training_patch(
-            {"torch_loss_mode": torch_loss_mode, "n_groups": 1}
+            {"torch_loss_mode": torch_loss_mode, "training_groups": 1}
         ),
         observations=_training_observations(),
     )
@@ -888,7 +825,7 @@ def test_conflicting_explicit_loss_constraints_fail(patch) -> None:
     with pytest.raises(ValueError, match="loss|nll"):
         resolve_training_bundle(
             baseline=training_factory_baseline(),
-            normalized=normalize_training_patch({**patch, "n_groups": 1}),
+            normalized=normalize_training_patch({**patch, "training_groups": 1}),
             observations=_training_observations(),
         )
 
@@ -925,7 +862,7 @@ def test_complete_training_bundle_is_validated_before_publication(
     with pytest.raises(ValueError, match=message):
         resolve_training_bundle(
             baseline=training_factory_baseline(),
-            normalized=normalize_training_patch({**patch, "n_groups": 1}),
+            normalized=normalize_training_patch({**patch, "training_groups": 1}),
             observations=_training_observations(),
         )
 
@@ -934,7 +871,7 @@ def test_object_policy_is_materialized_once_in_resolved_bundle() -> None:
     resolved = resolve_training_bundle(
         baseline=training_factory_baseline(),
         normalized=normalize_training_patch(
-            {"object_big": False, "n_groups": 1}
+            {"object_big": False, "training_groups": 1}
         ),
         observations=_training_observations(),
     )
@@ -956,11 +893,11 @@ def test_probe_fallback_notice_is_deferred_through_later_failure(
 
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        with pytest.raises(ValueError, match="C_model.*grid_size"):
+        with pytest.raises(ValueError, match="gridsize must be a positive integer"):
             resolve_training_bundle(
                 baseline=training_factory_baseline(),
                 normalized=normalize_training_patch(
-                    {"C_model": 2, "n_groups": 1}
+                    {"gridsize": 0, "training_groups": 1}
                 ),
                 observations=observations,
             )
@@ -977,7 +914,7 @@ def test_successful_resolution_retains_one_deferred_probe_notice(
         warnings.simplefilter("always")
         resolved = resolve_training_bundle(
             baseline=training_factory_baseline(),
-            normalized=normalize_training_patch({"n_groups": 1}),
+            normalized=normalize_training_patch({"training_groups": 1}),
             observations=_training_observations(
                 inferred_probe_size=probe_observation.value,
                 notices=probe_observation.notices,
@@ -997,15 +934,15 @@ def test_inference_resolution_is_runtime_only_and_bridge_n_subsample_stays_bridg
     resolved = resolve_inference_bundle(
         baseline=baseline,
         normalized=normalize_inference_patch(
-            {"n_groups": 8, "n_subsample": 19}
+            {"inference_groups": 8, "n_raw_frames_selected": 19}
         ),
         observations=_inference_observations(),
     )
 
     assert resolved.data.N == 128
-    assert resolved.data.n_subsample == baseline.data.n_subsample
-    assert resolved.bridge["n_groups"] == 8
-    assert resolved.bridge["n_subsample"] == 19
+    assert resolved.data.n_raw_frames_selected == baseline.data.n_raw_frames_selected
+    assert resolved.bridge["inference_groups"] == 8
+    assert resolved.bridge["inference_raw_selection"] == 19
     assert resolved.bridge["model_path"] == Path("model")
     assert resolved.bridge["test_data_file"] == Path("test.npz")
     assert resolved.bridge["output_dir"] == Path("recon")
@@ -1018,7 +955,7 @@ def test_inference_resolution_is_runtime_only_and_bridge_n_subsample_stays_bridg
 def test_explicit_inference_N_wins_over_observed_probe_size() -> None:
     resolved = resolve_inference_bundle(
         baseline=inference_factory_baseline(),
-        normalized=normalize_inference_patch({"N": 256, "n_groups": 1}),
+        normalized=normalize_inference_patch({"N": 256, "inference_groups": 1}),
         observations=_inference_observations(inferred_probe_size=128),
     )
 
@@ -1117,7 +1054,7 @@ def test_training_factory_delegates_patch_and_bundle_resolution(
     payload = factory.create_training_payload(
         train_data_file=train_path,
         output_dir=tmp_path / "out",
-        overrides={"n_groups": 1},
+        overrides={"training_groups": 1},
     )
 
     assert events == [
@@ -1238,7 +1175,7 @@ def test_inference_factory_delegates_patch_and_bundle_resolution(
         model_path=model_path,
         test_data_file=test_path,
         output_dir=tmp_path / "out",
-        overrides={"n_groups": 1},
+        overrides={"inference_groups": 1},
     )
 
     assert events == [
@@ -1268,10 +1205,10 @@ def test_inference_factory_delegates_patch_and_bundle_resolution(
 
 
 @pytest.mark.parametrize(
-    ("phase", "patch"),
+    ("phase", "patch", "error_field"),
     [
-        ("training", {"n_groups": 0}),
-        ("inference", {"n_groups": 0}),
+        ("training", {"training_groups": 0}, "training_groups"),
+        ("inference", {"inference_groups": 0}, "inference_groups"),
     ],
 )
 def test_failed_factory_resolution_preserves_legacy_state_without_warnings(
@@ -1279,6 +1216,7 @@ def test_failed_factory_resolution_preserves_legacy_state_without_warnings(
     monkeypatch: pytest.MonkeyPatch,
     phase: str,
     patch: dict[str, object],
+    error_field: str,
 ) -> None:
     import numpy as np
     import ptycho.params
@@ -1292,7 +1230,7 @@ def test_failed_factory_resolution_preserves_legacy_state_without_warnings(
 
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        with pytest.raises(ValueError, match="n_groups"):
+        with pytest.raises(ValueError, match=error_field):
             if phase == "training":
                 factory.create_training_payload(
                     train_data_file=data_path,
@@ -1357,7 +1295,7 @@ def test_partial_legacy_commit_failure_restores_mapping_object_and_seal_state(
         factory.create_training_payload(
             train_data_file=data_path,
             output_dir=tmp_path / "out",
-            overrides={"n_groups": 1},
+            overrides={"training_groups": 1},
         )
 
     assert ptycho.params.cfg is legacy_cfg
@@ -1391,18 +1329,18 @@ def test_training_owner_precedence_matrix_is_resolved_once(
     canonical = resolve_training_bundle(
         baseline=baseline,
         normalized=normalize_training_patch(
-            {"n_groups": 1, field_name: canonical_value}
+            {"training_groups": 1, field_name: canonical_value}
         ),
         observations=_training_observations(),
     )
     baseline_only = resolve_training_bundle(
         baseline=baseline,
-        normalized=normalize_training_patch({"n_groups": 1}),
+        normalized=normalize_training_patch({"training_groups": 1}),
         observations=_training_observations(),
     )
     declared_default = resolve_training_bundle(
         baseline=training_factory_baseline(),
-        normalized=normalize_training_patch({"n_groups": 1}),
+        normalized=normalize_training_patch({"training_groups": 1}),
         observations=_training_observations(),
     )
 
@@ -1441,7 +1379,7 @@ def test_factory_audit_records_canonical_effective_values_and_alias_provenance(
         train_data_file=data_path,
         output_dir=tmp_path / "out",
         overrides={
-            "n_groups": 1,
+            "training_groups": 1,
             "max_epochs": 7,
             "learning_rate": 0.03,
         },
@@ -1484,7 +1422,7 @@ def test_inference_factory_audit_keeps_aliases_provenance_only(
         test_data_file=data_path,
         output_dir=tmp_path / "out",
         overrides={
-            "n_groups": 1,
+            "inference_groups": 1,
             "gridsize": 2,
             "neighbor_count": 5,
             "model_type": "Unsupervised",
@@ -1495,17 +1433,11 @@ def test_inference_factory_audit_keeps_aliases_provenance_only(
         ),
     )
 
-    assert payload.overrides_applied["grid_size"] == (2, 2)
-    assert payload.overrides_applied["K"] == 5
+    assert payload.overrides_applied["gridsize"] == 2
+    assert payload.overrides_applied["neighbor_count"] == 5
     assert payload.overrides_applied["mode"] == "Unsupervised"
-    assert {
-        "gridsize",
-        "neighbor_count",
-        "model_type",
-    }.isdisjoint(payload.overrides_applied)
+    assert "model_type" not in payload.overrides_applied
     assert payload.overrides_applied["input_aliases"] == {
-        "K": ("neighbor_count",),
-        "grid_size": ("gridsize",),
         "mode": ("model_type",),
     }
     assert "topology_compatibility" not in payload.overrides_applied
@@ -1540,9 +1472,10 @@ def test_successful_factory_commits_complete_projection_once(
         payload = factory.create_training_payload(
             train_data_file=data_path,
             output_dir=tmp_path / "out",
-            overrides={"n_groups": 1},
+            overrides={"training_groups": 1},
         )
         assert committed == [payload.tf_training_config]
+        assert ptycho.params.cfg["training_groups"] == 1
     else:
         model_path = tmp_path / "model"
         model_path.mkdir()
@@ -1551,10 +1484,10 @@ def test_successful_factory_commits_complete_projection_once(
             model_path=model_path,
             test_data_file=data_path,
             output_dir=tmp_path / "out",
-            overrides={"n_groups": 1},
+            overrides={"inference_groups": 1},
         )
         assert committed == [payload.tf_inference_config]
+        assert ptycho.params.cfg["inference_groups"] == 1
 
     assert ptycho.params.cfg["N"] == 64
-    assert ptycho.params.cfg["n_groups"] == 1
     assert ptycho.params._sealed is True

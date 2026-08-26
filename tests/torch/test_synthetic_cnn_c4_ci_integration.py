@@ -110,8 +110,7 @@ def test_public_synthetic_cnn_c4_ci_one_epoch_smoke(tmp_path: Path) -> None:
 
     resolved = _load_json(_nonempty(root / "resolved_workflow.json"))
     assert resolved["profile"] == "cnn-lines-ci"
-    assert resolved["data"]["C"] == 4
-    assert resolved["data"]["grid_size"] == [2, 2]
+    assert resolved["data"]["gridsize"] == 2
     assert resolved["data"]["scale_contract_version"] == "ci_intensity_v2"
     assert resolved["data"]["measurement_domain"] == "count_intensity"
     assert resolved["model"]["architecture"] == "cnn"

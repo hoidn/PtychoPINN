@@ -57,7 +57,7 @@ class TestConfigPlumbing:
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=tmp_path / "out",
-            overrides={"n_groups": 8, "amplitude_physics_gain": 16.0},
+            overrides={"training_groups": 8, "amplitude_physics_gain": 16.0},
         )
         assert payload.pt_model_config.amplitude_physics_gain == 16.0
         assert payload.overrides_applied["amplitude_physics_gain"] == 16.0
@@ -68,7 +68,7 @@ class TestConfigPlumbing:
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=tmp_path / "out",
-            overrides={"n_groups": 8},
+            overrides={"training_groups": 8},
         )
         assert payload.pt_model_config.amplitude_physics_gain == 1.0
         assert payload.overrides_applied["amplitude_physics_gain"] == 1.0
@@ -80,11 +80,9 @@ class TestConfigPlumbing:
             ModelConfig(
                 object_big=False,
                 probe_big=False,
-                C_model=1,
-                C_forward=1,
                 amplitude_physics_gain=16.0,
             ),
-            DataConfig(N=64, C=1, grid_size=(1, 1)),  # CNN autoencoder needs N>=64
+            DataConfig(N=64, gridsize=1),  # CNN autoencoder needs N>=64
             TrainingConfig(device="cpu", torch_loss_mode="mae"),
             InferenceConfig(),
         )
@@ -98,7 +96,7 @@ class TestScalingContractValidation:
 
     @staticmethod
     def _configs(gain, physics_forward_mode="amplitude", **data_overrides):
-        data_cfg = DataConfig(N=N, C=1, grid_size=(1, 1), **data_overrides)
+        data_cfg = DataConfig(N=N, gridsize=1, **data_overrides)
         model_cfg = ModelConfig(
             physics_forward_mode=physics_forward_mode,
             amplitude_physics_gain=gain,
@@ -311,12 +309,12 @@ class TestDerivedAmplitudePhysicsGain:
         derived_payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=tmp_path / "derived",
-            overrides={"n_groups": 8, **record.factory_overrides()},
+            overrides={"training_groups": 8, **record.factory_overrides()},
         )
         unit_payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=tmp_path / "unit",
-            overrides={"n_groups": 8, "amplitude_physics_gain": 1.0},
+            overrides={"training_groups": 8, "amplitude_physics_gain": 1.0},
         )
 
         assert derived_payload.pt_model_config.amplitude_physics_gain == record.value
@@ -582,7 +580,7 @@ class TestAmplitudePhysicsGainBundleRecord:
         return create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=output_dir,
-            overrides={"n_groups": 8, "amplitude_physics_gain": gain},
+            overrides={"training_groups": 8, "amplitude_physics_gain": gain},
         )
 
     @staticmethod
@@ -606,22 +604,29 @@ class TestAmplitudePhysicsGainBundleRecord:
         *,
         representative_archive_members=None,
     ):
-        import dill
+        import json
         import zipfile
+
+        from ptycho_torch.artifact_schema import (
+            TORCH_MANIFEST_JSON_VERSION,
+            TORCH_MANIFEST_MEMBER,
+            TORCH_PARAMS_MEMBER,
+        )
 
         bundle_path.parent.mkdir(parents=True, exist_ok=True)
         manifest = {
             "models": ["autoencoder", "diffraction_to_obj"],
             "version": "2.0-pytorch",
+            "manifest_version": TORCH_MANIFEST_JSON_VERSION,
             "backend": "pytorch",
         }
         params_payload = {"_version": "2.0-pytorch"}
         with zipfile.ZipFile(bundle_path, "w", zipfile.ZIP_DEFLATED) as archive:
-            archive.writestr("manifest.dill", dill.dumps(manifest))
+            archive.writestr(TORCH_MANIFEST_MEMBER, json.dumps(manifest))
             for model_name in manifest["models"]:
                 archive.writestr(
-                    f"{model_name}/params.dill",
-                    dill.dumps(params_payload),
+                    f"{model_name}/{TORCH_PARAMS_MEMBER}",
+                    json.dumps(params_payload),
                 )
             members = (
                 TestAmplitudePhysicsGainBundleRecord
@@ -638,8 +643,10 @@ class TestAmplitudePhysicsGainBundleRecord:
 
         from ptycho_torch.workflows import components
 
+        from ptycho_torch.artifact_schema import TORCH_MANIFEST_MEMBER
+
         rewritten_members = {
-            "manifest.dill",
+            TORCH_MANIFEST_MEMBER,
             components._BUNDLE_SCALING_METADATA,
             components._BUNDLE_AMPLITUDE_PHYSICS_GAIN_RECORD,
         }
@@ -856,7 +863,7 @@ class TestAmplitudePhysicsGainBundleRecord:
         mock_train_npz,
         tmp_path,
     ):
-        import dill
+        import json
         import zipfile
 
         from ptycho import params
@@ -869,15 +876,17 @@ class TestAmplitudePhysicsGainBundleRecord:
             bundle_path,
             self._model_for_payload(payload),
         )
+        from ptycho_torch.artifact_schema import TORCH_MANIFEST_MEMBER
+
         with pytest.warns(UserWarning, match="Duplicate name"):
             with zipfile.ZipFile(bundle_path, "a") as archive:
                 archive.writestr(
-                    "manifest.dill",
-                    dill.dumps({"models": ["forged"]}),
+                    TORCH_MANIFEST_MEMBER,
+                    json.dumps({"models": ["forged"]}),
                 )
         params_before = dict(params.cfg)
 
-        with pytest.raises(ValueError, match="duplicate.*manifest.dill"):
+        with pytest.raises(ValueError, match="duplicate.*manifest.json"):
             components.load_inference_bundle_torch(bundle_path.parent)
 
         assert params.cfg == params_before
@@ -1028,12 +1037,10 @@ class TestForwardApplication:
 
         model_cfg = ModelConfig(
             object_big=False,
-            C_model=1,
-            C_forward=1,
             amplitude_physics_gain=gain,
             **model_overrides,
         )
-        data_cfg = DataConfig(N=N, C=1, grid_size=(1, 1))
+        data_cfg = DataConfig(N=N, gridsize=1)
         return ForwardModel(model_cfg, data_cfg)
 
     @staticmethod
@@ -1100,7 +1107,7 @@ class TestForwardApplication:
         from ptycho_torch.model import PtychoPINN
 
         n_model = 64  # CNN autoencoder needs N>=64
-        data_cfg = DataConfig(N=n_model, C=1, grid_size=(1, 1))
+        data_cfg = DataConfig(N=n_model, gridsize=1)
         train_cfg = TrainingConfig(device="cpu", torch_loss_mode="mae")
 
         def build(gain):
@@ -1109,8 +1116,6 @@ class TestForwardApplication:
                 ModelConfig(
                     object_big=False,
                     probe_big=False,
-                    C_model=1,
-                    C_forward=1,
                     amplitude_physics_gain=gain,
                 ),
                 data_cfg,

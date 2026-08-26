@@ -35,6 +35,7 @@ def group_coords(
     C: int = None,
     return_center_indices: bool = False,
     rng: Optional[np.random.Generator] = None,
+    groups_per_center: int = 1,
     ensure_complete_coverage: bool = False,
     object_index=None,
     experiment_id=None,
@@ -42,7 +43,7 @@ def group_coords(
     """Materialize the legacy Torch tuple from the shared scan-centered plan."""
 
     del xcoords_bounded, ycoords_bounded, neighbor_function
-    group_size = data_config.C if C is None else C
+    group_size = data_config.gridsize * data_config.gridsize if C is None else C
     randomness = (
         {"rng": rng}
         if rng is not None
@@ -56,8 +57,8 @@ def group_coords(
         experiment_id=experiment_id,
         policy=data_config.neighbor_function,
         group_size=group_size,
-        neighbor_count=data_config.K,
-        repeats=data_config.n_subsample,
+        neighbor_count=data_config.neighbor_count,
+        repeats=groups_per_center,
         min_neighbor_distance=data_config.min_neighbor_distance,
         max_neighbor_distance=data_config.max_neighbor_distance,
         quadrant_neighbor_count=data_config.K_quadrant,
