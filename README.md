@@ -1,6 +1,10 @@
 # Physics constrained machine learning for rapid, high resolution diffractive imaging
 
-This repository contains the codebase for the methods presented in the paper "[Physics Constrained Unsupervised Deep Learning for Rapid, High Resolution Scanning Coherent Diffraction Reconstruction](https://www.nature.com/articles/s41598-023-48351-7)".
+## Papers
+
+- [Physics Constrained Unsupervised Deep Learning for Rapid, High Resolution Scanning Coherent Diffraction Reconstruction](https://www.nature.com/articles/s41598-023-48351-7)
+- [Towards single-shot coherent imaging via overlap-free ptychography](https://arxiv.org/abs/2602.21361)
+- [Contrast-invariant deep ptychography neural networks](https://arxiv.org/abs/2608.02869)
 
 ## Overview
 PtychoPINN is an unsupervised, physics-informed neural network method for scanning CDI reconstruction. It combines the diffraction forward model with real-space overlap constraints.
