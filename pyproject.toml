@@ -10,11 +10,14 @@ requires-python = ">=3.10,<3.12"
 license = {file = "LICENSE"}
 dependencies = [
     "Pillow",
+    "PyYAML",
     "dill",
-    "imageio", 
+    "hydra-core>=1.3.2,<2",
+    "imageio",
     "ipywidgets",
     "jupyter",
     "matplotlib",
+    "mlflow",
     "neuraloperator",
     "numba",
     "numpy",
@@ -23,6 +26,8 @@ dependencies = [
     "pandas-datareader",
     "pathos",
     "pydantic>=2.12,<3",
+    "pydantic-settings>=2.11,<3",
+    "lightning",
     "scikit-image",
     "scikit-learn",
     "scipy",
@@ -32,7 +37,8 @@ dependencies = [
     "tensorflow-metadata",
     "tensorflow-probability",
     "tensordict",
-    "torch",
+    "tomli; python_version < '3.11'",
+    "torch>=2.2",
     "tqdm",
     "ujson",
 ]
@@ -43,12 +49,34 @@ dynamic = ["version"]
 [project.scripts]
 ptycho_train = "scripts.training.train:main"
 ptycho_inference = "scripts.inference.inference:main"
+ptycho_synthetic = "scripts.simulation.synthetic_pipeline:main"
+ptycho_study = "ptycho.workflows.study_runner:main"
 
-[tool.setuptools.package-data]
-datasets = ["*.npz"]
+[tool.setuptools]
+include-package-data = false
 
 [tool.setuptools.packages.find]
 where = ["."]
+include = [
+    "frc",
+    "ptycho",
+    "ptycho.*",
+    "ptycho_torch",
+    "ptycho_torch.*",
+    "scripts.training",
+    "scripts.inference",
+    "scripts.simulation",
+]
+exclude = [
+    "ptycho.trash",
+    "ptycho.trash.*",
+    "ptycho_torch.beta_modules",
+    "ptycho_torch.beta_modules.*",
+    "ptycho_torch.configs",
+    "ptycho_torch.configs.*",
+    "ptycho_torch.notebooks",
+    "ptycho_torch.notebooks.*",
+]
 
 [tool.setuptools_scm]
 

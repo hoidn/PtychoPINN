@@ -22,10 +22,9 @@ _INDEX_COLUMNS = ("step", "epoch")
 
 
 def _metrics_csv_path(run_dir: Path, csv_logger: Any = None) -> Path:
-    experiment = getattr(csv_logger, "experiment", None)
-    recorded = getattr(experiment, "metrics_file_path", None)
-    if recorded:
-        return Path(recorded)
+    log_dir = getattr(csv_logger, "log_dir", None)
+    if log_dir:
+        return Path(log_dir) / "metrics.csv"
     return Path(run_dir) / "metrics.csv"
 
 

@@ -1,0 +1,197 @@
+diff --git a/ptycho/config/resolution.py b/ptycho/config/resolution.py
+index 7d1f41996..6018dba0a 100644
+--- a/ptycho/config/resolution.py
++++ b/ptycho/config/resolution.py
+@@ -29,12 +28,0 @@ assert _MODEL_INPUT_NAMES.isdisjoint(_INFERENCE_INPUT_NAMES)
+-_RESNET_SHELL_ARCHITECTURES = frozenset(
+-    {
+-        "hybrid_resnet",
+-        "hybrid_resnet_ffno_ptychoblock_encoder",
+-        "hybrid_resnet_ptychoblock_ffno_encoder",
+-        "spectral_resnet_bottleneck_net",
+-        "spectral_resnet_bottleneck_linear_decoder",
+-        "hybrid_resnet_ffno_bottleneck",
+-        "hybrid_resnet_convnext_bottleneck",
+-    }
+-)
+-
+@@ -369,12 +356,0 @@ def validate_model_config_structure(config: ModelConfig) -> None:
+-    if config.architecture in _RESNET_SHELL_ARCHITECTURES:
+-        if config.fno_blocks < 3:
+-            raise ValueError(
+-                f"{config.architecture} requires fno_blocks >= 3 "
+-                f"(got fno_blocks={config.fno_blocks})"
+-            )
+-        if config.resnet_width is not None and config.resnet_width % 4 != 0:
+-            raise ValueError(
+-                "resnet_width must be divisible by 4 so the CycleGAN "
+-                f"upsamplers produce integer channels (got {config.resnet_width})"
+-            )
+-
+diff --git a/ptycho/workflows/synthetic_config.py b/ptycho/workflows/synthetic_config.py
+index ce6d4171e..ced829346 100644
+--- a/ptycho/workflows/synthetic_config.py
++++ b/ptycho/workflows/synthetic_config.py
+@@ -423,4 +422,0 @@ _MODEL_VALIDATION_TYPES.update(
+-        "hybrid_resnet_blocks": _StrictPositiveInt,
+-        "hybrid_resnet_bottleneck_layerscale_value": (
+-            _StrictFinitePositiveNumber | None
+-        ),
+@@ -537 +533 @@ _PROFILE_VALUES: dict[str, dict[str, Any]] = {
+-        "architecture": "hybrid_resnet",
++        "architecture": "cnn",
+@@ -551 +546,0 @@ _PROFILE_VALUES: dict[str, dict[str, Any]] = {
+-        "hybrid_resnet_blocks": 6,
+@@ -553,2 +547,0 @@ _PROFILE_VALUES: dict[str, dict[str, Any]] = {
+-        "hybrid_resnet_bottleneck_layerscale_mode": "learned",
+-        "hybrid_resnet_bottleneck_layerscale_value": None,
+@@ -1058,11 +1050,0 @@ def _adapt_model(values: Mapping[str, Any]) -> SyntheticModelConfig:
+-_RESNET_SHELL_ARCHITECTURES = {
+-    "hybrid_resnet",
+-    "hybrid_resnet_ffno_ptychoblock_encoder",
+-    "hybrid_resnet_ptychoblock_ffno_encoder",
+-    "spectral_resnet_bottleneck_net",
+-    "spectral_resnet_bottleneck_linear_decoder",
+-    "hybrid_resnet_ffno_bottleneck",
+-    "hybrid_resnet_convnext_bottleneck",
+-}
+-
+-
+@@ -1124,11 +1105,0 @@ def _resolve_model(
+-    if model.architecture in _RESNET_SHELL_ARCHITECTURES:
+-        if model.fno_blocks < 3:
+-            raise ValueError(
+-                f"model.fno_blocks must be >= 3 for "
+-                f"model.architecture={model.architecture!r}"
+-            )
+-        if model.resnet_width is not None and model.resnet_width % 4 != 0:
+-            raise ValueError(
+-                "model.resnet_width must be divisible by 4 for ResNet-shell "
+-                f"architectures, got {model.resnet_width}"
+-            )
+@@ -1151 +1122 @@ def _resolve_model(
+-    if gridsize > 1 and model.architecture not in {"cnn", "hybrid_resnet"}:
++    if gridsize > 1 and model.architecture != "cnn":
+@@ -1154 +1125 @@ def _resolve_model(
+-            f"gridsize={gridsize}; expected 'cnn' or 'hybrid_resnet'"
++            f"gridsize={gridsize}; expected 'cnn'"
+diff --git a/ptycho_torch/config_resolution.py b/ptycho_torch/config_resolution.py
+index b3676b6cc..1c37a7a6e 100644
+--- a/ptycho_torch/config_resolution.py
++++ b/ptycho_torch/config_resolution.py
+@@ -81,7 +80,0 @@ SUPPORTED_TORCH_ARCHITECTURES = frozenset(
+-        "hybrid_resnet",
+-        "hybrid_resnet_ffno_ptychoblock_encoder",
+-        "hybrid_resnet_ptychoblock_ffno_encoder",
+-        "spectral_resnet_bottleneck_net",
+-        "spectral_resnet_bottleneck_linear_decoder",
+-        "hybrid_resnet_ffno_bottleneck",
+-        "hybrid_resnet_convnext_bottleneck",
+@@ -330 +322,0 @@ _TRAINING_INPUTS_BY_OWNER: tuple[
+-            "hybrid_resnet_blocks",
+@@ -332,2 +323,0 @@ _TRAINING_INPUTS_BY_OWNER: tuple[
+-            "hybrid_resnet_bottleneck_layerscale_mode",
+-            "hybrid_resnet_bottleneck_layerscale_value",
+diff --git a/ptycho_torch/model_spec.py b/ptycho_torch/model_spec.py
+index cdb27ce2a..c8198ba8c 100644
+--- a/ptycho_torch/model_spec.py
++++ b/ptycho_torch/model_spec.py
+@@ -39,3 +39 @@ MODEL_SPEC_V1_MODEL_FIELDS = (
+-    "hybrid_encoder_spectral_hidden_channels", "hybrid_resnet_blocks",
+-    "hybrid_skip_style", "hybrid_resnet_bottleneck_layerscale_mode",
+-    "hybrid_resnet_bottleneck_layerscale_value",
++    "hybrid_encoder_spectral_hidden_channels", "hybrid_skip_style",
+diff --git a/scripts/simulation/README.md b/scripts/simulation/README.md
+index de8458ce6..2e9c6f738 100644
+--- a/scripts/simulation/README.md
++++ b/scripts/simulation/README.md
+@@ -165 +165 @@ table highlights the user-facing defaults:
+-| Model | Unsupervised `hybrid_resnet`, real/imaginary output, model mask off, geometry-derived layout, derived amplitude physics gain |
++| Model | Unsupervised `cnn`, real/imaginary output, model mask off, geometry-derived layout, derived amplitude physics gain |
+diff --git a/scripts/simulation/synthetic_pipeline.py b/scripts/simulation/synthetic_pipeline.py
+index 225a6af60..2d734cb07 100644
+--- a/scripts/simulation/synthetic_pipeline.py
++++ b/scripts/simulation/synthetic_pipeline.py
+@@ -349 +348,0 @@ _ARG_PATHS: dict[str, tuple[str, ...]] = {
+-    "hybrid_resnet_blocks": ("model", "hybrid_resnet_blocks"),
+diff --git a/scripts/studies/ablation/configuration.py b/scripts/studies/ablation/configuration.py
+index 968108349..bf3b1d779 100644
+--- a/scripts/studies/ablation/configuration.py
++++ b/scripts/studies/ablation/configuration.py
+@@ -156 +155,0 @@ ALLOWLISTS: dict[str, frozenset[str]] = {
+-            "hybrid_resnet_blocks",
+@@ -158,2 +156,0 @@ ALLOWLISTS: dict[str, frozenset[str]] = {
+-            "hybrid_resnet_bottleneck_layerscale_mode",
+-            "hybrid_resnet_bottleneck_layerscale_value",
+@@ -306,33 +302,0 @@ ARCHITECTURE_POLICIES: Mapping[str, ArchitecturePolicy] = MappingProxyType(
+-        "hybrid_resnet": ArchitecturePolicy(
+-            applicable_paths=frozenset(
+-                {
+-                    "model.generator_output_mode",
+-                    "model.fno_modes",
+-                    "model.fno_width",
+-                    "model.fno_blocks",
+-                    "model.fno_input_transform",
+-                    "model.learned_input_channels",
+-                    "model.max_hidden_channels",
+-                    "model.resnet_width",
+-                    "model.hybrid_skip_connections",
+-                    "model.hybrid_downsample_steps",
+-                    "model.hybrid_downsample_op",
+-                    "model.hybrid_encoder_conv_hidden_scale",
+-                    "model.hybrid_encoder_spectral_hidden_scale",
+-                    "model.hybrid_encoder_conv_hidden_channels",
+-                    "model.hybrid_encoder_spectral_hidden_channels",
+-                    "model.hybrid_resnet_blocks",
+-                    "model.hybrid_resnet_bottleneck_layerscale_mode",
+-                    "model.hybrid_resnet_bottleneck_layerscale_value",
+-                    "model.hybrid_encoder_fusion_mode",
+-                    "model.hybrid_encoder_layerscale_init",
+-                    "model.hybrid_encoder_branch_gate_init",
+-                    "model.hybrid_encoder_branch_select",
+-                }
+-            ),
+-            output_path="model.generator_output_mode",
+-            learned_input_channels=1,
+-            minimum_fno_blocks=3,
+-            resnet_width_divisor=4,
+-            minimum_hidden_per_downsample=True,
+-        ),
+@@ -449,2 +412,0 @@ _BACKWARD_COMPATIBLE_OPTIONAL_EXPLICIT_PATHS = frozenset(
+-        "model.hybrid_resnet_bottleneck_layerscale_mode",
+-        "model.hybrid_resnet_bottleneck_layerscale_value",
+@@ -1107 +1068,0 @@ def _validate_model(config: ModelConfig, data_config: DataConfig) -> None:
+-        "hybrid_resnet_blocks",
+@@ -1340,2 +1300,0 @@ def _applicable_architecture_paths(model_config: ModelConfig) -> set[str]:
+-    if architecture == "hybrid_resnet" and model_config.hybrid_skip_connections:
+-        paths.add("model.hybrid_skip_style")
+diff --git a/scripts/studies/ablation/manifest.py b/scripts/studies/ablation/manifest.py
+index 6f9b13db3..9b27e09ff 100644
+--- a/scripts/studies/ablation/manifest.py
++++ b/scripts/studies/ablation/manifest.py
+@@ -324 +323,0 @@ _CLAIM_GRADE_ARMS = frozenset(
+-        ("hybrid_resnet", "ci_nll"),
+@@ -326,2 +324,0 @@ _CLAIM_GRADE_ARMS = frozenset(
+-        ("hybrid_resnet", "legacy_nll"),
+-        ("hybrid_resnet", "legacy_mae"),
+@@ -552 +548,0 @@ _PROTOCOL_V3_DUPLICATED_MODEL_EXECUTION_ALIASES = (
+-    "hybrid_resnet_blocks",
+@@ -561,2 +556,0 @@ _PROTOCOL_V3_MOVED_HYBRID_FIELDS = (
+-    "hybrid_resnet_bottleneck_layerscale_mode",
+-    "hybrid_resnet_bottleneck_layerscale_value",
+@@ -661,5 +654,0 @@ def _project_protocol_v3_resolved_config(config: Mapping[str, Any]) -> dict[str,
+-    if model.get("architecture") == "hybrid_resnet_convnext_bottleneck":
+-        raise ManifestError(
+-            "model.architecture makes ConvNeXt defaults applicable and cannot be "
+-            "represented by protocol v3"
+-        )
+diff --git a/scripts/studies/ablation/verdicts.py b/scripts/studies/ablation/verdicts.py
+index e5cda76bf..8f2c8ce39 100644
+--- a/scripts/studies/ablation/verdicts.py
++++ b/scripts/studies/ablation/verdicts.py
+@@ -30 +30 @@ from .visual_review import (
+-INTEGRATION_BRIDGE_CONTRACT_SCHEMA_VERSION = "hybrid_resnet_integration_bridge_v4"
++INTEGRATION_BRIDGE_CONTRACT_SCHEMA_VERSION = "model_integration_bridge_v4"
+@@ -32 +32 @@ INTEGRATION_BRIDGE_EVIDENCE_SCHEMA_VERSION = (
+-    "hybrid_resnet_integration_bridge_evidence_v3"
++    "model_integration_bridge_evidence_v3"

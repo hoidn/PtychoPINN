@@ -75,9 +75,10 @@ class TestBackendSelection:
 
         # Create config without backend parameter (should default to 'tensorflow')
         model_config = ModelConfig(N=64, gridsize=1)
+        from ptycho.config.config import DataConfig
         config = TrainingConfig(
             model=model_config,
-            train_data_file=Path('train.npz'),
+            data=DataConfig(train_data_file=Path('train.npz')),
             batch_size=16,
             nepochs=1
         )
@@ -110,9 +111,10 @@ class TestBackendSelection:
 
         # Create config with explicit PyTorch backend
         model_config = ModelConfig(N=64, gridsize=1)
+        from ptycho.config.config import DataConfig
         config = TrainingConfig(
             model=model_config,
-            train_data_file=Path('train.npz'),
+            data=DataConfig(train_data_file=Path('train.npz')),
             batch_size=16,
             nepochs=1,
             backend='pytorch'  # Explicit backend selection
@@ -153,9 +155,10 @@ class TestBackendSelection:
         model_config = ModelConfig(N=128, gridsize=2)
         train_path = tmp_path / "train.npz"
         train_path.touch()
+        from ptycho.config.config import DataConfig
         config = TrainingConfig(
             model=model_config,
-            train_data_file=train_path,
+            data=DataConfig(train_data_file=train_path),
             batch_size=16,
             nepochs=1,
             backend='pytorch'
@@ -225,9 +228,10 @@ class TestBackendSelection:
         model_config = ModelConfig(N=64, gridsize=1)
         train_path = tmp_path / "train.npz"
         train_path.touch()
+        from ptycho.config.config import DataConfig
         config = TrainingConfig(
             model=model_config,
-            train_data_file=train_path,
+            data=DataConfig(train_data_file=train_path),
             batch_size=16,
             nepochs=1,
             backend='pytorch'
@@ -323,9 +327,10 @@ class TestBackendSelection:
             lambda *_args: events.append("bridge"),
         )
 
+        from ptycho.config.config import DataConfig
         config = TrainingConfig(
             model=ModelConfig(),
-            train_data_file=tmp_path / "missing.npz",
+            data=DataConfig(train_data_file=tmp_path / "missing.npz"),
             backend="tensorflow",
         )
 
@@ -350,9 +355,10 @@ class TestBackendSelection:
 
         train_path = tmp_path / "train.npz"
         train_path.touch()
+        from ptycho.config.config import DataConfig
         config = TrainingConfig(
             model=ModelConfig(),
-            train_data_file=train_path,
+            data=DataConfig(train_data_file=train_path),
             backend="tensorflow",
         )
         events = []
@@ -565,7 +571,7 @@ class TestBackendSelection:
         Phase: E1.B API parity test
         Reference: pytorch_workflow_comparison.md §Summary Table
         """
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig, DataConfig
 
         # Create identical config for both backends
         model_config = ModelConfig(N=64, gridsize=1)
@@ -573,7 +579,7 @@ class TestBackendSelection:
         # TensorFlow config
         tf_config = TrainingConfig(
             model=model_config,
-            train_data_file=Path('train.npz'),
+            data=DataConfig(train_data_file=Path('train.npz')),
             batch_size=16,
             nepochs=1,
             backend='tensorflow'
@@ -582,7 +588,7 @@ class TestBackendSelection:
         # PyTorch config (identical except backend field)
         pt_config = TrainingConfig(
             model=model_config,
-            train_data_file=Path('train.npz'),
+            data=DataConfig(train_data_file=Path('train.npz')),
             batch_size=16,
             nepochs=1,
             backend='pytorch'
@@ -590,7 +596,7 @@ class TestBackendSelection:
 
         # Assert both configs are valid and only differ in backend field
         assert tf_config.model.N == pt_config.model.N
-        assert tf_config.train_data_file == pt_config.train_data_file
+        assert tf_config.data.train_data_file == pt_config.data.train_data_file
         assert tf_config.batch_size == pt_config.batch_size
         assert tf_config.nepochs == pt_config.nepochs
         assert tf_config.backend != pt_config.backend

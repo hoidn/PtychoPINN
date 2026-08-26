@@ -67,6 +67,83 @@ from ptycho_torch.execution_request import (
 )
 
 
+def test_resolved_torch_records_build_exact_training_payload(tmp_path):
+    from ptycho.config.config import PyTorchExecutionConfig
+    from ptycho_torch.config_factory import (
+        create_training_payload_from_resolved_configs,
+    )
+
+    data = PTDataConfig(N=128, grid_size=(2, 2), C=4, K=7, nphotons=3e7)
+    model = PTModelConfig(
+        C_model=4,
+        C_forward=4,
+        object_big=True,
+        rect_s1s2_trainable=True,
+    )
+    training = PTTrainingConfig(
+        learning_rate=4e-4,
+        epochs=3,
+        batch_size=5,
+    )
+    inference = PTInferenceConfig(patch_weighting="uniform")
+    execution = PyTorchExecutionConfig(
+        accelerator="cpu",
+        devices=1,
+        strategy="auto",
+        num_workers=0,
+    )
+
+    payload = create_training_payload_from_resolved_configs(
+        data,
+        model,
+        training,
+        inference,
+        execution,
+        train_data_file=tmp_path / "train.npz",
+        output_dir=tmp_path / "run",
+        n_groups=23,
+        parity_scale_mode="fixed",
+        parity_fixed_delta=0.75,
+        parity_init_scheme="tf_glorot",
+    )
+
+    assert payload.pt_data_config is data
+    assert payload.pt_model_config is model
+    assert payload.pt_training_config is training
+    assert payload.pt_inference_config is inference
+    assert payload.execution_config is execution
+    assert payload.tf_training_config.data.train_data_file == tmp_path / "train.npz"
+    assert payload.tf_training_config.output_dir == tmp_path / "run"
+    assert payload.tf_training_config.sampling.n_groups == 23
+    assert payload.tf_training_config.model.N == 128
+    assert payload.tf_training_config.model.gridsize == 2
+    assert payload.model_spec.parity_scale_mode == "fixed"
+    assert payload.model_spec.parity_fixed_delta == 0.75
+    assert payload.model_spec.parity_init_scheme == "tf_glorot"
+
+
+def test_resolved_torch_records_preserve_use_all_group_semantics(tmp_path):
+    from ptycho.config.config import PyTorchExecutionConfig
+    from ptycho_torch.config_factory import (
+        create_training_payload_from_resolved_configs,
+    )
+
+    training = PTTrainingConfig(n_groups=None)
+    payload = create_training_payload_from_resolved_configs(
+        PTDataConfig(),
+        PTModelConfig(),
+        training,
+        PTInferenceConfig(),
+        PyTorchExecutionConfig(accelerator="cpu", devices=1),
+        train_data_file=tmp_path / "train.npz",
+        output_dir=tmp_path / "run",
+        n_groups=None,
+    )
+
+    assert training.n_groups is None
+    assert payload.tf_training_config.sampling.n_groups is None
+
+
 def test_datagen_config_converts_owned_fields_to_simulation_without_changing_payload_shape():
     datagen = DatagenConfig(
         objects_per_probe=6,
@@ -230,7 +307,8 @@ def mock_train_npz_with_metadata(tmp_path):
         "ycoords": np.linspace(0, 1, n_images).astype(np.float64),
         "scan_index": np.arange(n_images).astype(np.int32),
     }
-    tf_config = TFTrainingConfig(model=TFModelConfig(N=N, gridsize=1), nphotons=nphotons)
+    from ptycho.config.config import DataConfig as TFDataConfig
+    tf_config = TFTrainingConfig(model=TFModelConfig(N=N, gridsize=1), data=TFDataConfig(nphotons=nphotons))
     metadata = MetadataManager.create_metadata(
         tf_config,
         script_name="unit-test",
@@ -522,7 +600,7 @@ class TestConfigBridgeTranslation:
         )
         # GREEN phase assertions:
         assert payload.pt_data_config.K == 7  # PyTorch K
-        assert payload.tf_training_config.neighbor_count == 7  # TensorFlow naming
+        assert payload.tf_training_config.sampling.neighbor_count == 7  # TensorFlow naming
 
 
 # ============================================================================
@@ -556,13 +634,13 @@ class TestLegacyParamsPopulation:
 
     def test_populate_legacy_params_helper(self, mock_train_npz, temp_output_dir):
         """populate_legacy_params() wrapper calls update_legacy_dict."""
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig, DataConfig, SamplingConfig
 
         # Construct minimal TF config
         tf_config = TrainingConfig(
             model=ModelConfig(N=64, gridsize=2),
-            train_data_file=mock_train_npz,
-            n_groups=512,
+            data=DataConfig(train_data_file=mock_train_npz),
+            sampling=SamplingConfig(n_groups=512),
         )
 
         # Clear params.cfg
@@ -660,7 +738,7 @@ class TestOverridePrecedence:
             overrides={'n_groups': 1024, 'batch_size': 16},
         )
         # GREEN phase assertions:
-        assert payload.tf_training_config.n_groups == 1024  # Override wins
+        assert payload.tf_training_config.sampling.n_groups == 1024  # Override wins
         assert payload.tf_training_config.batch_size == 16
 
     def test_probe_size_override_wins_over_inference(self, mock_train_npz, temp_output_dir):
@@ -681,7 +759,7 @@ class TestOverridePrecedence:
             output_dir=temp_output_dir,
             overrides={'n_groups': 128},
         )
-        assert payload.tf_training_config.nphotons == TFTrainingConfig(model=TFModelConfig()).nphotons
+        assert payload.tf_training_config.data.nphotons == TFTrainingConfig(model=TFModelConfig()).data.nphotons
 
     def test_nphotons_uses_metadata_when_present(self, mock_train_npz_with_metadata, temp_output_dir):
         """Metadata nphotons should override defaults when present."""
@@ -690,7 +768,7 @@ class TestOverridePrecedence:
             output_dir=temp_output_dir,
             overrides={'n_groups': 128},
         )
-        assert payload.tf_training_config.nphotons == 5e8
+        assert payload.tf_training_config.data.nphotons == 5e8
 
 
 # ============================================================================
@@ -1149,9 +1227,10 @@ def test_execution_ownership_public_scheduler_is_baseline_not_explicit_patch(
     mock_train_npz,
     temp_output_dir,
 ):
+    from ptycho.config.config import SchedulerConfig as TFSchedulerConfig
     public = TFTrainingConfig(
         model=TFModelConfig(),
-        scheduler="WarmupCosine",
+        scheduler=TFSchedulerConfig(kind="WarmupCosine"),
     )
     baseline = create_training_payload(
         train_data_file=mock_train_npz,
@@ -1755,12 +1834,13 @@ class TestTrainWithLightningVarProProbeWeightingForwarding:
         from ptycho_torch.workflows import components
         import ptycho_torch.config_factory as config_factory_module
 
+        from ptycho.config.config import DataConfig as TFDataConfig2, SamplingConfig as TFSamplingConfig2
         cfg = TFTrainingConfig(
             model=TFModelConfig(N=64, gridsize=1, architecture="fno"),
-            train_data_file=mock_train_npz,
+            data=TFDataConfig2(train_data_file=mock_train_npz),
+            sampling=TFSamplingConfig2(n_groups=4),
             output_dir=temp_output_dir,
             backend="pytorch",
-            n_groups=4,
         )
 
         real_resolve_training_payload = config_factory_module.resolve_training_payload
@@ -1804,12 +1884,13 @@ class TestTrainWithLightningVarProProbeWeightingForwarding:
         from ptycho_torch.workflows import components
         import ptycho_torch.config_factory as config_factory_module
 
+        from ptycho.config.config import DataConfig as TFDataConfig2, SamplingConfig as TFSamplingConfig2
         cfg = TFTrainingConfig(
             model=TFModelConfig(N=64, gridsize=1, architecture="fno"),
-            train_data_file=mock_train_npz,
+            data=TFDataConfig2(train_data_file=mock_train_npz),
+            sampling=TFSamplingConfig2(n_groups=4),
             output_dir=temp_output_dir,
             backend="pytorch",
-            n_groups=4,
         )
 
         real_resolve_training_payload = config_factory_module.resolve_training_payload
@@ -1854,6 +1935,48 @@ class TestProbeSizeInference:
         N = infer_probe_size(mock_train_npz)
         # GREEN phase:
         assert N == 64  # Mock fixture has 64x64 probe
+
+    @pytest.mark.parametrize(
+        "probe_shape",
+        [(64, 64), (3, 64, 64), (64, 64, 1)],
+        ids=["two-dimensional", "mode-first", "legacy-singleton"],
+    )
+    def test_probe_size_consumers_use_canonical_header(self, tmp_path, probe_shape):
+        import numpy as np
+        from ptycho_torch.config_resolution import observe_probe_size
+
+        path = tmp_path / "probe_layout.npz"
+        np.savez(
+            path,
+            diffraction=np.ones((3, 64, 64), dtype=np.float32),
+            probeGuess=np.ones(probe_shape, dtype=np.complex64),
+            xcoords=np.arange(3, dtype=np.float64),
+            ycoords=np.arange(3, dtype=np.float64),
+        )
+
+        observation = observe_probe_size(path)
+
+        assert observation.value == 64
+        assert observation.notices == ()
+        assert infer_probe_size(path) == 64
+
+    def test_probe_size_accepts_grouped_dataset_contract(self, tmp_path):
+        """Grouped training NPZs have probe identity but no raw scan vectors."""
+        import numpy as np
+        from ptycho_torch.config_resolution import observe_probe_size
+
+        path = tmp_path / "grouped.npz"
+        np.savez(
+            path,
+            diffraction=np.ones((3, 128, 128, 1), dtype=np.float32),
+            coords_nominal=np.zeros((3, 1, 2, 1), dtype=np.float32),
+            probeGuess=np.ones((128, 128), dtype=np.complex64),
+        )
+
+        observation = observe_probe_size(path)
+
+        assert observation.value == 128
+        assert observation.notices == ()
 
     def test_infer_probe_size_missing_file_fallback(self):
         """Helper returns fallback N=64 for missing NPZ file."""

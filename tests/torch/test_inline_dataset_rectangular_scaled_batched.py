@@ -1,9 +1,8 @@
 """Task 2.8/2.9 fix: B>1 batched regression test for the inline-dataset -> collate ->
 RectangularScaledDiffraction.forward crash.
 
-Bug (root-caused in the Task 2.9 brief): ``ptycho_torch/workflows/components.py``'s
-inline training dataset (``PtychoLightningDataset``, built inside
-``_build_lightning_dataloaders``) per-sample selected + reshaped ``rms_scale``/
+Bug (root-caused in the Task 2.9 brief): the former inline training dataset in
+``_build_lightning_dataloaders`` per-sample selected + reshaped ``rms_scale``/
 ``phys_scale`` to ``(1, 1, 1)`` but returned ``scaling`` (batch[2], =
 ``self.scaling_constant``) and ``probe`` (``self.probe``) RAW / un-indexed /
 un-reshaped. PyTorch's default ``collate_fn`` then stacked a spurious leading
@@ -17,7 +16,7 @@ stray ``B`` axis into dim 3 where it collided with ``H`` -- but only when
 already-correctly-shaped B=1 or pre-shaped batches, so this bug class was
 uncovered.
 
-This test drives the REAL inline-dataset -> DataLoader-collate path via
+This test drives the real RAM-dataset -> DataLoader-collate path via
 ``_build_lightning_dataloaders`` with ``batch_size > 1``, asserts the collated
 ``probe``/``scaling`` shapes match the native ``PtychoDataset``/``Collate_Lightning``
 contract (``probe=(B, C, 1, N, N)``, ``scale=(B, 1, 1, 1)``), and then feeds that
@@ -30,8 +29,10 @@ import pytest
 import torch
 
 from ptycho.config.config import (
+    DataConfig as TFDataConfig,
     ModelConfig as TFModelConfig,
     PyTorchExecutionConfig,
+    SamplingConfig as TFSamplingConfig,
     TrainingConfig as TFTrainingConfig,
     update_legacy_dict,
 )
@@ -51,7 +52,7 @@ def _training_payload(
     physics_forward_mode: str,
 ) -> SimpleNamespace:
     """Task R1-fix: the (C, P, H, W) probe reshape / scaling select+collapse in
-    ``PtychoLightningDataset.__getitem__`` is now conditioned on
+    the RAM batch emitter is conditioned on
     ``model_config.physics_forward_mode == 'rectangular_scaled'`` (bisect-report.md
     #4: applying it unconditionally also degraded the amplitude default). The TF
     ``ModelConfig`` used elsewhere in this file has no ``physics_forward_mode``
@@ -92,7 +93,7 @@ def params_cfg_snapshot():
 
 def _build_container(n_samples: int, n_channels: int, N: int) -> dict:
     """Dict-based container fixture (duck-typed; mirrors PtychoDataContainerTorch/
-    grid_lines_torch_runner.run_torch_training's container shape). ``X``/coords use
+    the canonical RAM container shape). ``X``/coords use
     TensorFlow's channel-LAST convention (``(n, H, W, C)`` / ``(n, 1, 2, C)``) per
     the inline dataset's documented contract (components.py ~L479-506) -- the
     inline ``__getitem__`` permutes a per-sample 3D slice assuming (H, W, C).
@@ -127,10 +128,10 @@ def test_inline_dataset_collate_shapes_match_native_contract(
     tf_model_cfg = TFModelConfig(N=N, gridsize=1, object_big=False)
     tf_training_cfg = TFTrainingConfig(
         model=tf_model_cfg,
-        train_data_file=None,
+        data=TFDataConfig(train_data_file=None),
+        sampling=TFSamplingConfig(n_groups=n_samples),
         output_dir=tmp_path,
         batch_size=batch_size,
-        n_groups=n_samples,
     )
     update_legacy_dict(params.cfg, tf_training_cfg)
 
@@ -174,10 +175,10 @@ def test_inline_dataset_amplitude_mode_emits_documented_probe_layout(
     tf_model_cfg = TFModelConfig(N=N, gridsize=1, object_big=False)
     tf_training_cfg = TFTrainingConfig(
         model=tf_model_cfg,
-        train_data_file=None,
+        data=TFDataConfig(train_data_file=None),
+        sampling=TFSamplingConfig(n_groups=n_samples),
         output_dir=tmp_path,
         batch_size=batch_size,
-        n_groups=n_samples,
     )
     update_legacy_dict(params.cfg, tf_training_cfg)
 
@@ -222,10 +223,10 @@ def test_inline_dataset_collate_rectangular_scaled_forward_no_crash(
     tf_model_cfg = TFModelConfig(N=N, gridsize=1, object_big=False)
     tf_training_cfg = TFTrainingConfig(
         model=tf_model_cfg,
-        train_data_file=None,
+        data=TFDataConfig(train_data_file=None),
+        sampling=TFSamplingConfig(n_groups=n_samples),
         output_dir=tmp_path,
         batch_size=batch_size,
-        n_groups=n_samples,
     )
     update_legacy_dict(params.cfg, tf_training_cfg)
 

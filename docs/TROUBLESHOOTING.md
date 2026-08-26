@@ -75,37 +75,53 @@ logger.debug(f"Config object: gridsize={config.model.gridsize}")
 
 ## Oversampling Not Working
 
-### Problem: Can't create more groups than images (e.g., 1024 groups from 128 images)
+### Problem: A request for more groups than selected rows is rejected
 
 **Symptom:**
 ```
-Requested 1024 groups but only getting 128
+Requesting 1024 groups but only 128 points available ...
+K choose C oversampling is required but not enabled.
 ```
 
 **Root Cause:**
-Oversampling requires `gridsize > 1` AND `K > C` (where C = gridsize²).
+The K-choose-C branch is entered only when `n_groups > n_points` and
+`gridsize > 1`, where `n_points` is the selected raw-row count. That branch
+requires explicit `enable_oversampling: true` and `K >= C`, with
+`C = gridsize²` and K taken from `neighbor_pool_size` (or `neighbor_count`
+when the pool size is omitted).
 
 **Quick Check:**
 ```python
-# These conditions must be met for oversampling:
+# These conditions must be met for the oversampling branch:
 C = gridsize ** 2  # e.g., 4 for gridsize=2
-K = neighbor_count  # e.g., 7
+K = neighbor_pool_size or neighbor_count  # e.g., 7
+needs_oversampling = n_groups > n_points and C > 1
+assert needs_oversampling, "Oversampling is triggered only above the selected-row count"
+assert enable_oversampling, "Oversampling requires explicit opt-in"
 assert C > 1, "Need gridsize > 1 for oversampling"
 assert K >= C, "Need K >= C for valid groups"
-assert K > C, "Need K > C for oversampling combinations"
 
-# Maximum possible groups:
-max_groups = n_images * math.comb(K, C)
-print(f"Can create up to {max_groups} groups from {n_images} images")
+# Candidate diversity, not an enforced output cap:
+candidate_upper_bound = n_points * math.comb(K, C)
+print(f"At most {candidate_upper_bound} per-anchor combinations before overlap")
 ```
 
+If the requested group count exceeds the generated unique combination pool,
+the current sampler logs a warning and samples combinations with replacement.
+The value above therefore describes potential unique diversity, not a maximum
+allowed `n_groups`.
+
 **Solution:**
-```bash
-# Use these parameters for oversampling:
---gridsize 2       # Sets C=4
---neighbor-count 7  # Sets K=7, giving C(7,4)=35 combinations per seed
---n-subsample 128   # Number of images to load
---n-groups 1024     # Number of groups to create (can be > n_subsample!)
+```yaml
+# Put numeric and Boolean values in the nested training YAML.
+model:
+  gridsize: 2                 # C=4
+sampling:
+  neighbor_count: 7           # Neighbor query size
+  enable_oversampling: true   # Explicit opt-in
+  neighbor_pool_size: 7       # K=7, C(7,4)=35 combinations
+  n_subsample: 128            # Raw images selected
+  n_groups: 1024              # Grouped samples requested
 ```
 
 ---
@@ -116,12 +132,16 @@ print(f"Can create up to {max_groups} groups from {n_images} images")
 
 **Symptom:**
 ```python
-config.model.gridsize = 2  # Set in config
+from dataclasses import replace
+config = config.model_copy(
+    update={"model": replace(config.model, gridsize=2)}
+)
 # But legacy module still uses gridsize=1
 ```
 
 **Root Cause:**
-The one-way bridge from dataclass to params.cfg wasn't called.
+The one-way bridge from the resolved configuration to `params.cfg` was not
+called.
 
 **Solution:**
 ```python
@@ -135,12 +155,16 @@ assert params.cfg['gridsize'] == config.model.gridsize
 
 **Common Mistake:**
 ```python
-# WRONG: Updating config after update_legacy_dict
+# WRONG: deriving a replacement after update_legacy_dict without bridging it
 update_legacy_dict(params.cfg, config)
-config.model.gridsize = 2  # This change won't propagate!
+config = config.model_copy(
+    update={"model": replace(config.model, gridsize=2)}
+)
 
-# RIGHT: Update config first, then sync
-config.model.gridsize = 2
+# RIGHT: derive the complete record first, then bridge it
+config = config.model_copy(
+    update={"model": replace(config.model, gridsize=2)}
+)
 update_legacy_dict(params.cfg, config)
 ```
 
@@ -153,8 +177,8 @@ update_legacy_dict(params.cfg, config)
 **Symptom:**
 ```bash
 # This doesn't work as expected:
-ptycho_train --config config.yaml --gridsize 4
-# Still uses gridsize from config.yaml!
+ptycho_train --config config.yaml --backend pytorch
+# Still uses backend from config.yaml!
 ```
 
 **Root Cause:**
@@ -168,9 +192,9 @@ Configuration precedence may be incorrect in some scripts.
 **Debug:**
 ```python
 # Check what values are being used:
-print(f"Args: {args.gridsize}")
-print(f"YAML: {yaml_config.get('gridsize')}")
-print(f"Final: {config.model.gridsize}")
+print(f"Args: {args.backend}")
+print(f"YAML: {yaml_config.get('backend')}")
+print(f"Final: {config.backend}")
 ```
 
 ---

@@ -474,17 +474,3 @@ class TestConfigFields:
         assert cfg.recon_log_fixed_indices == [0, 7]
         assert cfg.recon_log_stitch is True
         assert cfg.recon_log_max_stitch_samples == 50
-
-
-class TestRunnerPropagation:
-    def test_runner_propagates_recon_log_max_stitch_samples(self, tmp_path):
-        from scripts.studies.grid_lines_torch_runner import TorchRunnerConfig, setup_torch_configs
-        cfg = TorchRunnerConfig(
-            train_npz=tmp_path / "train.npz",
-            test_npz=tmp_path / "test.npz",
-            output_dir=tmp_path / "out",
-            architecture="fno",
-            recon_log_max_stitch_samples=8,
-        )
-        _, exec_cfg = setup_torch_configs(cfg)
-        assert exec_cfg.values["recon_log_max_stitch_samples"] == 8

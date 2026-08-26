@@ -1,0 +1,61 @@
+# Hydra composition example for the synthetic pipeline: architecture x scaling
+# profile on the flat-acquisition lines recipe (the only object family the
+# simulate stage implements on this branch). Base = keys shared by all arms,
+# in the schema accepted by `scripts/simulation/synthetic_pipeline.py --config`.
+#
+# Single arm:
+#   ptycho_study --config-dir studies/lines_arch_profile/conf --config-name config \
+#       arch=ffno profile=ci_poisson
+# Matrix sweep:
+#   ptycho_study --config-dir studies/lines_arch_profile/conf --config-name config -m \
+#       arch=cnn,ffno profile=legacy_mae,ci_poisson
+defaults:
+  - _self_
+  - arch: cnn
+  - profile: ci_poisson
+
+study:
+  name: lines_arch_profile
+  output_root: .artifacts/studies/lines_arch_profile
+  profile_name: ???
+  runner_root: null
+  runner_script: scripts/simulation/synthetic_pipeline.py
+  cuda_visible_devices: 0
+  sentinel: reconstruction/metrics.json
+  shared_datasets: false
+
+hydra:
+  run:
+    dir: ${study.output_root}/adhoc/${now:%Y%m%d_%H%M%S}
+  sweep:
+    dir: ${study.output_root}
+    subdir: ${model.architecture}__${study.profile_name}
+  job:
+    chdir: false
+
+profile: synthetic-lines
+
+simulation:
+  N: 128
+  gridsize: 1
+  seed: 3
+  train_patterns: 4489
+  test_patterns: 729
+  probe:
+    source: custom
+    source_path: datasets/Run1084_recon3_postPC_shrunk_3.npz
+    transform_pipeline: pad_extrapolate:128|smooth:0.5
+
+training:
+  epochs: 5
+  train_raw_selection: 4489
+  training_groups: 4489
+  validation_groups: 729
+  neighbor_count: 1
+  neighbor_pool_size: 1
+
+inference:
+  groups_per_center: 1
+
+workflow:
+  accelerator: gpu

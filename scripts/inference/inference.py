@@ -88,6 +88,9 @@ def parse_arguments() -> argparse.Namespace:
                        help="Enable debug mode")
     parser.add_argument("--comparison_plot", action="store_true",
                        help="Generate original comparison plot (only if ground truth is available)")
+    parser.add_argument("--n_groups", type=int, required=False,
+                       default=argparse.SUPPRESS,
+                       help="Number of groups to process.")
     parser.add_argument("--n_images", type=int, required=False,
                        default=argparse.SUPPRESS,
                        help="Number of images/groups to process. Interpretation depends on gridsize: "
@@ -106,6 +109,29 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--debug_dump", nargs='?', const='__AUTO__', default=None,
                        help="Directory to store inference debug artifacts (patch grid, offsets, stats). "
                             "Defaults to <output_dir>/debug_dump when invoked without a value.")
+    parser.add_argument(
+        "--patch-weighting",
+        choices=["uniform", "probe"],
+        default="uniform",
+        help=(
+            "PyTorch stitching weight. 'probe' selects the strict-load mmap "
+            "barycentric workflow; 'uniform' preserves legacy stitching."
+        ),
+    )
+    parser.add_argument(
+        "--varpro-scaling",
+        action="store_true",
+        help="Apply VarPro scaling during mmap barycentric reconstruction.",
+    )
+    parser.add_argument(
+        "--groups-per-center",
+        type=int,
+        default=1,
+        help=(
+            "Runtime coordinate groups per eligible center for PyTorch mmap "
+            "barycentric reconstruction (default: 1)."
+        ),
+    )
     # Backend selection (POLICY-001: PyTorch mandatory, CONFIG-001: update_legacy_dict required)
     parser.add_argument("--backend", type=str, choices=['tensorflow', 'pytorch'],
                        default=argparse.SUPPRESS,
@@ -653,6 +679,35 @@ def save_probe_visualization(test_data: RawData, output_path: str):
         raise OSError(f"Error saving probe visualization: {str(e)}")
 
 
+def _resolve_unified_pytorch_runtime(execution_request):
+    """Resolve the unified CLI's Torch request once and disclose notices."""
+    if not execution_request.explicit_fields:
+        print(
+            "POLICY-001: No --torch-* execution flags provided. Backend will "
+            "use GPU-first defaults (auto-detects CUDA if available, else CPU). "
+            "CPU-only users should pass --torch-accelerator cpu."
+        )
+    from ptycho_torch.execution_request import resolve_runtime_execution_request
+
+    runtime = resolve_runtime_execution_request(
+        execution_request,
+        mode="inference",
+    )
+    execution_config = runtime.config
+    logger.debug("PyTorch execution runtime audit: %s", runtime.audit_dict())
+    import warnings
+
+    for notice in runtime.notices:
+        warnings.warn(notice.message, notice.category, stacklevel=2)
+    if execution_config.accelerator in ("cuda", "gpu"):
+        device_str = "cuda"
+    elif execution_config.accelerator == "mps":
+        device_str = "mps"
+    else:
+        device_str = "cpu"
+    return execution_config, device_str
+
+
 @scoped_legacy_params
 def main():
     """Main entry point for the ptychography inference script."""
@@ -679,6 +734,57 @@ def main():
                 if args.debug_dump == '__AUTO__'
                 else Path(args.debug_dump)
             )
+
+        if config.backend == "pytorch":
+            from ptycho_torch.inference import (
+                _resolve_reassembly_route,
+                reconstruct_npz_barycentric,
+            )
+
+            patch_weighting = getattr(args, "patch_weighting", "uniform")
+            varpro_scaling = bool(getattr(args, "varpro_scaling", False))
+            reassembly_route = _resolve_reassembly_route(
+                patch_weighting,
+                varpro_scaling,
+            )
+            if reassembly_route == "barycentric":
+                execution_config, device_str = (
+                    _resolve_unified_pytorch_runtime(execution_request)
+                )
+                from ptycho_torch.config_params import (
+                    InferenceConfig as PTInferenceConfig,
+                )
+
+                runtime_inference_knobs = PTInferenceConfig(
+                    patch_weighting=patch_weighting,
+                    varpro_scaling=varpro_scaling,
+                )
+                precision = getattr(execution_config, "precision", "32-true")
+                if precision not in {"32-true", "16-mixed", "bf16-mixed"}:
+                    precision = "32-true"
+                result = reconstruct_npz_barycentric(
+                    Path(config.model_path),
+                    Path(config.test_data_file),
+                    run_root=Path(config.output_dir),
+                    groups_per_center=getattr(args, "groups_per_center", 1),
+                    inference_config=runtime_inference_knobs,
+                    device=device_str,
+                    num_workers=int(execution_config.num_workers or 0),
+                    inference_batch_size=(
+                        execution_config.inference_batch_size
+                    ),
+                    precision=precision,
+                    quiet=False,
+                )
+                save_reconstruction_images(
+                    result.amplitude,
+                    result.phase,
+                    config.output_dir,
+                    phase_vmin=args.phase_vmin,
+                    phase_vmax=args.phase_vmax,
+                )
+                print("Inference process completed successfully.")
+                sys.exit(0)
 
         # The selector bridges this validated bootstrap request before loading.
         # The backend loader may then restore authoritative archived params,
@@ -715,42 +821,9 @@ def main():
 
         # For PyTorch backend, move model to execution device and set to eval mode
         if config.backend == 'pytorch':
-            if not execution_request.explicit_fields:
-                print("POLICY-001: No --torch-* execution flags provided. "
-                      "Backend will use GPU-first defaults (auto-detects CUDA if available, else CPU). "
-                      "CPU-only users should pass --torch-accelerator cpu.")
-
-            from ptycho_torch.execution_request import (
-                resolve_runtime_execution_request,
+            execution_config, device_str = _resolve_unified_pytorch_runtime(
+                execution_request
             )
-
-            runtime = resolve_runtime_execution_request(
-                execution_request,
-                mode='inference',
-            )
-            execution_config = runtime.config
-            execution_runtime_audit = runtime.audit_dict()
-            import warnings
-
-            for notice in runtime.notices:
-                warnings.warn(
-                    notice.message,
-                    notice.category,
-                    stacklevel=2,
-                )
-            logger.debug(
-                "PyTorch execution runtime audit: %s",
-                execution_runtime_audit,
-            )
-
-            # Map Lightning accelerator convention to torch device string
-            if execution_config.accelerator in ('cuda', 'gpu'):
-                device_str = 'cuda'
-            elif execution_config.accelerator == 'mps':
-                device_str = 'mps'
-            else:
-                device_str = 'cpu'
-
             # Move model to execution device and ensure eval mode (DEVICE-MISMATCH-001 fix)
             model.to(device_str)
             model.eval()

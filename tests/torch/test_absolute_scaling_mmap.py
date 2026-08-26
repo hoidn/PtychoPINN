@@ -6,7 +6,6 @@ import numpy as np
 import pytest
 import torch
 
-import ptycho_torch.helper as hh
 from ptycho_torch.config_params import (
     DataConfig,
     InferenceConfig,
@@ -18,16 +17,6 @@ from ptycho_torch.scaling_contract import derive_ci_experiment_statistics
 
 
 N_PIX = 16
-CI_FIELDS = {
-    "measured_intensity",
-    "rms_input_scale",
-    "mean_measured_intensity",
-    "probe_training",
-    "probe_physical",
-    "probe_normalization",
-}
-
-
 def _count_intensity_arrays(n_images=10):
     intensity = np.arange(
         1,
@@ -101,120 +90,9 @@ def _build_file_dataset(tmp_path, payload, data_config, model_config, training_c
     )
 
 
-def _build_memory_dataset(payload, data_config, model_config):
-    intensity, xcoords, ycoords, probe, _ = payload
-    positions = np.stack([ycoords, xcoords], axis=1)
-    return PtychoDataset.from_np(
-        intensity,
-        probe,
-        positions,
-        model_config,
-        data_config,
-    )
-
-
 def _ci_lightning_configs():
     data_config, model_config, training_config = _ci_configs()
     return replace(data_config, N=64), model_config, training_config
-
-
-def test_ci_mmap_and_from_np_emit_identical_physical_multimode_batches(tmp_path):
-    payload = _count_intensity_arrays()
-    data_config, model_config, training_config = _ci_configs()
-    file_dataset = _build_file_dataset(
-        tmp_path,
-        payload,
-        data_config,
-        model_config,
-        training_config,
-    )
-    memory_dataset = _build_memory_dataset(payload, data_config, model_config)
-    indices = torch.arange(len(file_dataset))
-
-    file_batch = file_dataset[indices]
-    memory_batch = memory_dataset[indices]
-    file_td, file_probe_alias, file_q_alias = file_batch
-    memory_td, memory_probe_alias, memory_q_alias = memory_batch
-
-    assert CI_FIELDS <= set(file_td.keys())
-    assert CI_FIELDS <= set(memory_td.keys())
-    assert "physics_scaling_constant" not in file_td.keys()
-    assert "physics_scaling_constant" not in memory_td.keys()
-    for dataset in (file_dataset, memory_dataset):
-        assert "rms_input_scale" not in dataset.mmap_ptycho.keys()
-        assert "mean_measured_intensity" not in dataset.mmap_ptycho.keys()
-    for field in CI_FIELDS | {"images", "experiment_id", "nn_indices"}:
-        torch.testing.assert_close(file_td[field], memory_td[field])
-
-    physical_probe = torch.from_numpy(payload[3]).to(torch.complex64)
-    _, expected_q = hh.normalize_probe_like_tf(
-        payload[3],
-        probe_scale=data_config.probe_scale,
-        probe_mask=model_config.probe_mask,
-        probe_mask_tensor=model_config.probe_mask_tensor,
-        probe_mask_sigma=model_config.probe_mask_sigma,
-        probe_mask_diameter=model_config.probe_mask_diameter,
-    )
-    expected_physical = physical_probe[None, None].expand(
-        len(file_dataset),
-        1,
-        2,
-        N_PIX,
-        N_PIX,
-    )
-
-    assert file_td["probe_physical"].shape == (
-        len(file_dataset),
-        1,
-        2,
-        N_PIX,
-        N_PIX,
-    )
-    assert file_td["probe_training"].shape == expected_physical.shape
-    assert file_td["probe_normalization"].shape == (
-        len(file_dataset),
-        1,
-        1,
-        1,
-        1,
-    )
-    assert file_probe_alias.shape == expected_physical.shape
-    assert file_q_alias.shape == (len(file_dataset), 1, 1, 1)
-    torch.testing.assert_close(file_td["probe_physical"], expected_physical)
-    torch.testing.assert_close(
-        file_td["probe_training"],
-        file_td["probe_normalization"] * file_td["probe_physical"],
-    )
-    torch.testing.assert_close(
-        file_td["probe_normalization"],
-        torch.full_like(file_td["probe_normalization"], expected_q),
-    )
-    torch.testing.assert_close(file_probe_alias, file_td["probe_training"])
-    torch.testing.assert_close(
-        file_q_alias,
-        file_td["probe_normalization"].squeeze(-1),
-    )
-    torch.testing.assert_close(memory_probe_alias, file_probe_alias)
-    torch.testing.assert_close(memory_q_alias, file_q_alias)
-    torch.testing.assert_close(
-        file_dataset.data_dict["probes_physical"][0],
-        physical_probe,
-    )
-
-    expected_statistics = derive_ci_experiment_statistics(
-        torch.from_numpy(payload[0])[:, None],
-        N_PIX,
-    )
-    torch.testing.assert_close(
-        file_td["rms_input_scale"],
-        expected_statistics.rms_input_scale.expand(len(file_dataset), 1, 1, 1),
-    )
-    torch.testing.assert_close(
-        file_td["mean_measured_intensity"],
-        expected_statistics.mean_measured_intensity.expand(
-            len(file_dataset), 1, 1, 1
-        ),
-    )
 
 
 def test_ci_named_probe_normalization_is_five_dimensional_for_all_indexing(tmp_path):
@@ -237,10 +115,8 @@ def test_ci_named_probe_normalization_is_five_dimensional_for_all_indexing(tmp_p
     assert batch_alias.shape == (3, 1, 1, 1)
 
 
-@pytest.mark.parametrize("source", ["mmap", "from_np"])
 def test_explicit_legacy_loader_fields_and_tuple_aliases_are_byte_identical(
     tmp_path,
-    source,
 ):
     payload = _count_intensity_arrays()
     baseline_data = DataConfig(
@@ -272,24 +148,20 @@ def test_explicit_legacy_loader_fields_and_tuple_aliases_are_byte_identical(
     )
     training_config = TrainingConfig(batch_size=4, orchestrator="Mlflow")
 
-    if source == "mmap":
-        baseline = _build_file_dataset(
-            tmp_path / "baseline",
-            payload,
-            baseline_data,
-            baseline_model,
-            training_config,
-        )
-        explicit = _build_file_dataset(
-            tmp_path / "explicit",
-            payload,
-            legacy_data,
-            legacy_model,
-            training_config,
-        )
-    else:
-        baseline = _build_memory_dataset(payload, baseline_data, baseline_model)
-        explicit = _build_memory_dataset(payload, legacy_data, legacy_model)
+    baseline = _build_file_dataset(
+        tmp_path / "baseline",
+        payload,
+        baseline_data,
+        baseline_model,
+        training_config,
+    )
+    explicit = _build_file_dataset(
+        tmp_path / "explicit",
+        payload,
+        legacy_data,
+        legacy_model,
+        training_config,
+    )
 
     indices = torch.arange(len(baseline))
     baseline_td, baseline_probe, baseline_q = baseline[indices]
@@ -569,25 +441,6 @@ def _skew_validation_payload(val_split, val_seed):
     return tuple(payload), train_subset.indices, validation_subset.indices
 
 
-def test_in_memory_data_module_replaces_provisional_ci_statistics_from_train_split():
-    from ptycho_torch.train_utils import InMemoryPtychoDataModule
-
-    val_split = 0.2
-    val_seed = 17
-    payload, _, _ = _skew_validation_payload(val_split, val_seed)
-    data_config, model_config, training_config = _ci_configs()
-    dataset = _build_memory_dataset(payload, data_config, model_config)
-    provisional_statistics = dataset.get_ci_statistics()
-    module = InMemoryPtychoDataModule(
-        dataset,
-        training_config,
-        val_split=val_split,
-        val_seed=val_seed,
-    )
-
-    _assert_finalized_module_statistics(module, provisional_statistics)
-
-
 def test_prebuilt_data_module_replaces_provisional_ci_statistics_from_train_split(
     tmp_path,
 ):
@@ -725,16 +578,6 @@ def test_ci_statistics_actual_lightning_checkpoint_round_trip(tmp_path):
 
     for name, expected in statistics.items():
         torch.testing.assert_close(restored.get_ci_statistics()[name], expected)
-
-
-def test_training_entry_point_constructs_rank_safe_ci_statistics_callback():
-    import ptycho_torch.train_lightning_only as train_lightning_only
-    from ptycho_torch.lightning_utils import CIStatisticsCallback
-
-    lightning_only = train_lightning_only._build_ci_statistics_callback()
-
-    assert isinstance(lightning_only, CIStatisticsCallback)
-    assert lightning_only.metadata_sink is None
 
 
 @pytest.mark.parametrize("is_global_zero", [True, False])

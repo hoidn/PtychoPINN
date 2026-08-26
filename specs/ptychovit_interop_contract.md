@@ -2,8 +2,8 @@
 
 ## 1. Scope
 
-This specification defines the normative contract for PtychoPINN <-> PtychoViT interop in the
-`pinn_ptychovit` model arm. It covers:
+This specification defines the normative, architecture-neutral contract for
+PtychoPINN <-> PtychoViT interop. It covers:
 
 - NPZ -> paired HDF5 conversion semantics
 - Runtime normalization configuration requirements
@@ -115,9 +115,12 @@ The following is not contract-compliant for PtychoViT object reconstruction:
 
 - scan-wise mean aggregation (simple `mean` across scan predictions) without positional placement
 
-This can produce flat/low-information reconstructions even when data contracts are otherwise valid.
-
-> Known gap: bridge inference currently uses scan-wise mean aggregation (finding PTYCHOVIT-ASSEMBLY-001, Active); this requirement stands and the implementation is the acknowledged deviation.
+This can produce flat/low-information reconstructions even when data contracts
+are otherwise valid. The maintained
+`scripts/studies/ptychovit_bridge_entrypoint.py` satisfies the required behavior
+through position-aware `_stitch_complex_predictions`; its direct tests cover
+position placement, occupancy normalization, cropping, and object-space output
+shape.
 
 ## 6. Validation Checklist
 
@@ -135,5 +138,7 @@ An interop output is compliant only if all checks pass:
 ## 7. Non-Goals
 
 - Defining upstream PtychoViT training policy
-- Physical-unit harmonization beyond the existing pixel-space comparison workflow
-- Supporting arbitrary non-256 diffraction patch sizes for `pinn_ptychovit` in this contract version
+- Physical-unit harmonization beyond the required coordinate conversion
+- Supporting arbitrary non-256 diffraction patch sizes for upstream PtychoViT
+  in this contract version
+- Defining a model-comparison runner or cross-model evaluation policy

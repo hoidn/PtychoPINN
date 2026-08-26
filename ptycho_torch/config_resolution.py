@@ -22,6 +22,9 @@ from ptycho_torch.execution_request import (
 from ptycho_torch.object_compatibility import (
     resolve_torch_model_object_policy,
 )
+from ptycho_torch.rect_s1s2_initialization import (
+    validate_rect_s1s2_initialization_mode,
+)
 from ptycho_torch.scaling_contract import (
     resolve_scale_contract,
     validate_amplitude_physics_gain,
@@ -435,10 +438,23 @@ _TRAINING_INPUTS_BY_OWNER: tuple[
     (
         "inference",
         (
+            "middle_trim",
+            "inference_batch_size",
+            "experiment_number",
+            "pad_eval",
+            "window",
             "patch_weighting",
             "varpro_scaling",
             "log_patch_stats",
             "patch_stats_limit",
+        ),
+    ),
+    (
+        "bridge",
+        (
+            "enable_oversampling",
+            "neighbor_pool_size",
+            "sequential_sampling",
         ),
     ),
     (
@@ -756,15 +772,49 @@ def training_factory_baseline(
                 "training_baseline must be a public TrainingConfig, "
                 "Torch TrainingConfig, or None"
             )
-        available = {
-            field_info.name for field_info in fields(training_baseline)
-        }
-        baseline_changes = {
-            name: _snapshot_mutable_value(
-                getattr(training_baseline, name)
-            )
-            for name in TRAINING_OWNER_FIELDS & available
-        }
+        if isinstance(training_baseline, PublicTrainingConfig):
+            # Extract TRAINING_OWNER_FIELDS from the nested public TrainingConfig.
+            # The public config uses sub-configs (e.g. scheduler.kind, optimizer.algorithm)
+            # while the torch-internal TrainingConfig still uses flat fields.
+            _public_field_map = {
+                "scheduler": lambda c: c.scheduler.kind,
+                "lr_warmup_epochs": lambda c: c.scheduler.lr_warmup_epochs,
+                "lr_min_ratio": lambda c: c.scheduler.lr_min_ratio,
+                "plateau_factor": lambda c: c.scheduler.plateau_factor,
+                "plateau_patience": lambda c: c.scheduler.plateau_patience,
+                "plateau_min_lr": lambda c: c.scheduler.plateau_min_lr,
+                "plateau_threshold": lambda c: c.scheduler.plateau_threshold,
+                "gradient_clip_val": lambda c: c.gradient_clip.val,
+                "gradient_clip_algorithm": lambda c: c.gradient_clip.algorithm,
+                "optimizer": lambda c: c.optimizer.algorithm,
+                "weight_decay": lambda c: c.optimizer.weight_decay,
+                "momentum": lambda c: c.optimizer.sgd.momentum,
+                "adam_beta1": lambda c: c.optimizer.adam.beta1,
+                "adam_beta2": lambda c: c.optimizer.adam.beta2,
+            }
+            baseline_changes: dict[str, object] = {}
+            for name in TRAINING_OWNER_FIELDS:
+                if name in _public_field_map:
+                    try:
+                        baseline_changes[name] = _snapshot_mutable_value(
+                            _public_field_map[name](training_baseline)
+                        )
+                    except AttributeError:
+                        pass
+                elif hasattr(training_baseline, name):
+                    baseline_changes[name] = _snapshot_mutable_value(
+                        getattr(training_baseline, name)
+                    )
+        else:
+            available = {
+                field_info.name for field_info in fields(training_baseline)
+            }
+            baseline_changes = {
+                name: _snapshot_mutable_value(
+                    getattr(training_baseline, name)
+                )
+                for name in TRAINING_OWNER_FIELDS & available
+            }
         training = _fresh_config(training, baseline_changes)
         training_provenance.update(
             {
@@ -809,7 +859,7 @@ def inference_factory_baseline() -> TorchConfigBaseline:
 def observe_probe_size(data_file: Path) -> ProbeSizeObservation:
     """Inspect one NPZ without emitting the legacy fallback warning."""
 
-    import numpy as np
+    from ptycho.acquisition import inspect_probe_size
 
     path = Path(data_file)
     fallback = 64
@@ -826,34 +876,12 @@ def observe_probe_size(data_file: Path) -> ProbeSizeObservation:
         )
 
     try:
-        with np.load(path, allow_pickle=False) as npz_data:
-            if "probeGuess" not in npz_data:
-                return fallback_observation(
-                    f"probeGuess key missing from {path}."
-                )
-            probe = npz_data["probeGuess"]
-            if probe.ndim < 2:
-                return fallback_observation(
-                    "probeGuess has invalid shape "
-                    f"{probe.shape} (expected 2D square array)."
-                )
-            inferred = int(probe.shape[0])
-            if probe.shape[0] != probe.shape[1]:
-                return ProbeSizeObservation(
-                    inferred,
-                    (
-                        ResolutionNotice(
-                            UserWarning,
-                            "probeGuess is non-square "
-                            f"{probe.shape}. Using first dimension "
-                            f"N={inferred}.",
-                        ),
-                    ),
-                )
-            return ProbeSizeObservation(inferred)
+        return ProbeSizeObservation(inspect_probe_size(path))
     except FileNotFoundError:
         return fallback_observation(f"Data file {path} not found.")
     except Exception as exc:
+        if "missing required key probeGuess" in str(exc):
+            return fallback_observation(f"probeGuess key missing from {path}.")
         return fallback_observation(
             f"Error reading probeGuess from {path}: {exc}."
         )
@@ -932,6 +960,36 @@ def _require_positive_integer(value: object, field_name: str) -> int:
     return value
 
 
+def _require_exact_nonnegative_integer(
+    value: object,
+    field_name: str,
+) -> int:
+    if type(value) is not int or value < 0:
+        raise ValueError(
+            f"{field_name} must be an exact nonnegative integer, got {value!r}"
+        )
+    return value
+
+
+def _require_exact_positive_integer(
+    value: object,
+    field_name: str,
+) -> int:
+    if type(value) is not int or value <= 0:
+        raise ValueError(
+            f"{field_name} must be an exact positive integer, got {value!r}"
+        )
+    return value
+
+
+def _require_exact_boolean(value: object, field_name: str) -> bool:
+    if type(value) is not bool:
+        raise ValueError(
+            f"{field_name} must be an exact boolean, got {value!r}"
+        )
+    return value
+
+
 def _require_positive_number(value: object, field_name: str) -> object:
     if (
         isinstance(value, bool)
@@ -952,10 +1010,56 @@ def _validate_model_domains(config: ModelConfig) -> None:
             f"{sorted(SUPPORTED_TORCH_ARCHITECTURES)}, "
             f"got {config.architecture!r}"
         )
+    validate_rect_s1s2_initialization_mode(config.rect_s1s2_init)
 
 
 def _validate_inference_domains(config: InferenceConfig) -> None:
-    _require_positive_integer(config.batch_size, "batch_size")
+    for field_name in ("middle_trim", "window", "experiment_number"):
+        _require_exact_nonnegative_integer(
+            getattr(config, field_name),
+            field_name,
+        )
+    _require_exact_positive_integer(config.batch_size, "batch_size")
+    for field_name in ("pad_eval", "varpro_scaling", "log_patch_stats"):
+        _require_exact_boolean(getattr(config, field_name), field_name)
+    if config.patch_weighting not in {"uniform", "probe"}:
+        raise ValueError(
+            "patch_weighting must be 'uniform' or 'probe', "
+            f"got {config.patch_weighting!r}"
+        )
+    if config.patch_stats_limit is not None:
+        _require_exact_positive_integer(
+            config.patch_stats_limit,
+            "patch_stats_limit",
+        )
+
+
+def _validate_training_bridge_domains(
+    bridge_values: Mapping[str, object],
+    data: DataConfig,
+) -> None:
+    for field_name in ("enable_oversampling", "sequential_sampling"):
+        if field_name in bridge_values:
+            _require_exact_boolean(bridge_values[field_name], field_name)
+
+    neighbor_pool_size = bridge_values.get("neighbor_pool_size")
+    if neighbor_pool_size is not None:
+        neighbor_pool_size = _require_exact_positive_integer(
+            neighbor_pool_size,
+            "neighbor_pool_size",
+        )
+
+    enable_oversampling = bridge_values.get("enable_oversampling", False)
+    if enable_oversampling and data.grid_size != (1, 1):
+        effective_pool_size = (
+            data.K if neighbor_pool_size is None else neighbor_pool_size
+        )
+        if effective_pool_size < data.C:
+            raise ValueError(
+                "enable_oversampling requires neighbor_pool_size or K >= "
+                f"derived C={data.C} for grid_size={data.grid_size}, "
+                f"got {effective_pool_size}"
+            )
 
 
 def _loss_identity(torch_loss_mode: object) -> tuple[str, bool]:
@@ -1050,10 +1154,10 @@ def _reject_half_configured_ci(
 ) -> None:
     if physics_forward_mode == "rectangular_scaled":
         return
-    if normalized.values.get("rect_s1s2_init") == "data":
+    if normalized.values.get("rect_s1s2_init") == "dose_closure":
         raise ValueError(
-            "rect_s1s2_init='data' is a CI-contract knob (one-batch s1/s2 "
-            "calibration for the rectangular_scaled forward) but "
+            "rect_s1s2_init='dose_closure' is a CI-contract knob (closed-form "
+            "gauge initialization for the rectangular_scaled forward) but "
             f"physics_forward_mode resolved to {physics_forward_mode!r}, "
             "where it is silently ignored. Half-configured CI is fail-closed: "
             "use create_training_payload(..., profile='ci') (or --profile ci "
@@ -1172,6 +1276,10 @@ def resolve_training_bundle(
         TRAINING_INPUT_RULES,
         "inference",
     )
+    if "inference_batch_size" in inference_changes:
+        inference_changes["batch_size"] = inference_changes.pop(
+            "inference_batch_size"
+        )
     _prepare_object_policy_changes(normalized, model_changes)
 
     grid_size, channels = _derive_channel_count(
@@ -1278,6 +1386,23 @@ def resolve_training_bundle(
         bridge["n_subsample"] = data.n_subsample
     if "subsample_seed" in normalized.values:
         bridge["subsample_seed"] = data.subsample_seed
+    bridge_values = {
+        name: normalized.values[name]
+        for name in (
+            "enable_oversampling",
+            "neighbor_pool_size",
+            "sequential_sampling",
+        )
+        if name in normalized.values
+    }
+    _validate_training_bridge_domains(bridge_values, data)
+    for name in (
+        "enable_oversampling",
+        "neighbor_pool_size",
+        "sequential_sampling",
+    ):
+        if name in bridge_values:
+            bridge[name] = bridge_values[name]
 
     audit: dict[str, object] = dict(normalized.audit)
     audit.update(

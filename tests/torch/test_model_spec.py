@@ -66,6 +66,20 @@ def test_model_spec_rejects_family_schema_identifier_from_other_branch():
         ModelSpec.from_payload(payload)
 
 
+def test_model_spec_rejects_historical_data_initialization_identity():
+    from ptycho_torch.model_spec import ModelSpec, derive_model_spec
+
+    canonical, data, model = _coherent_configs()
+    payload = derive_model_spec(canonical, model, data).to_payload()
+    payload["model_config"]["rect_s1s2_init"] = "data"
+
+    with pytest.raises(
+        ValueError,
+        match=r"data.*unsupported.*ones.*dose_closure.*historical code or retraining",
+    ):
+        ModelSpec.from_payload(payload)
+
+
 def test_model_spec_rejects_shared_and_data_join_mismatches():
     from ptycho_torch.model_spec import derive_model_spec
 
@@ -196,3 +210,26 @@ def test_training_payload_carries_current_model_spec(tmp_path):
 
     assert payload.model_spec.to_model_config() == payload.pt_model_config
     assert payload.model_spec.schema_version == "torch-model-spec-portable-v2"
+
+
+def test_ci_training_payload_and_model_spec_carry_dose_closure(tmp_path):
+    import numpy as np
+
+    from ptycho_torch.config_factory import create_training_payload
+
+    data_path = tmp_path / "train.npz"
+    np.savez(
+        data_path,
+        diffraction=np.zeros((1, 1, 64, 64), dtype=np.float32),
+        probeGuess=np.ones((64, 64), dtype=np.complex64),
+    )
+
+    payload = create_training_payload(
+        train_data_file=data_path,
+        output_dir=tmp_path / "out",
+        overrides={"n_groups": 1, "gridsize": 1},
+        profile="ci",
+    )
+
+    assert payload.pt_model_config.rect_s1s2_init == "dose_closure"
+    assert payload.model_spec.to_model_config().rect_s1s2_init == "dose_closure"

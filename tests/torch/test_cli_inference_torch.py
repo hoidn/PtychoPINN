@@ -608,3 +608,25 @@ class TestInferenceCLIThinWrapper:
         request = call_kwargs['execution_config']
         assert request.values['enable_progress_bar'] is False, \
             "Expected enable_progress_bar=False when --quiet specified"
+
+
+def test_save_individual_reconstructions_closes_figures_when_rendering_raises(
+    tmp_path, monkeypatch
+):
+    """A failed render must not leak the figure into the global registry."""
+    import matplotlib.axes
+    import numpy as np
+    from matplotlib import pyplot as plt
+
+    from ptycho_torch.inference import save_individual_reconstructions
+
+    monkeypatch.setattr(
+        matplotlib.axes.Axes,
+        "imshow",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("imshow failed")),
+    )
+
+    with pytest.raises(RuntimeError, match="imshow failed"):
+        save_individual_reconstructions(np.ones((4, 4)), np.zeros((4, 4)), tmp_path)
+
+    assert plt.get_fignums() == []

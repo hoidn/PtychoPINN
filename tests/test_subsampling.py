@@ -8,9 +8,17 @@ import unittest
 import numpy as np
 import tempfile
 from pathlib import Path
+from ptycho.raw_data import RawData
 from ptycho.workflows.components import load_data
-from ptycho.config.config import TrainingConfig, ModelConfig
+from ptycho.config.config import TrainingConfig, ModelConfig, SamplingConfig
 from ptycho import params
+
+
+def assert_numpy_random_state_equal(test_case, before, after):
+    """Assert equality for the tuple returned by ``np.random.get_state``."""
+    test_case.assertEqual(before[0], after[0])
+    np.testing.assert_array_equal(before[1], after[1])
+    test_case.assertEqual(before[2:], after[2:])
 
 
 class TestSubsampling(unittest.TestCase):
@@ -129,6 +137,66 @@ class TestSubsampling(unittest.TestCase):
         # Check that different indices were selected
         # (with high probability for reasonable dataset sizes)
         self.assertFalse(np.array_equal(data1.xcoords, data2.xcoords))
+
+    def test_seeded_subsampling_does_not_mutate_ambient_numpy_state(self):
+        """A reproducible subset must not overwrite NumPy's global RNG stream."""
+        np.random.seed(20260803)
+        state_before = np.random.get_state()
+        original_cwd = Path.cwd()
+
+        with tempfile.TemporaryDirectory() as temporary_cwd:
+            try:
+                import os
+
+                os.chdir(temporary_cwd)
+                load_data(
+                    self.test_data_file.name,
+                    n_subsample=100,
+                    subsample_seed=71,
+                )
+                self.assertFalse((Path(temporary_cwd) / "tmp").exists())
+            finally:
+                os.chdir(original_cwd)
+
+        assert_numpy_random_state_equal(
+            self,
+            state_before,
+            np.random.get_state(),
+        )
+
+    def test_subsampling_consumes_passed_generator(self):
+        """Selection must accept and draw from a caller-owned Generator."""
+        data1 = load_data(
+            self.test_data_file.name,
+            n_subsample=100,
+            rng=np.random.default_rng(73),
+        )
+        data2 = load_data(
+            self.test_data_file.name,
+            n_subsample=100,
+            rng=np.random.default_rng(73),
+        )
+        data3 = load_data(
+            self.test_data_file.name,
+            n_subsample=100,
+            rng=np.random.default_rng(74),
+        )
+
+        np.testing.assert_array_equal(data1.sample_indices, data2.sample_indices)
+        self.assertFalse(np.array_equal(data1.sample_indices, data3.sample_indices))
+
+    def test_subsampling_rejects_seed_and_generator_together(self):
+        """The persisted subsample seed and explicit Generator cannot conflict."""
+        with self.assertRaisesRegex(
+            ValueError,
+            "subsample_seed.*rng|rng.*subsample_seed",
+        ):
+            load_data(
+                self.test_data_file.name,
+                n_subsample=100,
+                subsample_seed=79,
+                rng=np.random.default_rng(79),
+            )
     
     def test_subsample_larger_than_dataset(self):
         """Test that requesting more samples than available uses full dataset."""
@@ -176,6 +244,23 @@ class TestSubsampling(unittest.TestCase):
         if data.Y is not None:
             self.assertEqual(data.Y.shape[0], data.diff3d.shape[0])
             self.assertEqual(data.Y.shape[0], n_subsample)
+
+    def test_incompatible_legacy_y_is_ignored(self):
+        """The shared workflow keeps its historical optional-truth fallback."""
+        with tempfile.NamedTemporaryFile(suffix=".npz") as handle:
+            np.savez(
+                handle.name,
+                xcoords=np.arange(3, dtype=np.float64),
+                ycoords=np.arange(3, dtype=np.float64),
+                diffraction=np.ones((3, 4, 4), dtype=np.float32),
+                probeGuess=np.ones((4, 4), dtype=np.complex64),
+                Y=np.ones((1, 4, 4, 1), dtype=np.complex64),
+            )
+
+            with self.assertWarnsRegex(RuntimeWarning, "Ignoring.*Y"):
+                loaded = load_data(handle.name)
+
+        self.assertIsNone(loaded.Y)
     
     def test_sorted_indices_for_consistency(self):
         """Test that subsampled indices are sorted for consistency."""
@@ -215,22 +300,18 @@ class TestSubsampling(unittest.TestCase):
         """Test that new config fields work correctly."""
         config = TrainingConfig(
             model=ModelConfig(N=64),
-            n_images=500,
-            n_subsample=200,
-            subsample_seed=42
+            sampling=SamplingConfig(n_images=500, n_subsample=200, subsample_seed=42),
         )
-        
-        # Check that fields are accessible
-        self.assertEqual(config.n_subsample, 200)
-        self.assertEqual(config.subsample_seed, 42)
-        
-        # Check that None defaults work
+
+        self.assertEqual(config.sampling.n_subsample, 200)
+        self.assertEqual(config.sampling.subsample_seed, 42)
+
         config_default = TrainingConfig(
             model=ModelConfig(N=64),
-            n_images=500
+            sampling=SamplingConfig(n_images=500),
         )
-        self.assertIsNone(config_default.n_subsample)
-        self.assertIsNone(config_default.subsample_seed)
+        self.assertIsNone(config_default.sampling.n_subsample)
+        self.assertIsNone(config_default.sampling.subsample_seed)
 
     def test_load_data_keeps_canonical_diffraction_when_n_scans_less_than_n(self):
         """Canonical (N,H,W) diffraction must not transpose even when N_scans < H."""
@@ -255,6 +336,30 @@ class TestSubsampling(unittest.TestCase):
             import os
             os.unlink(tmp.name)
 
+    def test_load_data_defaults_missing_start_coordinates_to_primary_coordinates(self):
+        """Optional start coordinates default to the primary coordinates."""
+        n_scans = 3
+        n = 8
+        tmp = tempfile.NamedTemporaryFile(suffix=".npz", delete=False)
+        try:
+            xcoords = np.array([1.0, 2.0, 4.0], dtype=np.float64)
+            ycoords = np.array([3.0, 5.0, 8.0], dtype=np.float64)
+            np.savez(
+                tmp.name,
+                xcoords=xcoords,
+                ycoords=ycoords,
+                diffraction=np.ones((n_scans, n, n), dtype=np.float32),
+                probeGuess=np.ones((n, n), dtype=np.complex64),
+            )
+
+            loaded = load_data(tmp.name)
+
+            np.testing.assert_array_equal(loaded.xcoords_start, loaded.xcoords)
+            np.testing.assert_array_equal(loaded.ycoords_start, loaded.ycoords)
+        finally:
+            import os
+            os.unlink(tmp.name)
+
     def test_load_data_transposes_legacy_hwn_diffraction_when_last_axis_matches_coords(self):
         """Legacy (H,W,N) diffraction should transpose to (N,H,W)."""
         n_scans = 4
@@ -273,7 +378,74 @@ class TestSubsampling(unittest.TestCase):
                 objectGuess=np.ones((n, n), dtype=np.complex64),
             )
             loaded = load_data(tmp.name)
+            loaded_raw = RawData.from_file(tmp.name)
             self.assertEqual(loaded.diff3d.shape, (n_scans, n, n))
+            np.testing.assert_array_equal(loaded_raw.diff3d, diffraction_legacy.transpose(2, 0, 1))
+        finally:
+            import os
+            os.unlink(tmp.name)
+
+    def test_load_adapters_reject_conflicting_dual_diffraction_keys(self):
+        n_scans = 3
+        n = 4
+        tmp = tempfile.NamedTemporaryFile(suffix=".npz", delete=False)
+        try:
+            canonical = np.ones((n_scans, n, n), dtype=np.float32)
+            np.savez(
+                tmp.name,
+                xcoords=np.arange(n_scans, dtype=np.float64),
+                ycoords=np.arange(n_scans, dtype=np.float64),
+                diff3d=canonical,
+                diffraction=canonical + 1,
+                probeGuess=np.ones((n, n), dtype=np.complex64),
+            )
+
+            for adapter in (load_data, RawData.from_file):
+                with self.subTest(adapter=adapter.__qualname__):
+                    with self.assertRaisesRegex(ValueError, "conflicting diffraction"):
+                        adapter(tmp.name)
+        finally:
+            import os
+            os.unlink(tmp.name)
+
+    def test_load_adapters_retain_canonical_optional_fields(self):
+        n_scans = 6
+        n = 4
+        tmp = tempfile.NamedTemporaryFile(suffix=".npz", delete=False)
+        try:
+            truth = np.arange(n_scans * n * n).reshape(n_scans, n, n).astype(np.complex64)
+            label = truth + np.complex64(2j)
+            simulated_probe = np.full((n, n), 3 + 4j, dtype=np.complex64)
+            np.savez(
+                tmp.name,
+                xcoords=np.arange(n_scans, dtype=np.float64),
+                ycoords=np.arange(n_scans, dtype=np.float64),
+                diff3d=np.ones((n_scans, n, n), dtype=np.float32),
+                probeGuess=np.ones((n, n), dtype=np.complex64),
+                Y=truth,
+                label=label,
+                probe_simulated=simulated_probe,
+                object_amplitude_scale=np.array(2.5, dtype=np.float64),
+                scale_contract_version=np.array("ci_intensity_v2"),
+                measurement_domain=np.array("count_intensity"),
+                experiment_id=np.array(7, dtype=np.int64),
+                _metadata=np.array('{"source": "adapter-test"}'),
+            )
+
+            complete = RawData.from_file(tmp.name)
+            selected = load_data(tmp.name, n_subsample=3, subsample_seed=19)
+
+            np.testing.assert_array_equal(complete.label, label)
+            np.testing.assert_array_equal(complete.probe_simulated, simulated_probe)
+            self.assertEqual(complete.metadata, {"source": "adapter-test"})
+            np.testing.assert_array_equal(selected.Y, truth[selected.sample_indices])
+            np.testing.assert_array_equal(selected.label, label[selected.sample_indices])
+            np.testing.assert_array_equal(selected.probe_simulated, simulated_probe)
+            self.assertEqual(selected.object_amplitude_scale, np.float64(2.5))
+            self.assertEqual(selected.scale_contract_version, "ci_intensity_v2")
+            self.assertEqual(selected.measurement_domain, "count_intensity")
+            self.assertEqual(selected.experiment_id, 7)
+            self.assertEqual(selected.metadata, {"source": "adapter-test"})
         finally:
             import os
             os.unlink(tmp.name)

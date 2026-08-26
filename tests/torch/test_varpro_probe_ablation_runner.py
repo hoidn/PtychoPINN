@@ -944,6 +944,31 @@ def test_write_invocation_record_env_seed_used_when_no_explicit_seed(tmp_path, m
     assert record["runs"]["gs1_frozen"]["seed"] == 7
 
 
+def test_training_seed_rejects_non_integer_environment(monkeypatch):
+    monkeypatch.setenv("PTYCHO_TORCH_SEED", "banana")
+
+    with pytest.raises(ValueError, match="PTYCHO_TORCH_SEED"):
+        runner._resolve_training_seed()
+
+
+def test_selected_checkpoint_is_resolved_from_arm_summary(tmp_path):
+    arm_dir = tmp_path / "gs1_frozen"
+    checkpoint = arm_dir / "training_outputs" / "train" / "checkpoints" / "epoch.ckpt"
+    checkpoint.parent.mkdir(parents=True)
+    checkpoint.write_bytes(b"checkpoint")
+    (arm_dir / "summary.json").write_text(
+        json.dumps(
+            {
+                "selected_checkpoint": (
+                    "training_outputs/train/checkpoints/epoch.ckpt"
+                )
+            }
+        )
+    )
+
+    assert runner.selected_checkpoint_from_summary(arm_dir) == checkpoint
+
+
 # ---------------------------------------------------------------------------
 # (l) Task 1 -- --parity-scale-mode/--parity-fixed-delta/--parity-init-scheme
 # CLI flags, mirroring the --physics-forward-mode override pattern. Unlike

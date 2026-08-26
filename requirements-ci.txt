@@ -29,3 +29,5 @@ pytest<8
 tf-keras
 # neuralop_uno generator tests (tests/torch/test_neuralop_uno_generator.py); adapter requires exactly 2.0.0
 neuraloperator==2.0.0
+# study runner (ptycho_study) and tests/studies composition tests
+hydra-core>=1.3.2,<2

@@ -9,7 +9,6 @@ import torch
 from tensordict import TensorDict
 
 from ptycho_torch import reassembly
-from ptycho_torch import train_lightning_only as train_module
 from ptycho.config.config import PyTorchExecutionConfig
 from ptycho_torch.config_params import (
     DataConfig,
@@ -828,6 +827,9 @@ class _TinyCIDataset:
         )
         return batch, tuple_probe, torch.ones(batch_size, 1, 1, 1)
 
+    def __getitems__(self, indices):
+        return self[torch.as_tensor(indices, dtype=torch.long)]
+
 
 def _run_tiny_reconstruction(
     *,
@@ -888,6 +890,25 @@ def _run_tiny_reconstruction(
     if return_model:
         return result, model
     return result
+
+
+def test_barycentric_loader_does_not_repin_device_collated_batches(monkeypatch):
+    captured = {}
+
+    class LoaderCaptured(Exception):
+        pass
+
+    def capture_loader(*args, **kwargs):
+        captured.update(kwargs)
+        raise LoaderCaptured
+
+    monkeypatch.setattr(reassembly, "TensorDictDataLoader", capture_loader)
+
+    with pytest.raises(LoaderCaptured):
+        _run_tiny_reconstruction()
+
+    assert captured["pin_memory"] is False
+    assert captured["collate_fn"].device is None
 
 
 def test_reconstruct_preserves_old_tuple_returns_when_structured_is_false():
@@ -1061,7 +1082,9 @@ def test_reconstruction_precision_agrees_with_effective_runtime_json(tmp_path):
         callbacks=[],
         loggers=[],
     )
-    runtime = train_module._build_effective_runtime(
+    from ptycho_torch.runtime_provenance import build_effective_runtime
+
+    runtime = build_effective_runtime(
         11,
         {"precision": "bf16-mixed", "callbacks": [], "logger": []},
         execution_config,

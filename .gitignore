@@ -22,6 +22,7 @@ venv/
 # Logs
 *.log
 logs/
+.loglogin
 
 # Data files - CRITICAL: Never commit these!
 *.npz
@@ -164,7 +165,8 @@ test_*/**/pinn_frc_curves.csv
 /orchestration.yaml
 /plan.md
 /pytorch_workflow_analysis.md
-/studies/
+/studies/*
+!/studies/lines_arch_profile/
 /supervisor.sh
 /sync/
 /test_script_wrapper_fix.sh
@@ -202,3 +204,8 @@ docs/plans/**/reports/**
 plans/**/reports/**
 
 .worktrees/
+
+# Branch-local working docs on refactor: keep as untracked working state, never commit
+docs/plans/
+docs/superpowers/
+docs/workflows/

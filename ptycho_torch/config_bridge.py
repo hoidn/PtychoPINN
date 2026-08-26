@@ -65,6 +65,15 @@ from ptycho.config.config import (
     ModelConfig as TFModelConfig,
     TrainingConfig as TFTrainingConfig,
     InferenceConfig as TFInferenceConfig,
+    DataConfig as TFDataConfig,
+    SamplingConfig as TFSamplingConfig,
+    LossConfig as TFLossConfig,
+    TFLossConfig as TFTFLossConfig,
+    GradientClipConfig as TFGradientClipConfig,
+    AdamConfig as TFAdamConfig,
+    SgdConfig as TFSgdConfig,
+    OptimizerConfig as TFOptimizerConfig,
+    SchedulerConfig as TFSchedulerConfig,
     resolve_model_object_policy,
 )
 
@@ -217,7 +226,9 @@ def to_training_config(
     data: DataConfig,
     pt_model: ModelConfig,
     training: TrainingConfig,
-    overrides: Optional[Dict[str, Any]] = None
+    overrides: Optional[Dict[str, Any]] = None,
+    *,
+    require_group_count: bool = True,
 ) -> TFTrainingConfig:
     """
     Translate PyTorch configs to TensorFlow TrainingConfig.
@@ -225,7 +236,7 @@ def to_training_config(
     Performs critical field transformations:
     - epochs → nepochs (field rename)
     - K → neighbor_count (semantic mapping)
-    - nll bool → nll_weight float (True→1.0, False→0.0)
+    - nll bool → tf_loss.nll_weight float (True→1.0, False→0.0)
     - intensity_scale_trainable from PyTorch ModelConfig (moved to TrainingConfig)
     - Accepts overrides for fields missing in PyTorch (train_data_file, n_groups, etc.)
 
@@ -234,71 +245,38 @@ def to_training_config(
         data: PyTorch DataConfig instance (provides K, nphotons)
         pt_model: PyTorch ModelConfig instance (provides intensity_scale_trainable)
         training: PyTorch TrainingConfig instance (provides epochs, batch_size, nll)
-        overrides: Required dict containing train_data_file, n_groups, and other missing fields
+        overrides: Optional dict with flat field names that override defaults.
+            Supported keys: train_data_file, test_data_file, nphotons, n_groups,
+            n_subsample, subsample_seed, enable_oversampling,
+            neighbor_pool_size, sequential_sampling, output_dir.
 
     Returns:
         TensorFlow TrainingConfig instance with translated fields
 
     Raises:
-        ValueError: If required override fields (train_data_file) are missing
+        ValueError: If required fields (train_data_file, n_groups) are missing
     """
+    import warnings
     overrides = overrides or {}
 
-    # Convert nll bool to nll_weight float
-    nll_weight = 1.0 if training.nll else 0.0
-
-    # Build kwargs
-    kwargs = {
-        'model': model,
-
-        # From TrainingConfig
-        'batch_size': training.batch_size,
-        'nepochs': training.epochs,  # Field rename
-        'nll_weight': nll_weight,    # Type conversion
-
-        # From DataConfig
-        'neighbor_count': data.K,    # Semantic mapping
-        'nphotons': data.nphotons,  # Will be validated after overrides
-
-        # From PyTorch ModelConfig (belongs in TrainingConfig in TensorFlow)
-        'intensity_scale_trainable': pt_model.intensity_scale_trainable,
-
-        # Backend selection: propagate PyTorch backend
-        'backend': 'pytorch',  # E1.C2: Mark this config as coming from PyTorch stack
-
-        # Default values for fields missing in PyTorch
-        'mae_weight': 0.0,
-        'realspace_mae_weight': 0.0,
-        'realspace_weight': 0.0,
-        'positions_provided': True,
-        'probe_trainable': False,
-        'sequential_sampling': False,
-
-        # Fields from PyTorch TrainingConfig (now with defaults)
-        'train_data_file': training.train_data_file,  # From PyTorch TrainingConfig
-        'test_data_file': training.test_data_file,  # From PyTorch TrainingConfig
-        'n_groups': training.n_groups,  # From PyTorch TrainingConfig
-        'n_subsample': None,  # Not in PyTorch, use override
-        'subsample_seed': data.subsample_seed,  # From DataConfig
-        'output_dir': Path(training.output_dir) if training.output_dir else Path('training_outputs'),
-        'torch_loss_mode': getattr(training, 'torch_loss_mode', 'poisson'),
-        'torch_mae_pred_l2_match_target': getattr(training, 'torch_mae_pred_l2_match_target', False),
-        'gradient_clip_algorithm': getattr(training, 'gradient_clip_algorithm', 'norm'),
-        'optimizer': getattr(training, 'optimizer', 'adam'),
-        'momentum': getattr(training, 'momentum', 0.9),
-        'weight_decay': getattr(training, 'weight_decay', 0.0),
-        'adam_beta1': getattr(training, 'adam_beta1', 0.9),
-        'adam_beta2': getattr(training, 'adam_beta2', 0.999),
-        'scheduler': getattr(training, 'scheduler', 'Default'),
-        'lr_warmup_epochs': getattr(training, 'lr_warmup_epochs', 0),
-        'lr_min_ratio': getattr(training, 'lr_min_ratio', 0.1),
-    }
-
-    # Apply overrides (critical for MVP fields)
-    kwargs.update(overrides)
+    # Resolve overrides for flat fields
+    train_data_file = overrides.get('train_data_file', training.train_data_file)
+    test_data_file = overrides.get('test_data_file', training.test_data_file)
+    nphotons = overrides.get('nphotons', data.nphotons)
+    n_groups = overrides.get('n_groups', training.n_groups)
+    n_subsample = overrides.get('n_subsample', None)
+    subsample_seed = overrides.get('subsample_seed', getattr(data, 'subsample_seed', None))
+    output_dir = overrides.get('output_dir', training.output_dir)
+    enable_oversampling = overrides.get('enable_oversampling', False)
+    neighbor_pool_size = overrides.get('neighbor_pool_size', None)
+    sequential_sampling = overrides.get('sequential_sampling', False)
+    mae_weight = overrides.get('mae_weight', 0.0)
+    realspace_mae_weight = overrides.get('realspace_mae_weight', 0.0)
+    realspace_weight = overrides.get('realspace_weight', 0.0)
+    positions_provided = overrides.get('positions_provided', True)
+    probe_trainable = overrides.get('probe_trainable', False)
 
     # Validate nphotons: PyTorch default (1e5) differs from TensorFlow default (1e9)
-    # Require explicit override to avoid silent divergence (spec §5.2:9 HIGH risk)
     pytorch_default_nphotons = 1e5
     tensorflow_default_nphotons = 1e9
     if 'nphotons' not in overrides and data.nphotons == pytorch_default_nphotons:
@@ -311,40 +289,96 @@ def to_training_config(
 
     # Validate n_groups: Missing override leaves params.cfg['n_groups'] = None
     # breaking downstream workflows that expect valid integer (Phase B.B5.D3)
-    if kwargs['n_groups'] is None:
+    if require_group_count and n_groups is None:
         raise ValueError(
             "n_groups is required in overrides for TrainingConfig. "
             "Missing override leaves params.cfg['n_groups'] = None, breaking downstream workflows. "
             "Provide as: overrides=dict(..., n_groups=512)"
         )
 
-    # Warn about missing test_data_file (optional but helpful for evaluation workflows)
-    # Phase B.B5.D3: Softer validation to surface absent evaluation data
-    if kwargs['test_data_file'] is None:
-        import warnings
+    if test_data_file is None:
         warnings.warn(
             "test_data_file not provided in TrainingConfig overrides. "
             "Evaluation workflows require test_data_file to be set during inference update. "
             "Consider providing: overrides=dict(..., test_data_file=Path('test.npz'))",
             UserWarning,
-            stacklevel=2
+            stacklevel=2,
         )
 
-    # Convert string paths to Path objects, then back to strings for params.cfg compatibility
-    # This ensures KEY_MAPPINGS in config/config.py correctly converts to strings
-    for path_field in ['train_data_file', 'test_data_file', 'output_dir']:
-        if path_field in kwargs and kwargs[path_field] is not None:
-            if isinstance(kwargs[path_field], str):
-                kwargs[path_field] = Path(kwargs[path_field])
-
-    # Validate required overrides with actionable error messages
-    if kwargs['train_data_file'] is None:
+    if train_data_file is None:
         raise ValueError(
             "train_data_file is required in overrides for TrainingConfig. "
             "Provide as: overrides=dict(train_data_file=Path('train.npz'))"
         )
 
-    return TFTrainingConfig(**kwargs)
+    # Normalize path fields
+    def _to_path(v):
+        return Path(v) if isinstance(v, str) else v
+
+    train_data_file = _to_path(train_data_file)
+    test_data_file = _to_path(test_data_file)
+    output_dir = _to_path(output_dir) if output_dir else Path('training_outputs')
+
+    # Convert nll bool to nll_weight float; explicit override wins
+    nll_weight = overrides.get('nll_weight', 1.0 if training.nll else 0.0)
+
+    return TFTrainingConfig(
+        model=model,
+        batch_size=training.batch_size,
+        nepochs=training.epochs,
+        positions_provided=positions_provided,
+        probe_trainable=probe_trainable,
+        intensity_scale_trainable=pt_model.intensity_scale_trainable,
+        output_dir=output_dir,
+        backend='pytorch',
+        data=TFDataConfig(
+            train_data_file=train_data_file,
+            test_data_file=test_data_file,
+            nphotons=nphotons,
+        ),
+        sampling=TFSamplingConfig(
+            n_groups=n_groups,
+            n_subsample=n_subsample,
+            subsample_seed=subsample_seed,
+            neighbor_count=data.K,
+            enable_oversampling=enable_oversampling,
+            neighbor_pool_size=neighbor_pool_size,
+            sequential_sampling=sequential_sampling,
+        ),
+        loss=TFLossConfig(
+            torch_loss_mode=getattr(training, 'torch_loss_mode', 'poisson'),
+            torch_mae_pred_l2_match_target=getattr(training, 'torch_mae_pred_l2_match_target', False),
+        ),
+        tf_loss=TFTFLossConfig(
+            nll_weight=nll_weight,
+            mae_weight=mae_weight,
+            realspace_mae_weight=realspace_mae_weight,
+            realspace_weight=realspace_weight,
+        ),
+        gradient_clip=TFGradientClipConfig(
+            val=getattr(training, 'gradient_clip_val', None),
+            algorithm=getattr(training, 'gradient_clip_algorithm', 'norm'),
+        ),
+        optimizer=TFOptimizerConfig(
+            algorithm=getattr(training, 'optimizer', 'adam'),
+            weight_decay=getattr(training, 'weight_decay', 0.0),
+            sgd=TFSgdConfig(momentum=getattr(training, 'momentum', 0.9)),
+            adam=TFAdamConfig(
+                beta1=getattr(training, 'adam_beta1', 0.9),
+                beta2=getattr(training, 'adam_beta2', 0.999),
+            ),
+        ),
+        scheduler=TFSchedulerConfig(
+            # Torch-only schedulers (MultiStage, Adaptive) have no public-config
+            # equivalent; fall back to 'Default' so the public record stays valid.
+            kind=getattr(training, 'scheduler', 'Default')
+            if getattr(training, 'scheduler', 'Default') in {
+                'Default', 'Exponential', 'WarmupCosine', 'ReduceLROnPlateau'
+            } else 'Default',
+            lr_warmup_epochs=getattr(training, 'lr_warmup_epochs', 0),
+            lr_min_ratio=getattr(training, 'lr_min_ratio', 0.1),
+        ),
+    )
 
 
 def to_inference_config(

@@ -307,8 +307,12 @@ def reconstruct_image(model: nn.Module,
         ptycho_subset = ptycho_dset
     device = training_config.device
 
-    infer_loader = TensorDictDataLoader(ptycho_subset, batch_size = inference_config.batch_size,
-                                    collate_fn = Collate(device = training_config.device))
+    infer_loader = TensorDictDataLoader(
+        ptycho_subset,
+        batch_size=inference_config.batch_size,
+        collate_fn=Collate(),
+        pin_memory=torch.device(device).type == "cuda",
+    )
 
     
 
@@ -1697,8 +1701,8 @@ def reconstruct_image_barycentric(model: nn.Module,
         ptycho_subset,
         batch_size=inference_config.batch_size,
         num_workers=training_config.num_workers,
-        collate_fn=Collate(device=primary_device),
-        pin_memory = True,
+        collate_fn=Collate(),
+        pin_memory=uses_cuda,
         persistent_workers=training_config.num_workers > 0
     )
 
@@ -1794,6 +1798,9 @@ def reconstruct_image_barycentric(model: nn.Module,
                 probe = batch[1].to(
                     primary_device, non_blocking=True
                 )  # (B, C, P, H, W)
+                probe_scaling = batch[2].to(
+                    primary_device, non_blocking=True
+                )
                 in_scale = batch_data['rms_scaling_constant'].to(
                     primary_device, non_blocking=True
                 )
@@ -1815,7 +1822,6 @@ def reconstruct_image_barycentric(model: nn.Module,
                 assembly_start = time.time()
                 if rectangular_scaled_mode:
                     physics_scale = batch_data['physics_scaling_constant'].to(primary_device, non_blocking=True)
-                    probe_scaling = batch[2].to(primary_device, non_blocking=True)
                     output_scale = torch.sqrt(1.0 / (probe_scaling ** 2 * physics_scale + 1e-9))
                     Psi_a, Psi_b, X1, X2, X3 = compute_varpro_basis(
                         effective_probe,
@@ -1823,10 +1829,23 @@ def reconstruct_image_barycentric(model: nn.Module,
                         texture_raw.imag,
                         scale=output_scale,
                     )
-                else:  # amplitude: preserve the historical unscaled basis
+                else:
+                    if torch.any(
+                        ~torch.isfinite(probe_scaling) | (probe_scaling <= 0)
+                    ):
+                        raise ValueError(
+                            "legacy amplitude VarPro requires finite positive "
+                            "probe scaling"
+                        )
+                    # The model consumes the normalized training probe
+                    # P_training = probe_scaling * P_physical.  VarPro returns
+                    # a field compared with the acquisition object, so form its
+                    # detector basis with P_physical and keep the object in that
+                    # gauge.  The singleton append broadcasts over probe modes.
+                    varpro_probe = effective_probe / probe_scaling.unsqueeze(-1)
                     output_scale = None
                     Psi_a, Psi_b, X1, X2, X3 = compute_varpro_basis(
-                        effective_probe,
+                        varpro_probe,
                         texture_raw.real,
                         texture_raw.imag,
                     )
@@ -1839,10 +1858,14 @@ def reconstruct_image_barycentric(model: nn.Module,
             a_tilde = texture_raw.real
             b_tilde = texture_raw.imag
 
-            # VarPro always accumulates on the full detector frame. CI uses the
-            # calibrated, masked physical probe directly; explicit legacy
-            # rectangular mode retains its historical output-scale fold.
-            scaler.accumulate_batch_from_basis(I_raw, X1, X2, X3)
+            # VarPro always fits detector intensity on the full frame. CI
+            # supplies physical count intensity directly. Legacy ``images``
+            # carry normalized diffraction amplitude, so square them exactly
+            # once before fitting the intensity basis.
+            varpro_observation = I_raw if ci_varpro_mode else I_raw.square()
+            scaler.accumulate_batch_from_basis(
+                varpro_observation, X1, X2, X3
+            )
 
             # Center crop (stitching only -- VarPro above uses the full frame)
             N = data_config.N

@@ -34,54 +34,6 @@ from pathlib import Path
 
 from ptycho.config.legacy_state import scoped_legacy_params
 
-#----- Helper Functions -------
-
-
-def _infer_probe_size(npz_file):
-    """
-    Infer probe size (N) from NPZ metadata without loading full arrays.
-
-    This function reads the probeGuess array header from an NPZ file using the
-    zipfile approach, following the pattern established in ptycho_torch/dataloader.py:npz_headers().
-
-    Args:
-        npz_file (str or Path): Path to NPZ file containing probeGuess key
-
-    Returns:
-        int or None: First dimension of probeGuess shape (N), or None if probeGuess key missing
-
-    References:
-        - specs/data_contracts.md §1 — probeGuess is required key for canonical NPZ format
-        - ptycho_torch/dataloader.py:29-83 — npz_headers() implementation pattern
-        - INTEGRATE-PYTORCH-001-PROBE-SIZE — Probe size mismatch resolution
-
-    Example:
-        >>> N = _infer_probe_size("datasets/Run1084_recon3_postPC_shrunk_3.npz")
-        >>> print(N)  # 64 (for this dataset)
-    """
-    import zipfile
-    from ptycho_torch.npz_utils import read_npy_shape
-
-    try:
-        with zipfile.ZipFile(npz_file) as archive:
-            # Search for probeGuess key in NPZ archive
-            for name in archive.namelist():
-                if name.startswith('probeGuess') and name.endswith('.npy'):
-                    # Open the .npy file inside the archive
-                    npy = archive.open(name)
-                    # Read array header without loading data
-                    shape = read_npy_shape(npy)
-                    # Return first dimension (probe is typically N x N)
-                    return shape[0]
-
-            # probeGuess key not found - return None for fallback to default
-            return None
-
-    except (zipfile.BadZipFile, FileNotFoundError, KeyError):
-        # If NPZ is invalid or missing, return None
-        # Caller can decide whether to use default or raise error
-        return None
-
 @scoped_legacy_params
 def cli_main():
     """
@@ -143,9 +95,19 @@ Examples:
         help=(
             "Named configuration profile. 'ci' selects the coherent "
             "PtychoPINN-CI bundle (ci_intensity_v2/count_intensity contract, "
-            "rectangular_scaled forward, Poisson loss, data-calibrated "
+            "rectangular_scaled forward, Poisson loss, dose-closure-initialized "
             "trainable s1/s2, real/imag CNN heads). Explicit flags that "
             "contradict the profile's contract fields fail closed."
+        ),
+    )
+    parser.add_argument(
+        '--rect-s1s2-init',
+        choices=['ones', 'dose_closure'],
+        default=None,
+        help=(
+            'Startup initialization for the rectangular s1/s2 gauge. '
+            'dose_closure solves the initial gauge from training counts; '
+            'this is separate from whether s1/s2 remain trainable.'
         ),
     )
     parser.add_argument(
@@ -430,6 +392,8 @@ Examples:
             overrides['scale_contract_version'] = args.scale_contract_version
         if args.measurement_domain is not None:
             overrides['measurement_domain'] = args.measurement_domain
+        if args.rect_s1s2_init is not None:
+            overrides['rect_s1s2_init'] = args.rect_s1s2_init
         if test_data_file:
             overrides['test_data_file'] = test_data_file
         overrides.update(training_patch)
@@ -469,33 +433,11 @@ Examples:
 
             # Route through run_cdi_example_torch for bundle persistence
             from ptycho_torch.workflows.components import run_cdi_example_torch
-            profile_overrides = None
-            if args.profile == "ci":
-                profile_overrides = {
-                    "scale_contract_version": (
-                        payload.pt_data_config.scale_contract_version
-                    ),
-                    "measurement_domain": payload.pt_data_config.measurement_domain,
-                    "physics_forward_mode": (
-                        payload.pt_model_config.physics_forward_mode
-                    ),
-                    "torch_loss_mode": payload.pt_training_config.torch_loss_mode,
-                    "loss_function": payload.pt_model_config.loss_function,
-                    "amplitude_physics_gain": (
-                        payload.pt_model_config.amplitude_physics_gain
-                    ),
-                    "rect_s1s2_trainable": (
-                        payload.pt_model_config.rect_s1s2_trainable
-                    ),
-                    "rect_s1s2_init": payload.pt_model_config.rect_s1s2_init,
-                    "cnn_output_mode": payload.pt_model_config.cnn_output_mode,
-                }
             amplitude, phase, results = run_cdi_example_torch(
                 train_data=train_data,
                 test_data=test_data,
                 config=payload.tf_training_config,
                 do_stitching=False,  # CLI only needs training, not reconstruction
-                overrides=profile_overrides,
                 resolved_payload=payload,
             )
 

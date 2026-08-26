@@ -4,13 +4,15 @@ Utilities for registering PyTorch Lightning models to MLflow server
 import os
 import json
 import dataclasses
-from typing import Dict, Optional, Union, Any
+from typing import Any, Dict, Optional, Tuple, Union
 from pathlib import Path
 
 import torch
 import mlflow
 import mlflow.pytorch
 from mlflow import MlflowClient
+
+from ptycho_torch.rect_s1s2_initialization import validate_rect_s1s2_initialization_mode
 
 
 def register_lightning_model_to_mlflow(
@@ -350,6 +352,9 @@ def load_model_from_mlflow(
     # Load model from MLflow
     model_uri = f"runs:/{run_id}/model"
     model = mlflow.pytorch.load_model(model_uri)
+    validate_rect_s1s2_initialization_mode(
+        model.model_config.rect_s1s2_init
+    )
     
     return model
 
@@ -511,6 +516,9 @@ def load_model_and_configs(
         model_uri = f"models:/{model_name}/{latest_version.version}"
     
     model = mlflow.pytorch.load_model(model_uri)
+    validate_rect_s1s2_initialization_mode(
+        model.model_config.rect_s1s2_init
+    )
     
     # Step 3: Load configs from the run
     configs = load_configs_from_run(run_id, mlflow_tracking_uri)

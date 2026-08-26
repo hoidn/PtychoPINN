@@ -1,4 +1,4 @@
-"""Pure source resolution for the public configuration dataclasses."""
+"""Pure source resolution for the public configuration records."""
 
 from __future__ import annotations
 
@@ -19,22 +19,14 @@ from .config import (
 
 
 _MODEL_INPUT_NAMES = frozenset(f.name for f in fields(ModelConfig))
-_TRAINING_INPUT_NAMES = frozenset(f.name for f in fields(TrainingConfig)) - {"model"}
+_TRAINING_INPUT_NAMES = frozenset(TrainingConfig.model_fields) - {"model"}
 _INFERENCE_INPUT_NAMES = frozenset(f.name for f in fields(InferenceConfig)) - {"model"}
 
 assert _MODEL_INPUT_NAMES.isdisjoint(_TRAINING_INPUT_NAMES)
 assert _MODEL_INPUT_NAMES.isdisjoint(_INFERENCE_INPUT_NAMES)
 
 
-_N_IMAGES_DEPRECATION_MESSAGE = (
-    "Parameter 'n_images' is deprecated and will be removed in a future "
-    "version. Use 'n_groups' instead, which always means the number of "
-    "groups regardless of gridsize."
-)
-
-
 _MODEL_CONFIG_ADAPTER = TypeAdapter(ModelConfig)
-_TRAINING_CONFIG_ADAPTER = TypeAdapter(TrainingConfig)
 _INFERENCE_CONFIG_ADAPTER = TypeAdapter(InferenceConfig)
 
 
@@ -144,17 +136,14 @@ def _resolve_group_alias(
     *,
     source: str,
 ) -> tuple[dict[str, Any], bool]:
+    """Handle n_images→n_groups alias for flat (InferenceConfig) dicts."""
     resolved = dict(values)
     if "n_images" not in resolved:
         return resolved, False
 
     legacy = resolved["n_images"]
     canonical = resolved.get("n_groups")
-    if (
-        canonical is not None
-        and legacy is not None
-        and canonical != legacy
-    ):
+    if canonical is not None and legacy is not None and canonical != legacy:
         raise ValueError(
             f"{source} field 'n_images' conflicts with canonical 'n_groups'"
         )
@@ -164,16 +153,19 @@ def _resolve_group_alias(
     return resolved, legacy is not None
 
 
-def _warn_deprecated_group_alias() -> None:
-    warnings.warn(
-        _N_IMAGES_DEPRECATION_MESSAGE,
-        DeprecationWarning,
-        stacklevel=3,
-    )
-
-
 def _object_policy_backend(backend: Any) -> str:
     return "torch" if backend == "pytorch" else "tensorflow"
+
+
+def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    """Merge override into base, deep-merging nested dicts."""
+    result = dict(base)
+    for key, value in override.items():
+        if isinstance(value, dict) and isinstance(result.get(key), dict):
+            result[key] = _deep_merge(result[key], value)
+        else:
+            result[key] = value
+    return result
 
 
 def resolve_training_config(
@@ -181,50 +173,24 @@ def resolve_training_config(
     explicit_cli_patch: Mapping[str, Any] | None,
 ) -> TrainingConfig:
     """Resolve file and explicitly supplied CLI values into a fresh config."""
-
-    file_model, file_training = _normalize_public_source(
-        {} if file_mapping is None else file_mapping,
-        source="file",
-        workflow_names=_TRAINING_INPUT_NAMES,
+    merged = _deep_merge(
+        dict(file_mapping) if file_mapping is not None else {},
+        dict(explicit_cli_patch) if explicit_cli_patch is not None else {},
     )
-    cli_model, cli_training = _normalize_public_source(
-        {} if explicit_cli_patch is None else explicit_cli_patch,
-        source="explicit CLI",
-        workflow_names=_TRAINING_INPUT_NAMES,
-    )
-    file_training, file_used_alias = _resolve_group_alias(
-        file_training,
-        source="file",
-    )
-    cli_training, cli_used_alias = _resolve_group_alias(
-        cli_training,
-        source="explicit CLI",
-    )
-
-    training_values = dict(file_training)
-    training_values.update(cli_training)
-    model_values = dict(file_model)
-    model_values.update(cli_model)
-    candidate = _validate_public_structure(
-        _TRAINING_CONFIG_ADAPTER,
-        {"model": model_values, **training_values},
-        root="training",
-        strict=False,
-    )
+    try:
+        candidate = TrainingConfig.model_validate(merged)
+    except ValidationError as error:
+        _raise_public_validation_error(error, root="training")
     raw_model = candidate.model
-    candidate.model = resolve_model_object_policy(
-        raw_model,
-        backend=_object_policy_backend(candidate.backend),
-        warn_deprecated=False,
-    )
+    candidate = candidate.model_copy(update={
+        "model": resolve_model_object_policy(
+            raw_model,
+            backend=_object_policy_backend(candidate.backend),
+            warn_deprecated=False,
+        )
+    })
     validate_training_config_structure(candidate)
-    resolve_model_object_policy(
-        raw_model,
-        backend=_object_policy_backend(candidate.backend),
-        warn_deprecated=True,
-    )
-    if file_used_alias or cli_used_alias:
-        _warn_deprecated_group_alias()
+    resolve_model_object_policy(raw_model, warn_deprecated=True)
     return candidate
 
 
@@ -285,7 +251,13 @@ def resolve_inference_config(
         warn_deprecated=True,
     )
     if file_used_alias or cli_used_alias:
-        _warn_deprecated_group_alias()
+        warnings.warn(
+            "Parameter 'n_images' is deprecated and will be removed in a future "
+            "version. Use 'n_groups' instead, which always means the number of "
+            "groups regardless of gridsize.",
+            DeprecationWarning,
+            stacklevel=3,
+        )
     return candidate
 
 
@@ -307,11 +279,19 @@ def validate_model_config_structure(config: ModelConfig) -> None:
 def _validate_sampling_semantics(
     config: TrainingConfig | InferenceConfig,
 ) -> None:
-    if config.enable_oversampling and config.model.gridsize > 1:
+    if isinstance(config, TrainingConfig):
+        enable_oversampling = config.sampling.enable_oversampling
+        neighbor_count = config.sampling.neighbor_count
+        neighbor_pool_size = config.sampling.neighbor_pool_size
+    else:
+        enable_oversampling = config.enable_oversampling
+        neighbor_count = config.neighbor_count
+        neighbor_pool_size = config.neighbor_pool_size
+    if enable_oversampling and config.model.gridsize > 1:
         pool_size = (
-            config.neighbor_count
-            if config.neighbor_pool_size is None
-            else config.neighbor_pool_size
+            neighbor_count
+            if neighbor_pool_size is None
+            else neighbor_pool_size
         )
         group_size = config.model.gridsize**2
         if pool_size < group_size:
@@ -326,16 +306,14 @@ def validate_training_config_structure(config: TrainingConfig) -> None:
 
     if not isinstance(config, TrainingConfig):
         raise TypeError("config must be a TrainingConfig")
-    _validate_public_structure(
-        _TRAINING_CONFIG_ADAPTER,
-        config,
-        root="training",
-        strict=True,
-    )
+    try:
+        TrainingConfig.model_validate(config, strict=True, context={"strict_instance": True})
+    except ValidationError as error:
+        _raise_public_validation_error(error, root="training")
     validate_model_config_structure(config.model)
     _validate_sampling_semantics(config)
 
-    if config.realspace_mae_weight > 0 and config.realspace_weight <= 0:
+    if config.tf_loss.realspace_mae_weight > 0 and config.tf_loss.realspace_weight <= 0:
         raise ValueError(
             "realspace_mae_weight requires positive realspace_weight"
         )
@@ -373,19 +351,19 @@ def validate_runnable_training_config(config: TrainingConfig) -> None:
 
     if not isinstance(config, TrainingConfig):
         raise TypeError("config must be a TrainingConfig")
-    if config.train_data_file is None:
+    if config.data.train_data_file is None:
         raise ValueError("train_data_file is required for runnable training")
-    if not config.train_data_file.exists():
+    if not config.data.train_data_file.exists():
         raise ValueError(
-            f"train_data_file must exist: {config.train_data_file}"
+            f"train_data_file must exist: {config.data.train_data_file}"
         )
-    if not config.train_data_file.is_file():
+    if not config.data.train_data_file.is_file():
         raise ValueError(
-            f"train_data_file must be a regular file: {config.train_data_file}"
+            f"train_data_file must be a regular file: {config.data.train_data_file}"
         )
-    if not os.access(config.train_data_file, os.R_OK):
+    if not os.access(config.data.train_data_file, os.R_OK):
         raise ValueError(
-            f"train_data_file must be readable: {config.train_data_file}"
+            f"train_data_file must be readable: {config.data.train_data_file}"
         )
     if config.nepochs <= 0:
         raise ValueError(f"nepochs must be positive, got {config.nepochs!r}")
@@ -393,18 +371,18 @@ def validate_runnable_training_config(config: TrainingConfig) -> None:
         raise ValueError(
             f"batch_size must be positive, got {config.batch_size!r}"
         )
-    if config.nphotons <= 0:
+    if config.data.nphotons <= 0:
         raise ValueError(
-            f"nphotons must be positive, got {config.nphotons!r}"
+            f"nphotons must be positive, got {config.data.nphotons!r}"
         )
-    if config.n_groups is None or config.n_groups <= 0:
+    if config.sampling.n_groups is None or config.sampling.n_groups <= 0:
         raise ValueError(
-            f"n_groups must be positive, got {config.n_groups!r}"
+            f"n_groups must be positive, got {config.sampling.n_groups!r}"
         )
-    if config.n_subsample is not None and config.n_subsample <= 0:
+    if config.sampling.n_subsample is not None and config.sampling.n_subsample <= 0:
         raise ValueError(
             f"n_subsample must be positive when set, "
-            f"got {config.n_subsample!r}"
+            f"got {config.sampling.n_subsample!r}"
         )
 
 

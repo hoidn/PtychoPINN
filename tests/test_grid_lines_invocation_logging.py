@@ -33,30 +33,30 @@ def test_get_git_dirty_returns_bool_or_none():
 def test_write_invocation_artifacts_writes_json_and_shell(tmp_path):
     from scripts.studies.invocation_logging import write_invocation_artifacts
 
-    out = tmp_path / "runs" / "pinn_fno"
+    out = tmp_path / "runs" / "cnn"
     path_json, path_sh = write_invocation_artifacts(
         output_dir=out,
-        script_path="scripts/studies/grid_lines_torch_runner.py",
-        argv=["--output-dir", "outputs/x", "--architecture", "fno"],
-        parsed_args={"output_dir": "outputs/x", "architecture": "fno"},
+        script_path="scripts/simulation/synthetic_pipeline.py",
+        argv=["--output-root", "outputs/x", "--architecture", "cnn"],
+        parsed_args={"output_root": "outputs/x", "architecture": "cnn"},
     )
 
     assert path_json.exists()
     assert path_sh.exists()
 
     payload = json.loads(path_json.read_text())
-    assert payload["script"] == "scripts/studies/grid_lines_torch_runner.py"
+    assert payload["script"] == "scripts/simulation/synthetic_pipeline.py"
     assert "--architecture" in payload["argv"]
     assert payload["cwd"]
     assert payload["timestamp_utc"]
-    assert payload["command"].startswith("python scripts/studies/grid_lines_torch_runner.py")
-    assert "fno" in path_sh.read_text()
+    assert payload["command"].startswith("python scripts/simulation/synthetic_pipeline.py")
+    assert "cnn" in path_sh.read_text()
 
 
 def test_write_invocation_artifacts_preserves_runtime_provenance(tmp_path):
     from scripts.studies.invocation_logging import write_invocation_artifacts
 
-    out = tmp_path / "runs" / "pinn_fno"
+    out = tmp_path / "runs" / "cnn"
     runtime_provenance = {
         "python_executable": "/usr/bin/python3",
         "cwd": "/tmp/session_repo",
@@ -65,9 +65,9 @@ def test_write_invocation_artifacts_preserves_runtime_provenance(tmp_path):
     }
     path_json, _ = write_invocation_artifacts(
         output_dir=out,
-        script_path="scripts/studies/grid_lines_torch_runner.py",
-        argv=["--output-dir", "outputs/x"],
-        parsed_args={"output_dir": "outputs/x"},
+        script_path="scripts/simulation/synthetic_pipeline.py",
+        argv=["--output-root", "outputs/x"],
+        parsed_args={"output_root": "outputs/x"},
         extra={"runtime_provenance": runtime_provenance},
     )
 
@@ -86,12 +86,12 @@ def test_write_invocation_artifacts_serializes_paths(tmp_path):
     out = tmp_path / "root"
     json_path, _ = write_invocation_artifacts(
         output_dir=out,
-        script_path="scripts/studies/grid_lines_compare_wrapper.py",
-        argv=["--output-dir", str(tmp_path / "outputs")],
-        parsed_args={"output_dir": Path("outputs/demo"), "architectures": ("cnn", "fno")},
+        script_path="scripts/simulation/synthetic_pipeline.py",
+        argv=["--output-root", str(tmp_path / "outputs")],
+        parsed_args={"output_root": Path("outputs/demo"), "architectures": ("cnn", "fno")},
     )
     payload = json.loads(json_path.read_text())
-    assert payload["parsed_args"]["output_dir"] == "outputs/demo"
+    assert payload["parsed_args"]["output_root"] == "outputs/demo"
     assert payload["parsed_args"]["architectures"] == ["cnn", "fno"]
 
 
@@ -106,9 +106,9 @@ def test_write_invocation_artifacts_captures_tmux_launcher_env(tmp_path, monkeyp
     out = tmp_path / "root"
     json_path, _ = write_invocation_artifacts(
         output_dir=out,
-        script_path="scripts/studies/lines128_paper_benchmark.py",
-        argv=["--output-dir", str(tmp_path / "outputs")],
-        parsed_args={"output_dir": str(tmp_path / "outputs")},
+        script_path="scripts/simulation/synthetic_pipeline.py",
+        argv=["--output-root", str(tmp_path / "outputs")],
+        parsed_args={"output_root": str(tmp_path / "outputs")},
     )
 
     payload = json.loads(json_path.read_text())

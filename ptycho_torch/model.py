@@ -1139,9 +1139,8 @@ class PoissonIntensityLayer(nn.Module):
 class RectangularScaledDiffraction(nn.Module):
     """Analytic real/imag intensity forward with folded probe/physics scaling (B5).
 
-    Ported verbatim from ``main``'s ``ptycho_torch.model.RectangularScaledDiffraction``
-    (bit-identical to ``ptycho_torch.beta_modules.model``), with the only change
-    being the Task 1.2 ``requires_grad`` patch on ``s1``/``s2`` (gated by
+    Ported from ``main``'s ``ptycho_torch.model.RectangularScaledDiffraction``
+    with the Task 1.2 ``requires_grad`` patch on ``s1``/``s2`` (gated by
     ``model_config.rect_s1s2_trainable``). Used only when
     ``ModelConfig.physics_forward_mode == 'rectangular_scaled'``.
 
@@ -1809,8 +1808,9 @@ class PtychoPINN(nn.Module):
         # convention (reassembly.compute_varpro_basis). Dividing again here
         # suppressed predicted intensity by probe_scale**2 and drove the
         # Poisson equilibrium object to ~probe_scale x truth (washed
-        # reconstructions; deliberate physics divergence from origin/main,
-        # which retains the defect). The default 'amplitude' path keeps the
+        # reconstructions; origin/main carried the same defect until the
+        # mid-July 2026 scale-chain port -- all lineages now share this
+        # convention). The default 'amplitude' path keeps the
         # historical division byte-for-byte.
         if getattr(self.model_config, 'physics_forward_mode', 'amplitude') \
                 == 'rectangular_scaled':
@@ -2116,7 +2116,6 @@ class PtychoPINN_Lightning(L.LightningModule):
         )
         self._last_mae_alpha_stats = None
         self._last_ci_raw_count_nll = None
-        self._last_calibration_means = None
 
         #Scaling module specifically for multi-scaling
         self.scaler = IntensityScalerModule(model_config)
@@ -2517,78 +2516,6 @@ class PtychoPINN_Lightning(L.LightningModule):
             total_loss += phase_reg_loss * self.model_config.phase_loss_coeff
 
         return total_loss
-
-    def _loss_target_intensity(self, batch, pred):
-        """Return the intensity tensor compute_loss compares ``pred`` against.
-
-        Mirrors the target expression of the active rectangular_scaled loss
-        branch (compute_loss above): the CI branch feeds
-        ``fields['measured_intensity']`` (raw counts) straight into
-        CIIntensityPoissonLoss(pred, observed_images); the explicit-legacy
-        branch feeds ``fields.get('observed_images', fields['images'])`` into
-        RectangularPoissonLoss(pred, observed_images). In both branches the
-        comparison happens in the intensity domain with no further rescaling
-        of either side, so the target is exactly these batch fields.
-        """
-        fields = batch[0]
-        rectangular_mode = getattr(
-            self.model_config,
-            'physics_forward_mode',
-            'amplitude',
-        ) == 'rectangular_scaled'
-        if rectangular_mode and self._ci_mode:
-            target = fields['measured_intensity']
-        else:
-            target = fields.get('observed_images', fields['images'])
-        return target.detach().to(device=pred.device, dtype=pred.dtype)
-
-    @torch.no_grad()
-    def calibrate_rect_s1s2(self, batch):
-        """Initialize rectangular-forward s1/s2 so predicted intensity matches
-        the measured intensity scale on one batch, avoiding a large initial
-        mismatch between predicted and measured count intensities.
-
-        With s1 = s2 = s the exit wave is linear in s, so the predicted
-        intensity scales as s**2; s = sqrt(mean(target)/mean(pred @ s=1))
-        equalizes the means the Poisson NLL actually compares. Runs no-grad,
-        touches only s1/s2 data (plus the diagnostic _last_calibration_means);
-        module training state is left untouched.
-
-        Returns the calibrated scalar, or None when not applicable.
-        """
-        if getattr(self.model_config, "physics_forward_mode", None) != "rectangular_scaled":
-            return None
-        scaler = next((m for m in self.modules()
-                       if isinstance(m, RectangularScaledDiffraction)), None)
-        if scaler is None:
-            return None
-        captured = {}
-
-        def _cap(_mod, _inp, out):
-            captured["pred"] = out.detach()
-
-        handle = scaler.register_forward_hook(_cap)
-        try:
-            self.compute_loss(batch)
-        finally:
-            handle.remove()
-        pred = captured.get("pred")
-        if pred is None:
-            return None
-        target = self._loss_target_intensity(batch, pred)  # same tensor domain
-        s = torch.sqrt(target.mean() / pred.mean().clamp_min(1e-30)).item()
-        scaler.s1.data.fill_(s)
-        scaler.s2.data.fill_(s)
-        # re-run to record post-calibration means for verification/logging
-        handle = scaler.register_forward_hook(_cap)
-        try:
-            self.compute_loss(batch)
-        finally:
-            handle.remove()
-        self._last_calibration_means = (
-            captured["pred"].mean(), target.mean())
-        return s
-
 
     def training_step(self, batch, batch_idx):
         #Manual opt

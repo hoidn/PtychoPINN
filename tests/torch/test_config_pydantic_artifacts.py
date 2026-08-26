@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 from pathlib import Path
 import subprocess
 import sys
 
+import pytest
 import torch
 
 
@@ -204,7 +206,7 @@ def test_generator_reproduces_each_canonical_fixture_byte_stream():
         assert (FIXTURE_ROOT / name).read_bytes() == expected
 
 
-def test_portable_v1_is_an_exact_explicit_projection_and_decodes():
+def test_portable_v1_is_an_exact_explicit_projection_and_historical_data_is_rejected():
     from ptycho_torch.artifact_schema import (
         ARTIFACT_SCHEMA_V1_VERSION,
         PORTABLE_V1_DATA_FIELDS,
@@ -247,28 +249,29 @@ def test_portable_v1_is_an_exact_explicit_projection_and_decodes():
         sorted(PRE_MIGRATION_PORTABLE_V1_INFERENCE_FIELDS)
     )
 
-    decoded = decode_artifact_identity(from_json_payload(raw))
-    model = decoded.model_spec.to_model_config()
-
-    assert decoded.model_spec.schema_version == "torch-model-spec-portable-v2"
-    assert model.mode == "Supervised"
-    assert model.architecture == "ffno"
-    assert model.object_big is True
-    assert model.object_layout == "grouped_patches"
-    assert model.training_canvas == "relative_overlap"
-    assert model.training_patch_weighting == "probe"
-    assert decoded.data_config.neighbor_function == "4_quadrant"
-    assert decoded.data_config.scan_pattern == "Rectangular"
-    assert decoded.training_config.scheduler == "WarmupCosine"
-    assert decoded.training_config.optimizer == "adamw"
-    assert decoded.inference_config.patch_weighting == "uniform"
-    assert decoded.ci_statistics == {
+    assert model_spec["model_config"]["mode"] == "Supervised"
+    assert model_spec["model_config"]["architecture"] == "ffno"
+    assert model_spec["model_config"]["object_big"] is True
+    assert model_spec["model_config"]["training_patch_weighting"] == "probe"
+    assert model_spec["model_config"]["rect_s1s2_init"] == "data"
+    assert raw["data_config"]["neighbor_function"] == "4_quadrant"
+    assert raw["data_config"]["scan_pattern"] == "Rectangular"
+    assert raw["training_config"]["scheduler"] == "WarmupCosine"
+    assert raw["training_config"]["optimizer"] == "adamw"
+    assert raw["inference_config"]["patch_weighting"] == "uniform"
+    assert raw["ci_statistics"] == {
         "rms_input_scale": [0.125, 0.25],
         "rms_probe_scale": [2.0],
     }
 
+    with pytest.raises(
+        ValueError,
+        match=r"data.*unsupported.*ones.*dose_closure.*historical code or retraining",
+    ):
+        decode_artifact_identity(from_json_payload(raw))
 
-def test_portable_v2_is_current_and_decodes_to_the_same_identity_as_v1():
+
+def test_portable_v2_is_current_structurally_and_historical_data_is_rejected():
     from ptycho_torch.artifact_schema import (
         CURRENT_ARTIFACT_SCHEMA_VERSION,
         decode_artifact_identity,
@@ -292,16 +295,19 @@ def test_portable_v2_is_current_and_decodes_to_the_same_identity_as_v1():
         "grouped_patches"
     )
 
-    decoded_v1 = decode_artifact_identity(from_json_payload(raw_v1))
-    decoded_v2 = decode_artifact_identity(from_json_payload(raw_v2))
+    assert raw_v1["model_spec"]["model_config"]["rect_s1s2_init"] == "data"
+    assert raw_v2["model_spec"]["model_config"]["rect_s1s2_init"] == "data"
+    assert raw_v2["data_config"] == raw_v1["data_config"]
+    assert raw_v2["training_config"] == raw_v1["training_config"]
+    assert raw_v2["inference_config"] == raw_v1["inference_config"]
+    assert raw_v2["ci_statistics"] == raw_v1["ci_statistics"]
 
-    assert decoded_v2.model_spec.to_model_config() == (
-        decoded_v1.model_spec.to_model_config()
-    )
-    assert decoded_v2.data_config == decoded_v1.data_config
-    assert decoded_v2.training_config == decoded_v1.training_config
-    assert decoded_v2.inference_config == decoded_v1.inference_config
-    assert decoded_v2.ci_statistics == decoded_v1.ci_statistics
+    for raw in (raw_v1, raw_v2):
+        with pytest.raises(
+            ValueError,
+            match=r"data.*unsupported.*ones.*dose_closure.*historical code or retraining",
+        ):
+            decode_artifact_identity(from_json_payload(raw))
 
 
 def test_complex_tensor_mask_tag_decodes_exactly_and_is_defensively_copied():
@@ -323,7 +329,9 @@ def test_complex_tensor_mask_tag_decodes_exactly_and_is_defensively_copied():
         "shape": [2, 3],
     }
 
-    decoded_payload = from_json_payload(raw)
+    compatible_raw = copy.deepcopy(raw)
+    compatible_raw["model_spec"]["model_config"]["rect_s1s2_init"] = "ones"
+    decoded_payload = from_json_payload(compatible_raw)
     decoded_tensor = decoded_payload["model_spec"]["model_config"][
         "probe_mask_tensor"
     ]

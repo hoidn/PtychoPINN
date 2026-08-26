@@ -5,8 +5,10 @@ import pytest
 import subprocess
 import sys
 import tempfile
+import json
 from pathlib import Path
 import os
+import numpy as np
 
 # Add project root to path to ensure scripts can find the ptycho module
 project_root = Path(__file__).resolve().parents[1]
@@ -20,6 +22,23 @@ class TestFullWorkflow(unittest.TestCase):
         """Create a temporary directory for all test outputs."""
         self.test_dir = tempfile.TemporaryDirectory()
         self.output_path = Path(self.test_dir.name)
+        self.data_file = self.output_path / "workflow_data.npz"
+
+        rng = np.random.default_rng(20260730)
+        scan_axis = np.linspace(-40.0, 40.0, 8, dtype=np.float64)
+        xcoords, ycoords = np.meshgrid(scan_axis, scan_axis)
+        np.savez(
+            self.data_file,
+            xcoords=xcoords.ravel(),
+            ycoords=ycoords.ravel(),
+            diffraction=rng.uniform(
+                0.01,
+                10.0,
+                size=(64, 64, 64),
+            ).astype(np.float32),
+            probeGuess=np.ones((64, 64), dtype=np.complex64),
+            objectGuess=np.ones((192, 192), dtype=np.complex64),
+        )
         print(f"\nCreated temporary directory for test run: {self.output_path}")
 
     def tearDown(self):
@@ -34,20 +53,30 @@ class TestFullWorkflow(unittest.TestCase):
         simulates a real user workflow across separate processes.
         """
         # --- 1. Define Paths ---
-        data_file = project_root / "ptycho" / "datasets" / "Run1084_recon3_postPC_shrunk_3.npz"
         training_output_dir = self.output_path / "training_outputs"
         inference_output_dir = self.output_path / "lcls_output"
+        training_config = self.output_path / "training.json"
+        training_config.write_text(
+            json.dumps(
+                {
+                    "model": {"N": 64, "gridsize": 1},
+                    "data": {
+                        "train_data_file": str(self.data_file),
+                        "test_data_file": str(self.data_file),
+                    },
+                    "sampling": {"n_groups": 64},
+                    "output_dir": str(training_output_dir),
+                    "nepochs": 2,
+                }
+            ),
+            encoding="utf-8",
+        )
         
         # --- 2. Training Step ---
         print("--- Running Training Step (subprocess) ---")
         train_command = [
             sys.executable, str(project_root / "scripts" / "training" / "train.py"),
-            "--train_data_file", str(data_file),
-            "--test_data_file", str(data_file),
-            "--output_dir", str(training_output_dir),
-            "--nepochs", "2",
-            "--n_images", "64",
-            "--gridsize", "1", # Explicitly set for clarity
+            "--config", str(training_config),
             "--quiet"
         ]
         
@@ -64,7 +93,7 @@ class TestFullWorkflow(unittest.TestCase):
         inference_command = [
             sys.executable, str(project_root / "scripts" / "inference" / "inference.py"),
             "--model_path", str(training_output_dir),
-            "--test_data", str(data_file),
+            "--test_data", str(self.data_file),
             "--output_dir", str(inference_output_dir),
             "--n_images", "32"
         ]

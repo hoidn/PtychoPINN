@@ -1,201 +1,138 @@
-# PtychoPINN Training Script
+# PtychoPINN Training CLI
 
-This script trains PtychoPINN from a .npz input and writes the resulting model artifacts to disk.
+`ptycho_train` is the backend-agnostic entry point for training from an existing
+standalone NPZ. It validates the supplied data, resolves the public training
+configuration, groups the data once, selects TensorFlow or PyTorch, and saves
+the resulting model artifacts.
 
-## Prerequisites
+For simulation plus training, reconstruction, and evaluation, use
+`ptycho_synthetic`. For Torch-only controls such as the `ci` profile and
+`rect_s1s2_init`, use `python -m ptycho_torch.train`. The interfaces are
+separate; native Torch flags should not be copied to `ptycho_train`.
 
-- PtychoPINN installation
+## Input data
 
-## Input Data Format
+The ordinary file route expects a standalone `.npz` accepted by
+`RawData.from_file()`, including:
 
-The training script expects the input data to be in the following format:
+- `diff3d` with shape `(patterns, N, N)`;
+- `xcoords` and `ycoords`;
+- complex `probeGuess`;
+- `objectGuess` and the remaining acquisition fields required by the shared
+  data contract.
 
-- Coordinates (x, y) of the scan points
-- Diffraction patterns
-- Ground truth of the probe function
-- Scan indices for each diffraction pattern
-- (Optional) Ground truth of the object
+`N` and the configured grid size must agree with the data. Legacy datasets may
+contain placeholder or repeated `scan_index` values; use coordinates for
+alignment and provenance checks. See
+[the data contracts](../../specs/data_contracts.md) for the complete schema.
 
-The data should be provided as a NumPy `.npz` file with the following keys:
-- `xcoords`: x coordinates of the scan points
-- `ycoords`: y coordinates of the scan points
-- `xcoords_start`: starting x coordinates for the scan (deprecated, same as `xcoords`)
-- `ycoords_start`: starting y coordinates for the scan (deprecated, same as `ycoords`)
-- `diff3d`: diffraction patterns with shape `(num_diffraction_patterns, N, N)`, where `N` is the model parameter (typically 64 or 128)
-- `probeGuess`: complex-valued probe ground truth
-- `scan_index`: array indicating the scan index for each diffraction pattern
+This entry point loads the standalone NPZ through `RawData`, groups it in
+memory, and uses ordinary DataLoaders. It does not select the TensorDict mmap
+route; mmap-aware study adapters select `PrebuiltPtychoDataModule` explicitly
+and pass it to the shared Lightning service.
 
-Note: Some legacy datasets (including fly64 variants) may contain non-unique or placeholder `scan_index` values.
-For dataset alignment/provenance checks, prefer coordinate-based matching (`xcoords`, `ycoords`).
+## Configuration shape
 
-Note: The distinction between `xcoords`/`ycoords` and `xcoords_start`/`ycoords_start` is only relevant if the iterative solver used to generate the probe ground truth used position correction. This distinction is deprecated, so `xcoords` and `xcoords_start` (and `ycoords` and `ycoords_start`) can be assumed to be the same.
+Public training configuration is a nested Pydantic model. YAML fields belong
+to their owning sections:
 
-The height and width of the diffraction patterns are equal and determined by the model parameter `N`, which is typically set to 64 or 128. The value of `N` should be consistent with the model configuration.
+```yaml
+model:
+  N: 64
+  gridsize: 1
+  architecture: cnn
 
-## Data Loading
+data:
+  train_data_file: datasets/train.npz
+  test_data_file: datasets/test.npz
 
-By default, the training script loads up to 512 images from the input data file. This limit is hardcoded but can be modified in the source code if needed.
+sampling:
+  n_groups: 512
+  n_subsample: 2000
+  subsample_seed: 42
 
-### Sampling Modes
+optimizer:
+  algorithm: adam
+  weight_decay: 0.0
 
-The training script supports two data sampling modes:
+scheduler:
+  kind: ReduceLROnPlateau
+  plateau_factor: 0.5
+  plateau_patience: 2
 
-1. **Random Sampling (default)**: Randomly selects data points from the dataset for training. This provides better coverage of the entire scan region and is recommended for most training scenarios.
-
-2. **Sequential Sampling**: Uses the first `n_images` points from the dataset in sequential order. This is useful for:
-   - Debugging specific scan regions
-   - Analyzing ordered data subsets
-   - Reproducing legacy behavior that relied on ordered data
-   - Testing with controlled data sequences
-
-To enable sequential sampling, use the `--sequential_sampling` flag:
-```bash
-ptycho_train --train_data dataset.npz --sequential_sampling --n_images 100
+backend: pytorch
+batch_size: 16
+nepochs: 50
+output_dir: outputs/my_run
 ```
 
-## Configuration
-
-The training script uses a configuration file (`config.yaml`) to set various parameters. The configuration system supports both new-style configuration and legacy parameters. Key parameters include:
-
-- Number of epochs (`nepochs`)
-- Batch size (`batch_size`)
-- Output directory (`output_dir`)
-- Train data file path (`train_data_file`)
-- Test data file path (`test_data_file`, optional)
-- Model parameters:
-  - N: Size of diffraction patterns (64, 128, or 256)
-  - gridsize: Grid size for model - controls number of images processed per solution region (e.g., gridsize=2 means 2²=4 images at a time)
-  - n_filters_scale: Scale factor for number of filters
-  - model_type: 'pinn' or 'supervised'
-  - amp_activation: Activation function ('sigmoid', 'swish', 'softplus', 'relu')
-
-### Important Considerations
-
-- **Subsampling with `gridsize > 1`:** Be aware that using the `--n_images` flag selects the *first N* images from the dataset. If `gridsize` is greater than 1, this will result in training on a spatially biased, non-representative subset of your object. For robust training in this mode, it is better to prepare a smaller, complete dataset rather than subsampling a large one.
-  - Various boolean flags for model configuration
-
-You can provide a custom configuration file using the `--config` command-line argument.
-
-## Usage
-
-1. Prepare your ptychographic imaging dataset in the required format.
-
-2. (Optional) Create a configuration file with the desired training parameters.
-
-3. Run the training script:
-   ```bash
-   # Default: Random sampling
-   python train.py --train_data_file /path/to/your/train_data.npz [--config /path/to/config.yaml]
-   
-   # Sequential sampling: Use first n_images in order
-   python train.py --train_data_file /path/to/your/train_data.npz --sequential_sampling --n_images 100
-   ```
-   Note: The script supports both `--train_data_file` and the legacy `--train_data_file_path` arguments.
-
-4. (Optional) Configure PyTorch ReduceLROnPlateau:
-   ```bash
-   python train.py --backend pytorch \
-     --train_data_file /path/to/your/train_data.npz \
-     --scheduler ReduceLROnPlateau \
-     --torch-plateau-factor 0.5 \
-     --torch-plateau-patience 2 \
-     --torch-plateau-min-lr 5e-5 \
-     --torch-plateau-threshold 0.0
-   ```
-   Note: The `--torch-plateau-*` flags only apply when `--backend pytorch` is set.
-
-4. The script will:
-   - Load and validate the configuration
-   - Load the training data (and test data if specified)
-   - Run the CDI example
-   - Save the model and outputs
-   - Display progress information during training
-
-## Error Handling
-
-The script includes comprehensive error handling:
-- All exceptions during execution are caught and logged
-- Detailed error messages are written to both the debug log and console
-- The script will exit with an error status if any critical errors occur
-
-## Output Structure
-
-The training script generates the following outputs in the specified `--output_dir`:
-
-- **`logs/`**: Directory containing all log files
-  - **`debug.log`**: Complete log history (DEBUG level and above) 
-- **Model artifacts**: Saved model files and weights
-- **Training results**: Including reconstructed amplitude, phase, and metrics
-- **Console output**: Real-time training progress (INFO level)
-
-## Enhanced Logging
-
-The script uses an advanced centralized logging system with comprehensive output capture:
-
-**Key Features:**
-- **Complete Output Capture**: ALL stdout (including print statements from any module) is captured to log files
-- **Tee-style Logging**: Simultaneous console and file output with flexible control  
-- **Command-line Options**: Control console verbosity without affecting file logging
-
-**File Logging**: The `<output_dir>/logs/debug.log` file contains:
-- All logging messages (DEBUG level and above)
-- All print() statements from any imported module
-- Model architecture summaries and data shape information
-- Complete execution record
-
-**Console Control Options**:
-```bash
-# Default: INFO level console output + complete file logging
-ptycho_train --train_data dataset.npz --output_dir my_run
-
-# Quiet mode: suppress console logging (automation-friendly)
-ptycho_train --train_data dataset.npz --output_dir my_run --quiet
-
-# Verbose mode: DEBUG level console output + complete file logging  
-ptycho_train --train_data dataset.npz --output_dir my_run --verbose
-
-# Custom console log level
-ptycho_train --train_data dataset.npz --output_dir my_run --console-level WARNING
-```
-
-**Important**: These flags only affect console output. All messages are ALWAYS captured in the log file regardless of console settings.
-
-This centralized approach ensures logs are organized within each training run's output directory, making it easier to debug specific runs and keep the project root clean.
-
-## Next Steps After Training
-
-Once training completes successfully, you can evaluate your trained model's performance:
-
-### Model Evaluation
-
-Evaluate your trained model with comprehensive metrics and visualizations:
+File values are deep-merged with explicitly supplied CLI values. Direct
+`TrainingConfig` fields use plain flags; nested fields use dotted flags:
 
 ```bash
-# Basic evaluation against ground truth
-ptycho_evaluate --model-dir <output_dir> --test-data <test.npz> --output-dir <evaluation_results>
+ptycho_train --config configs/my_config.yaml
 
-# Example: Evaluate the verification run
-ptycho_evaluate --model-dir verification_run --test-data datasets/fly/fly001_transposed.npz --output-dir verification_eval
+ptycho_train --config configs/my_config.yaml \
+  --data.train_data_file datasets/train.npz \
+  --backend pytorch \
+  --output_dir outputs/my_run
 ```
 
-### What Evaluation Provides
+Use `ptycho_train --help` for the generated public flags. Unknown or misplaced
+fields fail validation. `sampling.n_images` remains a deprecated alias for
+`sampling.n_groups`; new configurations should use the canonical field.
 
-- **Quantitative Metrics**: MAE, MSE, PSNR, SSIM, MS-SSIM, and FRC values
-- **Visual Comparisons**: Amplitude/phase reconstruction plots vs ground truth
-- **Error Analysis**: Pixel-wise error maps and distribution histograms  
-- **CSV Export**: All metrics saved to `results.csv` for further analysis
+Current `refactor` limitation: the generated parser does not yet decode
+numeric or Boolean CLI values before strict validation. Put those types in
+YAML; use CLI overrides for paths and literal strings until the decoder is
+fixed.
 
-### Complete Workflow Example
+## Sampling
+
+- `sampling.n_subsample` selects raw rows before grouping.
+- `sampling.n_groups` selects grouped model samples.
+- `sampling.subsample_seed` makes raw-row selection reproducible.
+- `sampling.sequential_sampling=true` uses the first grouping anchors within
+  the already selected raw-row pool; it does not replace random raw-row
+  subsampling.
+- `sampling.enable_oversampling=true` explicitly enables combination-based
+  oversampling for grid size greater than one; configure its candidate pool
+  with `sampling.neighbor_pool_size`.
+
+With `gridsize=1`, one group contains one frame. With `gridsize>1`, one group
+contains `gridsize²` neighboring frames. `n_groups` always counts groups.
+
+## PyTorch runtime and optimization overrides
+
+When `backend=pytorch`, unified runtime flags use the `--torch-*` prefix. For
+example:
 
 ```bash
-# Step 1: Train a model
-ptycho_train --train_data_file datasets/train.npz --test_data_file datasets/test.npz --output_dir my_model --nepochs 50
-
-# Step 2: Evaluate the trained model
-ptycho_evaluate --model-dir my_model --test-data datasets/test.npz --output-dir my_model_eval
-
-# Step 3: (Optional) Compare with other models
-python scripts/compare_models.py --pinn_dir my_model --baseline_dir other_model --test_data datasets/test.npz --output_dir comparison_results
+ptycho_train \
+  --data.train_data_file datasets/train.npz \
+  --backend pytorch \
+  --scheduler.kind ReduceLROnPlateau \
+  --torch-learning-rate 0.0004 \
+  --torch-accelerator auto \
+  --torch-logger csv \
+  --output_dir outputs/my_run
 ```
 
-For more advanced evaluation options and detailed command references, see [docs/COMMANDS_REFERENCE.md](../../docs/COMMANDS_REFERENCE.md#model-evaluation).
+The public scheduler section is part of the nested configuration. Explicit
+`--torch-learning-rate`, `--torch-scheduler`, and related `--torch-*` optimizer
+flags form a separate Torch factory patch. See the
+[PyTorch workflow guide](../../docs/workflows/pytorch.md) for that boundary.
+
+## Outputs and logging
+
+TensorFlow and PyTorch persist backend-specific bundles beneath `output_dir`.
+PyTorch training writes its portable bundle as `wts.h5.zip` and, when enabled,
+Lightning checkpoints and logger output beneath the run directory. TensorFlow
+uses its model-manager archive and reconstruction outputs.
+
+The wrapper writes `train_debug.log` in the process working directory. Console
+verbosity is controlled by `--quiet`, `--verbose`, or `--console-level`.
+
+After training, run `ptycho_inference` on the saved bundle or use the supported
+evaluation workflow documented in the
+[commands reference](../../docs/COMMANDS_REFERENCE.md).

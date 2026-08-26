@@ -10,7 +10,7 @@ Architecture Role:
     modules (model.py, diffsim.py, loader.py, etc.) and below the top-level scripts. It 
     integrates the complete PtychoPINN pipeline by:
     
-    1. Configuration Management: Bridges modern dataclass-based config with legacy params
+    1. Configuration Management: Bridges modern structured config with legacy params
     2. Data Pipeline Integration: Orchestrates RawData → PtychoDataContainer → training
     3. Training Workflow: Chains data loading, probe initialization, and model training
     4. Reconstruction Pipeline: Coordinates inference, image reassembly, and visualization
@@ -19,14 +19,13 @@ Architecture Role:
 Core Workflow Functions:
     Configuration Orchestration:
         - update_config_from_dict(): Update global config from dict (notebook workflows)
-        - parse_arguments(): Auto-generate CLI parser from TrainingConfig dataclass
+        - parse_arguments(): Auto-generate CLI parser from nested TrainingConfig
         - setup_configuration(): Merge YAML, CLI args, and defaults into unified config
         - load_yaml_config(): Load and validate YAML configuration files
     
     Data Pipeline Integration:
         - load_data(): Load NPZ data with coordinate transformations and validation
         - create_ptycho_data_container(): Factory for RawData → PtychoDataContainer conversion
-        - load_and_prepare_data(): Legacy data loading interface (deprecated)
     
     End-to-End Workflow Orchestration:
         - run_cdi_example(): Complete training → reconstruction → visualization pipeline
@@ -36,7 +35,7 @@ Core Workflow Functions:
 
 Integration Points:
     - Core Modules: Integrates ptycho.loader, ptycho.train_pinn, ptycho.probe, ptycho.tf_helper
-    - Configuration: Bridges TrainingConfig dataclass with legacy params.cfg dictionary
+    - Configuration: Bridges Pydantic TrainingConfig with legacy params.cfg dictionary
     - Data Flow: Manages RawData → PtychoDataContainer → trained model → reconstruction
     - Visualization: Coordinates with matplotlib for result visualization and export
 
@@ -52,8 +51,14 @@ Example Usage:
     >>> config = setup_configuration(args, yaml_path=args.config)
     >>> 
     >>> # Load and validate training data
-    >>> train_data = load_data(str(config.train_data_file), n_images=config.n_images)
-    >>> test_data = load_data(str(config.test_data_file)) if config.test_data_file else None
+    >>> train_data = load_data(
+    ...     str(config.data.train_data_file),
+    ...     n_images=config.sampling.n_groups,
+    ... )
+    >>> test_data = (
+    ...     load_data(str(config.data.test_data_file))
+    ...     if config.data.test_data_file else None
+    ... )
     >>> 
     >>> # Execute complete pipeline: training → reconstruction → visualization
     >>> amplitude, phase, results = run_cdi_example(
@@ -86,11 +91,11 @@ from pathlib import Path
 from ptycho.config.config import (
     TrainingConfig,
     ModelConfig,
-    dataclass_to_legacy_dict,
     resolve_model_object_policy,
 )
 from ptycho.config import resolve_training_config
-from dataclasses import fields, replace
+from dataclasses import fields
+from pydantic_settings.sources.providers.cli import CliSettingsSource
 from ptycho import loader, probe
 from typing import Union, Optional, Tuple, Dict, Any
 from ptycho.raw_data import RawData
@@ -107,6 +112,11 @@ from ptycho import params
 from ptycho.image import reassemble_patches
 from ptycho.model_manager import ModelManager
 from ptycho.generators.registry import resolve_generator
+from ptycho.acquisition import (
+    decode_acquisition,
+    select_acquisition,
+    transform_coordinates,
+)
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -118,14 +128,13 @@ from ptycho.config.config import ModelConfig, TrainingConfig
 
 def _resolve_tensorflow_training_config(config: TrainingConfig) -> TrainingConfig:
     """Validate and materialize the public policy for TensorFlow entrypoints."""
-    return replace(
-        config,
-        model=resolve_model_object_policy(
+    return config.model_copy(update={
+        "model": resolve_model_object_policy(
             config.model,
             backend="tensorflow",
             warn_deprecated=False,
-        ),
-    )
+        )
+    })
 
 
 class DiffractionToObjectAdapter(tf.keras.Model):
@@ -263,7 +272,10 @@ def load_inference_bundle(model_dir: Path) -> Tuple[tf.keras.Model, dict]:
     try:
         # Load multiple models from the archive
         # ModelManager expects the path without the .zip extension
-        models_dict = ModelManager.load_multiple_models(str(model_zip))
+        models_dict = ModelManager.load_multiple_models(
+            str(model_zip),
+            model_names=["diffraction_to_obj"],
+        )
         
         # Get the diffraction_to_obj model which is needed for inference
         if 'diffraction_to_obj' not in models_dict:
@@ -309,45 +321,17 @@ def load_inference_bundle_explicit(
 @configured_legacy_params
 def update_config_from_dict(config_updates: dict):
     """
-    Updates the application's configuration from a dictionary, ideal for notebook workflows.
+    Update global config from a nested dict, ideal for notebook workflows.
 
-    Args:
-        config_updates (dict): A dictionary of parameters to update.
+    config_updates must use the nested TrainingConfig structure, e.g.:
+        {'model': {'N': 64}, 'nepochs': 100, 'sampling': {'n_groups': 512}}
     """
-    # 1. Create a mutable dictionary from the default dataclass values
-    model_defaults = {f.name: f.default for f in fields(ModelConfig)}
-    training_defaults = {f.name: f.default for f in fields(TrainingConfig) if f.name != 'model'}
-    
-    # Merge them
-    full_config_dict = {**model_defaults, **training_defaults}
-
-    # 2. Update with the user's dictionary
-    for key, value in config_updates.items():
-        if key in full_config_dict:
-            full_config_dict[key] = value
-        else:
-            # Optionally warn about unused keys
-            logger.warning(f"Configuration key '{key}' is not a recognized parameter.")
-
-    # 3. Re-construct the dataclasses
-    model_args = {k: v for k, v in full_config_dict.items() if k in model_defaults}
-    training_args = {k: v for k, v in full_config_dict.items() if k in training_defaults}
-
-    # Handle required Path objects if they are not set
-    if training_args.get('train_data_file') is None:
-        # Assign a dummy path or handle as an error if it's essential for all workflows
-        training_args['train_data_file'] = Path("dummy_path.npz")
-
-    final_model_config = ModelConfig(**model_args)
-    final_training_config = TrainingConfig(model=final_model_config, **training_args)
-    
-    # 4. Update the legacy global params dictionary
-    update_legacy_dict(params.cfg, final_training_config)
-    
+    config = resolve_training_config(config_updates, None)
+    update_legacy_dict(params.cfg, config)
     logger.info("Configuration updated programmatically for interactive session.")
     params.print_params()
 
-def load_data(file_path, n_images=None, n_subsample=None, flip_x=False, flip_y=False, swap_xy=False, n_samples=1, coord_scale=1.0, subsample_seed=None):
+def load_data(file_path, n_images=None, n_subsample=None, flip_x=False, flip_y=False, swap_xy=False, n_samples=1, coord_scale=1.0, subsample_seed=None, *, rng: Optional[np.random.Generator] = None):
     """
     Load ptychography data from a file and return RawData objects.
 
@@ -362,93 +346,24 @@ def load_data(file_path, n_images=None, n_subsample=None, flip_x=False, flip_y=F
         n_samples (int, optional): Number of samples to generate. Defaults to 1.
         coord_scale (float, optional): Scale factor for x and y coordinates. Defaults to 1.0.
         subsample_seed (int, optional): Random seed for reproducible subsampling. If None, uses random selection.
+        rng (np.random.Generator, optional): Caller-owned random generator. Mutually exclusive
+                                             with subsample_seed.
 
     Returns:
         RawData: RawData object containing the dataset.
     """
+    if subsample_seed is not None and rng is not None:
+        raise ValueError("subsample_seed and rng are mutually exclusive")
+
     logger.info(f"Loading data from {file_path} with n_images={n_images}, n_subsample={n_subsample}")
-    # Load data from file
-    data = np.load(file_path)
-
-    # Extract required arrays from loaded data
-    xcoords = data['xcoords']
-    ycoords = data['ycoords']
-    xcoords_start = data['xcoords_start']
-    ycoords_start = data['ycoords_start']
-    
-    # Handle flexible diffraction key and shape
-    diff_key = 'diff3d' if 'diff3d' in data else 'diffraction'
-    diff_data = data[diff_key]
-
-    if diff_data.ndim == 4 and diff_data.shape[-1] == 1:
-        diff_data = np.squeeze(diff_data, axis=-1)
-    if diff_data.ndim != 3:
-        raise ValueError(
-            f"Expected diffraction data to have rank 3 or rank 4 with singleton channel, got {diff_data.shape}"
-        )
-
-    dataset_size = int(xcoords.shape[0])
-    # Prefer coordinate-length matching over shape heuristics:
-    # canonical format is (N_scans, H, W); legacy format is (H, W, N_scans).
-    if diff_data.shape[0] == dataset_size:
-        diff3d = diff_data
-    elif diff_data.shape[-1] == dataset_size:
-        diff3d = np.transpose(diff_data, [2, 0, 1])
-    else:
-        raise ValueError(
-            f"Unable to align diffraction shape {diff_data.shape} with xcoords length {dataset_size}."
-        )
-    
-    probeGuess = data['probeGuess']
-    objectGuess = data.get('objectGuess', None)
-    
-    # Optional ground-truth patches. Some NPZs (e.g., Phase C patched_*.npz)
-    # may include a singleton 'Y' with shape (1, N, N, 1) rather than one
-    # per image. Guard against shape mismatches by degrading to None unless
-    # the first axis matches the dataset size. This keeps TensorFlow loader
-    # behavior consistent (it will create a placeholder when Y is missing).
-    Y_patches = data['Y'] if 'Y' in data else None
-
-    # Apply coordinate transformations
-    if flip_x:
-        xcoords = -xcoords
-        xcoords_start = -xcoords_start
-        #probeGuess = probeGuess[::-1, :]
-    if flip_y:
-        ycoords = -ycoords
-        ycoords_start = -ycoords_start
-        #probeGuess = probeGuess[:, ::-1]
-    if swap_xy:
-        xcoords, ycoords = ycoords, xcoords
-        xcoords_start, ycoords_start = ycoords_start, xcoords_start
-        #probeGuess = np.transpose(probeGuess)
-
-    # Apply coordinate scaling
-    xcoords *= coord_scale
-    ycoords *= coord_scale
-    xcoords_start *= coord_scale
-    ycoords_start *= coord_scale
-
-    # Create scan_index array
-    scan_index = np.zeros(diff3d.shape[0], dtype=int)
-
-    # Implement independent subsampling logic
-    dataset_size = xcoords.shape[0]
-
-    # Validate optional Y shape before any indexing with selected_indices
-    if Y_patches is not None:
-        try:
-            if getattr(Y_patches, 'shape', None) is None or Y_patches.shape[0] != dataset_size:
-                # Shape mismatch (e.g., singleton); ignore Y to avoid index errors
-                import logging
-                logging.getLogger(__name__).warning(
-                    "Ignoring NPZ 'Y' with incompatible shape %s (expected first axis %d)",
-                    getattr(Y_patches, 'shape', None), dataset_size,
-                )
-                Y_patches = None
-        except Exception:
-            # Defensive: if anything goes wrong with Y inspection, null it out
-            Y_patches = None
+    record = transform_coordinates(
+        decode_acquisition(file_path, truth_policy="drop_incompatible"),
+        flip_x=flip_x,
+        flip_y=flip_y,
+        swap_xy=swap_xy,
+        scale=coord_scale,
+    )
+    dataset_size = len(record.xcoords)
     
     # Determine how many images to use for subsampling
     if n_subsample is not None:
@@ -464,168 +379,51 @@ def load_data(file_path, n_images=None, n_subsample=None, flip_x=False, flip_y=F
         images_to_use = dataset_size
         logger.info(f"Using full dataset of {dataset_size} images")
     
-    # Perform subsampling if needed
-    if images_to_use < dataset_size:
-        if subsample_seed is not None:
-            # Reproducible subsampling with seed
-            np.random.seed(subsample_seed)
-            logger.info(f"Using seed {subsample_seed} for reproducible subsampling")
-        
-        # Random subsampling
-        all_indices = np.arange(dataset_size)
-        selected_indices = np.random.choice(all_indices, size=images_to_use, replace=False)
-        selected_indices = np.sort(selected_indices)  # Sort for consistency
+    selection = select_acquisition(
+        record,
+        count=images_to_use,
+        seed=subsample_seed,
+        rng=rng,
+    )
+    selected_indices = selection.source_indices
+    if selection.mode == "random_without_replacement":
         logger.info(f"Randomly subsampled {images_to_use} images")
-    else:
-        # Use all data
-        selected_indices = np.arange(dataset_size)
     
     # Create RawData object with subsampled data
-    ptycho_data = RawData(xcoords[selected_indices], ycoords[selected_indices],
-                          xcoords_start[selected_indices], ycoords_start[selected_indices],
-                          diff3d[selected_indices], probeGuess,
-                          scan_index[selected_indices], objectGuess=objectGuess,
-                          # Pass Y only when it is per-image and shape-validated
-                          Y=(Y_patches[selected_indices] if Y_patches is not None else None))
+    ptycho_data = RawData(
+        record.xcoords[selected_indices],
+        record.ycoords[selected_indices],
+        record.xcoords_start[selected_indices],
+        record.ycoords_start[selected_indices],
+        record.diff3d[selected_indices],
+        record.probeGuess,
+        record.scan_index[selected_indices],
+        objectGuess=record.objectGuess,
+        Y=(record.Y[selected_indices] if record.Y is not None else None),
+        metadata=record.metadata,
+        object_index=record.object_index[selected_indices],
+        probe_simulated=record.probe_simulated,
+        object_amplitude_scale=record.object_amplitude_scale,
+        label=(record.label[selected_indices] if record.label is not None else None),
+        scale_contract_version=record.scale_contract_version,
+        measurement_domain=record.measurement_domain,
+        experiment_id=record.experiment_id,
+    )
 
     # Persist selected indices for reproducibility
     ptycho_data.sample_indices = np.array(selected_indices, copy=True)
     ptycho_data.subsample_seed = subsample_seed
-    if subsample_seed is not None:
-        try:
-            tmp_dir = Path('tmp')
-            tmp_dir.mkdir(parents=True, exist_ok=True)
-            indices_path = tmp_dir / f"subsample_seed{subsample_seed}_indices.txt"
-            with indices_path.open('w', encoding='utf-8') as handle:
-                for idx in ptycho_data.sample_indices:
-                    handle.write(f"{int(idx)}\n")
-            logger.info("Persisted subsample indices to %s", indices_path)
-        except Exception as exc:
-            logger.warning("Failed to persist subsample indices for seed %s: %s", subsample_seed, exc)
-
     return ptycho_data
-
-PUBLIC_TRAINING_INPUT_NAMES = frozenset(
-    item.name for item in fields(ModelConfig)
-) | frozenset(
-    item.name for item in fields(TrainingConfig) if item.name != "model"
-)
-
-
-def _unwrap_public_cli_type(annotation):
-    while True:
-        origin = get_origin(annotation)
-        if origin is Annotated:
-            annotation = get_args(annotation)[0]
-            continue
-        if origin not in (Union, UnionType):
-            return annotation
-        value_types = tuple(
-            item for item in get_args(annotation) if item is not type(None)
-        )
-        if len(value_types) == 1:
-            annotation = value_types[0]
-            continue
-        primitive_types = {
-            _unwrap_public_cli_type(item) for item in value_types
-        }
-        if primitive_types == {int, float}:
-            return float
-        return annotation
-
-
-def _literal_argument_type(choices):
-    choice_types = {type(choice) for choice in choices}
-    if len(choice_types) != 1:
-        raise TypeError(
-            "public CLI Literal choices must use one primitive type"
-        )
-    return next(iter(choice_types))
-
-
-def _public_training_argument_help(name: str, *, model_field: bool) -> str:
-    if name == "n_groups":
-        return (
-            "Number of groups to generate. Always means groups regardless "
-            "of gridsize. Can exceed dataset size when using higher "
-            "--neighbor_count values."
-        )
-    if name == "n_images":
-        return (
-            "DEPRECATED: Use --n_groups instead. Number of groups to use "
-            "from the dataset."
-        )
-    if name == "n_subsample":
-        return (
-            "Number of images to subsample from dataset before grouping "
-            "(independent control). When provided, controls data selection "
-            "separately from grouping."
-        )
-    if name == "subsample_seed":
-        return (
-            "Random seed for reproducible subsampling. Use same seed across "
-            "runs to ensure consistent data selection."
-        )
-    if name == "neighbor_count":
-        return (
-            "Number of nearest neighbors (K) for grouping. Use higher "
-            "values (e.g., 7) to enable more combinations when requesting "
-            "more groups than available points."
-        )
-    if name == "backend":
-        return (
-            "Backend selection: tensorflow, pytorch (default: tensorflow). "
-            "PyTorch backend requires torch>=2.2 (POLICY-001)."
-        )
-    prefix = "Model" if model_field else "Training"
-    return f"{prefix} parameter: {name}"
-
-
-def _add_public_training_argument(
-    parser: argparse.ArgumentParser,
-    config_field,
-    *,
-    model_field: bool,
-) -> None:
-    value_type = _unwrap_public_cli_type(config_field.type)
-    options = {
-        "default": argparse.SUPPRESS,
-        "help": _public_training_argument_help(
-            config_field.name,
-            model_field=model_field,
-        ),
-    }
-
-    if get_origin(value_type) is Literal:
-        choices = list(get_args(value_type))
-        options["choices"] = choices
-        options["type"] = _literal_argument_type(choices)
-    elif value_type is bool:
-        options["action"] = argparse.BooleanOptionalAction
-    else:
-        options["type"] = value_type
-
-    parser.add_argument(f"--{config_field.name}", **options)
-
 
 def add_public_training_config_arguments(
     parser: argparse.ArgumentParser,
 ) -> argparse.ArgumentParser:
-    """Add public training overrides without applying dataclass defaults."""
-    for model_field in fields(ModelConfig):
-        _add_public_training_argument(
-            parser,
-            model_field,
-            model_field=True,
-        )
-    for training_field in fields(TrainingConfig):
-        if training_field.name == "model":
-            continue
-        _add_public_training_argument(
-            parser,
-            training_field,
-            model_field=False,
-        )
+    """Register TrainingConfig CLI arguments on an existing argparse parser.
+
+    Arguments are auto-derived from the TrainingConfig model structure.
+    Nested sub-config fields use dotted names, e.g. --sampling.n_groups.
+    """
+    CliSettingsSource(TrainingConfig, root_parser=parser, cli_parse_args=False)
     return parser
 
 
@@ -652,49 +450,42 @@ def load_yaml_config(file_path: str) -> Dict[str, Any]:
         raise
 
 
-#def validate_config(config: Dict[str, Any]) -> None:
-#    """Validate the configuration."""
-#    if 'train_data_file_path' not in config or config['train_data_file_path'] is None:
-#        raise ValueError("train_data_file_path is a required parameter and must be provided")
+def _namespace_to_training_patch(args: argparse.Namespace) -> dict[str, Any]:
+    """Convert a parsed argparse Namespace to a nested TrainingConfig dict.
+
+    CliSettingsSource registers dotted argument names (e.g. --sampling.n_groups),
+    so vars(args) contains keys like 'sampling.n_groups'. This function rebuilds
+    the nested dict that resolve_training_config expects.
+    """
+    training_fields = frozenset(TrainingConfig.model_fields)
+    result: dict[str, Any] = {}
+    for dest, value in vars(args).items():
+        if '.' in dest:
+            top, rest = dest.split('.', 1)
+            if top in training_fields:
+                node = result.setdefault(top, {})
+                parts = rest.split('.')
+                for part in parts[:-1]:
+                    node = node.setdefault(part, {})
+                node[parts[-1]] = value
+        elif dest in training_fields:
+            result[dest] = value
+    return result
+
 
 def setup_configuration(args: argparse.Namespace, yaml_path: Optional[str]) -> TrainingConfig:
     """Set up the configuration by merging defaults, YAML file, and command-line arguments."""
     try:
         yaml_config = load_yaml_config(yaml_path) if yaml_path else {}
-        cli_patch = {
-            name: value
-            for name, value in vars(args).items()
-            if name in PUBLIC_TRAINING_INPUT_NAMES
-        }
+        cli_patch = _namespace_to_training_patch(args)
         config = resolve_training_config(yaml_config, cli_patch)
 
         logger.info("Configuration setup complete")
         logger.info(f"Final configuration: {config}")
-        
+
         return config
     except (yaml.YAMLError, IOError, ValueError) as e:
         logger.error(f"Error setting up configuration: {e}")
-        raise
-
-def load_and_prepare_data(data_file_path: str) -> Tuple[RawData, RawData, Any]:
-    """
-    Load and prepare the data from a single file path.
-
-    Args:
-        data_file_path (str): Path to the data file
-
-    Returns:
-        Tuple[RawData, RawData, Any]: A tuple containing the full dataset, training subset, and additional data
-    """
-    # TODO deprecated
-    from ptycho.loader import load_xpp_npz
-    if not os.path.exists(data_file_path):
-        raise FileNotFoundError(f"Data file not found: {data_file_path}")
-
-    try:
-        return load_xpp_npz(data_file_path)
-    except Exception as e:
-        logger.error(f"Error loading data from {data_file_path}: {str(e)}")
         raise
 
 from typing import Union
@@ -717,16 +508,15 @@ def create_ptycho_data_container(data: Union[RawData, PtychoDataContainer], conf
     if isinstance(data, PtychoDataContainer):
         return data
     elif isinstance(data, RawData):
-        # Use config.n_groups for nsamples - this is the interpreted value from the training script
         dataset = data.generate_grouped_data(
             config.model.N,
-            K=config.neighbor_count,  # Use configurable K value
-            nsamples=config.n_groups,  # Use n_groups (clearer naming)
-            dataset_path=str(config.train_data_file) if config.train_data_file else None,
-            sequential_sampling=config.sequential_sampling,  # Pass sequential sampling flag
-            gridsize=config.model.gridsize,  # Pass gridsize explicitly (replaces global params dependency)
-            enable_oversampling=config.enable_oversampling,  # Explicit opt-in for K choose C oversampling
-            neighbor_pool_size=config.neighbor_pool_size  # Pool size for oversampling (if None, defaults to neighbor_count)
+            K=config.sampling.neighbor_count,
+            nsamples=config.sampling.n_groups,
+            dataset_path=str(config.data.train_data_file) if config.data.train_data_file else None,
+            sequential_sampling=config.sampling.sequential_sampling,
+            gridsize=config.model.gridsize,
+            enable_oversampling=config.sampling.enable_oversampling,
+            neighbor_pool_size=config.sampling.neighbor_pool_size,
         )
         return loader.load(lambda: dataset, data.probeGuess, which=None, create_split=False)
     else:

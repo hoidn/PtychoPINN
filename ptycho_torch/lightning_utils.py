@@ -97,20 +97,22 @@ class ConfigLogger(Callback):
                  model_config: ModelConfig,
                  training_config: TrainingConfig,
                  inference_config: InferenceConfig,
-                 datagen_config: DatagenConfig):
+                 datagen_config: DatagenConfig,
+                 run_dir: Optional[Path] = None):
         super().__init__()
         self.data_config = data_config
         self.model_config = model_config
         self.training_config = training_config
         self.inference_config = inference_config
         self.datagen_config = datagen_config
+        self.run_dir = Path(run_dir) if run_dir is not None else None
         
     @rank_zero_only
     def on_train_start(self, trainer, pl_module):
         """Save configs to JSON files at training start"""
         
         # Get run directory from trainer
-        log_dir = Path(trainer.log_dir)
+        log_dir = self.run_dir or Path(trainer.log_dir)
         config_dir = log_dir / "configs"
         config_dir.mkdir(parents=True, exist_ok=True)
         

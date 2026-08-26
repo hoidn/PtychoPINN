@@ -3,6 +3,10 @@ import math
 from pathlib import Path
 from typing import Tuple, Optional, Literal, Union, List
 
+from ptycho_torch.rect_s1s2_initialization import (
+    validate_rect_s1s2_initialization_mode,
+)
+
 # PyTorch is now a mandatory dependency (Phase F3.1 gate)
 # Per plans/active/INTEGRATE-PYTORCH-001/phase_f_torch_mandatory.md F3.2
 try:
@@ -166,10 +170,10 @@ class ModelConfig:
     # Whether RectangularScaledDiffraction's s1/s2 scale parameters are trainable
     # (only consulted when physics_forward_mode='rectangular_scaled').
     rect_s1s2_trainable: bool = True
-    # Initialization of s1/s2. 'ones' preserves the historical unit
-    # initialization; 'data' calibrates a shared initial scale from one
-    # training batch before fitting.
-    rect_s1s2_init: Literal['ones', 'data'] = 'ones'
+    # Initialization of s1/s2. 'ones' preserves unit initialization;
+    # CI-only 'dose_closure' solves a shared gauge from a pinned uniform sample
+    # of 256 logical detector slots across the resolved training dataset.
+    rect_s1s2_init: Literal['ones', 'dose_closure'] = 'ones'
     # PROBE-RANK-001 (design 2026-07-12 §3.3): explicit amplitude physics
     # gain. The banned flat (B, H, W) probe layout used to multiply the
     # predicted amplitude by the BATCH SIZE (an accidental, batch-size-
@@ -210,6 +214,7 @@ class ModelConfig:
             raise ValueError("invalid spectral_bottleneck_gate_mode")
         if not math.isfinite(float(self.spectral_bottleneck_gate_init)):
             raise ValueError("spectral_bottleneck_gate_init must be finite")
+        validate_rect_s1s2_initialization_mode(self.rect_s1s2_init)
 
 
 @dataclass

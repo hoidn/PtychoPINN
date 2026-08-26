@@ -177,6 +177,53 @@ class TestDataloaderCanonicalKeySupport(unittest.TestCase):
             f"Error message should mention missing diffraction keys. Got: {context.exception}"
         )
 
+    def test_rejects_conflicting_dual_diffraction_keys(self):
+        from ptycho_torch.dataloader import _get_diffraction_stack
+
+        path = self._create_minimal_npz("conflicting_dual_keys.npz")
+        with np.load(path) as data:
+            arrays = {key: data[key] for key in data.files}
+        arrays["diff3d"] = arrays["diffraction"] + np.float32(1)
+        np.savez(path, **arrays)
+
+        with self.assertRaisesRegex(
+            ValueError,
+            r"conflicting_dual_keys\.npz.*diff3d.*diffraction.*conflicting",
+        ):
+            _get_diffraction_stack(path)
+
+    def test_equal_dual_keys_share_singleton_layout_contract(self):
+        from ptycho_torch.dataloader import _get_diffraction_stack, npz_headers
+
+        path = self._create_minimal_npz("equal_dual_keys.npz")
+        with np.load(path) as data:
+            arrays = {key: data[key] for key in data.files}
+        canonical = arrays.pop("diffraction")
+        arrays["diff3d"] = canonical
+        arrays["diffraction"] = canonical[..., None]
+        np.savez(path, **arrays)
+
+        shape, _, _ = npz_headers(path)
+        loaded = _get_diffraction_stack(path)
+
+        self.assertEqual(shape, canonical.shape)
+        np.testing.assert_array_equal(loaded, canonical)
+
+    def test_header_rejects_nonfinite_coordinates_with_file_context(self):
+        from ptycho_torch.dataloader import npz_headers
+
+        path = self._create_minimal_npz("nonfinite_coordinates.npz")
+        with np.load(path) as data:
+            arrays = {key: data[key] for key in data.files}
+        arrays["xcoords"][3] = np.nan
+        np.savez(path, **arrays)
+
+        with self.assertRaisesRegex(
+            ValueError,
+            r"nonfinite_coordinates\.npz.*xcoords.*finite numeric",
+        ):
+            npz_headers(path)
+
 
 class TestDataloaderFormatAutoTranspose(unittest.TestCase):
     """
@@ -198,6 +245,20 @@ class TestDataloaderFormatAutoTranspose(unittest.TestCase):
         """Clean up temporary directory."""
         self.test_dir.cleanup()
 
+    @staticmethod
+    def _write_acquisition(path, diffraction, n_images, key="diffraction"):
+        if diffraction.shape[0] == n_images:
+            detector_shape = diffraction.shape[1:]
+        else:
+            detector_shape = diffraction.shape[:2]
+        np.savez(
+            path,
+            **{key: diffraction},
+            xcoords=np.arange(n_images, dtype=np.float64),
+            ycoords=np.arange(n_images, dtype=np.float64),
+            probeGuess=np.ones(detector_shape, dtype=np.complex64),
+        )
+
     def test_auto_transposes_legacy_hwn_format(self):
         """
         Test that legacy (H, W, N) format is automatically transposed to (N, H, W).
@@ -213,7 +274,7 @@ class TestDataloaderFormatAutoTranspose(unittest.TestCase):
         legacy_diffraction = np.random.rand(H, W, N).astype(np.float32)
 
         npz_path = self.data_path / "legacy_format.npz"
-        np.savez(str(npz_path), diffraction=legacy_diffraction)
+        self._write_acquisition(npz_path, legacy_diffraction, N)
 
         # Act
         result = _get_diffraction_stack(npz_path)
@@ -237,7 +298,7 @@ class TestDataloaderFormatAutoTranspose(unittest.TestCase):
         canonical_diffraction = np.random.rand(N, H, W).astype(np.float32)
 
         npz_path = self.data_path / "canonical_format.npz"
-        np.savez(str(npz_path), diffraction=canonical_diffraction)
+        self._write_acquisition(npz_path, canonical_diffraction, N)
 
         # Act
         result = _get_diffraction_stack(npz_path)
@@ -263,7 +324,7 @@ class TestDataloaderFormatAutoTranspose(unittest.TestCase):
         ambiguous_diffraction = np.random.rand(N, H, W).astype(np.float32)
 
         npz_path = self.data_path / "ambiguous_format.npz"
-        np.savez(str(npz_path), diffraction=ambiguous_diffraction)
+        self._write_acquisition(npz_path, ambiguous_diffraction, N)
 
         # Act
         result = _get_diffraction_stack(npz_path)
@@ -285,7 +346,7 @@ class TestDataloaderFormatAutoTranspose(unittest.TestCase):
         legacy_diffraction = np.random.rand(H, W, N).astype(np.float32)
 
         npz_path = self.data_path / "diff3d_legacy.npz"
-        np.savez(str(npz_path), diff3d=legacy_diffraction)
+        self._write_acquisition(npz_path, legacy_diffraction, N, key="diff3d")
 
         # Act
         result = _get_diffraction_stack(npz_path)
@@ -311,7 +372,7 @@ class TestDataloaderFormatAutoTranspose(unittest.TestCase):
         legacy_diffraction = np.random.rand(H, W, N).astype(np.float32)
 
         npz_path = self.data_path / "run1084_sim.npz"
-        np.savez(str(npz_path), diffraction=legacy_diffraction)
+        self._write_acquisition(npz_path, legacy_diffraction, N)
 
         # Act
         result = _get_diffraction_stack(npz_path)
@@ -351,7 +412,13 @@ class TestDataloaderFormatAutoTranspose(unittest.TestCase):
         ycoords = np.random.rand(N).astype(np.float64) * 100
 
         npz_path = self.data_path / "legacy_for_headers.npz"
-        np.savez(str(npz_path), diffraction=legacy_diffraction, xcoords=xcoords, ycoords=ycoords)
+        np.savez(
+            npz_path,
+            diffraction=legacy_diffraction,
+            xcoords=xcoords,
+            ycoords=ycoords,
+            probeGuess=np.ones((H, W), dtype=np.complex64),
+        )
 
         # Act
         shape, coords_x, coords_y = npz_headers(npz_path)

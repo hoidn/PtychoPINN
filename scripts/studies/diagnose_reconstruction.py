@@ -114,6 +114,8 @@ def main(arm_name, train_npz, ckpt):
 
 
 if __name__ == "__main__":
-    main("gs1_frozen",
-         str(REPO / ".artifacts/varpro_ablation/datasets/deadleaves_N64_train.npz"),
-         str(REPO / ".artifacts/varpro_ablation/matrix_dl/gs1_frozen/training_outputs/Synthetic_Runs/train/checkpoints/best-checkpoint.ckpt"))
+    if len(sys.argv) != 4:
+        raise SystemExit(
+            "usage: diagnose_reconstruction.py ARM TRAIN_NPZ SELECTED_CHECKPOINT"
+        )
+    main(sys.argv[1], sys.argv[2], sys.argv[3])

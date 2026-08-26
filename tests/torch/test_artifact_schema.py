@@ -86,6 +86,22 @@ def test_current_artifact_rejects_unknown_backend_or_schema(field, value, messag
         decode_artifact_identity(payload)
 
 
+def test_current_artifact_rejects_historical_data_initialization_identity():
+    from ptycho_torch.artifact_schema import (
+        decode_artifact_identity,
+        encode_artifact_identity,
+    )
+
+    payload = encode_artifact_identity(*_identity_parts())
+    payload["model_spec"]["model_config"]["rect_s1s2_init"] = "data"
+
+    with pytest.raises(
+        ValueError,
+        match=r"data.*unsupported.*ones.*dose_closure.*historical code or retraining",
+    ):
+        decode_artifact_identity(payload)
+
+
 def test_unversioned_current_sections_require_exact_field_sets():
     from ptycho_torch.artifact_schema import upgrade_unversioned_sections
 
@@ -214,6 +230,58 @@ def test_checkpoint_model_spec_unknown_schema_fails_before_state_load(tmp_path):
             checkpoint_path,
             map_location="cpu",
         )
+
+
+def test_checkpoint_historical_data_identity_fails_before_state_restoration(
+    tmp_path,
+    monkeypatch,
+):
+    from lightning.pytorch import Trainer
+
+    from ptycho_torch.application_factory import build_ptychopinn_application
+    from ptycho_torch.model import PtychoPINN_Lightning
+
+    spec, data, training, inference = _identity_parts()
+    model = build_ptychopinn_application(spec, data, training, inference)
+    trainer = Trainer(
+        max_epochs=0,
+        enable_checkpointing=True,
+        logger=False,
+        enable_progress_bar=False,
+        accelerator="cpu",
+        default_root_dir=tmp_path,
+    )
+    trainer.strategy._lightning_module = model
+    checkpoint_path = tmp_path / "historical-data.ckpt"
+    trainer.save_checkpoint(checkpoint_path)
+    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+    checkpoint["hyper_parameters"]["model_spec"]["model_config"][
+        "rect_s1s2_init"
+    ] = "data"
+    torch.save(checkpoint, checkpoint_path)
+
+    state_restoration_started = False
+
+    def fail_if_state_restoration_starts(self, *args, **kwargs):
+        nonlocal state_restoration_started
+        state_restoration_started = True
+        raise AssertionError("state restoration started before identity validation")
+
+    monkeypatch.setattr(
+        PtychoPINN_Lightning,
+        "load_state_dict",
+        fail_if_state_restoration_starts,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=r"data.*unsupported.*ones.*dose_closure.*historical code or retraining",
+    ):
+        PtychoPINN_Lightning.load_from_checkpoint(
+            checkpoint_path,
+            map_location="cpu",
+        )
+    assert state_restoration_started is False
 
 
 def test_current_checkpoint_rejects_missing_dual_written_config_field(tmp_path):

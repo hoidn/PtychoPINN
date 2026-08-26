@@ -520,14 +520,14 @@ class TestCompareModelsChunking:
         Finding: PINN-CHUNKED-001
         """
         from ptycho.workflows.components import create_ptycho_data_container
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig, SamplingConfig, DataConfig
 
         # Create minimal config (gridsize=1 means C=1 channels)
         model_config = ModelConfig(N=64, gridsize=1)
         config = TrainingConfig(
             model=model_config,
-            n_images=100,
-            train_data_file=None,
+            sampling=SamplingConfig(n_images=100),
+            data=DataConfig(train_data_file=None),
         )
 
         # Create synthetic data matching compare_models inference path

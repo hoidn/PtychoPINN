@@ -59,16 +59,16 @@ class MetadataManager:
                 "ptychopinn_version": "2.0.0"  # TODO: Get from package version
             },
             "physics_parameters": {
-                "nphotons": config.nphotons,
+                "nphotons": config.data.nphotons,
                 "gridsize": config.model.gridsize,
                 "N": config.model.N,
                 "probe_trainable": config.probe_trainable,
                 "intensity_scale_trainable": config.intensity_scale_trainable,
-                "nll_weight": config.nll_weight,
+                "nll_weight": config.tf_loss.nll_weight,
                 "model_type": config.model.model_type
             },
             "training_parameters": {
-                "n_images": config.n_images,
+                "n_images": config.sampling.n_images,
                 "batch_size": config.batch_size,
                 "nepochs": config.nepochs
             },
@@ -110,8 +110,8 @@ class MetadataManager:
                 return super().default(obj)
         
         metadata_json = json.dumps(metadata, indent=2, cls=NumpyEncoder)
-        # Store as 0-d object array to preserve the string
-        save_dict[MetadataManager.METADATA_KEY] = np.array(metadata_json, dtype=object)
+        # Store as a scalar Unicode array so readers do not need pickle enabled.
+        save_dict[MetadataManager.METADATA_KEY] = np.array(metadata_json)
         
         # Save the combined dictionary
         np.savez_compressed(file_path, **save_dict)
@@ -130,6 +130,9 @@ class MetadataManager:
             Tuple of (data_dict, metadata_dict)
             metadata_dict will be None if no metadata is present
         """
+        # Historical project files stored the JSON string in an object scalar.
+        # Canonical acquisition decoding remains pickle-free; this compatibility
+        # utility intentionally keeps reading those maintained legacy files.
         with np.load(file_path, allow_pickle=True) as data:
             # Extract all arrays except metadata
             data_dict = {}
@@ -137,13 +140,24 @@ class MetadataManager:
             
             for key in data.files:
                 if key == MetadataManager.METADATA_KEY:
-                    # Extract and parse metadata
                     try:
-                        metadata_json = str(data[key].item())
+                        encoded = np.asarray(data[key])
+                        if encoded.shape != () or encoded.dtype.kind not in {"U", "S", "O"}:
+                            raise ValueError(
+                                "_metadata must be scalar string or UTF-8 bytes JSON"
+                            )
+                        metadata_json = encoded.item()
+                        if isinstance(metadata_json, bytes):
+                            metadata_json = metadata_json.decode("utf-8")
                         metadata = json.loads(metadata_json)
                         logger.debug(f"Loaded metadata from {file_path}")
-                    except (json.JSONDecodeError, ValueError) as e:
-                        logger.warning(f"Failed to parse metadata from {file_path}: {e}")
+                    except (
+                        json.JSONDecodeError,
+                        UnicodeDecodeError,
+                        TypeError,
+                        ValueError,
+                    ) as exc:
+                        logger.warning(f"Failed to parse metadata from {file_path}: {exc}")
                 else:
                     data_dict[key] = data[key]
         
@@ -173,10 +187,10 @@ class MetadataManager:
         # Check critical parameters
         if "nphotons" in physics_params:
             stored_nphotons = physics_params["nphotons"]
-            if abs(stored_nphotons - current_config.nphotons) > 1e-9:
+            if abs(stored_nphotons - current_config.data.nphotons) > 1e-9:
                 warnings_list.append(
                     f"nphotons mismatch: dataset={stored_nphotons}, "
-                    f"config={current_config.nphotons}"
+                    f"config={current_config.data.nphotons}"
                 )
         
         if "N" in physics_params:

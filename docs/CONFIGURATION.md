@@ -6,10 +6,12 @@ This guide has two layers:
 - **Developers:** see [Developer architecture](#developer-architecture) for the
   public/Torch split, `ModelSpec`, artifact versions, and the legacy bridge.
 
-This document defines parameter ownership and records raw dataclass defaults.
-Those defaults are valid construction values, not necessarily the best
-scientific settings for every dataset. A governing study or run contract may
-select different values explicitly.
+This document defines parameter ownership and records defaults from the owning
+configuration types. Public training configuration is a nested Pydantic model;
+simulation, model, and inference configuration remain validated standard-library
+dataclasses. These defaults are valid construction values, not necessarily the
+best scientific settings for every dataset. A governing study or run contract
+may select different values explicitly.
 
 ## Which Configuration Should I Use?
 
@@ -25,9 +27,9 @@ Configure the stage where a choice first changes behavior:
 | Measured diffraction, positions, or the actual probe | Dataset/acquisition data | Physical inputs such as `diff3d`, coordinates, `probeGuess`, and optional realized-probe fields; these are data, not model settings |
 
 In normal CLI and study workflows, supply config-file values and explicit
-overrides. The entry point constructs and validates the dataclasses. Do not
-manually construct both public and Torch representations merely to keep shared
-fields synchronized.
+overrides. The entry point constructs and validates the appropriate
+configuration record. Do not manually construct both public and Torch
+representations merely to keep shared fields synchronized.
 
 The practical ownership rules are:
 
@@ -69,11 +71,8 @@ caller supplies arrays or a data object
 caller supplies one NPZ file
   └─ RawData loader ──► grouping in memory ──► model-ready container / DataLoader
 
-caller supplies an NPZ directory to train_lightning_only
-  └─ PtychoDataset ──► TensorDict memory map ──► PtychoDataModuleLightning
-
-caller invokes the grid-lines study runner
-  └─ grid-lines cached-NPZ adapter ──► dict container ──► ordinary DataLoader
+caller selects the explicit mmap adapter for an NPZ directory
+  └─ PtychoDataset ──► TensorDict memory map ──► PrebuiltPtychoDataModule
 
 caller supplies an existing memory map
   └─ PrebuiltPtychoDataModule ──► ordinary Lightning training lifecycle
@@ -83,8 +82,8 @@ There are therefore three different persistence/residency modes:
 
 | Mode | Persistence boundary | Runtime behavior |
 |---|---|---|
-| End-to-end in memory | None | Simulation or caller-owned NumPy arrays become `RawData`, `PtychoDataset.from_np()`, or an existing container without an intermediate save/reload. |
-| NPZ-backed, RAM-resident | An NPZ is written or supplied | The selected loader reads the file, after which grouping, adaptation, and training use in-memory arrays and ordinary DataLoaders. Grid-lines cached NPZs use this mode. |
+| End-to-end in memory | None | Simulation or caller-owned NumPy arrays become `RawData` or an existing `PtychoDataContainerTorch` without an intermediate save/reload. |
+| NPZ-backed, RAM-resident | An NPZ is written or supplied | The selected loader reads the file, after which grouping, adaptation, and training use in-memory arrays and ordinary DataLoaders. |
 | Disk-backed memory map | Standalone NPZs are supplied through the mmap entry point | `PtychoDataset` reads the NPZs to build a TensorDict memory map; later epochs and ranks open that map and fetch batches from it. The NPZ archive itself is not directly memory-mapped. |
 
 ### Current Routing by Entry Point
@@ -92,21 +91,19 @@ There are therefore three different persistence/residency modes:
 | Caller or entry point | Input boundary | Selected route |
 |---|---|---|
 | `RawData.from_simulation()` or `generate_simulated_data()` followed directly by a workflow call | In-memory object | Remains in memory unless the caller explicitly saves it. |
-| `PtychoDataset.from_np()` and the in-memory API loaders | NumPy arrays | Bypass NPZ I/O and the on-disk memory map. |
+| `RawData` and `PtychoDataContainerTorch` workflow inputs | In-memory arrays | Bypass NPZ I/O and the on-disk memory map. |
 | Unified/file-oriented training CLIs and `python -m ptycho_torch.train` | One standalone NPZ path | Load through `RawData`, group in memory, adapt to `PtychoDataContainerTorch`, then use ordinary DataLoaders. |
-| `ptycho_torch.train_lightning_only.main(ptycho_dir=...)` | Directory containing standalone NPZ scans | Build or open the TensorDict mmap through `PtychoDataModuleLightning`. This is the established Lightning multi-device/DDP data rail. |
-| `scripts/studies/grid_lines_torch_runner.py` | Grid-lines train/test cached NPZ paths | Load the specialized cache into dictionaries, select grid-lines probe/coordinate semantics, adapt to the dict-container batch contract, and call `_train_with_lightning`. This path currently constructs a single-device Trainer. |
+| Mmap-aware study adapter using `build_prebuilt_ptycho_datamodule()` | Directory containing standalone NPZ scans | Build or open the TensorDict mmap through `PrebuiltPtychoDataModule`, then pass that selected rail to the shared Lightning service. |
 | `PrebuiltPtychoDataModule` | Existing TensorDict mmap | Reopen the already-built map without reparsing source NPZs. |
 | Default Torch inference CLI | One standalone NPZ path | Load through `RawData` and run inference in memory. |
 | Barycentric or probe-weighted Torch inference | One standalone NPZ path | Stage the NPZ in an isolated directory and build a temporary `PtychoDataset` mmap because that reconstruction implementation consumes the grouped dataset representation. |
 
 The factory-resolved `PyTorchExecutionConfig` controls devices, DDP strategy,
 workers, and Lightning runtime mechanics after this routing decision. It does
-not select a dataset schema or convert a grid-lines cache into the mmap schema.
-In particular, requesting DDP does not cause a file-based or grid-lines entry
-point to switch automatically to `PtychoDataModuleLightning`.
+not select a dataset schema. In particular, requesting DDP does not cause a
+file-based entry point to switch automatically to `PrebuiltPtychoDataModule`.
 
-### Standalone NPZ Versus Grid-Lines Cached NPZ
+### Standalone NPZ Contracts
 
 These formats carry diffraction under consumer-specific keys and represent
 different pipeline stages:
@@ -114,19 +111,12 @@ different pipeline stages:
 | Format | Typical contents | Consumer |
 |---|---|---|
 | Standalone scan NPZ through `RawData` | One ungrouped 3-D `diff3d` stack, `xcoords`, `ycoords`, `probeGuess`, and the other acquisition fields required by `RawData.from_file()` | Unified/file-oriented workflows and the default Torch inference route |
-| Standalone scan NPZ through the Torch mmap writer | One ungrouped 3-D `diff3d` stack, or the accepted `diffraction` compatibility alias, plus scan coordinates and the writer-required acquisition fields | `PtychoDataModuleLightning` / `PtychoDataset` mmap route |
-| Grid-lines cached NPZ | Pre-grouped/channelized `diffraction`, `Y_I`, `Y_phi`, `coords_nominal`, `coords_true`, `YY_full`, and optional `probe_simulated` | Grid-lines cached-dataset adapter |
+| Standalone scan NPZ through the Torch mmap writer | One ungrouped 3-D `diff3d` stack, or the accepted `diffraction` compatibility alias, plus scan coordinates and the writer-required acquisition fields | `PrebuiltPtychoDataModule` / `PtychoDataset` mmap route |
 
 `RawData.from_file()` requires the standalone key `diff3d`; it does not apply
-the mmap loader's `diffraction` alias. Conversely, acceptance of both spellings
-by the mmap route does not make a grid-lines cache interchangeable with a
-standalone scan.
-The mmap writer expects ungrouped diffraction plus scan coordinates and its
-writer-required acquisition fields; a grid-lines cache is already grouped and
-uses separate amplitude/phase labels. The grid-lines CI adapter also has
-probe-provenance behavior that the generic standalone loader does not infer:
-when both splits carry `probe_simulated`, it selects that realized simulation
-probe instead of blindly using `probeGuess`.
+the mmap loader's `diffraction` alias. The mmap writer expects ungrouped
+diffraction plus scan coordinates and its writer-required acquisition fields.
+Historical pre-grouped study caches are not a public training input contract.
 
 There is currently no canonical `data_transport = memory | npz | mmap` setting
 and no global schema dispatcher. To determine the route for a run, start from
@@ -170,15 +160,14 @@ SimulationConfig.probe
 | `SimulationConfig.probe.transform_pipeline` | Constructs the probe used to simulate the dataset. Extension from 64×64 to 128×128, for example, happens here. |
 | `SimulationConfig.probe.mask_diameter` | Applies a simulation-time mask before diffraction is generated. Its result is baked into `probeGuess` and the dataset identity. |
 | Dataset `probeGuess` | The stored/configured complex probe guess. For synthetic data it contains the declared simulation transforms and mask, but it is not universally the exact illumination that generated the recorded counts. |
-| Dataset `probe_simulated` | Optional grid-lines field containing the realized simulator illumination after the simulator's internal probe normalization. |
-| Selected CI probe | When both real train/test splits carry `probe_simulated`, grid-lines CI uses it. Otherwise CI falls back to `probeGuess`. A one-sided `probe_simulated` bundle fails closed. Non-CI arms use `probeGuess`. |
+| Dataset `probe_simulated` | Optional acquisition compatibility/provenance metadata carrying a realized simulator illumination. The public training path does not select it as the model probe. |
+| Selected CI probe | Public training derives the physical and normalized CI probe views from `probeGuess`. |
 | CI `probe_physical` / `probe_training` | Physical and normalized training views derived from the selected CI probe. Legacy normalized-amplitude paths retain their generic normalized probe carrier. These are data representations, not independent configs. |
 | `ModelConfig.probe_mask`, `probe_mask_diameter`, `probe_mask_sigma` | Apply an additional model-time support prior inside the differentiable forward model. They do not alter the saved dataset. |
 | `ModelConfig.probe_big` | Historical name for the CNN decoder's learned complementary outer spatial support. It does **not** resize, pad, extrapolate, or construct the physical probe. |
 
-For an exact matched synthetic replay, follow the dataset's recorded probe
-provenance rather than assuming `probeGuess` is always the realized
-illumination. `ModelConfig.probe_mask=False` then avoids applying a second
+For a matched public synthetic replay, use the finalized physical probe stored
+in `probeGuess`. `ModelConfig.probe_mask=False` then avoids applying a second
 model-time mask. Enable a model-time mask only when the experiment intentionally
 adds that support prior.
 
@@ -268,7 +257,8 @@ representations are not co-equal sources of truth:
 
 | Representation | Role | Should users edit it directly? |
 |---|---|---|
-| `ptycho.config.config` dataclasses | Public/shared configuration contract and legacy projection | Yes, when using the Python API |
+| `ptycho.config.config.TrainingConfig` and its nested Pydantic models | Public training authoring contract and legacy projection | Yes, when using the Python API |
+| `ptycho.config.config` simulation, model, and inference dataclasses | Public/shared non-training configuration contracts | Yes, when using the Python API |
 | Factory-resolved `ptycho_torch.config_params` dataclasses | Torch data, topology, physics, training, and inference carriers after defaults, aliases, and object policy are materialized | Usually no; use the closed factory or a study wrapper |
 | `TrainingPayload` / `InferencePayload` | Phase-local bundles returned by the factory | No; consume them |
 | `ModelSpec("torch-model-spec-portable-v2")` | Derived, sealed Torch graph/state identity used for construction and reload | No |
@@ -332,6 +322,11 @@ projects the public compatibility record into `params.cfg`.
 Torch data/inference settings, execution settings, and applied overrides.
 Saved model structure comes from the validated checkpoint/artifact identity.
 
+Studies that already hold the five resolved Torch records use
+`create_training_payload_from_resolved_configs()` to adapt those exact objects;
+the adapter does not run default resolution again. The shared Lightning
+service consumes that payload and any prebuilt mmap DataModule directly.
+
 The public and Torch model records overlap only where the backends share a
 public concept. Torch-only topology and physics fields remain in the Torch
 carrier. `derive_model_spec()` checks shared fields rather than silently
@@ -390,7 +385,7 @@ Some TensorFlow-era modules still read the process-local
 `ptycho.params.cfg`. Supported entry points therefore perform a one-way bridge:
 
 ```text
-resolved dataclass ──► update_legacy_dict(params.cfg, config) ──► legacy consumer
+resolved configuration ──► update_legacy_dict(params.cfg, config) ──► legacy consumer
 ```
 
 New code must not read `params.cfg` as a source for structured configuration.
@@ -407,31 +402,78 @@ backend workflow and CONFIG-001 ordering, see
 
 ### Public Training and Inference Resolution
 
-The supported public source boundary is exported from `ptycho.config` as
-`resolve_training_config()` and `resolve_inference_config()`. Both use:
+The supported public source boundaries are exported from `ptycho.config` as
+`resolve_training_config()` and `resolve_inference_config()`. They share this
+precedence rule but intentionally have different authoring shapes:
 
 ```text
-dataclass defaults < file values < explicitly supplied CLI values
+type defaults < file mapping < explicitly supplied CLI patch
 ```
 
 An argparse default is not an explicit CLI value. Supported entry points pass
 only options that the caller actually supplied, so an omitted CLI option does
 not overwrite a file value.
 
-Within each file or explicit-CLI source, model fields may be written either at
-the root or under `model`. An equal flat/nested duplicate is accepted once; an
-unequal duplicate fails with both locations identified. Across sources, the
-normal precedence above applies even when one source uses the flat form and
-the other uses the nested form. Unknown root or nested model fields fail rather
-than being discarded.
+Training authoring is nested. `resolve_training_config()` deep-merges the file
+mapping and explicit CLI patch, then validates one `TrainingConfig`
+(`BaseSettings`) with these Pydantic submodels:
 
-`n_groups` is the canonical grouping field. At the resolver boundary,
-`n_images` remains a deprecated alias: an alias-only value becomes `n_groups`,
-equal same-source alias/canonical values are accepted once, and unequal
-same-source values fail. A higher-precedence source may override a lower one
-through either spelling. Successful resolution that used `n_images` emits one
-deprecation warning and returns `n_images=None`; direct dataclass construction
-retains its historical compatibility behavior.
+```text
+model                   ModelConfig dataclass
+data                    DataConfig
+sampling                SamplingConfig
+loss                    LossConfig
+tf_loss                 TFLossConfig
+gradient_clip           GradientClipConfig
+optimizer               OptimizerConfig
+scheduler               SchedulerConfig
+```
+
+Model and every training-component field therefore belong under their named
+sections. Unknown or misplaced fields fail because every
+Pydantic section uses `extra="forbid"`. Although `TrainingConfig` derives from
+`BaseSettings`, its implicit environment, dotenv, and secrets sources are
+disabled: entry points explicitly load the file and CLI mappings and pass the
+merged result for validation.
+
+One enumerated exception exists for backward compatibility: the historical
+flat root spellings of `data`, `tf_loss`, and `sampling` fields (for example
+`train_data_file`, `nll_weight`, `n_groups`) are accepted during
+`TrainingConfig` validation and lifted into their nested sections with a
+`DeprecationWarning`. An equal flat/nested duplicate is accepted once; an
+unequal duplicate fails with both spellings identified. This applies wherever
+`TrainingConfig` validation runs (direct construction and resolved file/CLI
+mappings). New configurations should use the nested spellings
+(`specs/ptychodus_api_spec.md` §2.1 lists the full alias set).
+
+On the unified CLI, direct training fields retain plain flags such as
+`--nepochs`, `--batch_size`, `--output_dir`, and `--backend`; nested fields use
+dotted flags such as `--data.train_data_file`, `--sampling.n_groups`,
+`--optimizer.algorithm`, and `--scheduler.kind`. The native
+`python -m ptycho_torch.train` CLI is a separate interface and retains its
+documented flat flags.
+
+Current `refactor` limitation: the generated parser leaves numeric and Boolean
+CLI values as strings, which the strict Pydantic validators reject during
+`setup_configuration()`. Author those values in the nested YAML file until the
+CLI decoder is corrected. Path and literal-string overrides remain usable; the
+dotted names above describe the intended public surface rather than a claim
+that every generated value type currently completes resolution.
+
+Within `SamplingConfig`, `n_groups` is canonical and `n_images` remains a
+deprecated alias. An alias-only value becomes `n_groups`; equal alias and
+canonical values are accepted; unequal values fail. Because source mappings
+are deep-merged before Pydantic validation, conflicting alias/canonical values
+across file and CLI sources also fail rather than using one spelling to
+silently override the other. Successful validation clears `n_images`; omitted
+`n_groups` materializes the default of `512`.
+
+Inference authoring remains flat except for `model`. Within each inference
+source, model fields may be written either at the root or under `model`. An
+equal flat/nested duplicate is accepted once; an unequal duplicate fails with
+both locations identified. Across sources, normal precedence applies even when
+one source uses the flat form and the other uses the nested form. Inference
+resolves its `n_images` alias per source before applying CLI precedence.
 
 Validation is deliberately layered:
 
@@ -459,41 +501,177 @@ Other configuration families retain their entry-point-specific source rules:
   omitted file fields use dataclass defaults, while omitting the file invokes
   the entry point's historical compatibility defaults.
 - Unknown simulation keys and conflicting compatibility aliases are errors.
-- Not every dataclass field has a CLI flag.
+- Not every configuration field has a CLI flag.
 
-### Named CI Profile
+### Profiles Are Starting Bundles
+
+This section is the conceptual authority for profile/preset semantics,
+locks/defaults, and the training-only `ci` profile. The simulation guide owns
+operational commands, public flags, and exact stage-reuse mechanics.
+
+A profile is a resolver-registered named bundle of starting values. The
+resolver expands it before ordinary configuration-object construction and
+validation. "Preset" is informal and may also describe an unregistered
+combination of runtime controls, such as the TF-parity preset. There is no
+separate generic preset registry or resolver, and profiles do not bypass
+downstream validation.
+
+The synthetic runner registers these bundles:
+
+| Profile | Recipe | Measurement path |
+|---|---|---|
+| `synthetic-lines` | `synthetic-lines-v1` | Default legacy normalized amplitude |
+| `cnn-lines-ci` | `cnn-lines-ci-v1` | Count-intensity CNN |
+
+With no selection, `ptycho_synthetic` uses `synthetic-lines`. A YAML, TOML, or
+JSON workflow may set root `profile`; explicit `--profile` wins. The remaining
+value precedence is selected profile, then file values, then explicit CLI
+values for overrideable fields. A selected profile's locked fields may only be
+restated equally; contradictions fail. A config filename or path never selects
+a profile.
+
+`cnn-lines-ci` locks `scale_contract_version=ci_intensity_v2`,
+`measurement_domain=count_intensity`, `architecture=cnn`,
+`physics_forward_mode=rectangular_scaled`, `cnn_output_mode=real_imag`,
+`loss_function=Poisson`, `torch_loss_mode=poisson`, and `nll=true`. Matching
+restatements are accepted; contradictions fail. Its
+`rect_s1s2_init=dose_closure` and gradient-clipping settings are overrideable
+defaults. `synthetic-lines` has no profile-specific locks, but its final
+resolved values still pass all normal validators.
+
+The resulting `ResolvedSyntheticWorkflow`, including `profile`,
+`recipe_version`, and all resolved values, is written to
+`resolved_workflow.json`. Persisted identity includes `measurement_domain` and
+`scale_contract_version`, preventing detector-domain drift. Stage reuse consumes
+the relevant resolved identity and verifies NPZ content separately; see
+[Stage identity and reuse](../scripts/simulation/README.md#stage-identity-and-reuse)
+for the exact namespace and digest mechanics.
+
+This five-epoch invocation is a functional contract example:
+
+```bash
+ptycho_synthetic --profile cnn-lines-ci \
+  --output-root outputs/synthetic-cnn-ci-contract \
+  --epochs 5 \
+  --rect-s1s2-init dose_closure
+```
+
+It demonstrates resolution and execution of the CI contract; it is not a
+validated CNN quality threshold or baseline. See the
+[simulation workflow guide](../scripts/simulation/README.md) for profile and
+NPZ details.
+
+### Torch Training-Only `ci` Profile
 
 Use `resolve_training_payload(..., profile="ci")` on the modern programmatic
 path, `create_training_payload(..., profile="ci")` at the compatibility
 boundary, or the Torch training CLI's `--profile ci` instead of assembling a
-partial count-intensity configuration by hand.
+partial count-intensity configuration by hand. This `ci` profile applies only
+to Torch training with supplied NPZs; it is separate from the synthetic
+runner's `cnn-lines-ci` profile. With `profile=None`, the factory follows
+ordinary resolution without applying a named bundle.
 
 The profile locks these coherent contract fields:
 
-| Field | Required value |
-|---|---|
-| `scale_contract_version` | `ci_intensity_v2` |
-| `measurement_domain` | `count_intensity` |
-| `physics_forward_mode` | `rectangular_scaled` |
-| `torch_loss_mode` | `poisson` |
-| `loss_function` | `Poisson` |
+| Field | Required value | Meaning |
+|---|---|---|
+| `scale_contract_version` | `ci_intensity_v2` | Selects the versioned scaling and units contract persisted with the resolved model and artifact. It is an identity tag, not a numerical multiplier. |
+| `measurement_domain` | `count_intensity` | Declares that NPZ diffraction contains detector counts/intensity rather than normalized amplitude. |
+| `physics_forward_mode` | `rectangular_scaled` | Selects the real/imaginary intensity forward with per-dataset `s1`/`s2` gauge factors. |
+| `torch_loss_mode` | `poisson` | Selects the primary Torch/Lightning Poisson objective that compares predicted intensity with measured counts. |
+| `loss_function` | `Poisson` | Keeps the shared/legacy model loss identity aligned; it does not override `torch_loss_mode` in Lightning. |
 
-It also supplies these profile defaults:
+It also supplies these non-contract defaults, which callers may override:
 
-| Field | Default |
-|---|---|
-| `amplitude_physics_gain` | `1.0` |
-| `rect_s1s2_trainable` | `True` |
-| `rect_s1s2_init` | `data` |
-| `cnn_output_mode` | `real_imag` |
+| Field | Default | Meaning |
+|---|---|---|
+| `amplitude_physics_gain` | `1.0` | Adds no legacy amplitude-forward gain. Normal validation requires exactly `1.0` while the rectangular forward is active. |
+| `rect_s1s2_trainable` | `True` | Lets the optimizer update the per-dataset real/imaginary gauge factors after initialization. |
+| `rect_s1s2_init` | `dose_closure` | Solves the shared startup gauge from the resolved training data. Explicit `ones` keeps exact unit initialization without inspecting the loader. |
+| `cnn_output_mode` | `real_imag` | Makes CNN heads represent real and imaginary object components. Non-CNN generators use their `generator_output_mode` contract. |
+
+`cnn_output_mode` and `physics_forward_mode` are coupled but not aliases: the
+first chooses the CNN's object representation, while the second chooses the
+downstream diffraction/scaling calculation and its prediction domain. The CI
+profile selects both because `rectangular_scaled` requires an effective
+real/imaginary generator output; real/imaginary output can also be used with the
+amplitude forward. See the
+[PyTorch output/forward compatibility matrix](workflows/pytorch.md#35-cnn-output-and-physics-forward-knobs).
 
 An explicit contradiction of a locked contract field fails closed. Non-contract
 profile defaults follow normal override precedence, then the downstream scaling
-and model validators enforce coherence.
+and model validators enforce coherence. Omitting an initialization override
+therefore keeps the profile's `dose_closure` default; an explicit `ones` wins.
+A bare `ModelConfig` still defaults to `ones`, because it has no resolved CI
+training dataset. `dose_closure` requires the complete CI contract.
+
+The profile name is an authoring convenience, not an inference selector. The
+persisted resolved model, data, training, and bundle identity is authoritative
+when the model is loaded; inference does not require selecting `ci` again.
+
+#### Dose-closure initialization
+
+For an existing count-intensity NPZ, select the training-only profile and omit
+the initialization field to use its `dose_closure` default:
+
+```python
+from ptycho_torch.config_factory import resolve_training_payload
+
+payload = resolve_training_payload(
+    train_data_file=train_npz,      # count-intensity data (diffraction = counts)
+    output_dir=output_dir,
+    profile="ci",                   # locks the coherent CI contract set
+    overrides={
+        "gridsize": 1,
+        "N": 128,
+        "n_groups": 4489,
+        "batch_size": 16,
+    },
+)
+```
+
+The non-obvious pieces:
+
+| Piece | Meaning |
+|---|---|
+| `profile="ci"` | Locks `ci_intensity_v2` + `count_intensity` + `rectangular_scaled` + Poisson as an inseparable set; contradicting any locked field fails closed. |
+| `rect_s1s2_init="dose_closure"` | Before fitting, one shared `s1=s2` startup gauge is solved from the actual forward with a unit object. Exactly 256 logical `(row, channel)` detector slots are selected uniformly without replacement across the complete resolved training dataset using fixed seed `20260806` and policy `splitmix64_rejection_v1`. It fixes startup conditioning when the stored probe's global scalar does not match the recorded counts; it does not calibrate the probe or identify physical object units. |
+| `n_groups` / `gridsize` | Required grouping identity: number of sampled groups and frames per group axis. `gridsize=1` degenerates grouping to single-frame groups. |
+| Startup record | Fresh training persists a strict `rect-s1s2-initialization-v2` record (`solved_gauge`, `method`, `mode`, `sampled_patterns`) in `training_summary.json`; the dose method is `dose_closure_seeded_uniform_unit_object`. Readers accept valid historical v1 prefix-era records without rewriting them. A solved gauge far from 1 signals that the data's probe/object decomposition convention disagrees with the forward model. |
+
+The name *dose closure* refers to closing the aggregate count budget on the
+fixed sample. With a unit object, the initializer computes
+
+```text
+c* = sum(measured detector counts) / sum(predicted unit-object intensity)
+s1 = s2 = sqrt(c*)
+```
+
+so the sampled predicted and measured count totals agree at startup. This is a
+conditioning step for the shared rectangular gauge, not a calibration of the
+physical probe or an identification of absolute object units.
+
+The [representative-sampling design](superpowers/specs/2026-08-06-ci-dose-closure-representative-sampling-design.md#sampling-contract)
+defines the pinned draw and logical-slot mapping.
+
+The sample size, seed, and policy are fixed rather than user-configurable. If
+the resolved training population has fewer than 256 detector slots or cannot
+produce a valid gauge, initialization fails; it does not use a prefix, reduce
+the sample size, or fall back to `ones`. To request unit initialization, set
+`overrides={"rect_s1s2_init": "ones", ...}` explicitly.
+
+The only supported values are `ones` and `dose_closure`. Historical
+`rect_s1s2_init="data"` configuration and artifacts are not migrated or
+translated; use historical code or retrain them.
+
+For end-to-end generation and training, use
+`ptycho_synthetic --profile cnn-lines-ci`; that synthetic profile selects
+`dose_closure` by default. The [simulation workflow guide](../scripts/simulation/README.md)
+documents the runnable command and count-domain data meaning.
 
 ## Parameter Reference
 
-The tables below are representative. The dataclass definitions in
+The tables below are representative. The configuration definitions in
 `ptycho/config/config.py` and `ptycho_torch/config_params.py` are the complete
 field lists.
 
@@ -678,35 +856,36 @@ read that single resolved training record.
 
 ### Training (`TrainingConfig`)
 
-The public and resolved Torch training records share many fields. The table is
-representative of that owner family. Torch-only `learning_rate` and
-`accum_steps` are not fields of the public dataclass; supported CLI spellings
-become an explicit factory patch, and the resolved Torch `TrainingConfig` owns
-their effective values.
+The public and resolved Torch training records share many fields. Public
+training authoring is nested as shown below. Torch-only `learning_rate` and
+`accum_steps` are not fields of the public Pydantic model; supported CLI
+spellings become an explicit factory patch, and the resolved Torch
+`TrainingConfig` owns their effective values.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `train_data_file` | `Optional[Path]` | `None` | Training dataset path. Required by training entry points. |
-| `test_data_file` | `Optional[Path]` | `None` | Optional validation/test dataset path. |
+| `data.train_data_file` | `Optional[Path]` | `None` | Training dataset path. Required by training entry points. |
+| `data.test_data_file` | `Optional[Path]` | `None` | Optional validation/test dataset path. |
 | `batch_size` | `int` | `16` | Samples per batch. |
 | `nepochs` | `int` | `50` | Number of training epochs. |
-| `mae_weight` | `float` | `0.0` | Diffraction-space MAE weight. |
-| `nll_weight` | `float` | `1.0` | Poisson negative-log-likelihood weight. |
-| `realspace_mae_weight` | `float` | `0.0` | Object-domain MAE weight. |
-| `realspace_weight` | `float` | `0.0` | General real-space loss weight. |
-| `nphotons` | `float` | `1e9` | Legacy/runtime compatibility value. Generated dose belongs to `SimulationConfig.detector.photons_per_pattern`. |
-| `n_groups` | `Optional[int]` | `None` (`512` after public `TrainingConfig.__post_init__`) | Number of grouped samples used for training. |
-| `n_images` | `Optional[int]` | `None` | **Deprecated** alias for `n_groups`. |
-| `n_subsample` | `Optional[int]` | `None` | Number of raw images selected before grouping. |
-| `subsample_seed` | `Optional[int]` | `None` | Reproducible subsampling seed. |
+| `tf_loss.mae_weight` | `float` | `0.0` | TensorFlow diffraction-space MAE weight. |
+| `tf_loss.nll_weight` | `float` | `1.0` | TensorFlow Poisson negative-log-likelihood weight. |
+| `tf_loss.realspace_mae_weight` | `float` | `0.0` | TensorFlow object-domain MAE weight. |
+| `tf_loss.realspace_weight` | `float` | `0.0` | TensorFlow general real-space loss weight. |
+| `loss.torch_loss_mode` | `Literal['poisson','mae']` | `'poisson'` | Primary Torch loss family. |
+| `data.nphotons` | `float` | `1e9` | Legacy/runtime compatibility value. Generated dose belongs to `SimulationConfig.detector.photons_per_pattern`. |
+| `sampling.n_groups` | `Optional[int]` | `512` after validation | Number of grouped samples used for training. |
+| `sampling.n_images` | `Optional[int]` | `None` | **Deprecated** alias for `sampling.n_groups`; cleared after successful validation. |
+| `sampling.n_subsample` | `Optional[int]` | `None` | Number of raw images selected before grouping. |
+| `sampling.subsample_seed` | `Optional[int]` | `None` | Reproducible subsampling seed. |
 | `positions_provided` | `bool` | `True` | Use provided scan positions. |
 | `probe_trainable` | `bool` | `False` | Optimize the probe jointly with the object model. |
 | `intensity_scale_trainable` | `bool` | `True` | Optimize the global intensity scale. |
-| `optimizer` | `Literal['adam','adamw','sgd']` | `'adam'` | Optimizer family. |
-| `weight_decay` | `float` | `0.0` | Optimizer weight decay. |
-| `scheduler` | `Literal['Default','Exponential','WarmupCosine','ReduceLROnPlateau']` | `'Default'` | Public scheduler choice. |
-| `gradient_clip_val` | `Optional[float]` | `None` | Torch gradient-clipping threshold; `None` disables clipping. |
-| `gradient_clip_algorithm` | `Literal['norm','value','agc']` | `'norm'` | Torch gradient-clipping algorithm. |
+| `optimizer.algorithm` | `Literal['adam','adamw','sgd']` | `'adam'` | Optimizer family. |
+| `optimizer.weight_decay` | `float` | `0.0` | Optimizer weight decay. |
+| `scheduler.kind` | `Literal['Default','Exponential','WarmupCosine','ReduceLROnPlateau']` | `'Default'` | Public scheduler choice. |
+| `gradient_clip.val` | `Optional[float]` | `None` | Torch gradient-clipping threshold; `None` disables clipping. |
+| `gradient_clip.algorithm` | `Literal['norm','value','agc']` | `'norm'` | Torch gradient-clipping algorithm. |
 | `output_dir` | `Path` | `training_outputs` | Training output directory. |
 
 ### Inference (`InferenceConfig`)
@@ -737,45 +916,50 @@ When `n_subsample` is supplied, the controls are independent:
 
 ```yaml
 # Select 10,000 raw images, then construct 500 groups of four patches.
-n_subsample: 10000
-n_groups: 500
-subsample_seed: 3
-gridsize: 2
+model:
+  gridsize: 2
+sampling:
+  n_subsample: 10000
+  n_groups: 500
+  subsample_seed: 3
 ```
 
 ## Example YAML Configuration
 
 ```yaml
-# Model
-N: 64
-gridsize: 2
-architecture: cnn
-n_filters_scale: 2
-amp_activation: swish
-object_layout: grouped_patches
-training_canvas: relative_overlap
-training_patch_weighting: central_mask
+model:
+  N: 64
+  gridsize: 2
+  architecture: cnn
+  n_filters_scale: 2
+  amp_activation: swish
+  object_layout: grouped_patches
+  training_canvas: relative_overlap
+  training_patch_weighting: central_mask
 
-# Training
-train_data_file: datasets/fly/fly001_prepared_train.npz
-test_data_file: datasets/fly/fly001_prepared_test.npz
+data:
+  train_data_file: datasets/fly/fly001_prepared_train.npz
+  test_data_file: datasets/fly/fly001_prepared_test.npz
+  # Compatibility value for already-materialized data. Generated dose belongs
+  # to SimulationConfig.detector.photons_per_pattern.
+  nphotons: 1000000000.0
+
 output_dir: results/my_experiment_run_1
 nepochs: 100
 batch_size: 32
-n_groups: 4096
-nll_weight: 1.0
-mae_weight: 0.0
 probe_trainable: true
 
-# Compatibility values for already-materialized data
-nphotons: 1e9
-probe_scale: 4.0
-gaussian_smoothing_sigma: 0.0
+sampling:
+  n_groups: 4096
+
+tf_loss:
+  nll_weight: 1.0
+  mae_weight: 0.0
 ```
 
 ```bash
 ptycho_train --config configs/my_experiment_config.yaml
 
-# Explicit CLI values override the file for entry points that expose the flag.
-ptycho_train --config configs/my_experiment_config.yaml --nepochs 10
+# Literal-string CLI values override the file when explicitly supplied.
+ptycho_train --config configs/my_experiment_config.yaml --backend pytorch
 ```

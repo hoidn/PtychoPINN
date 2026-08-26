@@ -27,6 +27,122 @@ project_root = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(project_root))
 
 
+def test_interpret_sampling_parameters_reads_nested_sampling_config():
+    from ptycho.config import ModelConfig, TrainingConfig
+    from ptycho.config.config import DataConfig, SamplingConfig
+    from scripts.training.train import interpret_sampling_parameters
+
+    config = TrainingConfig(
+        model=ModelConfig(gridsize=2),
+        data=DataConfig(train_data_file=Path("train.npz")),
+        sampling=SamplingConfig(
+            n_groups=7,
+            n_subsample=32,
+            neighbor_count=4,
+            enable_oversampling=True,
+            neighbor_pool_size=8,
+        ),
+    )
+
+    resolved = interpret_sampling_parameters(config)
+
+    assert resolved[:4] == (32, 7, True, 8)
+    assert "Oversampling enabled: K=8" in resolved[4]
+
+
+def test_shared_training_workflow_reads_nested_sampling_config():
+    from ptycho.config import ModelConfig, TrainingConfig
+    from ptycho.config.config import DataConfig, SamplingConfig
+    from ptycho.workflows.training import interpret_sampling_parameters
+
+    config = TrainingConfig(
+        model=ModelConfig(gridsize=2),
+        data=DataConfig(train_data_file=Path("train.npz")),
+        sampling=SamplingConfig(
+            n_groups=7,
+            n_subsample=32,
+            neighbor_count=4,
+            enable_oversampling=True,
+            neighbor_pool_size=8,
+        ),
+    )
+
+    resolved = interpret_sampling_parameters(config)
+
+    assert resolved[:4] == (32, 7, True, 8)
+    assert "Oversampling enabled: K=8" in resolved[4]
+
+
+def test_public_factory_override_map_reads_nested_training_config():
+    from ptycho.config import ModelConfig, TrainingConfig
+    from ptycho.config.config import (
+        AdamConfig,
+        DataConfig,
+        GradientClipConfig,
+        LossConfig,
+        OptimizerConfig,
+        SamplingConfig,
+        SchedulerConfig,
+        SgdConfig,
+    )
+    from ptycho_torch.config_factory import build_training_factory_overrides
+
+    config = TrainingConfig(
+        model=ModelConfig(gridsize=2),
+        batch_size=8,
+        nepochs=9,
+        data=DataConfig(
+            train_data_file=Path("train.npz"),
+            test_data_file=Path("test.npz"),
+            nphotons=2.5e7,
+        ),
+        sampling=SamplingConfig(
+            n_groups=7,
+            n_subsample=32,
+            subsample_seed=11,
+            neighbor_count=5,
+            enable_oversampling=True,
+            neighbor_pool_size=8,
+            sequential_sampling=True,
+        ),
+        loss=LossConfig(
+            torch_loss_mode="mae",
+            torch_mae_pred_l2_match_target=True,
+        ),
+        gradient_clip=GradientClipConfig(val=0.25, algorithm="value"),
+        optimizer=OptimizerConfig(
+            algorithm="adamw",
+            weight_decay=0.03,
+            sgd=SgdConfig(momentum=0.4),
+            adam=AdamConfig(beta1=0.8, beta2=0.95),
+        ),
+        scheduler=SchedulerConfig(
+            kind="ReduceLROnPlateau",
+            plateau_factor=0.4,
+            plateau_patience=3,
+        ),
+    )
+
+    overrides = build_training_factory_overrides(config)
+
+    assert overrides["n_groups"] == 7
+    assert overrides["n_subsample"] == 32
+    assert overrides["nphotons"] == 2.5e7
+    assert overrides["neighbor_count"] == 5
+    assert overrides["test_data_file"] == Path("test.npz")
+    assert overrides["torch_loss_mode"] == "mae"
+    assert overrides["gradient_clip_val"] == 0.25
+    assert overrides["gradient_clip_algorithm"] == "value"
+    assert overrides["optimizer"] == "adamw"
+    assert overrides["momentum"] == 0.4
+    assert overrides["weight_decay"] == 0.03
+    assert overrides["adam_beta1"] == 0.8
+    assert overrides["adam_beta2"] == 0.95
+    assert overrides["scheduler"] == "ReduceLROnPlateau"
+    assert overrides["plateau_factor"] == 0.4
+    assert overrides["plateau_patience"] == 3
+
+
 class TestTrainingCliBackendDispatch:
     """
     Test suite for backend selector dispatch in training CLI.
@@ -49,14 +165,14 @@ class TestTrainingCliBackendDispatch:
         Phase: R (backend selector integration)
         Reference: input.md Do Now step 2
         """
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig, DataConfig
         from ptycho.raw_data import RawData
 
         # Create config with PyTorch backend
         model_config = ModelConfig(N=64, gridsize=1)
         config = TrainingConfig(
             model=model_config,
-            train_data_file=Path('train.npz'),
+            data=DataConfig(train_data_file=Path('train.npz')),
             backend='pytorch',  # Explicitly select PyTorch
             batch_size=16,
             nepochs=1,
@@ -129,6 +245,7 @@ class TestTrainingCliBackendDispatch:
     ):
         """The selector forwards the unresolved request or None unchanged."""
         from ptycho.config import ModelConfig, TrainingConfig
+        from ptycho.config.config import DataConfig
         from ptycho.workflows import backend_selector
         from ptycho_torch.execution_request import ExecutionRequest
         from ptycho_torch.workflows import components as torch_components
@@ -162,7 +279,7 @@ class TestTrainingCliBackendDispatch:
         )
         config = TrainingConfig(
             model=ModelConfig(),
-            train_data_file=Path("train.npz"),
+            data=DataConfig(train_data_file=Path("train.npz")),
             backend="pytorch",
         )
 
@@ -187,6 +304,7 @@ class TestTrainingCliBackendDispatch:
             PyTorchExecutionConfig,
             TrainingConfig,
         )
+        from ptycho.config.config import DataConfig
         from ptycho.workflows import backend_selector
         from ptycho_torch.workflows import components as torch_components
 
@@ -213,7 +331,7 @@ class TestTrainingCliBackendDispatch:
         )
         config = TrainingConfig(
             model=ModelConfig(),
-            train_data_file=Path("train.npz"),
+            data=DataConfig(train_data_file=Path("train.npz")),
             backend="pytorch",
         )
 
@@ -234,6 +352,7 @@ class TestTrainingCliBackendDispatch:
         monkeypatch,
     ):
         from ptycho.config import ModelConfig, TrainingConfig
+        from ptycho.config.config import DataConfig
         from ptycho.workflows import backend_selector
         from ptycho_torch.execution_request import ExecutionRequest
         from ptycho_torch.workflows import components as torch_components
@@ -265,7 +384,7 @@ class TestTrainingCliBackendDispatch:
         )
         config = TrainingConfig(
             model=ModelConfig(),
-            train_data_file=Path("train.npz"),
+            data=DataConfig(train_data_file=Path("train.npz")),
             backend="pytorch",
         )
 
@@ -289,6 +408,7 @@ class TestTrainingCliBackendDispatch:
     ):
         """Raw argv drives execution provenance and canonical priority separately."""
         from ptycho.config import ModelConfig, TrainingConfig
+        from ptycho.config.config import DataConfig, SamplingConfig
         from ptycho.metadata import MetadataManager
         from ptycho_torch.cli.shared import (
             build_execution_request_from_args as real_request_builder,
@@ -300,10 +420,10 @@ class TestTrainingCliBackendDispatch:
         train_path.touch()
         config = TrainingConfig(
             model=ModelConfig(),
-            train_data_file=train_path,
+            data=DataConfig(train_data_file=train_path),
             backend="pytorch",
             output_dir=tmp_path / "out",
-            n_groups=1,
+            sampling=SamplingConfig(n_groups=1),
         )
         args = argparse.Namespace(
             config=None,
@@ -315,14 +435,14 @@ class TestTrainingCliBackendDispatch:
             torch_plateau_patience=None,
             torch_plateau_min_lr=None,
             torch_plateau_threshold=None,
-            scheduler="WarmupCosine",
+            **{"scheduler.kind": "WarmupCosine"},
         )
         raw_argv = (
             "--torch-accelerator=cpu",
             "--quiet",
             "--torch-scheduler",
             "Exponential",
-            "--scheduler=WarmupCosine",
+            "--scheduler.kind=WarmupCosine",
             "--torch-plateau-factor=0.25",
         )
         monkeypatch.setattr(sys, "argv", ["train.py", *raw_argv])
@@ -400,14 +520,14 @@ class TestTrainingCliBackendDispatch:
         Phase: R (backend selector integration)
         Reference: input.md Do Now step 2 (guard TensorFlow-only helpers)
         """
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig, DataConfig
         from ptycho.raw_data import RawData
 
         # Create config with TensorFlow backend (default)
         model_config = ModelConfig(N=64, gridsize=1)
         config = TrainingConfig(
             model=model_config,
-            train_data_file=Path('train.npz'),
+            data=DataConfig(train_data_file=Path('train.npz')),
             backend='tensorflow',  # Explicitly select TensorFlow
             batch_size=16,
             nepochs=1,
@@ -479,6 +599,8 @@ class TestTrainingCliBackendDispatch:
             ModelConfig,
             PyTorchExecutionConfig,
             TrainingConfig,
+            DataConfig,
+            SamplingConfig,
         )
         from ptycho_torch.config_params import ModelConfig as PTModelConfig
         from pathlib import Path
@@ -491,9 +613,9 @@ class TestTrainingCliBackendDispatch:
         )
         config = TrainingConfig(
             model=model_config,
-            train_data_file=Path('datasets/train.npz'),
+            data=DataConfig(train_data_file=Path('datasets/train.npz')),
             output_dir=Path('outputs/test_supervised'),
-            n_groups=128,
+            sampling=SamplingConfig(n_groups=128),
             nepochs=1,
             backend='pytorch',
         )
@@ -501,7 +623,7 @@ class TestTrainingCliBackendDispatch:
         # Simulate factory payload creation (as _train_with_lightning does)
         mode_map = {'pinn': 'Unsupervised', 'supervised': 'Supervised'}
         factory_overrides = {
-            'n_groups': config.n_groups,
+            'n_groups': config.sampling.n_groups,
             'gridsize': config.model.gridsize,
             'model_type': mode_map.get(config.model.model_type, 'Unsupervised'),
             'amp_activation': config.model.amp_activation,
@@ -576,7 +698,12 @@ class TestTrainingCliBackendDispatch:
             with patch(
                 "ptycho_torch.application_factory.build_ptychopinn_application",
                 return_value=mock_lightning_module,
-            ) as build_application:
+            ) as build_application, patch(
+                "ptycho_torch.workflows.components._build_effective_runtime",
+                return_value={},
+            ), patch(
+                "ptycho_torch.workflows.components.write_effective_runtime_json"
+            ):
                 with patch('ptycho_torch.workflows.components._build_lightning_dataloaders', return_value=(mock_train_loader, None)):
                     with patch('lightning.pytorch.Trainer') as mock_trainer_class:
                         mock_trainer = MagicMock()
@@ -602,7 +729,7 @@ class TestTrainingCliBackendDispatch:
 
     def test_manual_optimization_keeps_accumulation_out_of_trainer(self):
         """Manual accumulation remains model-owned, not Trainer-owned."""
-        from ptycho.config.config import TrainingConfig, ModelConfig, PyTorchExecutionConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig, PyTorchExecutionConfig, DataConfig, SamplingConfig
         from pathlib import Path
 
         # Create training config with PINN mode
@@ -613,9 +740,9 @@ class TestTrainingCliBackendDispatch:
         )
         config = TrainingConfig(
             model=model_config,
-            train_data_file=Path('datasets/train.npz'),
+            data=DataConfig(train_data_file=Path('datasets/train.npz')),
             output_dir=Path('outputs/test_accum'),
-            n_groups=128,
+            sampling=SamplingConfig(n_groups=128),
             nepochs=1,
             backend='pytorch',
         )
@@ -666,7 +793,12 @@ class TestTrainingCliBackendDispatch:
             with patch(
                 "ptycho_torch.application_factory.build_ptychopinn_application",
                 return_value=mock_lightning_module,
-            ) as build_application:
+            ) as build_application, patch(
+                "ptycho_torch.workflows.components._build_effective_runtime",
+                return_value={},
+            ), patch(
+                "ptycho_torch.workflows.components.write_effective_runtime_json"
+            ):
                 with patch('ptycho_torch.workflows.components._build_lightning_dataloaders',
                           return_value=(mock_train_loader, mock_val_loader)):
                     with patch(
@@ -706,7 +838,7 @@ class TestTrainingCliBackendDispatch:
         import sys
         import logging
         from unittest.mock import patch, MagicMock
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig, DataConfig
         from ptycho.raw_data import RawData
 
         # Configure caplog to capture INFO level
@@ -716,7 +848,7 @@ class TestTrainingCliBackendDispatch:
         model_config = ModelConfig(N=64, gridsize=1)
         config = TrainingConfig(
             model=model_config,
-            train_data_file=Path('train.npz'),
+            data=DataConfig(train_data_file=Path('train.npz')),
             backend='pytorch',
             batch_size=16,
             nepochs=1,
@@ -840,8 +972,8 @@ def test_torch_scheduler_plateau_params_enter_explicit_training_patch(
     test_argv = [
         'train.py',
         '--backend', 'pytorch',
-        '--train_data_file', str(tmp_path / 'train.npz'),
-        '--scheduler', 'ReduceLROnPlateau',
+        '--data.train_data_file', str(tmp_path / 'train.npz'),
+        '--scheduler.kind', 'ReduceLROnPlateau',
         '--torch-plateau-factor', '0.25',
         '--torch-plateau-patience', '5',
         '--torch-plateau-min-lr', '1e-5',
@@ -1029,7 +1161,7 @@ def test_unified_cli_defers_projection_to_backend_selector(
 
     from ptycho import params
     from ptycho.config import ModelConfig, TrainingConfig
-    from ptycho.config.config import update_legacy_dict as real_update_legacy_dict
+    from ptycho.config.config import update_legacy_dict as real_update_legacy_dict, DataConfig
     from ptycho.metadata import MetadataManager
     from ptycho.workflows import backend_selector, components
     from scripts.training import train as training_script
@@ -1038,8 +1170,7 @@ def test_unified_cli_defers_projection_to_backend_selector(
     train_path.touch()
     config = TrainingConfig(
         model=ModelConfig(),
-        train_data_file=train_path,
-        nphotons=10,
+        data=DataConfig(train_data_file=train_path, nphotons=10),
         backend="tensorflow",
     )
     args = argparse.Namespace(config=None, do_stitching=False)
@@ -1049,7 +1180,7 @@ def test_unified_cli_defers_projection_to_backend_selector(
 
     def record_validation(name, candidate):
         events.append(name)
-        assert candidate.nphotons == 25
+        assert candidate.data.nphotons == 25
 
     def load_data_before_dispatch(*_args, **_kwargs):
         events.append("load_data")
@@ -1149,6 +1280,7 @@ def test_invalid_metadata_photons_fail_before_sampling_bridge_or_data(
     import argparse
 
     from ptycho.config import ModelConfig, TrainingConfig
+    from ptycho.config.config import DataConfig
     from ptycho.metadata import MetadataManager
     from scripts.training import train as training_script
 
@@ -1156,7 +1288,7 @@ def test_invalid_metadata_photons_fail_before_sampling_bridge_or_data(
     train_path.touch()
     config = TrainingConfig(
         model=ModelConfig(),
-        train_data_file=train_path,
+        data=DataConfig(train_data_file=train_path),
         backend="tensorflow",
     )
     args = argparse.Namespace(config=None, do_stitching=False)

@@ -111,9 +111,8 @@ CI_PROFILE_CONTRACT_FIELDS: Dict[str, Any] = {
 }
 
 # Full coherent bundle. Non-contract entries are profile defaults a user may
-# override: rect_s1s2_init='data' per docs/model_baselines.md (one-batch s1/s2
-# calibration; required for bounded-head CNN CI arms), rect_s1s2_trainable=True
-# (trainable s1/s2 own the training scale), amplitude_physics_gain=1.0 (the
+# override: rect_s1s2_init='dose_closure', rect_s1s2_trainable=True (trainable s1/s2
+# own the training scale), amplitude_physics_gain=1.0 (the
 # rectangular contract rejects anything else fail-closed), and
 # cnn_output_mode='real_imag' (cnn architecture only; other generators already
 # default generator_output_mode='real_imag').
@@ -121,7 +120,7 @@ CI_PROFILE_BUNDLE: Dict[str, Any] = {
     **CI_PROFILE_CONTRACT_FIELDS,
     "amplitude_physics_gain": 1.0,
     "rect_s1s2_trainable": True,
-    "rect_s1s2_init": "data",
+    "rect_s1s2_init": "dose_closure",
     "cnn_output_mode": "real_imag",
 }
 
@@ -238,6 +237,99 @@ class InferencePayload:
     overrides_applied: Dict[str, Any] = field(default_factory=dict)  # Audit trail
 
 
+def build_training_factory_overrides(
+    config: TFTrainingConfig,
+) -> Dict[str, Any]:
+    """Project a public config into the shared historical factory baseline."""
+
+    if not isinstance(config, TFTrainingConfig):
+        raise TypeError("config must be a public TrainingConfig")
+    from ptycho.config.config import resolve_model_object_policy
+
+    model = resolve_model_object_policy(
+        config.model,
+        backend="torch",
+        warn_deprecated=False,
+    )
+    mode = {
+        "pinn": "Unsupervised",
+        "supervised": "Supervised",
+    }[model.model_type]
+    data = config.data
+    sampling = config.sampling
+    loss = config.loss
+    gradient_clip = config.gradient_clip
+    optimizer = config.optimizer
+    scheduler = config.scheduler
+    overrides: Dict[str, Any] = {
+        "n_groups": sampling.n_groups,
+        "gridsize": model.gridsize,
+        "architecture": model.architecture,
+        "model_type": mode,
+        "amp_activation": model.amp_activation,
+        "n_filters_scale": model.n_filters_scale,
+        "object_layout": model.object_layout,
+        "training_canvas": model.training_canvas,
+        "training_patch_weighting": model.training_patch_weighting,
+        "probe_big": model.probe_big,
+        "probe_mask": model.probe_mask,
+        "probe_mask_sigma": model.probe_mask_sigma,
+        "probe_mask_diameter": model.probe_mask_diameter,
+        "pad_object": model.pad_object,
+        "probe_scale": model.probe_scale,
+        "gaussian_smoothing_sigma": model.gaussian_smoothing_sigma,
+        "nphotons": data.nphotons,
+        "neighbor_count": sampling.neighbor_count,
+        "max_epochs": config.nepochs,
+        "batch_size": config.batch_size,
+        "subsample_seed": sampling.subsample_seed,
+        "enable_oversampling": sampling.enable_oversampling,
+        "neighbor_pool_size": sampling.neighbor_pool_size,
+        "sequential_sampling": sampling.sequential_sampling,
+        "test_data_file": data.test_data_file,
+        "torch_loss_mode": loss.torch_loss_mode,
+        "torch_mae_pred_l2_match_target": (
+            loss.torch_mae_pred_l2_match_target
+        ),
+        "intensity_scale_trainable": config.intensity_scale_trainable,
+        "gradient_clip_val": gradient_clip.val,
+        "gradient_clip_algorithm": gradient_clip.algorithm,
+        "optimizer": optimizer.algorithm,
+        "momentum": optimizer.sgd.momentum,
+        "weight_decay": optimizer.weight_decay,
+        "adam_beta1": optimizer.adam.beta1,
+        "adam_beta2": optimizer.adam.beta2,
+        "scheduler": scheduler.kind,
+        "lr_warmup_epochs": scheduler.lr_warmup_epochs,
+        "lr_min_ratio": scheduler.lr_min_ratio,
+        "plateau_factor": scheduler.plateau_factor,
+        "plateau_patience": scheduler.plateau_patience,
+        "plateau_min_lr": scheduler.plateau_min_lr,
+        "plateau_threshold": scheduler.plateau_threshold,
+        "log_grad_norm": getattr(config, "log_grad_norm", False),
+        "grad_norm_log_freq": getattr(config, "grad_norm_log_freq", 1),
+    }
+    if model.model_type == "supervised":
+        overrides["torch_loss_mode"] = "mae"
+    if sampling.n_subsample is not None:
+        overrides["n_subsample"] = sampling.n_subsample
+    for name in (
+        "fno_modes",
+        "fno_width",
+        "fno_blocks",
+        "fno_cnn_blocks",
+        "fno_input_transform",
+        "learned_input_channels",
+        "max_hidden_channels",
+        "resnet_width",
+        "generator_output_mode",
+    ):
+        value = getattr(model, name, None)
+        if value is not None:
+            overrides[name] = value
+    return overrides
+
+
 def _load_nphotons_from_metadata(data_file: Path) -> Optional[float]:
     """Return nphotons from embedded NPZ metadata if present."""
     import json
@@ -338,7 +430,7 @@ def _resolve_training_payload(
         ...     ),
         ... )
         >>> assert isinstance(payload.tf_training_config, TrainingConfig)
-        >>> assert payload.tf_training_config.n_groups == 512
+        >>> assert payload.tf_training_config.sampling.n_groups == 512
 
     See also:
         - Design: plans/active/ADR-003-BACKEND-API/reports/.../factory_design.md §3.1
@@ -713,6 +805,89 @@ def create_training_payload(
 
 
 @configured_legacy_params
+def create_training_payload_from_resolved_configs(
+    data_config: PTDataConfig,
+    model_config: PTModelConfig,
+    training_config: PTTrainingConfig,
+    inference_config: PTInferenceConfig,
+    execution_config: PyTorchExecutionConfig,
+    *,
+    train_data_file: Path,
+    output_dir: Path,
+    n_groups: int | None,
+    test_data_file: Path | None = None,
+    parity_scale_mode: str = "off",
+    parity_fixed_delta: float = 0.0,
+    parity_init_scheme: str = "default",
+) -> TrainingPayload:
+    """Adapt already-resolved Torch records without resolving defaults again."""
+
+    expected = (
+        (data_config, PTDataConfig, "data_config"),
+        (model_config, PTModelConfig, "model_config"),
+        (training_config, PTTrainingConfig, "training_config"),
+        (inference_config, PTInferenceConfig, "inference_config"),
+        (execution_config, PyTorchExecutionConfig, "execution_config"),
+    )
+    for value, value_type, name in expected:
+        if not isinstance(value, value_type):
+            raise TypeError(f"{name} must be a {value_type.__name__}")
+    if n_groups is not None and (
+        isinstance(n_groups, bool)
+        or not isinstance(n_groups, int)
+        or n_groups <= 0
+    ):
+        raise ValueError("n_groups must be a positive integer")
+
+    from ptycho_torch.config_bridge import to_model_config, to_training_config
+
+    canonical_model = to_model_config(data_config, model_config)
+    canonical_training = to_training_config(
+        canonical_model,
+        data_config,
+        model_config,
+        training_config,
+        overrides={
+            "train_data_file": Path(train_data_file),
+            "test_data_file": (
+                Path(test_data_file) if test_data_file is not None else None
+            ),
+            "output_dir": Path(output_dir),
+            "n_groups": n_groups,
+            "nphotons": data_config.nphotons,
+        },
+        require_group_count=False,
+    )
+    if n_groups is None:
+        canonical_training = canonical_training.model_copy(
+            update={
+                "sampling": canonical_training.sampling.model_copy(
+                    update={"n_groups": None}
+                )
+            }
+        )
+    payload = TrainingPayload(
+        tf_training_config=canonical_training,
+        pt_data_config=data_config,
+        pt_model_config=model_config,
+        pt_training_config=training_config,
+        pt_inference_config=inference_config,
+        model_spec=derive_model_spec(
+            canonical_model,
+            model_config,
+            data_config,
+            parity_scale_mode=parity_scale_mode,
+            parity_fixed_delta=parity_fixed_delta,
+            parity_init_scheme=parity_init_scheme,
+        ),
+        execution_config=execution_config,
+        overrides_applied={"source": "resolved_torch_configs"},
+    )
+    _project_legacy_config(payload.tf_training_config, (), ())
+    return payload
+
+
+@configured_legacy_params
 def create_inference_payload(
     model_path: Path,
     test_data_file: Path,
@@ -773,55 +948,9 @@ def infer_probe_size(data_file: Path) -> int:
         - Override precedence: .../override_matrix.md row "N"
         - NPZ data contract: specs/data_contracts.md §1
     """
-    import numpy as np
-    import warnings
-
-    fallback_N = 64
-
-    try:
-        # Load NPZ with allow_pickle=False for security
-        with np.load(data_file, allow_pickle=False) as npz_data:
-            if 'probeGuess' not in npz_data:
-                warnings.warn(
-                    f"probeGuess key missing from {data_file}. Using fallback N={fallback_N}.",
-                    UserWarning
-                )
-                return fallback_N
-
-            probe = npz_data['probeGuess']
-
-            # Extract first dimension (assumes square probe)
-            if probe.ndim < 2:
-                warnings.warn(
-                    f"probeGuess has invalid shape {probe.shape} (expected 2D square array). "
-                    f"Using fallback N={fallback_N}.",
-                    UserWarning
-                )
-                return fallback_N
-
-            N = probe.shape[0]
-
-            # Validate square probe
-            if probe.shape[0] != probe.shape[1]:
-                warnings.warn(
-                    f"probeGuess is non-square {probe.shape}. Using first dimension N={N}.",
-                    UserWarning
-                )
-
-            return N
-
-    except FileNotFoundError:
-        warnings.warn(
-            f"Data file {data_file} not found. Using fallback N={fallback_N}.",
-            UserWarning
-        )
-        return fallback_N
-    except Exception as e:
-        warnings.warn(
-            f"Error reading probeGuess from {data_file}: {e}. Using fallback N={fallback_N}.",
-            UserWarning
-        )
-        return fallback_N
+    observation = observe_probe_size(data_file)
+    _emit_resolution_notices(observation.notices)
+    return observation.value
 
 
 @configured_legacy_params
@@ -836,7 +965,7 @@ def populate_legacy_params(
     Provides audit trail of params.cfg population for debugging and governance.
 
     This function is the critical compatibility bridge that enables legacy modules
-    (over 20 files dependent on params.cfg) to consume modern dataclass configs.
+    (over 20 files dependent on params.cfg) to consume modern structured configs.
     It MUST be called before any data loading or model construction operations.
 
     Args:

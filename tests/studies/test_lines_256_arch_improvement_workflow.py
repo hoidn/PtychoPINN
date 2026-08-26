@@ -27,6 +27,13 @@ def test_prompt_index_registers_lines_256_experiment_prompt():
     assert debug_prompt.exists()
 
 
+def test_studies_index_registers_lines_256_session_workflow():
+    index = (REPO_ROOT / "docs/studies/index.md").read_text(encoding="utf-8")
+
+    assert "lines_256_arch_improvement_session_loop.yaml" in index
+    assert "lines_256_arch_improvement_session_loop_v2_call.yaml" in index
+
+
 def test_lines_256_arch_improvement_workflow_uses_v27_repeat_until_and_timeout_outcome_budgeting():
     workflow_path = REPO_ROOT / Path(
         "workflows/agent_orchestration/lines_256_arch_improvement_session_loop.yaml"

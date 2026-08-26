@@ -6,6 +6,7 @@ that implements the "sample-then-group" strategy for improved performance.
 """
 
 import unittest
+from unittest import mock
 import numpy as np
 import tempfile
 import os
@@ -17,6 +18,13 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from ptycho.raw_data import RawData
+
+
+def assert_numpy_random_state_equal(test_case, before, after):
+    """Assert equality for the tuple returned by ``np.random.get_state``."""
+    test_case.assertEqual(before[0], after[0])
+    np.testing.assert_array_equal(before[1], after[1])
+    test_case.assertEqual(before[2:], after[2:])
 
 
 class TestRawDataGrouping(unittest.TestCase):
@@ -100,10 +108,190 @@ class TestRawDataGrouping(unittest.TestCase):
             center = group_coords.mean(axis=0)
             distances = np.linalg.norm(group_coords - center, axis=1)
             max_dist = distances.max()
-            
             # Neighbors should be reasonably close (within sqrt(K) grid units typically)
             self.assertLess(max_dist, np.sqrt(K) * 2,
                           f"Group has maximum distance {max_dist}, seems too large for K={K}")
+
+    def test_neighbor_groups_never_cross_object_bank_index(self):
+        coords = np.tile(np.arange(9, dtype=np.float64), 2)
+        object_index = np.repeat(np.arange(2, dtype=np.int64), 9)
+        raw = RawData(
+            xcoords=coords,
+            ycoords=np.zeros_like(coords),
+            xcoords_start=coords.copy(),
+            ycoords_start=np.zeros_like(coords),
+            diff3d=np.ones((18, 4, 4), dtype=np.float32),
+            probeGuess=np.ones((4, 4), dtype=np.complex64),
+            scan_index=np.arange(18, dtype=np.int64),
+            object_index=object_index,
+            Y=np.ones((18, 4, 4), dtype=np.complex64),
+        )
+
+        groups = raw._generate_groups_efficiently(
+            nsamples=18,
+            K=4,
+            C=4,
+            seed=17,
+        )
+
+        for group in groups:
+            self.assertEqual(np.unique(object_index[group]).size, 1)
+
+    def test_neighbor_grouping_builds_one_tree_per_object_partition(self):
+        from ptycho import grouping as grouping_module
+
+        coords = np.tile(np.arange(9, dtype=np.float64), 2)
+        object_index = np.repeat(np.arange(2, dtype=np.int64), 9)
+        raw = RawData(
+            xcoords=coords,
+            ycoords=np.zeros_like(coords),
+            xcoords_start=coords.copy(),
+            ycoords_start=np.zeros_like(coords),
+            diff3d=np.ones((18, 4, 4), dtype=np.float32),
+            probeGuess=np.ones((4, 4), dtype=np.complex64),
+            scan_index=np.arange(18, dtype=np.int64),
+            object_index=object_index,
+        )
+        real_tree = grouping_module.cKDTree
+        tree_inputs = []
+
+        def counting_tree(points):
+            tree_inputs.append(np.asarray(points))
+            return real_tree(points)
+
+        with mock.patch.object(grouping_module, "cKDTree", side_effect=counting_tree):
+            raw._generate_groups_efficiently(
+                nsamples=18,
+                K=4,
+                C=4,
+                seed=17,
+            )
+
+        self.assertEqual(len(tree_inputs), 2)
+        self.assertEqual({len(points) for points in tree_inputs}, {9})
+
+    def test_generate_grouped_data_delegates_to_grouping_plan_owner(self):
+        from ptycho.grouping import GroupingPlan
+
+        expected = np.asarray(
+            [[0, 1, 20, 21], [22, 23, 40, 41]],
+            dtype=np.int64,
+        )
+        plan = GroupingPlan(
+            neighbor_indices=expected,
+            center_indices=np.asarray([0, 22]),
+            center_available=np.ones(2, dtype=bool),
+            eligible_indices=np.arange(self.n_points),
+            source_indices=np.arange(self.n_points),
+            object_index=np.zeros(2, dtype=np.int64),
+            experiment_id=np.zeros(2, dtype=np.int64),
+            policy="raw_sequential_sample_then_group",
+            coverage_complete=False,
+        )
+        self.raw_data.Y = np.ones(
+            (self.n_points, 64, 64),
+            dtype=np.complex64,
+        )
+
+        with mock.patch(
+            "ptycho.grouping.plan_sample_then_group",
+            return_value=plan,
+        ) as planner:
+            grouped = self.raw_data.generate_grouped_data(
+                N=64,
+                K=7,
+                nsamples=2,
+                seed=17,
+                sequential_sampling=True,
+                gridsize=2,
+                neighbor_pool_size=9,
+            )
+
+        planner.assert_called_once_with(
+            self.raw_data.xcoords,
+            self.raw_data.ycoords,
+            object_index=self.raw_data.object_index,
+            experiment_id=self.raw_data.experiment_id,
+            count=2,
+            neighbor_count=7,
+            group_size=4,
+            seed=17,
+            rng=None,
+            sequential=True,
+            enable_oversampling=False,
+            neighbor_pool_size=9,
+        )
+        np.testing.assert_array_equal(grouped["nn_indices"], expected)
+        self.assertEqual(grouped["nn_indices"].dtype, np.int32)
+
+    def test_raw_data_rejects_lossy_or_invalid_object_identity(self):
+        invalid_values = (
+            np.asarray([0.25, 0.75]),
+            np.asarray([0.0, np.nan]),
+            np.asarray([True, False]),
+            np.asarray([0, -1]),
+        )
+
+        for object_index in invalid_values:
+            with self.subTest(object_index=object_index):
+                with self.assertRaisesRegex(
+                    ValueError,
+                    "object_index.*nonnegative integer",
+                ):
+                    RawData(
+                        xcoords=np.asarray([0.0, 1.0]),
+                        ycoords=np.asarray([0.0, 0.0]),
+                        xcoords_start=np.asarray([0.0, 1.0]),
+                        ycoords_start=np.asarray([0.0, 0.0]),
+                        diff3d=np.ones((2, 4, 4), dtype=np.float32),
+                        probeGuess=np.ones((4, 4), dtype=np.complex64),
+                        scan_index=np.arange(2, dtype=np.int64),
+                        object_index=object_index,
+                    )
+
+    def test_to_file_omits_absent_optional_arrays_for_strict_npz_loading(self):
+        raw = RawData(
+            xcoords=np.asarray([0.0, 1.0]),
+            ycoords=np.asarray([0.0, 0.0]),
+            xcoords_start=np.asarray([0.0, 1.0]),
+            ycoords_start=np.asarray([0.0, 0.0]),
+            diff3d=np.ones((2, 4, 4), dtype=np.float32),
+            probeGuess=np.ones((4, 4), dtype=np.complex64),
+            scan_index=np.arange(2, dtype=np.int64),
+            objectGuess=np.ones((6, 6), dtype=np.complex64),
+            Y=None,
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "raw.npz"
+            raw.to_file(path)
+
+            with np.load(path, allow_pickle=False) as archive:
+                self.assertNotIn("Y", archive.files)
+                self.assertIn("objectGuess", archive.files)
+                for name in archive.files:
+                    np.asarray(archive[name])
+
+            raw.objectGuess = None
+            raw.to_file(path)
+            with np.load(path, allow_pickle=False) as archive:
+                self.assertNotIn("Y", archive.files)
+                self.assertNotIn("objectGuess", archive.files)
+                for name in archive.files:
+                    np.asarray(archive[name])
+
+    def test_unique_scan_ids_do_not_partition_neighbor_grouping(self):
+        raw = self.raw_data
+        raw.scan_index = np.arange(len(raw.xcoords), dtype=np.int64)
+
+        groups = raw._generate_groups_efficiently(
+            nsamples=4,
+            K=4,
+            C=4,
+            seed=17,
+        )
+
+        self.assertEqual(groups.shape, (4, 4))
     
     def test_edge_case_more_samples_than_points(self):
         """Test behavior when requesting more samples than available points."""
@@ -193,6 +381,151 @@ class TestRawDataGrouping(unittest.TestCase):
         # Should be different (with high probability)
         self.assertFalse(np.array_equal(groups1, groups3),
                         "Different seeds should produce different results")
+
+    def test_generate_grouped_data_seed_does_not_mutate_ambient_numpy_state(self):
+        """Seeded public grouping must not read or overwrite NumPy's global RNG."""
+        np.random.seed(20260803)
+        state_before = np.random.get_state()
+
+        self.raw_data.generate_grouped_data(
+            N=64,
+            K=7,
+            nsamples=32,
+            seed=41,
+            gridsize=2,
+        )
+
+        assert_numpy_random_state_equal(
+            self,
+            state_before,
+            np.random.get_state(),
+        )
+
+    def test_efficient_grouping_consumes_passed_generator(self):
+        """Ordinary grouping must draw from the caller-owned Generator."""
+        groups1 = self.raw_data._generate_groups_efficiently(
+            nsamples=64,
+            K=7,
+            C=4,
+            rng=np.random.default_rng(29),
+        )
+        groups2 = self.raw_data._generate_groups_efficiently(
+            nsamples=64,
+            K=7,
+            C=4,
+            rng=np.random.default_rng(29),
+        )
+        groups3 = self.raw_data._generate_groups_efficiently(
+            nsamples=64,
+            K=7,
+            C=4,
+            rng=np.random.default_rng(30),
+        )
+
+        np.testing.assert_array_equal(groups1, groups2)
+        self.assertFalse(np.array_equal(groups1, groups3))
+
+    def test_oversampling_consumes_passed_generator_without_mutating_ambient_state(self):
+        """K-choose-C grouping must use one passed Generator for every draw."""
+        np.random.seed(20260803)
+        state_before = np.random.get_state()
+
+        groups1 = self.raw_data._generate_groups_with_oversampling(
+            nsamples=self.n_points + 32,
+            K=7,
+            C=4,
+            rng=np.random.default_rng(37),
+        )
+        groups2 = self.raw_data._generate_groups_with_oversampling(
+            nsamples=self.n_points + 32,
+            K=7,
+            C=4,
+            rng=np.random.default_rng(37),
+        )
+
+        np.testing.assert_array_equal(groups1, groups2)
+        assert_numpy_random_state_equal(
+            self,
+            state_before,
+            np.random.get_state(),
+        )
+
+    def test_grouping_rejects_seed_and_generator_together(self):
+        """The legacy seed and new Generator inputs are mutually exclusive."""
+        with self.assertRaisesRegex(ValueError, "seed.*rng|rng.*seed"):
+            self.raw_data.generate_grouped_data(
+                N=64,
+                K=7,
+                nsamples=32,
+                seed=41,
+                gridsize=2,
+                rng=np.random.default_rng(41),
+            )
+
+    def test_fresh_grouping_generators_do_not_consume_one_anothers_streams(self):
+        """Train-like draws must not perturb an independently seeded validation draw."""
+        expected_validation = self.raw_data.generate_grouped_data(
+            N=64,
+            K=7,
+            nsamples=48,
+            gridsize=2,
+            rng=np.random.default_rng(53),
+        )["nn_indices"]
+
+        train_rng = np.random.default_rng(53)
+        self.raw_data.generate_grouped_data(
+            N=64,
+            K=7,
+            nsamples=96,
+            gridsize=2,
+            rng=train_rng,
+        )
+        self.raw_data.generate_grouped_data(
+            N=64,
+            K=7,
+            nsamples=12,
+            gridsize=2,
+            rng=train_rng,
+        )
+
+        actual_validation = self.raw_data.generate_grouped_data(
+            N=64,
+            K=7,
+            nsamples=48,
+            gridsize=2,
+            rng=np.random.default_rng(53),
+        )["nn_indices"]
+
+        np.testing.assert_array_equal(expected_validation, actual_validation)
+
+    def test_sequential_grouping_uses_fixed_local_generator(self):
+        """Sequential anchors remain seed-independent without touching global state."""
+        np.random.seed(20260803)
+        state_before = np.random.get_state()
+
+        groups1 = self.raw_data.generate_grouped_data(
+            N=64,
+            K=7,
+            nsamples=24,
+            sequential_sampling=True,
+            gridsize=2,
+            rng=np.random.default_rng(61),
+        )["nn_indices"]
+        groups2 = self.raw_data.generate_grouped_data(
+            N=64,
+            K=7,
+            nsamples=24,
+            sequential_sampling=True,
+            gridsize=2,
+            rng=np.random.default_rng(62),
+        )["nn_indices"]
+
+        np.testing.assert_array_equal(groups1, groups2)
+        assert_numpy_random_state_equal(
+            self,
+            state_before,
+            np.random.get_state(),
+        )
     
     def test_performance_improvement(self):
         """Test that the new method is faster than the old approach (when not cached)."""

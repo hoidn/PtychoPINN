@@ -104,6 +104,24 @@ def test_rectangular_ci_accepts_unsupervised_poisson():
     assert validate_scale_contract(DataConfig(), model_config, training_config) == CI_PROFILE
 
 
+def test_dose_closure_accepts_none_resolved_ci_defaults():
+    data_config = SimpleNamespace(
+        scale_contract_version=None,
+        measurement_domain=None,
+    )
+    model_config = ModelConfig(
+        mode="Unsupervised",
+        physics_forward_mode="rectangular_scaled",
+        rect_s1s2_init="dose_closure",
+    )
+    training_config = TrainingConfig(torch_loss_mode="poisson")
+
+    assert (
+        validate_scale_contract(data_config, model_config, training_config)
+        == CI_PROFILE
+    )
+
+
 @pytest.mark.parametrize(
     ("mode", "torch_loss_mode"),
     [
@@ -247,96 +265,3 @@ def test_lightning_dataloader_partial_payload_defaults_ci_before_reading_contain
             config=None,
             payload=payload,
         )
-
-
-def test_lightning_dataloader_gate_without_payload_rejects_before_reading_container():
-    from ptycho_torch.workflows.components import _build_lightning_dataloaders
-
-    class UnreadableContainer:
-        def __getattribute__(self, name):
-            raise AssertionError("container must not be read")
-
-    config = SimpleNamespace(
-        model=ModelConfig(
-            mode="Unsupervised",
-            physics_forward_mode="rectangular_scaled",
-        ),
-        torch_loss_mode="mae",
-        subsample_seed=None,
-    )
-
-    with pytest.raises(ValueError, match="ci_intensity_v2"):
-        _build_lightning_dataloaders(
-            UnreadableContainer(),
-            None,
-            config,
-            payload=None,
-        )
-
-
-def _invalid_ci_entrypoint_configs():
-    return (
-        DataConfig(),
-        ModelConfig(
-            mode="Unsupervised",
-            physics_forward_mode="rectangular_scaled",
-        ),
-        TrainingConfig(torch_loss_mode="mae"),
-        InferenceConfig(),
-        DatagenConfig(),
-    )
-
-
-def test_train_lightning_only_rejects_before_data_module_construction(
-    monkeypatch,
-    tmp_path,
-):
-    import ptycho_torch.train_lightning_only as train_module
-
-    data_module_constructed = False
-
-    def fail_if_data_module_is_constructed(*args, **kwargs):
-        nonlocal data_module_constructed
-        data_module_constructed = True
-        raise AssertionError("data module construction must not run")
-
-    monkeypatch.setattr(
-        train_module,
-        "PtychoDataModuleLightning",
-        fail_if_data_module_is_constructed,
-    )
-
-    with pytest.raises(ValueError, match="ci_intensity_v2"):
-        train_module.main(
-            "unused",
-            existing_config=_invalid_ci_entrypoint_configs(),
-            output_dir=tmp_path,
-        )
-
-    assert data_module_constructed is False
-
-
-def test_grid_lines_gate_rejects_before_reading_training_dict(tmp_path):
-    from scripts.studies.grid_lines_torch_runner import (
-        TorchRunnerConfig,
-        run_torch_training,
-    )
-
-    class UnreadableDict(dict):
-        def get(self, *args, **kwargs):
-            raise AssertionError("training dictionary must not be read")
-
-        def __getitem__(self, key):
-            raise AssertionError("training dictionary must not be read")
-
-    config = TorchRunnerConfig(
-        train_npz=tmp_path / "train.npz",
-        test_npz=tmp_path / "test.npz",
-        output_dir=tmp_path,
-        architecture="fno",
-        physics_forward_mode="rectangular_scaled",
-        torch_loss_mode="mae",
-    )
-
-    with pytest.raises(ValueError, match="ci_intensity_v2"):
-        run_torch_training(config, UnreadableDict(), {})

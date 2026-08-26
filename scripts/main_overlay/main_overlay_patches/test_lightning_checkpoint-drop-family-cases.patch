@@ -1,26 +1,20 @@
 diff --git a/tests/torch/test_lightning_checkpoint.py b/tests/torch/test_lightning_checkpoint.py
-index f2e2b87..d139532 100644
+index 3297342c6..d13953254 100644
 --- a/tests/torch/test_lightning_checkpoint.py
 +++ b/tests/torch/test_lightning_checkpoint.py
-@@ -42,10 +42,6 @@ GENERATOR_CLASS_BY_ARCHITECTURE = {
-     "stable_hybrid": "StableHybridUNOGenerator",
-     "fno_vanilla": "FnoVanillaGeneratorModule",
-     "neuralop_uno": "NeuralopUnoGeneratorModule",
+@@ -45,7 +44,0 @@ GENERATOR_CLASS_BY_ARCHITECTURE = {
 -    "hybrid_resnet": "HybridResnetGeneratorModule",
 -    "hybrid_resnet_ffno_ptychoblock_encoder": "HybridResnetFfnoPtychoBlockEncoderGeneratorModule",
 -    "hybrid_resnet_ptychoblock_ffno_encoder": "HybridResnetPtychoBlockFfnoEncoderGeneratorModule",
 -    "spectral_resnet_bottleneck_net": "SpectralResnetBottleneckGeneratorModule",
- }
- 
- 
-@@ -293,10 +289,6 @@ class TestLightningCheckpointSerialization:
-             "stable_hybrid",
-             "fno_vanilla",
-             "neuralop_uno",
+-    "spectral_resnet_bottleneck_linear_decoder": "SpectralResnetBottleneckLinearDecoderGeneratorModule",
+-    "hybrid_resnet_ffno_bottleneck": "HybridResnetFfnoBottleneckGeneratorModule",
+-    "hybrid_resnet_convnext_bottleneck": "HybridResnetConvNextBottleneckGeneratorModule",
+@@ -299,7 +291,0 @@ class TestLightningCheckpointSerialization:
 -            "hybrid_resnet",
 -            "hybrid_resnet_ffno_ptychoblock_encoder",
 -            "hybrid_resnet_ptychoblock_ffno_encoder",
 -            "spectral_resnet_bottleneck_net",
-         ],
-     )
-     def test_generator_architecture_checkpoint_rebuilds_without_manual_injection(
+-            "spectral_resnet_bottleneck_linear_decoder",
+-            "hybrid_resnet_ffno_bottleneck",
+-            "hybrid_resnet_convnext_bottleneck",

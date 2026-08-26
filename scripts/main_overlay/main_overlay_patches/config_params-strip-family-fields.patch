@@ -1,21 +1,37 @@
 diff --git a/ptycho_torch/config_params.py b/ptycho_torch/config_params.py
-index ecf3a39..0a75238 100644
+index 7e8f7b598..c9489a8cc 100644
 --- a/ptycho_torch/config_params.py
 +++ b/ptycho_torch/config_params.py
-@@ -50,7 +50,7 @@ class ModelConfig:
-     #Mode Category
-     mode: Literal['Supervised', 'Unsupervised'] = 'Unsupervised' # Training mode, affects all aspects of model
-     architecture: Literal[
+@@ -61 +61 @@ class ModelConfig:
 -        'cnn', 'ffno', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'neuralop_uno', 'hybrid_resnet', 'hybrid_resnet_ffno_ptychoblock_encoder', 'hybrid_resnet_ptychoblock_ffno_encoder', 'spectral_resnet_bottleneck_net', 'spectral_resnet_bottleneck_linear_decoder', 'hybrid_resnet_ffno_bottleneck', 'hybrid_resnet_convnext_bottleneck'
 +        'cnn', 'ffno', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'neuralop_uno'
-     ] = 'cnn'  # Generator architecture selection
-     fno_modes: int = 12
-     fno_width: int = 32
-@@ -68,7 +68,6 @@ class ModelConfig:
-     # Legacy absolute-width aliases retained for backwards compatibility.
-     hybrid_encoder_conv_hidden_channels: Optional[int] = None
-     hybrid_encoder_spectral_hidden_channels: Optional[int] = None
+@@ -79 +78,0 @@ class ModelConfig:
 -    hybrid_resnet_blocks: int = 6
-     hybrid_skip_style: Literal['add', 'concat', 'gated_add'] = 'add'
-     spectral_bottleneck_blocks: int = 6
-     spectral_bottleneck_modes: int = 12
+@@ -81,2 +79,0 @@ class ModelConfig:
+-    hybrid_resnet_bottleneck_layerscale_mode: Literal['learned', 'fixed'] = 'learned'
+-    hybrid_resnet_bottleneck_layerscale_value: Optional[float] = None
+@@ -287 +283,0 @@ class ModelConfig:
+-            'hybrid_resnet_blocks',
+@@ -300,22 +295,0 @@ class ModelConfig:
+-        if self.hybrid_resnet_bottleneck_layerscale_mode not in {
+-            'learned',
+-            'fixed',
+-        }:
+-            raise ValueError("invalid hybrid_resnet_bottleneck_layerscale_mode")
+-        layerscale_value = self.hybrid_resnet_bottleneck_layerscale_value
+-        if self.hybrid_resnet_bottleneck_layerscale_mode == 'learned':
+-            if layerscale_value is not None:
+-                raise ValueError(
+-                    "hybrid_resnet_bottleneck_layerscale_value must be omitted "
+-                    "when mode is learned"
+-                )
+-        elif (
+-            layerscale_value is None
+-            or not math.isfinite(float(layerscale_value))
+-            or float(layerscale_value) <= 0.0
+-        ):
+-            raise ValueError(
+-                "hybrid_resnet_bottleneck_layerscale_value must be finite and "
+-                "> 0 when mode is fixed"
+-            )
+-

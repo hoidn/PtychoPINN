@@ -59,13 +59,13 @@ class TestSaveTorchBundle:
     @pytest.fixture
     def minimal_training_config(self):
         """Create minimal TrainingConfig fixture with canonical params."""
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig, DataConfig, SamplingConfig
 
         model_config = ModelConfig(
             N=64,
             gridsize=2,
             model_type='pinn',
-            n_filters_scale=1.0,
+            n_filters_scale=1,
             amp_activation='sigmoid',
             object_big=False,
             probe_big=False,
@@ -74,11 +74,12 @@ class TestSaveTorchBundle:
 
         training_config = TrainingConfig(
             model=model_config,
-            train_data_file=Path("/tmp/dummy_train.npz"),
-            test_data_file=Path("/tmp/dummy_test.npz"),
-            n_groups=10,
-            neighbor_count=4,
-            nphotons=1e9,
+            data=DataConfig(
+                train_data_file=Path("/tmp/dummy_train.npz"),
+                test_data_file=Path("/tmp/dummy_test.npz"),
+                nphotons=1e9,
+            ),
+            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
             nepochs=5,
             batch_size=16,
         )
@@ -429,13 +430,13 @@ class TestLoadTorchBundle:
     @pytest.fixture
     def minimal_training_config(self):
         """Create minimal TrainingConfig fixture with canonical params."""
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import TrainingConfig, ModelConfig, DataConfig, SamplingConfig
 
         model_config = ModelConfig(
             N=64,
             gridsize=2,
             model_type='pinn',
-            n_filters_scale=1.0,
+            n_filters_scale=1,
             amp_activation='sigmoid',
             object_big=False,
             probe_big=False,
@@ -444,11 +445,12 @@ class TestLoadTorchBundle:
 
         training_config = TrainingConfig(
             model=model_config,
-            train_data_file=Path("/tmp/dummy_train.npz"),
-            test_data_file=Path("/tmp/dummy_test.npz"),
-            n_groups=10,
-            neighbor_count=4,
-            nphotons=1e9,
+            data=DataConfig(
+                train_data_file=Path("/tmp/dummy_train.npz"),
+                test_data_file=Path("/tmp/dummy_test.npz"),
+                nphotons=1e9,
+            ),
+            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
             nepochs=5,
             batch_size=16,
         )

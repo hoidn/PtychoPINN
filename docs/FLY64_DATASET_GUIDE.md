@@ -153,11 +153,21 @@ For rapid prototyping and validation experiments, smaller subsets (1000 images) 
 - **GridSize 2 compatible:** ~200 valid neighbor groups in training set
 
 **Usage:**
+```yaml
+# configs/fly64-sequential-gs2.yaml
+model:
+  gridsize: 2
+data:
+  train_data_file: datasets/fly64/fly64_sequential_train_800.npz
+  test_data_file: datasets/fly64/fly64_sequential_test_200.npz
+sampling:
+  n_groups: 200
+nepochs: 10
+output_dir: gs2_validation
+```
+
 ```bash
-ptycho_train --train_data datasets/fly64/fly64_sequential_train_800.npz \
-             --test_data datasets/fly64/fly64_sequential_test_200.npz \
-             --gridsize 2 --n_images 200 --nepochs 10 \
-             --output_dir gs2_validation
+ptycho_train --config configs/fly64-sequential-gs2.yaml
 ```
 
 #### Random Subsets
@@ -173,11 +183,21 @@ ptycho_train --train_data datasets/fly64/fly64_sequential_train_800.npz \
 - **General purpose:** Suitable for any gridsize value
 
 **Usage:**
+```yaml
+# configs/fly64-random-gs1.yaml
+model:
+  gridsize: 1
+data:
+  train_data_file: datasets/fly64/fly64_random_train_800.npz
+  test_data_file: datasets/fly64/fly64_random_test_200.npz
+sampling:
+  n_groups: 800
+nepochs: 10
+output_dir: gs1_validation
+```
+
 ```bash
-ptycho_train --train_data datasets/fly64/fly64_random_train_800.npz \
-             --test_data datasets/fly64/fly64_random_test_200.npz \
-             --gridsize 1 --n_images 800 --nepochs 10 \
-             --output_dir gs1_validation
+ptycho_train --config configs/fly64-random-gs1.yaml
 ```
 
 **Creation Process:**

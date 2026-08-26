@@ -92,66 +92,69 @@ DIR/
 ## Training
 
 ```bash
-# Basic training
-ptycho_train --train_data_file dataset.npz --n_groups 2000 --nepochs 50 --output_dir my_run
+# Basic training with type defaults
+ptycho_train --data.train_data_file dataset.npz --output_dir my_run
 
-# Legacy compatibility (deprecated but still works)
-ptycho_train --train_data_file dataset.npz --n_images 2000 --nepochs 50 --output_dir my_run
-
-# With configuration file (recommended)
+# Numeric, Boolean, model, and sampling values belong in nested YAML
 ptycho_train --config configs/my_config.yaml
-
-# Independent sampling control (NEW)
-ptycho_train --train_data_file dataset.npz --n_subsample 5000 --n_groups 1000 --nepochs 50 --output_dir my_run
-
-# Reproducible sampling (NEW)
-ptycho_train --train_data_file dataset.npz --n_subsample 3000 --n_groups 500 --subsample_seed 42 --output_dir my_run
 ```
 
-### 📊 NEW: Independent Sampling Control
+On the current `refactor` tip, generated numeric and Boolean CLI values are not
+decoded before strict Pydantic validation. Use YAML for those types until the
+CLI decoder is fixed. The nested dotted spellings below are the registered
+public field names, but they are not currently reliable runnable overrides for
+numeric/Boolean values.
 
-The project now supports **independent control** of data subsampling and neighbor grouping:
+### Native Torch count-intensity profile
 
-- **`--n-subsample`**: Controls how many images to randomly select from the dataset
-- **`--n-groups`**: Controls how many groups to use for training/inference (regardless of gridsize)
-- **`--subsample-seed`**: Ensures reproducible random selection
+The native Torch CLI owns the CI profile and rectangular-gauge flag. Omitting
+the flag authors no override, so the profile resolves to `dose_closure`; an
+explicit `ones` wins:
 
-**Note**: `--n-images` is deprecated but still supported for backward compatibility.
-
-**Example Use Cases:**
 ```bash
-# Dense grouping: Use most subsampled data
-ptycho_train --n-subsample 1200 --n-groups 1000 --gridsize 2 ...
+# Fixed representative dose closure (the ci profile default)
+python -m ptycho_torch.train \
+  --train_data_file counts_train.npz \
+  --output_dir ci_run \
+  --profile ci
 
-# Sparse grouping: Large subsample, fewer groups
-ptycho_train --n-subsample 10000 --n-groups 500 --gridsize 2 ...
-
-# Memory-constrained: Limit data loading
-ptycho_train --n-subsample 5000 --n-groups 2000 --gridsize 1 ...
+# Keep exact unit initialization instead
+python -m ptycho_torch.train \
+  --train_data_file counts_train.npz \
+  --output_dir ci_unit_init \
+  --profile ci --rect-s1s2-init ones
 ```
 
-### ⚠️ CRITICAL: Understanding `gridsize` and `--n-groups`
+Do not pass `--rect-s1s2-init` to the unified `ptycho_train` command; it does
+not expose that flag. The
+[configuration guide](CONFIGURATION.md#dose-closure-initialization) defines
+dose-closure sampling and failure behavior.
 
-The `--n-groups` parameter **always** refers to the number of groups to use, regardless of the `gridsize` parameter. This provides consistent behavior and eliminates confusion.
+### Independent sampling control
 
-| GridSize | `--n-groups` Refers To... | Total Patterns Used | Subsampling Method |
-|----------|---------------------------|---------------------|--------------------|
-| 1        | **Groups (each with 1 image)**    | `n_groups` × 1      | **Unified Random Sampling.** Each group contains 1 image. |
-| > 1      | **Groups (neighbor groups)**       | `n_groups` × `gridsize`² | **Unified Random Sampling.** Each group contains gridsize² images. |
+The unified training CLI mirrors the nested public configuration:
 
-**Key Insight**: With `--n-groups`, the parameter always means "number of groups" regardless of gridsize. For gridsize=1, each group contains 1 image. For gridsize>1, each group contains multiple neighboring images.
+- `--sampling.n_subsample` selects raw rows before grouping.
+- `--sampling.n_groups` selects the number of grouped samples, independent of
+  grid size.
+- `--sampling.subsample_seed` makes raw-row selection reproducible.
+- `--sampling.n_images` is a deprecated alias for
+  `--sampling.n_groups`; conflicting alias/canonical values fail validation.
 
-**Log Message Examples to Watch For:**
+Model fields belong under `model` in YAML. For example:
+
+```yaml
+model:
+  gridsize: 2
+sampling:
+  n_subsample: 10000
+  n_groups: 500
+  subsample_seed: 3
 ```
-# GridSize=1 (Unified group interpretation)
-INFO - Parameter interpretation: --n-groups=1000 refers to 1000 groups of 1 image each (gridsize=1)
 
-# GridSize=2 (Unified group interpretation)
-INFO - Parameter interpretation: --n-groups=250 refers to 250 groups of 4 images each (gridsize=2, total patterns=1000)
-INFO - Using grouping-aware subsampling strategy for gridsize=2
-```
-
-**Backward Compatibility**: The deprecated `--n-images` parameter still works but will show a deprecation warning.
+With `gridsize=1`, each group contains one image. With `gridsize>1`, each
+group contains `gridsize²` neighboring images. `n_groups` always counts groups;
+it never changes meaning based on grid size.
 
 ---
 
@@ -167,8 +170,8 @@ ptycho_inference --model_path trained_model/ --test_data test.npz --n_groups 500
 # Independent sampling control (NEW)
 ptycho_inference --model_path trained_model/ --test_data test.npz --n_subsample 2000 --n_groups 500 --output_dir inference_out
 
-# GridSize=2 inference (must match the gridsize used for training)
-ptycho_inference --model_path gs2_model/ --test_data test.npz --n_groups 125 --gridsize 2 --output_dir gs2_inference
+# GridSize is restored from the saved model; the test data must match it
+ptycho_inference --model_path gs2_model/ --test_data test.npz --n_groups 125 --output_dir gs2_inference
 ```
 
 ---
@@ -257,6 +260,15 @@ python scripts/compare_models.py \
 
 > **Parameter Migration Notice**: The generalization study script now uses `--train-group-sizes` instead of the deprecated `--train-sizes`. The old parameter is still supported but will show deprecation warnings.
 
+### Parameterized Study Composition
+
+`ptycho_study` composes each arm and delegates it to the configured public
+runner; it is not a separate trainer.
+
+```bash
+ptycho_study --help
+```
+
 ```bash
 # Synthetic data generalization study (auto-generates datasets)
 ./scripts/studies/run_complete_generalization_study.sh \
@@ -304,7 +316,10 @@ python scripts/studies/aggregate_and_plot_results.py study_results --output plot
 -   **Match `gridsize`** between training and inference. A model trained with `gridsize=1` cannot be used for inference with `gridsize=2`.
 -   **Verify your data format** before starting a long training run. Use `scripts/tools/visualize_dataset.py`.
 -   **Unified sampling for all gridsize values:** As of the latest update, the system uses the same efficient random sampling strategy for all gridsize values. Manual shuffling is no longer required.
--   **Use `--sequential_sampling` flag** if you need the old sequential behavior (first N images) for debugging or specific scan region analysis.
+-   **Set `sampling.sequential_sampling: true` in unified training YAML** to
+    use the first grouping anchors within the already selected raw-row pool.
+    Raw-row subsampling remains random; set `sampling.subsample_seed` to make
+    that pool reproducible.
 -   **Monitor training logs** for parameter interpretation messages to confirm the script is behaving as you expect.
 
 ---

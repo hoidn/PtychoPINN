@@ -495,7 +495,7 @@ def test_run_training_job_dry_run(tmp_path):
 
 def test_execute_training_job_dispatches_tensorflow_by_default(tmp_path, monkeypatch):
     """Default execute_training_job call should route to TensorFlow backend."""
-    from ptycho.config.config import TrainingConfig, ModelConfig
+    from ptycho.config.config import TrainingConfig, ModelConfig, DataConfig
     from studies.fly64_dose_overlap import training as training_module
 
     artifact_dir = tmp_path / "artifacts"
@@ -516,8 +516,7 @@ def test_execute_training_job_dispatches_tensorflow_by_default(tmp_path, monkeyp
     )
 
     config = TrainingConfig(
-        train_data_file=str(train_npz),
-        test_data_file=str(test_npz),
+        data=DataConfig(train_data_file=str(train_npz), test_data_file=str(test_npz)),
         output_dir=str(artifact_dir),
         model=ModelConfig(gridsize=1),
     )
@@ -548,7 +547,7 @@ def test_execute_training_job_dispatches_tensorflow_by_default(tmp_path, monkeyp
 
 def test_execute_training_job_dispatches_pytorch_when_requested(tmp_path, monkeypatch):
     """execute_training_job should route to PyTorch backend when explicitly requested."""
-    from ptycho.config.config import TrainingConfig, ModelConfig
+    from ptycho.config.config import TrainingConfig, ModelConfig, DataConfig
     from studies.fly64_dose_overlap import training as training_module
 
     artifact_dir = tmp_path / "artifacts"
@@ -569,8 +568,7 @@ def test_execute_training_job_dispatches_pytorch_when_requested(tmp_path, monkey
     )
 
     config = TrainingConfig(
-        train_data_file=str(train_npz),
-        test_data_file=str(test_npz),
+        data=DataConfig(train_data_file=str(train_npz), test_data_file=str(test_npz)),
         output_dir=str(artifact_dir),
         model=ModelConfig(gridsize=2),
         backend='pytorch',
@@ -605,7 +603,7 @@ def test_execute_training_job_tensorflow_persists_bundle(tmp_path, monkeypatch):
     """
     TensorFlow backend should save bundles via model_manager.save with manifest metadata.
     """
-    from ptycho.config.config import TrainingConfig, ModelConfig
+    from ptycho.config.config import TrainingConfig, ModelConfig, DataConfig
     from studies.fly64_dose_overlap import training as training_module
 
     artifact_dir = tmp_path / "artifacts"
@@ -636,8 +634,7 @@ def test_execute_training_job_tensorflow_persists_bundle(tmp_path, monkeypatch):
     )
 
     config = TrainingConfig(
-        train_data_file=str(train_npz),
-        test_data_file=str(test_npz),
+        data=DataConfig(train_data_file=str(train_npz), test_data_file=str(test_npz)),
         output_dir=str(artifact_dir),
         model=ModelConfig(gridsize=1),
         backend='tensorflow',
@@ -1049,420 +1046,6 @@ def test_training_cli_manifest_and_bridging(tmp_path, monkeypatch):
     print(f"  - Manifest references skip_summary via relative path: {manifest['skip_summary_path']}")
 
 
-def test_execute_training_job_delegates_to_pytorch_trainer(tmp_path, monkeypatch):
-    """
-    RED → GREEN TDD test for Phase E5 execute_training_job backend delegation.
-
-    Validates that execute_training_job():
-    - Loads NPZ datasets from job.train_data_path and job.test_data_path
-    - Uses the provided TrainingConfig (CONFIG-001 bridge already done by caller)
-    - Calls ptycho_torch.workflows.components.train_cdi_model_torch with:
-      - train_data: RawData or container loaded from job.train_data_path
-      - test_data: RawData or container loaded from job.test_data_path
-      - config: The TrainingConfig instance passed to execute_training_job
-    - Writes logs/artifacts to job.log_path and job.artifact_dir
-    - Returns training metrics (status, final_loss, epochs_completed, checkpoint_path)
-
-    Test strategy: Monkeypatch train_cdi_model_torch to spy on invocation.
-    Use minimal Phase C/D fixture NPZs (DATA-001 compliant) to avoid heavy I/O.
-    Validate that the spy receives correct data containers and config.
-
-    References:
-    - input.md:9 (Phase E5 RED test requirements)
-    - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:163-166
-    - docs/DEVELOPER_GUIDE.md:68-104 (CONFIG-001 compliance assumed by caller)
-    - docs/workflows/pytorch.md §12 (train_cdi_model_torch signature)
-    """
-    from studies.fly64_dose_overlap import training as training_module
-    from studies.fly64_dose_overlap import training as training_module
-    from studies.fly64_dose_overlap import training
-    from studies.fly64_dose_overlap import training
-    from studies.fly64_dose_overlap import training
-    from studies.fly64_dose_overlap.training import TrainingJob
-    from ptycho.config.config import TrainingConfig, ModelConfig
-
-    # Setup: Create minimal Phase C fixture NPZ (DATA-001 compliant)
-    train_npz = tmp_path / "phase_c_train.npz"
-    test_npz = tmp_path / "phase_c_test.npz"
-
-    # Minimal DATA-001 compliant arrays plus xcoords_start/ycoords_start for load_data
-    minimal_data = {
-        'diffraction': np.random.rand(10, 64, 64).astype(np.float32),  # amplitude
-        'objectGuess': np.random.rand(128, 128) + 1j * np.random.rand(128, 128),
-        'probeGuess': np.random.rand(64, 64) + 1j * np.random.rand(64, 64),
-        'Y': (np.random.rand(10, 128, 128) + 1j * np.random.rand(10, 128, 128)).astype(np.complex64),
-        'xcoords': np.random.rand(10).astype(np.float32),
-        'ycoords': np.random.rand(10).astype(np.float32),
-        'xcoords_start': np.random.rand(10).astype(np.float32),
-        'ycoords_start': np.random.rand(10).astype(np.float32),
-        'filenames': np.array([f'img_{i:04d}' for i in range(10)]),
-    }
-
-    np.savez_compressed(train_npz, **minimal_data)
-    np.savez_compressed(test_npz, **minimal_data)
-
-    # Setup: Create TrainingJob
-    artifact_dir = tmp_path / "artifacts" / "dose_1000" / "baseline" / "gs1"
-    log_path = artifact_dir / "train.log"
-
-    job = TrainingJob(
-        dose=1e3,
-        view='baseline',
-        gridsize=1,
-        train_data_path=str(train_npz),
-        test_data_path=str(test_npz),
-        artifact_dir=artifact_dir,
-        log_path=log_path,
-    )
-
-    # Setup: Create TrainingConfig (CONFIG-001 bridge assumed done by caller: run_training_job)
-    model_config = ModelConfig(gridsize=1)
-    config = TrainingConfig(
-        train_data_file=str(train_npz),
-        test_data_file=str(test_npz),
-        output_dir=str(artifact_dir),
-        model=model_config,
-        nphotons=1e3,
-    )
-
-    # Spy: record calls to train_cdi_model_torch
-    trainer_calls = []
-
-    def spy_train_cdi_model_torch(train_data, test_data, config):
-        """Spy that records invocation signature for validation."""
-        trainer_calls.append({
-            'train_data': train_data,
-            'test_data': test_data,
-            'config': config,
-        })
-        # Return minimal success result
-        return {
-            'history': {'train_loss': [0.5, 0.3, 0.1]},
-            'train_container': train_data,
-            'test_container': test_data,
-        }
-
-    # Spy: record calls to MemmapDatasetBridge
-    bridge_calls = []
-
-    class SpyMemmapDatasetBridge:
-        """Spy that records MemmapDatasetBridge instantiation and delegation."""
-        def __init__(self, npz_path, config, memmap_dir="data/memmap"):
-            bridge_calls.append({
-                'npz_path': npz_path,
-                'config': config,
-                'memmap_dir': memmap_dir,
-            })
-            # Store for delegation to raw_data_torch
-            self.npz_path = npz_path
-            self.config = config
-            # Mock raw_data_torch attribute (Phase C.C3 RawDataTorch delegation)
-            from ptycho.raw_data import RawData
-            self.raw_data_torch = RawData(
-                xcoords=np.array([0.0]),
-                ycoords=np.array([0.0]),
-                xcoords_start=np.array([0.0]),
-                ycoords_start=np.array([0.0]),
-                diff3d=np.random.rand(1, 64, 64).astype(np.float32),
-                probeGuess=np.random.rand(64, 64) + 1j * np.random.rand(64, 64),
-                scan_index=np.array([0]),
-            )
-
-    # Monkeypatch PyTorch backend components at their source modules
-    monkeypatch.setattr('ptycho_torch.memmap_bridge.MemmapDatasetBridge', SpyMemmapDatasetBridge)
-    monkeypatch.setattr('ptycho_torch.workflows.components.train_cdi_model_torch', spy_train_cdi_model_torch)
-
-    # Execute: call execute_training_job
-    result = training._execute_training_job_pytorch(
-        config=config,
-        job=job,
-        log_path=log_path,
-    )
-
-    # Debug: print result to see if there was an error
-    print(f"\nResult from execute_training_job: {result}")
-    if log_path.exists():
-        print(f"Log contents:\n{log_path.read_text()}")
-
-    # Assertions: train_cdi_model_torch was called
-    assert len(trainer_calls) == 1, \
-        f"train_cdi_model_torch should be called exactly once, got {len(trainer_calls)} calls"
-
-    call = trainer_calls[0]
-
-    # Assertions: train_data is not None (RawData or container)
-    assert call['train_data'] is not None, \
-        "train_cdi_model_torch must receive train_data"
-
-    # Assertions: test_data is not None (RawData or container)
-    assert call['test_data'] is not None, \
-        "train_cdi_model_torch must receive test_data"
-
-    # Assertions: config is the TrainingConfig instance
-    assert call['config'] is config, \
-        "train_cdi_model_torch must receive the same TrainingConfig instance"
-
-    # Assertions: config has correct fields
-    assert call['config'].train_data_file == str(train_npz), \
-        f"config.train_data_file mismatch: expected {train_npz}, got {call['config'].train_data_file}"
-    assert call['config'].test_data_file == str(test_npz), \
-        f"config.test_data_file mismatch: expected {test_npz}, got {call['config'].test_data_file}"
-    assert call['config'].model.gridsize == 1, \
-        f"config.model.gridsize must be 1, got {call['config'].model.gridsize}"
-
-    # NEW Assertions (Phase E5): MemmapDatasetBridge instantiation
-    assert len(bridge_calls) == 2, \
-        f"MemmapDatasetBridge should be instantiated twice (train + test), got {len(bridge_calls)} calls"
-
-    # Validate train bridge call
-    train_bridge_call = bridge_calls[0]
-    assert str(train_bridge_call['npz_path']) == str(train_npz), \
-        f"Train bridge should receive train_npz path, got {train_bridge_call['npz_path']}"
-    assert train_bridge_call['config'] is config, \
-        "Train bridge should receive the same TrainingConfig instance"
-
-    # Validate test bridge call
-    test_bridge_call = bridge_calls[1]
-    assert str(test_bridge_call['npz_path']) == str(test_npz), \
-        f"Test bridge should receive test_npz path, got {test_bridge_call['npz_path']}"
-    assert test_bridge_call['config'] is config, \
-        "Test bridge should receive the same TrainingConfig instance"
-
-    # Assertions: RawDataTorch payload passed to trainer
-    # The trainer should receive the raw_data_torch attribute from the bridge
-    # (not the bridge itself, but the RawData instance it wraps)
-    from ptycho.raw_data import RawData
-    assert isinstance(call['train_data'], RawData), \
-        f"train_cdi_model_torch should receive RawData from bridge.raw_data_torch, got {type(call['train_data'])}"
-    assert isinstance(call['test_data'], RawData), \
-        f"train_cdi_model_torch should receive RawData from bridge.raw_data_torch, got {type(call['test_data'])}"
-
-    # Assertions: result contains expected keys
-    assert result is not None, \
-        "execute_training_job must return a result dict"
-    assert 'status' in result, \
-        "result must contain 'status' key"
-
-    # Assertions: log_path exists and contains execution metadata
-    assert log_path.exists(), \
-        f"log_path not written: {log_path}"
-    log_content = log_path.read_text()
-    assert 'Phase E5 Training Execution' in log_content, \
-        "log must contain Phase E5 execution marker"
-
-    print(f"\n✓ execute_training_job delegation validated:")
-    print(f"  - train_cdi_model_torch called: {len(trainer_calls)} time(s)")
-    print(f"  - Received train_data: {type(call['train_data'])}")
-    print(f"  - Received test_data: {type(call['test_data'])}")
-    print(f"  - Received config with gridsize={call['config'].model.gridsize}, nphotons={call['config'].nphotons}")
-    print(f"  - Result: {result}")
-    print(f"  - Log written: {log_path}")
-
-
-def test_execute_training_job_persists_bundle(tmp_path, monkeypatch):
-    """
-    RED → GREEN TDD test for Phase E training bundle persistence.
-
-    Validates that execute_training_job():
-    - Calls save_torch_bundle after successful training
-    - Creates wts.h5.zip archive in artifact_dir
-    - Populates result['bundle_path'] with the bundle archive path
-    - Writes bundle metadata to training manifest
-
-    This test implements the gating prerequisite for Phase G comparisons,
-    ensuring real training runs emit spec-compliant model bundles per
-    specs/ptychodus_api_spec.md §4.6.
-
-    Test Strategy:
-    - Monkeypatch train_cdi_model_torch to return success with model stubs
-    - Monkeypatch save_torch_bundle to spy on invocation
-    - Verify bundle_path in result dict and file existence
-    - Validate manifest fields include bundle_path
-
-    References:
-        - input.md:9 (Phase E5: bundle persistence requirement)
-        - specs/ptychodus_api_spec.md:239 (§4.6 wts.h5.zip contract)
-        - docs/fix_plan.md:31 (Phase G blocked on training bundles)
-        - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:163
-    """
-    from studies.fly64_dose_overlap.training import TrainingJob
-    from ptycho.config.config import TrainingConfig, ModelConfig
-
-    # Setup: Create minimal Phase C fixture NPZ (DATA-001 compliant)
-    train_npz = tmp_path / "phase_c_train.npz"
-    test_npz = tmp_path / "phase_c_test.npz"
-
-    minimal_data = {
-        'diffraction': np.random.rand(10, 64, 64).astype(np.float32),
-        'objectGuess': np.random.rand(128, 128) + 1j * np.random.rand(128, 128),
-        'probeGuess': np.random.rand(64, 64) + 1j * np.random.rand(64, 64),
-        'Y': (np.random.rand(10, 128, 128) + 1j * np.random.rand(10, 128, 128)).astype(np.complex64),
-        'xcoords': np.random.rand(10).astype(np.float32),
-        'ycoords': np.random.rand(10).astype(np.float32),
-        'xcoords_start': np.random.rand(10).astype(np.float32),
-        'ycoords_start': np.random.rand(10).astype(np.float32),
-        'filenames': np.array([f'img_{i:04d}' for i in range(10)]),
-    }
-
-    np.savez_compressed(train_npz, **minimal_data)
-    np.savez_compressed(test_npz, **minimal_data)
-
-    # Setup: Create TrainingJob
-    artifact_dir = tmp_path / "artifacts" / "dose_1000" / "baseline" / "gs1"
-    log_path = artifact_dir / "train.log"
-
-    job = TrainingJob(
-        dose=1e3,
-        view='baseline',
-        gridsize=1,
-        train_data_path=str(train_npz),
-        test_data_path=str(test_npz),
-        artifact_dir=artifact_dir,
-        log_path=log_path,
-    )
-
-    # Setup: Create TrainingConfig
-    model_config = ModelConfig(gridsize=1)
-    config = TrainingConfig(
-        train_data_file=str(train_npz),
-        test_data_file=str(test_npz),
-        output_dir=str(artifact_dir),
-        model=model_config,
-        nphotons=1e3,
-    )
-
-    # Spy: record calls to save_torch_bundle
-    bundle_calls = []
-
-    def spy_save_torch_bundle(models_dict, base_path, config, intensity_scale=None):
-        """Spy that records bundle save invocations."""
-        bundle_calls.append({
-            'models_dict': models_dict,
-            'base_path': base_path,
-            'config': config,
-            'intensity_scale': intensity_scale,
-        })
-        # Create dummy bundle archive to simulate successful save
-        bundle_path = Path(f"{base_path}.zip")
-        bundle_path.parent.mkdir(parents=True, exist_ok=True)
-        bundle_path.write_text("dummy bundle content")
-
-    # Mock train_cdi_model_torch to return success with model stubs
-    def mock_train_cdi_model_torch(train_data, test_data, config):
-        # Return minimal success with model stubs
-        class DummyModel:
-            pass
-        return {
-            'history': {'train_loss': [0.5, 0.3, 0.1]},
-            'train_container': train_data,
-            'test_container': test_data,
-            'models': {
-                'autoencoder': DummyModel(),
-                'diffraction_to_obj': DummyModel(),
-            },
-        }
-
-    # Mock MemmapDatasetBridge
-    class SpyMemmapDatasetBridge:
-        def __init__(self, npz_path, config, memmap_dir="data/memmap"):
-            from ptycho.raw_data import RawData
-            self.raw_data_torch = RawData(
-                xcoords=np.array([0.0]),
-                ycoords=np.array([0.0]),
-                xcoords_start=np.array([0.0]),
-                ycoords_start=np.array([0.0]),
-                diff3d=np.random.rand(1, 64, 64).astype(np.float32),
-                probeGuess=np.random.rand(64, 64) + 1j * np.random.rand(64, 64),
-                scan_index=np.array([0]),
-            )
-
-    # Monkeypatch PyTorch backend components
-    monkeypatch.setattr('ptycho_torch.memmap_bridge.MemmapDatasetBridge', SpyMemmapDatasetBridge)
-    monkeypatch.setattr('ptycho_torch.workflows.components.train_cdi_model_torch', mock_train_cdi_model_torch)
-    monkeypatch.setattr('ptycho_torch.model_manager.save_torch_bundle', spy_save_torch_bundle)
-
-    # Execute: call execute_training_job
-    result = training._execute_training_job_pytorch(
-        config=config,
-        job=job,
-        log_path=log_path,
-    )
-
-    # Debug output
-    print(f"\nResult from execute_training_job: {result}")
-    if log_path.exists():
-        print(f"Log contents:\n{log_path.read_text()}")
-
-    # RED Assertions: bundle persistence (expecting failure before implementation)
-    assert result['status'] == 'success', \
-        f"Training should succeed, got status={result['status']}"
-
-    assert 'bundle_path' in result, \
-        "result must contain 'bundle_path' key after successful training"
-
-    assert result['bundle_path'] is not None, \
-        "bundle_path must not be None after successful training"
-
-    # Verify save_torch_bundle was called
-    assert len(bundle_calls) == 1, \
-        f"save_torch_bundle should be called exactly once, got {len(bundle_calls)} calls"
-
-    call = bundle_calls[0]
-    assert 'autoencoder' in call['models_dict'], \
-        "models_dict must contain 'autoencoder' model"
-    assert 'diffraction_to_obj' in call['models_dict'], \
-        "models_dict must contain 'diffraction_to_obj' model"
-    assert call['config'] is config, \
-        "save_torch_bundle must receive the same TrainingConfig instance"
-
-    # Verify bundle file exists
-    bundle_path = Path(result['bundle_path'])
-    assert bundle_path.exists(), \
-        f"Bundle archive must exist at {bundle_path}"
-    assert bundle_path.suffix == '.zip', \
-        f"Bundle must be a .zip archive, got {bundle_path.suffix}"
-
-    # NEW: Verify bundle_sha256 field (Phase E6)
-    assert 'bundle_sha256' in result, \
-        "result must contain 'bundle_sha256' key after successful bundle persistence"
-
-    assert result['bundle_sha256'] is not None, \
-        "bundle_sha256 must not be None when bundle_path is populated"
-
-    # Validate SHA256 format (64-character lowercase hexadecimal)
-    sha256_value = result['bundle_sha256']
-    assert isinstance(sha256_value, str), \
-        f"bundle_sha256 must be a string, got {type(sha256_value)}"
-    assert len(sha256_value) == 64, \
-        f"bundle_sha256 must be 64 characters (SHA256 hex digest), got {len(sha256_value)}"
-    assert sha256_value.islower(), \
-        f"bundle_sha256 must be lowercase hex, got {sha256_value}"
-    assert all(c in '0123456789abcdef' for c in sha256_value), \
-        f"bundle_sha256 must be hexadecimal, got {sha256_value}"
-
-    # NEW: Verify on-disk SHA256 matches result['bundle_sha256'] (Phase E6 Do Now)
-    # Recompute SHA256 from the actual bundle file using the same algorithm as production
-    import hashlib
-    sha256_hash = hashlib.sha256()
-    with bundle_path.open('rb') as f:
-        # Read in 64KB chunks to match production pattern (training.py:514-517)
-        for chunk in iter(lambda: f.read(65536), b''):
-            sha256_hash.update(chunk)
-    on_disk_sha256 = sha256_hash.hexdigest()
-
-    assert on_disk_sha256 == result['bundle_sha256'], \
-        f"On-disk SHA256 ({on_disk_sha256}) must match result['bundle_sha256'] ({result['bundle_sha256']})"
-
-    print(f"\n✓ execute_training_job bundle persistence validated:")
-    print(f"  - save_torch_bundle called: {len(bundle_calls)} time(s)")
-    print(f"  - Bundle path: {result['bundle_path']}")
-    print(f"  - Bundle exists: {bundle_path.exists()}")
-    print(f"  - Bundle SHA256 (result): {result['bundle_sha256']}")
-    print(f"  - Bundle SHA256 (on-disk): {on_disk_sha256}")
-    print(f"  - SHA256 match: {on_disk_sha256 == result['bundle_sha256']}")
-    print(f"  - Models persisted: {list(call['models_dict'].keys())}")
-
-
 def test_training_cli_invokes_real_runner(tmp_path, monkeypatch):
     """
     RED → GREEN TDD test for Phase E5 real training runner integration.
@@ -1561,12 +1144,12 @@ def test_training_cli_invokes_real_runner(tmp_path, monkeypatch):
         f"Runner must receive TrainingConfig instance, got {type(call['config'])}"
 
     # Assertions: config has correct fields
-    assert call['config'].train_data_file.endswith('patched_train.npz'), \
-        f"config.train_data_file must point to patched_train.npz, got {call['config'].train_data_file}"
-    assert call['config'].test_data_file.endswith('patched_test.npz'), \
-        f"config.test_data_file must point to patched_test.npz, got {call['config'].test_data_file}"
-    assert call['config'].nphotons == 1000.0, \
-        f"config.nphotons must match dose=1000, got {call['config'].nphotons}"
+    assert call['config'].data.train_data_file.endswith('patched_train.npz'), \
+        f"config.data.train_data_file must point to patched_train.npz, got {call['config'].data.train_data_file}"
+    assert call['config'].data.test_data_file.endswith('patched_test.npz'), \
+        f"config.data.test_data_file must point to patched_test.npz, got {call['config'].data.test_data_file}"
+    assert call['config'].data.nphotons == 1000.0, \
+        f"config.data.nphotons must match dose=1000, got {call['config'].data.nphotons}"
     assert call['config'].model.gridsize == 1, \
         f"config.model.gridsize must be 1 for baseline, got {call['config'].model.gridsize}"
 
@@ -1588,7 +1171,7 @@ def test_training_cli_invokes_real_runner(tmp_path, monkeypatch):
 
     print(f"\n✓ CLI real runner integration validated:")
     print(f"  - execute_training_job called: {len(runner_calls)} time(s)")
-    print(f"  - Received TrainingConfig with nphotons={call['config'].nphotons}, gridsize={call['config'].model.gridsize}")
+    print(f"  - Received TrainingConfig with nphotons={call['config'].data.nphotons}, gridsize={call['config'].model.gridsize}")
     print(f"  - Job metadata: dose={call['job'].dose}, view={call['job'].view}")
     print(f"  - Log path: {call['log_path']}")
 

@@ -11,7 +11,7 @@ docs/superpowers/plans/2026-07-14-ci-paper-conformance-audit.md (Theme 3):
 3. Bare-default construction remains valid legacy behavior (design spec
    2026-07-09 §"Amplitude mode does not activate CI even when absent profile
    fields receive CI defaults") while explicitly half-configured CI intent
-   (``rect_s1s2_init='data'`` without the rectangular forward) raises.
+   (``rect_s1s2_init='dose_closure'`` without the rectangular forward) raises.
 4. ``validate_contract_coherence`` is wired into the factory: rectangular +
    count_intensity + mae now fails at payload creation, not at training time.
 """
@@ -36,7 +36,7 @@ CANONICAL_CI_BUNDLE = {
     "loss_function": "Poisson",
     "amplitude_physics_gain": 1.0,
     "rect_s1s2_trainable": True,
-    "rect_s1s2_init": "data",
+    "rect_s1s2_init": "dose_closure",
     "cnn_output_mode": "real_imag",
 }
 
@@ -77,6 +77,16 @@ def test_resolve_ci_profile_returns_exact_canonical_bundle():
 
     assert resolve_ci_profile() == CANONICAL_CI_BUNDLE
     assert resolve_ci_profile(None) == CANONICAL_CI_BUNDLE
+
+
+def test_bare_model_config_keeps_ones_default_and_rejects_historical_data():
+    assert PTModelConfig().rect_s1s2_init == "ones"
+
+    with pytest.raises(
+        ValueError,
+        match=r"data.*unsupported.*ones.*dose_closure.*historical code or retraining",
+    ):
+        PTModelConfig(rect_s1s2_init="data")
 
 
 def test_resolve_ci_profile_passes_through_non_contract_overrides():
@@ -142,7 +152,8 @@ def test_create_training_payload_ci_profile_resolves_coherent_payload(
     assert payload.pt_data_config.measurement_domain == "count_intensity"
     assert payload.pt_model_config.physics_forward_mode == "rectangular_scaled"
     assert payload.pt_model_config.rect_s1s2_trainable is True
-    assert payload.pt_model_config.rect_s1s2_init == "data"
+    assert payload.pt_model_config.rect_s1s2_init == "dose_closure"
+    assert payload.model_spec.to_model_config().rect_s1s2_init == "dose_closure"
     assert payload.pt_model_config.cnn_output_mode == "real_imag"
     assert payload.pt_model_config.amplitude_physics_gain == 1.0
     assert payload.pt_model_config.loss_function == "Poisson"
@@ -223,9 +234,17 @@ def test_bare_default_legacy_construction_remains_valid(tiny_train_npz, tmp_path
 
 
 def test_half_configured_ci_intent_via_overrides_raises(tiny_train_npz, tmp_path):
-    """rect_s1s2_init='data' is a CI-only knob (docs/model_baselines.md); passing
-    it without the rectangular forward is half-configured CI, not legacy."""
+    """Dose closure without the rectangular forward is half-configured CI."""
     with pytest.raises(ValueError, match=r"profile='ci'"):
+        create_training_payload(
+            train_data_file=tiny_train_npz,
+            output_dir=tmp_path / "out",
+            overrides={"n_groups": 4, "rect_s1s2_init": "dose_closure"},
+        )
+
+
+def test_retired_data_rect_s1s2_init_is_rejected(tiny_train_npz, tmp_path):
+    with pytest.raises(ValueError, match="rect_s1s2_init"):
         create_training_payload(
             train_data_file=tiny_train_npz,
             output_dir=tmp_path / "out",
@@ -262,8 +281,26 @@ def test_validate_contract_coherence_passes_coherent_legacy_and_ci():
     assert (
         validate_contract_coherence(
             PTDataConfig(),
-            PTModelConfig(physics_forward_mode="rectangular_scaled"),
+            PTModelConfig(
+                physics_forward_mode="rectangular_scaled",
+                rect_s1s2_init="dose_closure",
+            ),
             PTTrainingConfig(torch_loss_mode="poisson"),
+        )
+        is None
+    )
+    # Explicit legacy rectangular remains supported with exact-one init.
+    assert (
+        validate_contract_coherence(
+            PTDataConfig(
+                scale_contract_version="legacy_v1",
+                measurement_domain="normalized_amplitude",
+            ),
+            PTModelConfig(
+                physics_forward_mode="rectangular_scaled",
+                rect_s1s2_init="ones",
+            ),
+            PTTrainingConfig(torch_loss_mode="mae"),
         )
         is None
     )
@@ -276,6 +313,23 @@ def test_validate_contract_coherence_rejects_active_ci_with_mae():
         validate_contract_coherence(
             PTDataConfig(),
             PTModelConfig(physics_forward_mode="rectangular_scaled"),
+            PTTrainingConfig(torch_loss_mode="mae"),
+        )
+
+
+def test_validate_contract_coherence_rejects_dose_closure_on_legacy_contract():
+    from ptycho_torch.scaling_contract import validate_contract_coherence
+
+    with pytest.raises(ValueError, match="dose_closure.*ci_intensity_v2"):
+        validate_contract_coherence(
+            PTDataConfig(
+                scale_contract_version="legacy_v1",
+                measurement_domain="normalized_amplitude",
+            ),
+            PTModelConfig(
+                physics_forward_mode="rectangular_scaled",
+                rect_s1s2_init="dose_closure",
+            ),
             PTTrainingConfig(torch_loss_mode="mae"),
         )
 
@@ -328,9 +382,8 @@ def test_workflow_forwards_torch_overrides_to_lightning(monkeypatch):
     overrides = {"physics_forward_mode": "rectangular_scaled"}
     captured = {}
 
-    def fake_train(train_data, test_data, config, execution_config=None, overrides=None):
-        captured["execution_config"] = execution_config
-        captured["overrides"] = overrides
+    def fake_train(train_data, test_data, config, **kwargs):
+        captured.update(kwargs)
         return {"models": {}}
 
     monkeypatch.setattr(components, "train_cdi_model_torch", fake_train)
@@ -347,40 +400,89 @@ def test_workflow_forwards_torch_overrides_to_lightning(monkeypatch):
     assert captured["overrides"] is overrides
 
 
-def test_cli_profile_reaches_training_execution(tiny_train_npz, tmp_path, monkeypatch):
+def test_cli_help_exposes_rect_s1s2_initialization_modes(capsys, monkeypatch):
     from ptycho_torch.train import cli_main
+
+    monkeypatch.setattr("sys.argv", ["train.py", "--help"])
+
+    with pytest.raises(SystemExit, match="0"):
+        cli_main()
+
+    help_text = " ".join(capsys.readouterr().out.split())
+    assert "--rect-s1s2-init {ones,dose_closure}" in help_text
+    assert "dose-closure-initialized trainable s1/s2" in help_text
+    assert "separate from whether s1/s2 remain trainable" in help_text
+
+
+@pytest.mark.parametrize(
+    "cli_mode,expected_mode",
+    [
+        (None, "dose_closure"),
+        ("ones", "ones"),
+        ("dose_closure", "dose_closure"),
+    ],
+)
+def test_cli_rect_s1s2_initialization_precedence_reaches_training(
+    cli_mode,
+    expected_mode,
+    tiny_train_npz,
+    tmp_path,
+    monkeypatch,
+):
+    from ptycho_torch.train import cli_main
+    from ptycho_torch.config_factory import create_training_payload
     from ptycho_torch.workflows import components
 
     captured = {}
+    factory_calls = []
     monkeypatch.setattr(
         "ptycho.raw_data.RawData.from_file",
         lambda path: object(),
     )
 
+    def spy_factory(**kwargs):
+        factory_calls.append(kwargs)
+        return create_training_payload(**kwargs)
+
     def fake_run(*args, **kwargs):
         captured.update(kwargs)
         return None, None, {"models": {}}
 
+    monkeypatch.setattr(
+        "ptycho_torch.config_factory.create_training_payload",
+        spy_factory,
+    )
     monkeypatch.setattr(components, "run_cdi_example_torch", fake_run)
+    argv = [
+        "train.py",
+        "--train_data_file", str(tiny_train_npz),
+        "--output_dir", str(tmp_path / "outputs"),
+        "--n_images", "4",
+        "--max_epochs", "1",
+        "--profile", "ci",
+    ]
+    if cli_mode is not None:
+        argv.extend(["--rect-s1s2-init", cli_mode])
     monkeypatch.setattr(
         "sys.argv",
-        [
-            "train.py",
-            "--train_data_file", str(tiny_train_npz),
-            "--output_dir", str(tmp_path / "outputs"),
-            "--n_images", "4",
-            "--max_epochs", "1",
-            "--profile", "ci",
-        ],
+        argv,
     )
 
     cli_main()
 
-    forwarded = captured["overrides"]
+    authored_overrides = factory_calls[0]["overrides"]
+    if cli_mode is None:
+        assert "rect_s1s2_init" not in authored_overrides
+    else:
+        assert authored_overrides["rect_s1s2_init"] == cli_mode
+
     assert captured["resolved_payload"].execution_config is not None
     assert "execution_config" not in captured
-    assert forwarded["physics_forward_mode"] == "rectangular_scaled"
-    assert forwarded["scale_contract_version"] == "ci_intensity_v2"
-    assert forwarded["measurement_domain"] == "count_intensity"
-    assert forwarded["torch_loss_mode"] == "poisson"
-    assert forwarded["rect_s1s2_init"] == "data"
+    model = captured["resolved_payload"].pt_model_config
+    data = captured["resolved_payload"].pt_data_config
+    training = captured["resolved_payload"].pt_training_config
+    assert model.physics_forward_mode == "rectangular_scaled"
+    assert data.scale_contract_version == "ci_intensity_v2"
+    assert data.measurement_domain == "count_intensity"
+    assert training.torch_loss_mode == "poisson"
+    assert model.rect_s1s2_init == expected_mode

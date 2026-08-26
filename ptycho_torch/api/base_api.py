@@ -3,6 +3,7 @@ from collections.abc import Mapping
 from enum import Enum
 from dataclasses import replace
 from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig, InferenceConfig, DatagenConfig
+from ptycho_torch.rect_s1s2_initialization import validate_rect_s1s2_initialization_mode
 from ptycho_torch.scaling_contract import validate_scale_contract
 import os
 
@@ -450,6 +451,9 @@ class PtychoModel:
         model_uri = f"runs:/{run_id}/model"
 
         model = mlflow.pytorch.load_model(model_uri)
+        validate_rect_s1s2_initialization_mode(
+            model.model_config.rect_s1s2_init
+        )
         run_id = run_id
 
         return model, run_id

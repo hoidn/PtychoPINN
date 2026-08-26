@@ -3,7 +3,7 @@ plus the Task 2.5 (B3) config-gated dispatch inside ``ForwardModel.forward``.
 
 Covers the additive `reassemble_patches_position_real_probe` function in
 `ptycho_torch/helper.py`, exercised through its real signature/return contract
-(the one consumed by the dangling call in `beta_modules/model.py`):
+used by `ForwardModel`:
 `probe=`, `use_probe_weights=` kwargs, returning `(imgs_merged, boolean_mask, M)`.
 
 The Task 2.5 additions:
@@ -109,7 +109,7 @@ def test_reassemble_patches_position_real_probe_c1_no_nan_support_preserved():
 
 def test_reassemble_patches_position_real_probe_return_contract_shapes():
     """Return contract: (imgs_merged, boolean_mask, M) with the shapes/dtypes
-    expected by the beta_modules/model.py call site (unpacked as
+    expected by the `ForwardModel` call site (unpacked as
     `reassembled_obj, _, _`)."""
     N = 8
     M = 12
@@ -376,25 +376,19 @@ def test_probe_helper_multimode_probe_sums_over_modes():
 
 
 # ---------------------------------------------------------------------------
-# Task C1: plain / batch-broadcast probe layouts from the grid_lines
-# dict-container pipeline
+# Task C1: direct plain / batch-broadcast probe compatibility at the
+# reassembly-helper boundary
 #
-# The native mmap dataloader supplies a modes-layout probe (B, C, P, H, W)
-# (ndim 5); the grid_lines dict-container loader supplies a plain probe --
-# measured shape (16, 128, 128) i.e. (B, H, W) batch-broadcast (ndim 3),
-# derived from a bare (H, W) probeGuess (ndim 2). Before C1 the weight
-# derivation ``torch.sum(|probe|^2, dim=2).flatten(0, 1)`` assumed the modes
-# axis at dim 2 and collapsed a spatial axis, yielding a 1-D tensor that
-# crashed F.pad at helper.py:271 ("padding length 4 and input of dimension 1").
+# Maintained RAM and mmap emitters supply modes-layout probes
+# (B, C, P, H, W). The helper also accepts direct shared-probe inputs in
+# (B, H, W) or (H, W) form. Before C1, its weight derivation assumed the
+# modes axis at dim 2, collapsed a spatial axis, and produced a 1-D tensor
+# that crashed F.pad.
 # ---------------------------------------------------------------------------
 
 
 def test_probe_helper_batch_broadcast_layout_weights_equal_probe_intensity():
-    """(a) Batch-broadcast probe ``(B, H, W)`` -- the grid_lines dict-container
-    layout -- with ``use_probe_weights=True`` must not crash and must apply
-    weights equal to ``|P|^2``. Equivalence oracle: a modes-layout call
-    ``(B, C, P=1, H, W)`` carrying the same probe per channel must produce a
-    byte-identical merge."""
+    """A direct ``(B, H, W)`` probe must match its modes-layout expansion."""
     N, C, B = 8, 4, 2
     data_cfg = DataConfig(N=N, C=1, grid_size=(1, 1), max_neighbor_distance=0.0)
     model_cfg = ModelConfig(C_forward=C, max_position_jitter=0)
@@ -429,8 +423,7 @@ def test_probe_helper_batch_broadcast_layout_weights_equal_probe_intensity():
 
 
 def test_probe_helper_bare_hw_layout_weights_equal_probe_intensity():
-    """(a') Bare ``(H, W)`` probe (raw probeGuess, ndim 2) broadcasts to every
-    flattened patch and equals the equivalent modes-layout merge."""
+    """A direct ``(H, W)`` probe must match its modes-layout expansion."""
     N, C, B = 8, 2, 2
     data_cfg = DataConfig(N=N, C=1, grid_size=(1, 1), max_neighbor_distance=0.0)
     model_cfg = ModelConfig(C_forward=C, max_position_jitter=0)
