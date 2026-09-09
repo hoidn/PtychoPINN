@@ -194,21 +194,6 @@ class TrainingObservations:
         object.__setattr__(self, "notices", tuple(self.notices))
 
 
-@dataclass(frozen=True)
-class InferenceObservations:
-    """Read-only inputs observed by the inference factory before resolution."""
-
-    model_path: Path
-    test_data_file: Path
-    output_dir: Path
-    inferred_probe_size: int
-    notices: tuple[ResolutionNotice, ...] = ()
-
-    def __post_init__(self) -> None:
-        object.__setattr__(self, "model_path", Path(self.model_path))
-        object.__setattr__(self, "test_data_file", Path(self.test_data_file))
-        object.__setattr__(self, "output_dir", Path(self.output_dir))
-        object.__setattr__(self, "notices", tuple(self.notices))
 
 
 def _path_field_names(config_type) -> frozenset[str]:
@@ -220,7 +205,6 @@ def _path_field_names(config_type) -> frozenset[str]:
 
 
 TRAINING_OBSERVATION_PATH_FIELDS = _path_field_names(TrainingObservations)
-INFERENCE_OBSERVATION_PATH_FIELDS = _path_field_names(InferenceObservations)
 
 
 def _freeze_mapping_values(values: Mapping[str, object]) -> Mapping[str, object]:
@@ -263,23 +247,6 @@ class ResolvedTrainingBundle:
         object.__setattr__(self, "notices", tuple(self.notices))
 
 
-@dataclass(frozen=True)
-class ResolvedInferenceBundle:
-    """Fresh inference-time records without checkpoint model identity."""
-
-    data: DataConfig
-    model: ModelConfig
-    inference: InferenceConfig
-    bridge: Mapping[str, object]
-    audit: Mapping[str, object]
-    aliases: Mapping[str, tuple[str, ...]]
-    notices: tuple[ResolutionNotice, ...]
-
-    def __post_init__(self) -> None:
-        object.__setattr__(self, "bridge", _freeze_mapping_values(self.bridge))
-        object.__setattr__(self, "audit", _freeze_mapping_values(self.audit))
-        object.__setattr__(self, "aliases", _freeze_aliases(self.aliases))
-        object.__setattr__(self, "notices", tuple(self.notices))
 
 
 _TRAINING_INPUTS_BY_OWNER: tuple[
@@ -315,6 +282,10 @@ _TRAINING_INPUTS_BY_OWNER: tuple[
             "fno_width",
             "fno_blocks",
             "fno_cnn_blocks",
+            "vit_patch_size",
+            "vit_width",
+            "vit_depth",
+            "vit_heads",
             "learned_input_channels",
             "fno_input_transform",
             "max_hidden_channels",
@@ -472,82 +443,7 @@ TRAINING_INPUT_RULES = _declare_rules(
     _TRAINING_ALIASES,
 )
 
-_INFERENCE_INPUTS_BY_OWNER: tuple[
-    tuple[InputOwner, tuple[str, ...]], ...
-] = (
-    (
-        "data",
-        (
-            "N",
-            "neighbor_count",
-            "gridsize",
-            "probe_scale",
-            "subsample_seed",
-            "scale_contract_version",
-            "measurement_domain",
-        ),
-    ),
-    (
-        "model",
-        (
-            "mode",
-            "amp_activation",
-            "n_filters_scale",
-            "object_big",
-            "object_layout",
-            "training_canvas",
-            "training_patch_weighting",
-            "probe_big",
-            "probe_mask",
-            "probe_mask_tensor",
-            "probe_mask_sigma",
-            "probe_mask_diameter",
-            "pad_object",
-            "gaussian_smoothing_sigma",
-        ),
-    ),
-    (
-        "inference",
-        (
-            "batch_size",
-            "patch_weighting",
-            "varpro_scaling",
-            "log_patch_stats",
-            "patch_stats_limit",
-        ),
-    ),
-    (
-        "bridge",
-        (
-            "inference_groups",
-            "n_raw_frames_selected",
-        ),
-    ),
-    (
-        "derived_constraint",
-        (
-            "model_path",
-            "test_data_file",
-            "output_dir",
-        ),
-    ),
-)
 
-_INFERENCE_ALIASES = MappingProxyType(
-    {
-        "model_type": "mode",
-        # Documented external-contract fence (not a fallback): the legacy
-        # inference-group-count spelling "training_groups" is permanently
-        # accepted; specs/ptychodus_api_spec.md §4.6 and config_factory.py
-        # docstrings historically named this key for the inference patch.
-        # Normalization maps it to the canonical "inference_groups".
-        "training_groups": "inference_groups",
-    }
-)
-INFERENCE_INPUT_RULES = _declare_rules(
-    _INFERENCE_INPUTS_BY_OWNER,
-    _INFERENCE_ALIASES,
-)
 
 EXECUTION_OWNED_TRAINING_FIELDS = frozenset(
     {"device", "strategy", "n_devices", "num_workers"}
@@ -583,7 +479,6 @@ def _assert_single_ownership(
 
 
 _assert_single_ownership(_TRAINING_INPUTS_BY_OWNER, "_TRAINING_INPUTS_BY_OWNER")
-_assert_single_ownership(_INFERENCE_INPUTS_BY_OWNER, "_INFERENCE_INPUTS_BY_OWNER")
 
 _TRAINING_RESOLVER_NAMES = frozenset(
     name for _, names in _TRAINING_INPUTS_BY_OWNER for name in names
@@ -725,27 +620,6 @@ def normalize_training_patch(
     )
 
 
-def normalize_inference_patch(
-    patch: Mapping[str, object],
-) -> NormalizedPatch:
-    """Normalize one inference patch without mutation, warnings, or defaults."""
-
-    values, aliases = _normalize_raw_patch(
-        patch,
-        phase="inference",
-        rules=INFERENCE_INPUT_RULES,
-    )
-    ordered_values = dict(sorted(values.items()))
-    return NormalizedPatch(
-        phase="inference",
-        values=ordered_values,
-        audit=ordered_values,
-        aliases={
-            canonical: aliases[canonical]
-            for canonical in sorted(aliases)
-        },
-        notices=(),
-    )
 
 
 def _fresh_config(config, changes: Mapping[str, object] | None = None):
@@ -820,25 +694,6 @@ def training_factory_baseline(
     )
 
 
-def inference_factory_baseline() -> TorchConfigBaseline:
-    """Return the explicit historical inference-factory baseline."""
-
-    data = DataConfig(
-        N=64,
-        neighbor_count=4,
-        gridsize=1,
-        scale_contract_version="ci_intensity_v2",
-        measurement_domain="count_intensity",
-    )
-    model = resolve_torch_model_object_policy(
-        ModelConfig()
-    )
-    return TorchConfigBaseline(
-        data=data,
-        model=model,
-        training=None,
-        inference=InferenceConfig(batch_size=16),
-    )
 
 
 def observe_probe_size(data_file: Path) -> ProbeSizeObservation:
@@ -1402,115 +1257,6 @@ def resolve_training_bundle(
         data=data,
         model=model,
         training=candidate_training,
-        inference=inference,
-        bridge=bridge,
-        audit=audit,
-        aliases=normalized.aliases,
-        notices=(*normalized.notices, *observations.notices),
-    )
-
-
-def resolve_inference_bundle(
-    *,
-    baseline: TorchConfigBaseline,
-    normalized: NormalizedPatch,
-    observations: InferenceObservations,
-) -> ResolvedInferenceBundle:
-    """Construct inference runtime records without deriving ModelSpec identity."""
-
-    if not isinstance(baseline, TorchConfigBaseline):
-        raise TypeError("baseline must be a TorchConfigBaseline")
-    if not isinstance(normalized, NormalizedPatch):
-        raise TypeError("normalized must be a NormalizedPatch")
-    if normalized.phase != "inference":
-        raise ValueError(
-            f"{normalized.phase} NormalizedPatch cannot be used for "
-            "inference resolution"
-        )
-    if not isinstance(observations, InferenceObservations):
-        raise TypeError("observations must be InferenceObservations")
-
-    for field_name in sorted(INFERENCE_OBSERVATION_PATH_FIELDS):
-        _check_path_constraint(
-            normalized,
-            field_name,
-            getattr(observations, field_name),
-        )
-
-    data_changes = _owned_values(normalized, INFERENCE_INPUT_RULES, "data")
-    model_changes = _owned_values(
-        normalized,
-        INFERENCE_INPUT_RULES,
-        "model",
-    )
-    _prepare_object_policy_changes(normalized, model_changes)
-    inference_changes = _owned_values(
-        normalized,
-        INFERENCE_INPUT_RULES,
-        "inference",
-    )
-
-    gridsize, channels = _derive_channel_count(
-        data_changes.get("gridsize", baseline.data.gridsize)
-    )
-
-
-    if "N" in normalized.values:
-        resolved_N = normalized.values["N"]
-        N_source = "explicit"
-    else:
-        resolved_N = observations.inferred_probe_size
-        N_source = "observation"
-    resolved_N = _require_positive_integer(resolved_N, "N")
-    data_changes.update(
-        {
-            "gridsize": gridsize,
-            "N": resolved_N,
-        }
-    )
-
-    data = _fresh_config(baseline.data, data_changes)
-
-
-    model = resolve_torch_model_object_policy(
-        _fresh_config(baseline.model, model_changes)
-    )
-    inference = _fresh_config(baseline.inference, inference_changes)
-
-    _validate_data_and_model(data, model)
-    _validate_inference_domains(inference)
-
-    inference_groups = _required_group_count(
-        normalized, None, key="inference_groups"
-    )
-    bridge: dict[str, object] = {
-        "model_path": observations.model_path,
-        "test_data_file": observations.test_data_file,
-        "output_dir": observations.output_dir,
-        "inference_groups": inference_groups,
-    }
-    if "n_raw_frames_selected" in normalized.values:
-        bridge["inference_raw_selection"] = normalized.values["n_raw_frames_selected"]
-
-    if "subsample_seed" in normalized.values:
-        bridge["subsample_seed"] = data.subsample_seed
-
-    audit: dict[str, object] = dict(normalized.audit)
-    audit.update(
-        {
-            "N": data.N,
-            "N_source": N_source,
-            "gridsize": data.gridsize,
-            "C": data.gridsize * data.gridsize,
-            "C_source": "derived:gridsize",
-            "model_path": str(observations.model_path),
-            "test_data_file": str(observations.test_data_file),
-            "output_dir": str(observations.output_dir),
-        }
-    )
-    return ResolvedInferenceBundle(
-        data=data,
-        model=model,
         inference=inference,
         bridge=bridge,
         audit=audit,

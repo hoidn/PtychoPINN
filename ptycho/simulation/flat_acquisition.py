@@ -967,10 +967,11 @@ def validate_flat_acquisition_workflow(
         resolved.simulation.object_recipe,
     )
     source_path = train_simulation.object.source_path
-    if (
+    source_backed = (
         resolved.simulation.object_recipe
         == _object_producers.FROZEN_OBJECT_BANK_RECIPE
-    ):
+    )
+    if source_backed:
         if source_path is None:
             raise ValueError(
                 "simulation.object.source_path is required for the frozen "
@@ -1007,9 +1008,10 @@ def validate_flat_acquisition_workflow(
         ("train", train_simulation),
         ("test", test_simulation),
     ):
-        if simulation.object.image_size != (392, 392):
+        if not source_backed and simulation.object.image_size != (392, 392):
             raise ValueError(
-                f"simulation.{name}.object.image_size must be (392, 392)"
+                f"simulation.{name}.object.image_size must be (392, 392) "
+                "for generated objects"
             )
         if not simulation.object.set_phi:
             raise ValueError(f"simulation.{name}.object.set_phi must be True")

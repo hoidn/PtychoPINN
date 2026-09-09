@@ -233,7 +233,7 @@ object. It is named *dose closure* because it computes
 `s1=s2=sqrt(c*)`, closing the sampled predicted/observed count totals at
 startup. It improves conditioning but does not calibrate the stored probe or
 identify physical object units. The
-[core contract](../../docs/specs/spec-ptycho-core.md#ci-rectangular-gauge-initialization-normative)
+[core contract](../../specs/data_contracts.md)
 owns the fixed seed/draw policy, logical population, no-fallback behavior, and
 record compatibility.
 
@@ -255,8 +255,8 @@ flag is ignored when CI is active.
 
 The original five-epoch Phase 1 metrics and command used the v1 prefix policy.
 They remain available as historical evidence in the
-[preserved plan](../../docs/plans/2026-08-04-ci-gauge-invariant-scaling.md) and
-[durable finding](../../docs/findings.md#ci-gauge-initialization-001---dose-closure-selects-a-startup-gauge-not-physical-calibration),
+[preserved plan](../../docs/workflows/pytorch.md) and
+[durable finding](../../docs/workflows/pytorch.md),
 not as a current v2 quality gate or runnable reproduction recipe.
 
 Probe transform defaults are source-aware:
@@ -329,7 +329,9 @@ Completed stages are reusable by default. Reuse is fail-closed:
 - training compares `simulation`, `model`, and `training`;
 - reconstruction/evaluation also compare `inference`;
 - evaluation additionally checks
-  `metric_contract_version=synthetic-quality-metrics-v1`;
+  `metric_contract_version` (currently `synthetic-quality-metrics-v3`; a
+  sealed root may carry any version listed in
+  `ptycho.workflows.synthetic_pipeline.METRIC_CONTRACT_VERSIONS`);
 - the `workflow` namespace, including execution controls, is excluded from
   stage identity;
 - each required stage-manifest entry and artifact path must be complete;
@@ -510,7 +512,7 @@ output path.
 
 Generated NPZ files conform to the project's standalone data contract. See the
 [data contracts](../../specs/data_contracts.md) for required keys and shapes,
-and the [Data Generation Guide](../../docs/DATA_GENERATION_GUIDE.md) for grid
+and the [Data Generation Guide](../../docs/CONFIGURATION.md) for grid
 versus nongrid programmatic APIs.
 
 ### Object producer selection

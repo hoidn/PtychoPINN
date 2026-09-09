@@ -45,8 +45,9 @@ Determinism: identical input tree-ish -> identical output tree SHA. The tree
 SHA is computed against the repository object store via a throwaway index, so
 it is content-addressed and independent of timestamps or scratch location.
 
-This tool is intentionally checked in so ``main`` carries its own resync
-machinery. See docs/plans/2026-07-07-rebase-fno-stable-onto-main.md (Task 2).
+This tool is checked in so ``main`` carries its own publishing machinery.
+The exclusion inventory includes code and internal documentation pruning;
+see scripts/main_overlay/README.md for the source and target contracts.
 
 The last line of stdout is the emitted tree SHA. All progress and gate output
 goes to stderr.
@@ -118,7 +119,7 @@ DEFAULT_ALLOW_FILES: frozenset[str] = frozenset(
 # Modules that must import cleanly against the materialized tree.
 DEFAULT_IMPORT_TARGETS: tuple[str, ...] = (
     "ptycho_torch.model",
-    "ptycho_torch.generators.registry",
+    "ptycho_torch.application_factory",
     "ptycho_torch.workflows.components",
     "ptycho_torch.config_bridge",
 )
@@ -228,7 +229,7 @@ def apply_exclusions(tree: Path, entries: Iterable[str]) -> list[str]:
                 removed.append(str(m.relative_to(tree)))
             continue
         target = tree / entry.rstrip("/")
-        if not target.exists():
+        if not target.exists() and not target.is_symlink():
             raise TransformError(
                 f"exclude entry does not exist in source tree (drift?): {entry!r}"
             )

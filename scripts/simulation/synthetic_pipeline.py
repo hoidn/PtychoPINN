@@ -138,13 +138,14 @@ def build_parser() -> argparse.ArgumentParser:
         choices=("amplitude", "rectangular_scaled"),
         help=(
             "Training forward model; 'rectangular_scaled' requires the "
-            "count-intensity contract and Poisson loss"
+            "count-intensity contract, Poisson loss, and effective "
+            "'real_imag' generator output"
         ),
     )
     model.add_argument(
         "--cnn-output-mode",
         choices=("amp_phase", "real_imag"),
-        help="Complex-output parameterization; 'rectangular_scaled' needs real_imag",
+        help="CNN output parameterization",
     )
     model.add_argument(
         "--rect-s1s2-init",

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Dict
 
 import torch
 import torch.nn as nn
@@ -40,6 +39,7 @@ class FfnoGeneratorModule(nn.Module):
         C: int = 4,
         input_transform: str = "none",
         output_mode: str = "real_imag",
+        share_spectral_weights: bool = True,
     ):
         super().__init__()
         if n_blocks <= 0:
@@ -60,7 +60,7 @@ class FfnoGeneratorModule(nn.Module):
             hidden_channels,
             n_blocks=n_blocks,
             modes=modes,
-            share_spectral_weights=True,
+            share_spectral_weights=share_spectral_weights,
             mlp_ratio=2.0,
             gate_init=0.1,
             norm="instance",
@@ -93,17 +93,3 @@ class FfnoGeneratorModule(nn.Module):
         x = x.view(batch, 2, self.C, height, width)
         x = x.permute(0, 3, 4, 2, 1)
         return x
-
-
-class FfnoGenerator:
-    """Generator-registry wrapper for the CDI FFNO path."""
-
-    name = "ffno"
-
-    def __init__(self, config):
-        self.config = config
-
-    def build_model(self, pt_configs: Dict[str, Any]) -> nn.Module:
-        from ptycho_torch.application_factory import build_ptychopinn_from_configs
-
-        return build_ptychopinn_from_configs(pt_configs)

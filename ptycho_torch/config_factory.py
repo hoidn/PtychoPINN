@@ -23,13 +23,11 @@ Architecture:
 
 Core Functions:
     resolve_training_payload(): Pure training payload resolution
-    resolve_inference_payload(): Pure inference payload resolution
     create_training_payload(): Compatibility resolution (no CONFIG-001 projection)
-    create_inference_payload(): Compatibility resolution (no CONFIG-001 projection)
     infer_probe_size(): Extracts probe size from NPZ metadata
 
 Design Principles:
-    - Single Responsibility: Each factory handles one workflow (training vs inference)
+    - Single Responsibility: Training owns configuration payload resolution
     - Bridge Delegation: All TensorFlow dataclass translation delegated to config_bridge.py
     - No CONFIG-001 Projection: factories no longer populate legacy params.cfg
     - Override Transparency: Explicit override dict parameter for execution-specific knobs
@@ -49,10 +47,9 @@ import warnings
 # Import canonical TensorFlow configs (single source of truth)
 from ptycho.config.config import (
     TrainingConfig as TFTrainingConfig,
-    InferenceConfig as TFInferenceConfig,
 )
 
-# Import PyTorch singleton configs
+# Import PyTorch configuration dataclasses
 from ptycho_torch.config_params import (
     DataConfig as PTDataConfig,
     DatagenConfig as PTDatagenConfig,
@@ -85,15 +82,11 @@ from ptycho_torch.execution_request import (
     validate_execution_input_structure,
 )
 from ptycho_torch.config_resolution import (
-    InferenceObservations,
     TRAINING_INPUT_RULES,
     TRAINING_OWNER_FIELDS as TRAINING_OWNER_FIELDS,
     TrainingObservations,
-    inference_factory_baseline,
-    normalize_inference_patch,
     normalize_training_patch,
     observe_probe_size,
-    resolve_inference_bundle,
     resolve_training_bundle,
     training_factory_baseline,
 )
@@ -206,35 +199,20 @@ class TrainingPayload:
     Complete configuration bundle for training workflows.
 
     Returned by create_training_payload(). Contains all config objects needed
-    to execute PyTorch training: canonical TensorFlow config (for params.cfg bridge),
-    PyTorch singleton configs (for Lightning module), execution config (runtime knobs),
+    to execute PyTorch training: a one-way compatibility config (not projected to params.cfg),
+    PyTorch configuration dataclasses (for Lightning module), execution config (runtime knobs),
     and audit trail of applied overrides.
     """
     tf_training_config: TFTrainingConfig  # Canonical TensorFlow format
-    pt_data_config: PTDataConfig  # PyTorch singleton
-    pt_model_config: PTModelConfig  # PyTorch singleton
-    pt_training_config: PTTrainingConfig  # PyTorch singleton
-    pt_inference_config: PTInferenceConfig  # PyTorch singleton (patch-stats, inference defaults)
+    pt_data_config: PTDataConfig  # PyTorch dataclass
+    pt_model_config: PTModelConfig  # PyTorch dataclass
+    pt_training_config: PTTrainingConfig  # PyTorch dataclass
+    pt_inference_config: PTInferenceConfig  # PyTorch dataclass (patch-stats, inference defaults)
     model_spec: ModelSpec  # Versioned internal Torch structural identity
     execution_config: PyTorchExecutionConfig  # Execution knobs
     overrides_applied: Dict[str, Any] = field(default_factory=dict)  # Audit trail
 
 
-@dataclass
-class InferencePayload:
-    """
-    Complete configuration bundle for inference workflows.
-
-    Returned by create_inference_payload(). Contains all config objects needed
-    to execute PyTorch inference: canonical TensorFlow config (for params.cfg bridge),
-    PyTorch singleton configs (for Lightning module), execution config (runtime knobs),
-    and audit trail of applied overrides.
-    """
-    tf_inference_config: TFInferenceConfig  # Canonical TensorFlow format
-    pt_data_config: PTDataConfig  # PyTorch singleton
-    pt_inference_config: PTInferenceConfig  # PyTorch singleton
-    execution_config: PyTorchExecutionConfig  # Execution knobs
-    overrides_applied: Dict[str, Any] = field(default_factory=dict)  # Audit trail
 
 
 # Import-time totality tripwire (W1): this surface has no target dataclass —
@@ -407,7 +385,7 @@ def _resolve_training_payload(
     a single factory function that:
     1. Validates required arguments (train_data_file, output_dir, training_groups)
     2. Infers probe size from NPZ metadata (or uses override)
-    3. Constructs PyTorch singleton configs (DataConfig, ModelConfig, TrainingConfig, InferenceConfig)
+    3. Constructs PyTorch configuration dataclasses (DataConfig, ModelConfig, TrainingConfig, InferenceConfig)
     4. Applies CLI overrides with precedence rules
     5. Translates to TensorFlow canonical configs via config_bridge
     6. Constructs the canonical compatibility config without projecting it
@@ -430,11 +408,10 @@ def _resolve_training_payload(
     Returns:
         TrainingPayload containing:
             - tf_training_config: TrainingConfig (canonical TensorFlow format)
-            - pt_data_config: DataConfig (PyTorch singleton)
-            - pt_model_config: ModelConfig (PyTorch singleton)
-            - pt_training_config: TrainingConfig (PyTorch singleton)
-            - pt_inference_config: InferenceConfig (PyTorch singleton)
-            - pt_inference_config: InferenceConfig (PyTorch singleton)
+            - pt_data_config: DataConfig (PyTorch dataclass)
+            - pt_model_config: ModelConfig (PyTorch dataclass)
+            - pt_training_config: TrainingConfig (PyTorch dataclass)
+            - pt_inference_config: InferenceConfig (PyTorch dataclass)
             - execution_config: PyTorchExecutionConfig (runtime knobs)
             - overrides_applied: Dict[str, Any] (audit trail)
 
@@ -579,166 +556,6 @@ def _resolve_training_payload(
     return payload, tuple(deferred_notices), runtime.notices
 
 
-def _resolve_inference_payload(
-    model_path: Path,
-    test_data_file: Path,
-    output_dir: Path,
-    overrides: Optional[Dict[str, Any]] = None,
-    execution_config: Optional[ExecutionRequest] = None,
-    *,
-    execution_capabilities: ExecutionCapabilities | None = None,
-) -> tuple[
-    InferencePayload,
-    tuple[ResolutionNotice, ...],
-    tuple[ResolutionNotice, ...],
-]:
-    """
-    Resolve a complete inference configuration payload without legacy mutation.
-
-    Centralizes all config construction logic for PyTorch inference workflows.
-    Eliminates duplicated wiring in CLI and workflow entry points by providing
-    a single factory function that:
-    1. Validates required arguments (model_path, test_data_file, output_dir, inference_groups)
-    2. Loads checkpoint config from model_path (or infers from NPZ)
-    3. Constructs PyTorch singleton configs (DataConfig, InferenceConfig)
-    4. Applies CLI overrides with precedence rules
-    5. Translates to TensorFlow canonical configs via config_bridge
-    6. Constructs the canonical compatibility config without projecting it
-    7. Constructs PyTorchExecutionConfig for runtime knobs
-    8. Returns InferencePayload with all config objects + audit trail
-
-    Args:
-        model_path: Path to trained model directory (must contain wts.h5.zip)
-        test_data_file: Path to test NPZ dataset (must exist per DATA-001)
-        output_dir: Path to output directory for reconstructions (created if missing)
-        overrides: Dict of field overrides (highest precedence). Required keys:
-            - inference_groups: Number of grouped samples (no default, raises error if missing)
-            Optional keys: gridsize, batch_size, middle_trim, pad_eval, etc.
-            The legacy spelling ``training_groups`` is permanently accepted as
-            a fenced alias for ``inference_groups`` (see docs/specs/spec-ptycho-config-bridge.md §3).
-        execution_config: Unresolved runtime request. ``None`` uses request
-            defaults. A resolved ``PyTorchExecutionConfig`` is not an input.
-
-    Returns:
-        InferencePayload containing:
-            - tf_inference_config: InferenceConfig (canonical TensorFlow format)
-            - pt_data_config: DataConfig (PyTorch singleton)
-            - pt_inference_config: InferenceConfig (PyTorch singleton)
-            - execution_config: PyTorchExecutionConfig (runtime knobs)
-            - overrides_applied: Dict[str, Any] (audit trail)
-
-    Raises:
-        FileNotFoundError: model_path or test_data_file does not exist
-        ValueError: model_path missing wts.h5.zip
-        ValueError: inference_groups missing in overrides (required field)
-
-    Example:
-        >>> payload = create_inference_payload(
-        ...     model_path=Path('outputs/exp001'),
-        ...     test_data_file=Path('datasets/test.npz'),
-        ...     output_dir=Path('outputs/exp001/inference'),
-        ...     overrides={
-        ...         'inference_groups': 128,
-        ...         'gridsize': 2,
-        ...     },
-        ...     execution_config=ExecutionRequest(
-        ...         values={'inference_batch_size': 64},
-        ...         explicit_fields=frozenset({'inference_batch_size'}),
-        ...     ),
-        ... )
-
-    See also:
-        - Design: .../factory_design.md §3.3
-        - Checkpoint loading: specs/ptychodus_api_spec.md §4.6
-    """
-    if execution_config is not None and not isinstance(
-        execution_config,
-        ExecutionRequest,
-    ):
-        raise TypeError(
-            "execution_config must be an ExecutionRequest or None; "
-            "PyTorchExecutionConfig is a resolved output carrier"
-        )
-
-    raw_patch = dict(overrides or {})
-    resolved_profile = resolve_profile_overrides(raw_patch)
-    if resolved_profile is not None:
-        (
-            raw_patch["scale_contract_version"],
-            raw_patch["measurement_domain"],
-        ) = resolved_profile
-
-    normalized_execution = normalize_execution_input(
-        execution_config,
-        mode="inference",
-    )
-    if normalized_execution is not None:
-        validate_execution_input_structure(normalized_execution)
-        validate_execution_input_phase(
-            normalized_execution,
-            mode="inference",
-        )
-    normalized = normalize_inference_patch(raw_patch)
-    if not model_path.exists():
-        raise FileNotFoundError(f"Model directory not found: {model_path}")
-
-    checkpoint_file = model_path / "wts.h5.zip"
-    if not checkpoint_file.exists():
-        raise ValueError(
-            f"Model archive not found: {checkpoint_file}. "
-            "Expected wts.h5.zip in model_path directory."
-        )
-
-    if not test_data_file.exists():
-        raise FileNotFoundError(f"Test data file not found: {test_data_file}")
-
-    probe_observation = observe_probe_size(test_data_file)
-    resolved = resolve_inference_bundle(
-        baseline=inference_factory_baseline(),
-        normalized=normalized,
-        observations=InferenceObservations(
-            model_path=model_path,
-            test_data_file=test_data_file,
-            output_dir=output_dir,
-            inferred_probe_size=probe_observation.value,
-            notices=probe_observation.notices,
-        ),
-    )
-
-    from ptycho_torch.config_bridge import to_inference_config, to_model_config
-
-    tf_model_config = to_model_config(resolved.data, resolved.model)
-    tf_inference_config = to_inference_config(
-        tf_model_config,
-        resolved.data,
-        resolved.inference,
-        overrides=dict(resolved.bridge),
-    )
-
-    deferred_notices: list[ResolutionNotice] = list(resolved.notices)
-    runtime = resolve_runtime_execution_request(
-        normalized_execution,
-        mode="inference",
-        execution_capabilities=execution_capabilities,
-    )
-    overrides_applied = dict(resolved.audit)
-    if resolved.aliases:
-        overrides_applied["input_aliases"] = {
-            name: tuple(sources)
-            for name, sources in resolved.aliases.items()
-        }
-    overrides_applied["execution_runtime"] = runtime.audit_dict()
-    for name in ("accelerator", "num_workers", "inference_batch_size"):
-        overrides_applied[name] = getattr(runtime.config, name)
-
-    payload = InferencePayload(
-        tf_inference_config=tf_inference_config,
-        pt_data_config=resolved.data,
-        pt_inference_config=resolved.inference,
-        execution_config=runtime.config,
-        overrides_applied=overrides_applied,
-    )
-    return payload, tuple(deferred_notices), runtime.notices
 
 
 def resolve_training_payload(
@@ -765,26 +582,6 @@ def resolve_training_payload(
     return payload
 
 
-def resolve_inference_payload(
-    model_path: Path,
-    test_data_file: Path,
-    output_dir: Path,
-    overrides: Optional[Dict[str, Any]] = None,
-    execution_config: Optional[ExecutionRequest] = None,
-    *,
-    execution_capabilities: ExecutionCapabilities | None = None,
-) -> InferencePayload:
-    """Resolve Torch inference owners without reading or writing ``params.cfg``."""
-    payload, deferred_notices, runtime_notices = _resolve_inference_payload(
-        model_path=model_path,
-        test_data_file=test_data_file,
-        output_dir=output_dir,
-        overrides=overrides,
-        execution_config=execution_config,
-        execution_capabilities=execution_capabilities,
-    )
-    _emit_resolution_notices(deferred_notices + runtime_notices)
-    return payload
 
 
 def create_training_payload(
@@ -886,26 +683,6 @@ def create_training_payload_from_resolved_configs(
     return payload
 
 
-def create_inference_payload(
-    model_path: Path,
-    test_data_file: Path,
-    output_dir: Path,
-    overrides: Optional[Dict[str, Any]] = None,
-    execution_config: Optional[ExecutionRequest] = None,
-    *,
-    execution_capabilities: ExecutionCapabilities | None = None,
-) -> InferencePayload:
-    """Resolve inference owners without the CONFIG-001 legacy projection."""
-    payload, deferred_notices, runtime_notices = _resolve_inference_payload(
-        model_path=model_path,
-        test_data_file=test_data_file,
-        output_dir=output_dir,
-        overrides=overrides,
-        execution_config=execution_config,
-        execution_capabilities=execution_capabilities,
-    )
-    _emit_resolution_notices(deferred_notices + runtime_notices)
-    return payload
 
 
 def infer_probe_size(data_file: Path) -> int:
@@ -913,7 +690,7 @@ def infer_probe_size(data_file: Path) -> int:
     Extract probe size (N) from NPZ metadata.
 
     Factored out from ptycho_torch/train.py:96-140 for reusability across
-    training and inference factories. Loads probeGuess array from NPZ dataset
+    training factories. Loads probeGuess array from NPZ dataset
     and extracts first dimension (assumes square probe).
 
     Args:
@@ -945,5 +722,3 @@ def infer_probe_size(data_file: Path) -> int:
     observation = observe_probe_size(data_file)
     _emit_resolution_notices(observation.notices)
     return observation.value
-
-

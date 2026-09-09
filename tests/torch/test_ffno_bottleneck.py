@@ -64,6 +64,21 @@ def test_ffno_bottleneck_generator_module_forward_preserves_shape():
     assert tuple(y.shape) == (2, 128, 32, 32)
 
 
+def test_ffno_generator_can_disable_spectral_weight_sharing():
+    from ptycho_torch.generators.ffno import FfnoGeneratorModule
+
+    model = FfnoGeneratorModule(
+        hidden_channels=8,
+        n_blocks=3,
+        modes=4,
+        cnn_blocks=0,
+        C=1,
+        share_spectral_weights=False,
+    )
+
+    assert len({id(block.shared_spectral) for block in model.blocks}) == 3
+
+
 def test_factorized_ffno_block_localconv_preserves_shape_and_exposes_explicit_branch():
     from ptycho_torch.generators.ffno_bottleneck import FactorizedFfnoBlock
     from ptycho_torch.generators.spectral_layers import FactorizedSpectralConv2d

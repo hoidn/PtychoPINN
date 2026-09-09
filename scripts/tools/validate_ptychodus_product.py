@@ -51,7 +51,7 @@ REQUIRED_DATASETS = [
     "probe_position_x_m",
     "probe_position_y_m",
     "object_layer_spacing_m",
-    "loss_values",  # required; can be empty
+    "loss_values",  # required; legacy readers also accept costs; can be empty
 ]
 
 
@@ -72,7 +72,7 @@ def validate_file(path: Path, source_npz: Path | None = None) -> Result:
 
         # Datasets presence
         for k in REQUIRED_DATASETS:
-            if k not in f:
+            if k not in f and not (k == "loss_values" and "costs" in f):
                 errs.append(f"missing dataset: {k}")
 
         # Probe checks

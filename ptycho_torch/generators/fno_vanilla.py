@@ -1,6 +1,5 @@
 """Constant-resolution FNO generator (baseline)."""
 import math
-from typing import Dict, Any
 
 import torch
 import torch.nn as nn
@@ -52,17 +51,3 @@ class FnoVanillaGeneratorModule(nn.Module):
         x = x.view(B, 2, self.C, H, W)
         x = x.permute(0, 3, 4, 2, 1)
         return x
-
-
-class FnoVanillaGenerator:
-    """Generator registry wrapper for constant-resolution FNO baseline."""
-
-    name = "fno_vanilla"
-
-    def __init__(self, config):
-        self.config = config
-
-    def build_model(self, pt_configs: Dict[str, Any]) -> "nn.Module":
-        from ptycho_torch.application_factory import build_ptychopinn_from_configs
-
-        return build_ptychopinn_from_configs(pt_configs)

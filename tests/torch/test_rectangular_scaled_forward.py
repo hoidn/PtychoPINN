@@ -20,7 +20,8 @@ and asserts:
    ``pred`` -- a quirk reproduced VERBATIM per amendment #2), which differ from
    fno-stable's default amplitude-domain ``PoissonLoss``/``MAELoss``. The
    rectangular path uses ``RectangularPoissonLoss``/``RectangularMAELoss``.
-3. The mode fails fast (``ValueError``) unless the object is real/imag-derived.
+3. ``rectangular_scaled`` requires an effective ``real_imag`` generator output
+   for every architecture; ``amp_phase`` is rejected at construction.
 4. The probe (and its mask, when configured) is resolved identically to the
    amplitude path before being handed to the rectangular module (amendment #3;
    id PROBE-MASK-DEFAULT-001).
@@ -215,26 +216,46 @@ def test_rectangular_bigT_parity_under_main_padding(fixture_path, monkeypatch):
     torch.testing.assert_close(mae, t["expected_mae"], rtol=1e-5, atol=1e-6)
 
 
-def test_rectangular_scaled_requires_real_imag_object():
-    """Fail fast: rectangular_scaled needs real/imag-derived object patches."""
+@pytest.mark.parametrize(
+    ("architecture", "output_kwargs"),
+    [
+        ("cnn", {"cnn_output_mode": "amp_phase"}),
+    ],
+    ids=["cnn"],
+)
+def test_rectangular_scaled_rejects_amp_phase_output(architecture, output_kwargs):
     data_cfg = DataConfig(N=64, gridsize=1)
     train_cfg = TrainingConfig()
-
-    # Default CNN emits amp/phase -> not real/imag -> must raise.
-    amp_phase_cfg = ModelConfig(
+    config = ModelConfig(
         object_big=False,
         physics_forward_mode="rectangular_scaled",
+        architecture=architecture,
+        **output_kwargs,
     )
-    with pytest.raises(ValueError, match="real/imag"):
-        PtychoPINN(amp_phase_cfg, data_cfg, train_cfg)
+    with pytest.raises(ValueError, match="rectangular_scaled.*real_imag.*amp_phase"):
+        PtychoPINN(config, data_cfg, train_cfg)
 
-    # CNN opt-in real/imag contract -> allowed.
-    real_imag_cfg = ModelConfig(
+
+@pytest.mark.parametrize(
+    ("architecture", "output_kwargs"),
+    [
+        ("cnn", {"cnn_output_mode": "real_imag"}),
+    ],
+    ids=["cnn"],
+)
+def test_rectangular_scaled_constructs_with_real_imag_output(
+    architecture, output_kwargs
+):
+    data_cfg = DataConfig(N=64, gridsize=1)
+    train_cfg = TrainingConfig()
+    config = ModelConfig(
         object_big=False,
         physics_forward_mode="rectangular_scaled",
-        cnn_output_mode="real_imag",
+        architecture=architecture,
+        **output_kwargs,
     )
-    PtychoPINN(real_imag_cfg, data_cfg, train_cfg)  # must not raise
+    model = PtychoPINN(config, data_cfg, train_cfg)
+    assert model.generator_output == "real_imag"
 
 
 def test_probe_mask_resolved_like_amplitude_path():

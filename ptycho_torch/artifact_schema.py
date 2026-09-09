@@ -54,6 +54,7 @@ from ptycho_torch.model_spec import (
     MODEL_SPEC_V1_MODEL_FIELDS,
     MODEL_SPEC_V2_MODEL_FIELDS,
     MODEL_SPEC_V3_MODEL_FIELDS,
+    MODEL_SPEC_V4_MODEL_FIELDS,
     ModelSpec,
     derive_model_spec,
 )
@@ -294,6 +295,7 @@ def upgrade_unversioned_sections(
     v1_model_fields: set[str] = set(MODEL_SPEC_V1_MODEL_FIELDS)
     v2_model_fields: set[str] = set(MODEL_SPEC_V2_MODEL_FIELDS)
     v3_model_fields: set[str] = set(MODEL_SPEC_V3_MODEL_FIELDS)
+    v4_model_fields: set[str] = set(MODEL_SPEC_V4_MODEL_FIELDS)
     current_model_fields: set[str] = _config_field_names(ModelConfig)
     if received_model_fields == v1_model_fields:
         model = resolve_torch_model_object_policy(
@@ -316,7 +318,7 @@ def upgrade_unversioned_sections(
                 },
             )
         )
-    elif received_model_fields == v3_model_fields:
+    elif received_model_fields in (v3_model_fields, v4_model_fields):
         model = resolve_torch_model_object_policy(
             ModelConfig(object_big=None, **raw_model)
         )
@@ -327,6 +329,7 @@ def upgrade_unversioned_sections(
             v1_model_fields,
             v2_model_fields,
             v3_model_fields,
+            v4_model_fields,
             current_model_fields,
         )
         closest = min(

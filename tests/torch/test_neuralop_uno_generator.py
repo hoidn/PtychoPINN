@@ -49,11 +49,33 @@ def test_neuralop_uno_rejects_multi_channel_grouping():
         NeuralopUnoGeneratorModule(C=2, output_mode="real_imag")
 
 
-def test_neuralop_uno_rejects_non_real_imag_output_modes():
+def test_neuralop_uno_supports_matched_amplitude_phase_head():
     from ptycho_torch.generators.neuralop_uno import NeuralopUnoGeneratorModule
 
-    with pytest.raises(ValueError, match="real_imag"):
-        NeuralopUnoGeneratorModule(C=1, output_mode="amp_phase")
+    module = NeuralopUnoGeneratorModule(C=1, output_mode="amp_phase")
+
+    amplitude, phase = module(torch.randn(1, 1, 128, 128))
+
+    assert amplitude.shape == (1, 1, 128, 128)
+    assert phase.shape == (1, 1, 128, 128)
+    assert torch.all((0.0 <= amplitude) & (amplitude <= 1.0))
+    assert torch.all((-torch.pi <= phase) & (phase <= torch.pi))
+
+
+def test_neuralop_uno_accepts_width_and_mode_overrides():
+    from ptycho_torch.generators.neuralop_uno import NeuralopUnoGeneratorModule
+
+    narrow = NeuralopUnoGeneratorModule(
+        C=1,
+        output_mode="real_imag",
+        hidden_channels=16,
+        modes=8,
+    )
+    default = NeuralopUnoGeneratorModule(C=1, output_mode="real_imag")
+
+    assert sum(parameter.numel() for parameter in narrow.parameters()) < sum(
+        parameter.numel() for parameter in default.parameters()
+    )
 
 
 def test_neuralop_uno_missing_dependency_raises_actionable_error(monkeypatch):
@@ -92,14 +114,10 @@ def test_neuralop_uno_incompatible_dependency_raises_actionable_error(monkeypatc
 
 
 def test_neuralop_uno_builds_unsupervised_lightning_with_uno_body():
-    from ptycho.config.config import ModelConfig, TrainingConfig
-    from ptycho_torch.generators.neuralop_uno import NeuralopUnoGenerator
+    from ptycho_torch.application_factory import build_ptychopinn_from_configs
     from ptycho_torch.model import PtychoPINN, PtychoPINN_Lightning
 
-    cfg = TrainingConfig(model=ModelConfig(architecture="neuralop_uno", N=128, gridsize=1))
-    generator = NeuralopUnoGenerator(cfg)
-
-    model = generator.build_model(_pt_configs(mode="Unsupervised"))
+    model = build_ptychopinn_from_configs(_pt_configs(mode="Unsupervised"))
 
     assert isinstance(model, PtychoPINN_Lightning)
     assert isinstance(model.model, PtychoPINN)
@@ -108,21 +126,10 @@ def test_neuralop_uno_builds_unsupervised_lightning_with_uno_body():
 
 
 def test_neuralop_uno_builds_supervised_lightning_with_same_uno_body():
-    from ptycho.config.config import ModelConfig, TrainingConfig
-    from ptycho_torch.generators.neuralop_uno import NeuralopUnoGenerator
+    from ptycho_torch.application_factory import build_ptychopinn_from_configs
     from ptycho_torch.model import PtychoPINN_Lightning, Ptycho_Supervised
 
-    cfg = TrainingConfig(
-        model=ModelConfig(
-            architecture="neuralop_uno",
-            model_type="supervised",
-            N=128,
-            gridsize=1,
-        )
-    )
-    generator = NeuralopUnoGenerator(cfg)
-
-    model = generator.build_model(_pt_configs(mode="Supervised"))
+    model = build_ptychopinn_from_configs(_pt_configs(mode="Supervised"))
 
     assert isinstance(model, PtychoPINN_Lightning)
     assert isinstance(model.model, Ptycho_Supervised)

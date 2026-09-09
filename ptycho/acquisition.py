@@ -501,6 +501,9 @@ def inspect_acquisition(
         str(source),
         coordinate_policy,
     )
+    label_shape = read_npz_array_shape(source, "label")
+    if label_shape is None:
+        label_shape = read_npz_array_shape(source, "Y")
     return AcquisitionHeader(
         diffraction_shape=diffraction_shape,
         xcoords=xcoords,
@@ -514,7 +517,7 @@ def inspect_acquisition(
         ),
         probe_shape=probe_shape,
         object_shape=read_npz_array_shape(source, "objectGuess"),
-        label_shape=read_npz_array_shape(source, "label"),
+        label_shape=label_shape,
     )
 
 
@@ -632,7 +635,7 @@ def decode_acquisition(
                 data["probe_simulated"] if "probe_simulated" in data else None
             ),
             object_amplitude_scale=_object_amplitude_scale(data, str(source)),
-            label=data["label"] if "label" in data else None,
+            label=data["label"] if "label" in data else truth,
             scale_contract_version=scale_contract_version,
             measurement_domain=measurement_domain,
             experiment_id=assigned_experiment_id,

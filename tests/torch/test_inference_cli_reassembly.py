@@ -7,15 +7,15 @@ uniform `helper.reassemble_patches_position_real` path, silently discarding both
 knobs (docs/superpowers/plans/2026-07-14-ci-paper-conformance-audit.md, Theme 2.1).
 
 These tests pin the fixed contract:
-- knobs unset  -> legacy uniform path, unchanged (bit-identical back-compat);
+- knobs unset -> barycentric reconstruction with uniform weighting;
 - `--patch-weighting probe` and/or `--varpro-scaling` -> reconstruction routes
   through `ptycho_torch.reassembly.reconstruct_image_barycentric` with the knobs
   forwarded on the inference config;
 - combinations the CLI path cannot satisfy raise ValueError naming the knob —
   never silent discard.
 
-All heavy functions (factory, bundle loader, dataset build, reassembly) are
-stubbed; assertions target routing, not physics. Stubbing patterns mirror
+The reconstruction boundary is stubbed; assertions target routing, not physics.
+The retired factory is a forbidden call. Stubbing patterns mirror
 tests/torch/test_cli_inference_torch.py.
 """
 
@@ -54,21 +54,6 @@ def cli_paths(tmp_path):
     }
 
 
-def _cli_stub_stack():
-    """Standard mock set so cli_main runs to the routing decision without IO."""
-    mock_factory = MagicMock()
-    mock_factory.return_value = MagicMock(
-        tf_inference_config=MagicMock(n_groups=32),
-        pt_data_config=MagicMock(),
-        pt_inference_config=MagicMock(log_patch_stats=False, patch_stats_limit=None),
-        execution_config=MagicMock(accelerator="cpu", num_workers=0,
-                                   inference_batch_size=None),
-    )
-    mock_bundle_loader = MagicMock(
-        return_value=({"diffraction_to_obj": MagicMock()}, {})
-    )
-    mock_raw_data = MagicMock()
-    return mock_factory, mock_bundle_loader, mock_raw_data
 
 
 class _ModelStub:
@@ -123,17 +108,14 @@ class TestCiVarproScalingGuard:
 
 class TestCliRouting:
     def _run_cli(self, argv, monkeypatch, barycentric_helper):
-        mock_factory, _, _ = _cli_stub_stack()
-
         with patch("ptycho_torch.cli.shared.validate_paths", MagicMock()), \
-             patch("ptycho_torch.config_factory.create_inference_payload", mock_factory), \
              patch("ptycho_torch.inference.reconstruct", barycentric_helper), \
              patch("ptycho_torch.inference.save_individual_reconstructions", MagicMock()):
             from ptycho_torch.inference import cli_main
 
-            monkeypatch.setattr("sys.argv", ["inference.py"] + argv)
+            monkeypatch.setattr("sys.argv", ["inference.py", *argv, "--accelerator", "cpu"])
             exit_code = cli_main()
-        return exit_code, mock_factory
+        return exit_code, barycentric_helper
 
     def test_default_routes_barycentric_kernel(self, cli_paths, monkeypatch):
         """Knobs unset: the barycentric kernel runs by default."""
@@ -166,8 +148,7 @@ class TestCliRouting:
         assert barycentric_helper.called, (
             "--patch-weighting probe must route through the barycentric helper"
         )
-        overrides = mock_factory.call_args.kwargs["overrides"]
-        assert overrides["patch_weighting"] == "probe"
+        assert mock_factory.call_args.kwargs["inference_config"].patch_weighting == "probe"
 
     def test_varpro_scaling_routes_barycentric(self, cli_paths, monkeypatch):
         """--varpro-scaling routes to the barycentric helper, knob threaded."""
@@ -184,8 +165,7 @@ class TestCliRouting:
         assert barycentric_helper.called, (
             "--varpro-scaling must route through the barycentric helper"
         )
-        overrides = mock_factory.call_args.kwargs["overrides"]
-        assert overrides["varpro_scaling"] is True
+        assert mock_factory.call_args.kwargs["inference_config"].varpro_scaling is True
 
 
 class TestPublicWorkflowCliDelegation:
@@ -208,14 +188,18 @@ class TestPublicWorkflowCliDelegation:
         assert args.varpro_scaling is True
         assert args.groups_per_center == 3
 
-    def test_native_barycentric_cli_delegates_without_preloading_bundle(
+    def test_native_inference_without_factory(
         self, cli_paths, monkeypatch
     ):
         """The public workflow owns the one strict model load."""
         from types import SimpleNamespace
         from ptycho_torch import inference
 
-        mock_factory, _, _ = _cli_stub_stack()
+        from ptycho import params
+        state = {"retirement_sentinel": "preserve"}
+        monkeypatch.setattr(params, "cfg", state)
+        monkeypatch.setattr(params, "_sealed", True)
+        mock_factory = MagicMock(side_effect=AssertionError("retired factory called"))
         public = MagicMock(
             return_value=SimpleNamespace(
                 amplitude=np.zeros((8, 8)),
@@ -237,12 +221,14 @@ class TestPublicWorkflowCliDelegation:
                 "--measurement-domain",
                 "normalized_amplitude",
                 "--quiet",
+                "--device", "cpu",
+                "--accelerator", "cpu",
             ],
         )
         with patch(
             "ptycho_torch.cli.shared.validate_paths", MagicMock()
         ), patch(
-            "ptycho_torch.config_factory.create_inference_payload", mock_factory
+            "ptycho_torch.config_factory.create_inference_payload", mock_factory, create=True
         ), patch(
             "ptycho_torch.workflows.bundle_io.load_inference_bundle_torch",
             side_effect=AssertionError("CLI preloaded the bundle"),
@@ -251,7 +237,16 @@ class TestPublicWorkflowCliDelegation:
         ):
             assert inference.cli_main() == 0
 
+        assert params.cfg is state
+        assert params.cfg == {"retirement_sentinel": "preserve"}
+        assert params._sealed is True
         public.assert_called_once()
+        knobs = public.call_args.kwargs["inference_config"]
+        assert knobs.patch_weighting == "probe"
+        assert knobs.varpro_scaling is False
+        assert knobs.log_patch_stats is False
+        assert knobs.patch_stats_limit is None
+        assert public.call_args.kwargs["num_workers"] == 0
         assert public.call_args.args[:2] == (
             cli_paths["model_dir"],
             cli_paths["test_file"],
@@ -262,13 +257,17 @@ class TestPublicWorkflowCliDelegation:
             == "normalized_amplitude"
         )
 
-    def test_unified_barycentric_cli_delegates_without_legacy_loader(
+    def test_unified_inference_without_factory(
         self, tmp_path, monkeypatch
     ):
         from types import SimpleNamespace
         from scripts.inference import inference
         from ptycho_torch import inference as torch_inference
 
+        from ptycho import params
+        state = {"retirement_sentinel": "preserve"}
+        monkeypatch.setattr(params, "cfg", state)
+        monkeypatch.setattr(params, "_sealed", True)
         model_dir = tmp_path / "training"
         model_dir.mkdir()
         test_npz = tmp_path / "test.npz"
@@ -328,12 +327,8 @@ class TestPublicWorkflowCliDelegation:
         from ptycho_torch.config_params import InferenceConfig as PTInferenceConfig
         monkeypatch.setattr(
             "ptycho_torch.config_factory.create_inference_payload",
-            lambda **_kwargs: SimpleNamespace(
-                pt_inference_config=PTInferenceConfig(
-                    patch_weighting="probe", varpro_scaling=False
-                ),
-                execution_config=execution_config,
-            ),
+            MagicMock(side_effect=AssertionError("retired factory called")),
+            raising=False,
         )
 
         with patch.object(
@@ -350,16 +345,21 @@ class TestPublicWorkflowCliDelegation:
             inference.main()
 
         assert exit_info.value.code == 0
+        assert params.cfg is state
+        assert params.cfg == {"retirement_sentinel": "preserve"}
+        assert params._sealed is True
         public.assert_called_once()
+        assert public.call_args.kwargs["inference_config"].patch_weighting == "probe"
+        assert public.call_args.kwargs["inference_config"].varpro_scaling is False
+        assert public.call_args.kwargs["inference_batch_size"] == 2
         save.assert_called_once()
 
     def _installed_door_env(self, tmp_path, monkeypatch, *, config_extra=None,
                             args_extra=None):
-        """Common installed-door harness: real dispatcher, stubbed factory IO."""
+        """Real dispatcher/runtime resolution, mocked reconstruction boundary."""
         from types import SimpleNamespace
         from scripts.inference import inference
         from ptycho_torch import inference as torch_inference
-        from ptycho_torch.config_params import InferenceConfig as PTInferenceConfig
 
         model_dir = tmp_path / "training"
         model_dir.mkdir(exist_ok=True)
@@ -382,61 +382,43 @@ class TestPublicWorkflowCliDelegation:
             torch_num_workers=0, torch_inference_batch_size=2,
             **(args_extra or {}),
         )
-        execution_config = SimpleNamespace(
-            accelerator="cpu", num_workers=0, inference_batch_size=2,
-            precision="32-true",
-        )
-        factory = MagicMock(
-            return_value=SimpleNamespace(
-                pt_inference_config=PTInferenceConfig(),
-                execution_config=execution_config,
-            )
-        )
         monkeypatch.setattr(inference, "parse_arguments", lambda: args)
         monkeypatch.setattr(
             inference, "setup_inference_configuration", lambda *_a: config
         )
-        monkeypatch.setattr(
-            "ptycho_torch.cli.shared.build_execution_request_from_args",
-            lambda *_a, **_k: SimpleNamespace(explicit_fields=frozenset()),
-        )
-        monkeypatch.setattr(
-            "ptycho_torch.config_factory.create_inference_payload", factory
-        )
+        monkeypatch.setattr("sys.argv", ["inference.py", "--torch-accelerator", "cpu"])
+        public = MagicMock(return_value=SimpleNamespace(
+            amplitude=np.ones((8, 8)), phase=np.zeros((8, 8))))
         monkeypatch.setattr(
             torch_inference,
             "reconstruct",
-            MagicMock(return_value=SimpleNamespace(
-                amplitude=np.ones((8, 8)), phase=np.zeros((8, 8)))),
+            public,
             raising=False,
         )
-        return inference, factory, config
+        return inference, public, config
 
-    def test_installed_door_forwards_required_n_groups_default(
+    def test_installed_door_omitted_count_preserves_defaults(
         self, tmp_path, monkeypatch
     ):
-        """The factory hard-requires n_groups; the dispatcher must supply it.
-
-        Pins the P0 review finding: overrides without n_groups make every
-        real --backend pytorch run fail inside create_inference_payload.
-        """
         inference, factory, _ = self._installed_door_env(tmp_path, monkeypatch)
         with patch.object(inference, "save_reconstruction_images"), \
              pytest.raises(SystemExit) as exit_info:
             inference.main()
         assert exit_info.value.code == 0
-        overrides = factory.call_args.kwargs["overrides"]
-        assert overrides["inference_groups"] == 32  # native-door default
+        knobs = factory.call_args.kwargs["inference_config"]
+        assert knobs.patch_weighting == "uniform"
+        assert knobs.varpro_scaling is False
+        assert factory.call_args.kwargs["groups_per_center"] == 1
 
-    def test_installed_door_forwards_explicit_n_groups(self, tmp_path, monkeypatch):
+    def test_installed_door_rejects_explicit_n_groups(self, tmp_path, monkeypatch):
         inference, factory, _ = self._installed_door_env(
             tmp_path, monkeypatch, config_extra={"inference_groups": 7}
         )
         with patch.object(inference, "save_reconstruction_images"), \
              pytest.raises(SystemExit) as exit_info:
             inference.main()
-        assert exit_info.value.code == 0
-        assert factory.call_args.kwargs["overrides"]["inference_groups"] == 7
+        assert exit_info.value.code == 1
+        factory.assert_not_called()
 
     def test_installed_door_rejects_tf_sampling_flags_on_pytorch(
         self, tmp_path, monkeypatch

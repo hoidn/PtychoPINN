@@ -141,6 +141,38 @@ def test_frozen_object_bank_loader_binds_exact_arrays_and_source_identity(tmp_pa
     }
 
 
+def test_flat_workflow_accepts_source_backed_same_fov_canvas(tmp_path):
+    from ptycho.simulation.flat_acquisition import validate_flat_acquisition_workflow
+
+    source = tmp_path / "objects-2x.npz"
+    canvas = np.ones((1, 784, 784), dtype=np.complex64)
+    np.savez(source, trainObjectGuess=canvas, testObjectGuess=canvas)
+    resolved = resolve_synthetic_workflow(
+        profile="synthetic-lines",
+        file_values={
+            "simulation": {
+                "N": 256,
+                "train_patterns": 2,
+                "test_patterns": 2,
+                "object_recipe": "frozen-object-bank-v1",
+                "object": {
+                    "image_size": [784, 784],
+                    "source_path": source,
+                },
+                "scan": {"buffer": 128},
+            },
+            "training": {
+                "train_raw_selection": 2,
+                "training_groups": 2,
+                "validation_groups": 2,
+                "neighbor_count": 1,
+            },
+        },
+    )
+
+    validate_flat_acquisition_workflow(resolved)
+
+
 def test_frozen_object_bank_loader_hashes_the_exact_loaded_byte_snapshot(
     tmp_path,
     monkeypatch,

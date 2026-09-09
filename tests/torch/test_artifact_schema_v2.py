@@ -66,7 +66,7 @@ def _v1_model_spec_payload(spec):
     }
 
 
-def test_new_artifact_identity_is_current_era_with_nested_model_spec_v3():
+def test_new_artifact_identity_is_current_era_with_nested_model_spec_v4():
     from ptycho_torch.artifact_schema import (
         CURRENT_ARTIFACT_SCHEMA_VERSION,
         decode_artifact_identity,
@@ -78,7 +78,7 @@ def test_new_artifact_identity_is_current_era_with_nested_model_spec_v3():
 
     assert CURRENT_ARTIFACT_SCHEMA_VERSION == "torch-artifact-v5"
     assert payload["schema_version"] == "torch-artifact-v5"
-    assert payload["model_spec"]["schema_version"] == "torch-model-spec-v3"
+    assert payload["model_spec"]["schema_version"] == "torch-model-spec-v4"
     decoded = decode_artifact_identity(payload)
     assert decoded.model_spec.to_model_config() == spec.to_model_config()
 
@@ -125,7 +125,7 @@ def test_outer_artifact_v1_with_nested_model_spec_v1_upgrades_to_v2():
 
     decoded = decode_artifact_identity(payload)
 
-    assert decoded.model_spec.schema_version == "torch-model-spec-v3"
+    assert decoded.model_spec.schema_version == "torch-model-spec-v4"
     assert decoded.model_spec.to_model_config() == spec.to_model_config()
     # A successful pre-v5 C1 decode exposes the current grouping contract.
     assert decoded.grouping_contract == CENTERED_NEAREST_GROUPING_CONTRACT
@@ -182,7 +182,7 @@ def test_artifact_v5_roundtrip_preserves_identity_and_declares_v5_fields():
     payload = encode_artifact_identity(spec, data, training, inference)
 
     assert payload["schema_version"] == ARTIFACT_SCHEMA_V5_VERSION
-    assert payload["model_spec"]["schema_version"] == "torch-model-spec-v3"
+    assert payload["model_spec"]["schema_version"] == "torch-model-spec-v4"
     # v5 data section declares the derived/renamed fields, not the stored ones.
     assert payload["data_config"]["gridsize"] == data.gridsize
     assert payload["data_config"]["n_raw_frames_selected"] == data.n_raw_frames_selected
@@ -290,7 +290,7 @@ def test_artifact_v5_rejects_unknown_model_spec_field_on_decode():
     spec, data, training, inference = _identity_sections()
     payload = encode_artifact_identity(spec, data, training, inference)
     payload["model_spec"]["model_config"]["future_default"] = True
-    with pytest.raises(ValueError, match="v3.*unknown=.*future_default"):
+    with pytest.raises(ValueError, match="v4.*unknown=.*future_default"):
         decode_artifact_identity(payload)
 
 

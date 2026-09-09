@@ -138,6 +138,11 @@ def parse_arguments() -> argparse.Namespace:
                        dest='groups_per_center', default=argparse.SUPPRESS,
                        help="Fresh coordinate groups drawn per eligible center "
                             "on the PyTorch mmap barycentric path (default: 1).")
+    parser.add_argument("--patch-phase-alignment", choices=['none', 'overlap'],
+                       dest='patch_phase_alignment', default=argparse.SUPPRESS,
+                       help="Fit one phase constant per patch from the patch "
+                            "overlaps before the final stitch on the PyTorch "
+                            "path: 'none' (default) or 'overlap'.")
     # Torch execution flags (only apply when --backend pytorch).
     parser.add_argument("--torch-accelerator", type=str, default=argparse.SUPPRESS,
                        dest='torch_accelerator',
@@ -705,16 +710,13 @@ def _dispatch_pytorch_inference(config: InferenceConfig, args: argparse.Namespac
     """Run a ``backend='pytorch'`` request through the torch reconstruction kernel.
 
     ``ptycho_inference`` is the single installed inference door. For the
-    PyTorch backend it orchestrates the torch factory chain directly
-    (``build_execution_request_from_args`` -> ``create_inference_payload``
-    -> ``reconstruct``), then saves through the door's own
+    PyTorch backend it resolves runtime settings and calls ``reconstruct``,
+    then saves through the door's own
     ``save_reconstruction_images`` so the artifact contract
     (``reconstructed_amplitude.png`` / ``reconstructed_phase.png``) is shared
     with the TensorFlow path. It SHALL NOT touch the legacy bundle loader or
-    legacy data loader. Sampling intent: ``--inference-groups`` (or the deprecated
-    ``--n_images`` alias, migrated by setup) is forwarded to the factory;
-    ``--inference-raw-selection``/``--subsample-seed`` are TF-door semantics and are
-    rejected loudly rather than silently dropped.
+    legacy data loader. TensorFlow sampling/count options are rejected: Torch
+    reconstruction processes the full scan.
     """
     try:
         import torch  # noqa: F401  (lazy: only on the PyTorch path)
@@ -730,7 +732,9 @@ def _dispatch_pytorch_inference(config: InferenceConfig, args: argparse.Namespac
         build_execution_request_from_args,
         validate_paths,
     )
-    from ptycho_torch.config_factory import create_inference_payload
+    from ptycho_torch.config_params import InferenceConfig as PTInferenceConfig
+    from ptycho_torch.config_resolution import _validate_inference_domains
+    from ptycho_torch.execution_request import resolve_runtime_execution_request
     from ptycho_torch.inference import (
         reconstruct,
         resolve_device_and_precision,
@@ -744,8 +748,12 @@ def _dispatch_pytorch_inference(config: InferenceConfig, args: argparse.Namespac
     if tf_door_sampling:
         raise ValueError(
             f"Flags {sorted(tf_door_sampling)} carry TensorFlow-door sampling "
-            "semantics and are not honored by '--backend pytorch'; use "
-            "--inference-groups (or drop them)."
+            "semantics and are not honored by '--backend pytorch'; drop them."
+        )
+    if config.inference_groups is not None:
+        raise ValueError(
+            "inference_groups (--inference_groups/--n_groups/--n_images) is not "
+            "honored by '--backend pytorch'; drop the count to reconstruct the full scan."
         )
 
     model_path = Path(config.model_path)
@@ -765,26 +773,15 @@ def _dispatch_pytorch_inference(config: InferenceConfig, args: argparse.Namespac
         lane='unified-inference',
     )
 
-    overrides = {
-        # inference_groups is the canonical inference group-count key;
-        # setup_inference_configuration already migrated --n_images into
-        # config.inference_groups. 32 matches the native torch door's default.
-        'inference_groups': (
-            config.inference_groups if config.inference_groups is not None else 32
-        ),
-        'patch_weighting': getattr(args, 'patch_weighting', 'uniform'),
-        'varpro_scaling': getattr(args, 'varpro_scaling', False),
-    }
-    payload = create_inference_payload(
-        model_path=model_path,
-        test_data_file=test_data_path,
-        output_dir=output_dir,
-        overrides=overrides,
-        execution_config=execution_request,
+    inference_config = PTInferenceConfig(
+        patch_weighting=getattr(args, 'patch_weighting', 'uniform'),
+        varpro_scaling=getattr(args, 'varpro_scaling', False),
     )
-    # The factory resolves the execution request once; reuse its resolution
-    # (cli_main does the same) instead of re-resolving here.
-    execution_config = payload.execution_config
+    _validate_inference_domains(inference_config)
+    runtime = resolve_runtime_execution_request(execution_request, mode="inference")
+    for notice in runtime.notices:
+        warnings.warn(notice.message, notice.category, stacklevel=2)
+    execution_config = runtime.config
     device, precision = resolve_device_and_precision(execution_config)
 
     result = reconstruct(
@@ -792,7 +789,8 @@ def _dispatch_pytorch_inference(config: InferenceConfig, args: argparse.Namespac
         test_data_path,
         work_dir=output_dir,
         groups_per_center=getattr(args, 'groups_per_center', 1),
-        inference_config=payload.pt_inference_config,
+        patch_phase_alignment=getattr(args, 'patch_phase_alignment', 'none'),
+        inference_config=inference_config,
         device=device,
         num_workers=int(execution_config.num_workers or 0),
         inference_batch_size=execution_config.inference_batch_size,
@@ -822,6 +820,7 @@ def main():
         pytorch_only = [
             name for name in (
                 'patch_weighting', 'varpro_scaling', 'groups_per_center',
+                'patch_phase_alignment',
                 'torch_accelerator', 'torch_num_workers',
                 'torch_inference_batch_size',
             )

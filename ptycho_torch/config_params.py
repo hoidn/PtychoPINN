@@ -1,3 +1,4 @@
+from ptycho._architecture_names import _Architecture
 from dataclasses import dataclass, field, replace
 import math
 from pathlib import Path
@@ -68,13 +69,15 @@ class ModelConfig:
     """Configuration parameters related to the model architecture and behavior."""
     #Mode Category
     mode: Literal['Supervised', 'Unsupervised'] = 'Unsupervised' # Training mode, affects all aspects of model
-    architecture: Literal[
-        'cnn', 'ffno', 'fno', 'fno_vanilla', 'neuralop_uno'
-    ] = 'cnn'  # Generator architecture selection
+    architecture: _Architecture = 'cnn'  # Generator architecture selection
     fno_modes: int = 12
     fno_width: int = 32
     fno_blocks: int = 4
     fno_cnn_blocks: int = 2
+    vit_patch_size: int = 4
+    vit_width: int = 256
+    vit_depth: int = 12
+    vit_heads: int = 4
     learned_input_channels: int = 1
     fno_input_transform: Literal['none', 'sqrt', 'log1p', 'instancenorm'] = 'none'
     max_hidden_channels: Optional[int] = None
@@ -99,8 +102,9 @@ class ModelConfig:
     #   CONSTRAINT (Amendment #13): the two heads carry main's hardwired ScaledTanh
     #   box -- real via tanh+0.2 (range (-0.8, 1.2)) and imag via 1.2*tanh (range
     #   (-1.2, 1.2)). The real floor -0.8 makes a unit-amplitude object at |phase|->pi
-    #   (real ~ -1, imag ~ 0) UNRECONSTRUCTABLE in real_imag mode. Use 'amp_phase'
-    #   (pi*tanh phase head, no such box) for high-phase-contrast objects. See
+    #   (real ~ -1, imag ~ 0) UNRECONSTRUCTABLE in real_imag mode. On the amplitude
+    #   forward, use 'amp_phase' (pi*tanh phase head, no such box) for
+    #   high-phase-contrast objects; rectangular_scaled requires effective real_imag. See
     #   docs/plans/2026-07-01-varpro-ablation-phase1-findings.md (Phase-1 findings)
     #   and plan-amendments-pending.md finding #13.
     cnn_output_mode: Literal['amp_phase', 'real_imag'] = 'amp_phase'
@@ -174,12 +178,14 @@ class ModelConfig:
     # B5 (Task 2.6): forward-model physics parameterization. 'amplitude' = the
     # unchanged fno-stable ProbeIllumination -> pad_and_diffract -> inv_scale
     # amplitude chain (default, byte-stable). 'rectangular_scaled' routes the
-    # object patches through RectangularScaledDiffraction (main's analytic
-    # real/imag intensity model with folded probe/physics scaling); it requires
-    # real/imag-derived object patches (see PtychoPINN.__init__ fail-fast).
+    # directly learned real/imag object textures through
+    # RectangularScaledDiffraction and requires an effective 'real_imag'
+    # generator output. cnn_output_mode and generator_output_mode retain their
+    # distinct architecture ownership.
     physics_forward_mode: Literal['amplitude', 'rectangular_scaled'] = 'amplitude'
     # Whether RectangularScaledDiffraction's s1/s2 scale parameters are trainable
-    # (only consulted when physics_forward_mode='rectangular_scaled').
+    # on the object-plane real/imag components (only consulted when
+    # physics_forward_mode='rectangular_scaled').
     rect_s1s2_trainable: bool = True
     # Initialization of s1/s2. 'ones' preserves unit initialization;
     # CI-only 'dose_closure' solves a shared gauge from the fixed-seed uniform
@@ -222,11 +228,21 @@ class ModelConfig:
 
         for name in (
             'ffno_encoder_blocks',
+            'vit_patch_size',
+            'vit_width',
+            'vit_depth',
+            'vit_heads',
         ):
             if getattr(self, name) <= 0:
                 raise ValueError(f"{name} must be positive")
         if self.ffno_encoder_modes is not None and self.ffno_encoder_modes <= 0:
             raise ValueError("ffno_encoder_modes must be positive when set")
+        if 128 % self.vit_patch_size:
+            raise ValueError("vit_patch_size must divide 128")
+        if self.vit_width % self.vit_heads or (self.vit_width // self.vit_heads) % 4:
+            raise ValueError(
+                "vit_width must be divisible by vit_heads with head dimension divisible by 4"
+            )
         if not isinstance(self.ffno_encoder_norm, str) or not self.ffno_encoder_norm:
             raise ValueError("ffno_encoder_norm must be a non-empty string")
         validate_rect_s1s2_initialization_mode(self.rect_s1s2_init)

@@ -7,8 +7,8 @@ This guide has two layers:
   canonical/Torch split, `ModelSpec`, artifact versions, and the legacy bridge.
 
 Dataclass defaults describe valid raw construction. They are not necessarily the
-best scientific starting point. Use [Model Baselines](model_baselines.md) for
-the current recommended combinations.
+best scientific starting point. The [PyTorch workflow](workflows/pytorch.md)
+documents supported combinations, not a ranking of reconstruction quality.
 
 ## Which Configuration Should I Use?
 
@@ -101,7 +101,7 @@ The default profile is `synthetic-lines` (recipe
 | Probe | Ideal probe at scale 0.7, `smooth:0.5|pad_preserve:128`, simulation and model masks off |
 | Raw acquisitions | 4,096 train patterns and 1,024 test patterns, normalized-amplitude legacy contract |
 | Grouping | `dictionary_parity` data adapter, 4,096 selected train frames, 1,024 train groups, 1,024 validation groups, four-neighbor pool |
-| Model | Unsupervised `hybrid_resnet`, geometry-derived object/probe layout, derived amplitude physics gain |
+| Model | Unsupervised `cnn`, geometry-derived object/probe layout, derived amplitude physics gain |
 | Optimization | 50 epochs, batch 16, Adam at `2e-4`, `ReduceLROnPlateau`, MAE with prediction-L2 matching |
 | Reconstruction | Probe-weighted mmap barycentric assembly, VarPro on, `groups_per_center=1` |
 | Execution | One auto-selected device, deterministic FP32, zero workers, CSV logging, best checkpoint |
@@ -109,7 +109,7 @@ The default profile is `synthetic-lines` (recipe
 The shortest full invocation is therefore:
 
 ```bash
-ptycho_synthetic --output-root outputs/synthetic-hybrid-resnet
+ptycho_synthetic --output-root outputs/synthetic-lines
 ```
 
 ### Synthetic object producer selection
@@ -247,8 +247,7 @@ raw-source object gauge can be restored exactly once.
 ### Structured GS2 example
 
 This config selects an ordinary five-epoch GS2/custom-probe experiment. It is
-not one of the sealed quality gates; those are CNN GS1/C1, GS2/C4,
-and C4-CI (count-intensity), documented in `docs/TESTING_GUIDE.md`. The 4,096
+not a sealed quality gate. The 4,096
 training groups and 1,024 validation groups
 are independent counts; validation is built from the complete test acquisition
 rather than copied from the train count.
@@ -278,7 +277,7 @@ inference:
   groups_per_center: 1
 
 workflow:
-  output_root: outputs/synthetic-hybrid-resnet-gs2
+  output_root: outputs/synthetic-lines-gs2
   accelerator: auto
   devices: 1
 ```
@@ -339,7 +338,7 @@ training-only `ci` profile and this `ptycho_synthetic` CI profile default to
 simulation identity. Read the result at
 `<output_root>/training/training_summary.json`; see
 [Data Normalization](DATA_NORMALIZATION_GUIDE.md#ci-gauge-initialization-is-not-calibration)
-for its interpretation and the [core contract](specs/spec-ptycho-core.md#ci-rectangular-gauge-initialization-normative)
+for its interpretation and the [core contract](../specs/data_contracts.md)
 for the fixed representative-sampling and record rules.
 
 The name *dose closure* refers to closing the fixed sample's aggregate count
@@ -364,7 +363,7 @@ The training-only profile locks these coherent contract fields:
 |---|---|---|
 | `scale_contract_version` | `ci_intensity_v2` | Selects the versioned scaling and units contract persisted with the resolved model and artifact. It is an identity tag, not a numerical multiplier. |
 | `measurement_domain` | `count_intensity` | Declares that NPZ diffraction contains detector counts/intensity rather than normalized amplitude. |
-| `physics_forward_mode` | `rectangular_scaled` | Selects the real/imaginary intensity forward with per-dataset `s1`/`s2` gauge factors. |
+| `physics_forward_mode` | `rectangular_scaled` | Requires effective `real_imag` output and scales the directly learned object-plane real/imag textures with `s1`/`s2` before probe multiplication and the FFT. |
 | `torch_loss_mode` | `poisson` | Selects the primary Torch/Lightning Poisson objective that compares predicted intensity with measured counts. |
 | `loss_function` | `Poisson` | Keeps the shared/legacy model loss identity aligned; it does not override `torch_loss_mode` in Lightning. |
 
@@ -373,16 +372,22 @@ It also supplies these overrideable non-contract defaults:
 | Field | Default | Meaning |
 |---|---|---|
 | `amplitude_physics_gain` | `1.0` | Adds no legacy amplitude-forward gain. Normal validation requires exactly `1.0` while the rectangular forward is active. |
-| `rect_s1s2_trainable` | `True` | Lets the optimizer update the per-dataset real/imaginary gauge factors after initialization. |
+| `rect_s1s2_trainable` | `True` | Lets the optimizer update the object-plane real/imaginary component scales in the selected acquisition gauge after initialization. |
 | `rect_s1s2_init` | `dose_closure` | Solves the fixed representative startup gauge before fitting. Explicit `ones` starts `s1=s2=1` without reading training data. |
 | `cnn_output_mode` | `real_imag` | Makes CNN heads represent real and imaginary object components. Non-CNN generators use their `generator_output_mode` contract. |
 
-`cnn_output_mode` and `physics_forward_mode` are coupled but not aliases: the
-first chooses the CNN's object representation, while the second chooses the
-downstream diffraction/scaling calculation and its prediction domain. The CI
-profile selects both because `rectangular_scaled` requires an effective
-real/imaginary generator output; real/imaginary output can also be used with the
-amplitude forward. See the
+`cnn_output_mode` and `physics_forward_mode` are distinct knobs, not freely
+composable ones: the first chooses the CNN representation while the second
+chooses the downstream forward. CNNs expose `amp_phase` and `real_imag` through
+`cnn_output_mode`; registered generators additionally expose the
+amplitude/phase-derived `amp_phase_logits` contract through
+`generator_output_mode`. The amplitude forward accepts effective `amp_phase`,
+`amp_phase_logits`, or `real_imag` output. `rectangular_scaled` rejects both
+amplitude/phase-derived modes and accepts only effective `real_imag`, because
+its `s1`/`s2` factors act on the directly learned object-plane real and
+imaginary textures before probe multiplication and the FFT. Model construction
+enforces this after effective generator resolution, so incompatible CNN and
+registered-generator configurations fail before training. See the
 [PyTorch output/forward compatibility matrix](workflows/pytorch.md#35-cnn-output-and-physics-forward-knobs).
 
 An explicit contradiction of a locked field fails closed. User overrides win
@@ -427,7 +432,7 @@ coordinate per row. The loader alone constructs `C = gridsize ** 2` channel
 groups for model input. In the default profile, persisted
 `DataConfig.n_raw_frames_selected=4096` records raw train selection;
 `groups_per_center` is a runtime inference argument (default 1) and is never
-persisted in the torch-artifact-v4 wire. These two values must not be
+persisted in the artifact identity. These two values must not be
 interpreted as the same sample count.
 
 The workflow also keeps the generic `do_stitching` path disabled. That older
@@ -487,7 +492,7 @@ inherited from one another, and the current factory does not infer a model mask
 from simulation lineage. Canonically generated datasets record the simulation
 recipe and probe hashes so the relationship can be audited.
 
-See [Data Generation](DATA_GENERATION_GUIDE.md) for probe construction and
+See [Data Generation](../scripts/simulation/README.md) for probe construction and
 [Data Normalization](DATA_NORMALIZATION_GUIDE.md) for the legacy and CI probe
 representations.
 
@@ -549,8 +554,8 @@ representations are not co-equal sources of truth:
 |---|---|---|
 | `ptycho.config.config` dataclasses | Public/shared configuration contract and legacy projection | Yes, when using the Python API |
 | Factory-resolved `ptycho_torch.config_params` dataclasses | Torch data, topology, physics, training, and inference carriers after defaults, aliases, and object policy are materialized | Usually no; use the closed factory or a study wrapper |
-| `TrainingPayload` / `InferencePayload` | Phase-local bundle returned by the factory | No; consume it |
-| `ModelSpec("torch-model-spec-v2")` | Derived, sealed Torch graph/state identity used for construction and reload | No |
+| `TrainingPayload` | Training bundle returned by the factory; inference uses strict reload plus runtime arguments | No; consume it |
+| `ModelSpec("torch-model-spec-v4")` | Derived, sealed Torch graph/state identity used for construction and reload | No |
 | `ExecutionRequest` | Explicit unresolved Torch runtime/Trainer request with presence provenance | Yes, normally through the CLI or request builder |
 | `PyTorchExecutionConfig` | Capability-resolved runtime output; never an unresolved request or model/training owner | No |
 | `ptycho.params.cfg` | Flat compatibility projection for legacy consumers | Never as a new configuration source |
@@ -578,7 +583,7 @@ User / study / CLI values + optional ExecutionRequest
               ├─ shared model fields + Torch extensions + data joins
               │                         │
               │                         ▼
-              │              ModelSpec("torch-model-spec-v2")
+              │              ModelSpec("torch-model-spec-v4")
               │                         │
               │                         ▼
               │                 application factory
@@ -617,14 +622,15 @@ independent of later mutable defaults.
 
 Current Torch artifacts use:
 
-- `torch-model-spec-v3` for sealed model identity;
-- `torch-artifact-v4` for the enclosing data/model/training/inference identity.
+- `torch-model-spec-v4` for sealed model identity;
+- `torch-artifact-v5` for the enclosing data/model/training/inference identity.
 
-The runtime load paths accept `torch-artifact-v3` and `torch-artifact-v4`.
-Pre-v3 (v1/v2) artifacts are recovered through
-`python -m ptycho_torch.migrate_bundle`, which deterministically upgrades them
-to the current era. TensorFlow artifact formats are unchanged by this Torch
-schema migration.
+Runtime loading accepts v3 through v5; v1/v2 bundles require
+`python -m ptycho_torch.migrate_bundle`. Every pre-v5 upgrade is restricted to
+C1: C>1 payloads fail closed because their grouping semantics cannot be
+reinterpreted as centered-nearest. Only v5 is writable. See the
+[persistence contract](../specs/ptychodus_api_spec.md).
+TensorFlow artifact formats are unchanged.
 
 ### Validation Boundaries
 
@@ -698,7 +704,7 @@ legacy/archive/TensorFlow leaves. Supported modern Torch cores consume their
 resolved payloads directly and do not read the global dictionary.
 
 For the normative field mappings and CONFIG-001 lifecycle rules, see
-[Configuration Bridge Specification](specs/spec-ptycho-config-bridge.md).
+[Configuration Bridge Specification](workflows/pytorch.md).
 
 ## Usage
 
@@ -748,6 +754,10 @@ the dataclasses in `ptycho_torch/config_params.py` define types and defaults.
 | `fno_width` | `model` |
 | `fno_blocks` | `model` |
 | `fno_cnn_blocks` | `model` |
+| `vit_patch_size` | `model` |
+| `vit_width` | `model` |
+| `vit_depth` | `model` |
+| `vit_heads` | `model` |
 | `learned_input_channels` | `model` |
 | `fno_input_transform` | `model` |
 | `max_hidden_channels` | `model` |
@@ -875,7 +885,7 @@ Supported probe pipeline operations are ordered and composable:
 
 The available outer-only form is `smooth:0.5|pad_extrapolate_boundary_matched:128`: smoothing happens before extension, and no post-extension operation may alter the copied center. It remains useful when exact source-center preservation is the intended probe contract, but it is not the locked GS2/custom-probe recipe above. Changing a pipeline changes the simulation and dataset recipe digests; it cannot reuse a dataset generated by another pipeline.
 
-Grid-lines generation writes beneath `<output_dir>/datasets/N<N>/gs<gridsize>/simulation-<simulation_config_sha256>/`. Explicit-output simulation records both `simulation_config_sha256` and `dataset_recipe_sha256` and rejects mismatched reuse; see the [Data Generation Guide](DATA_GENERATION_GUIDE.md).
+Grid-lines generation writes beneath `<output_dir>/datasets/N<N>/gs<gridsize>/simulation-<simulation_config_sha256>/`. Explicit-output simulation records both `simulation_config_sha256` and `dataset_recipe_sha256` and rejects mismatched reuse; see the [Data Generation Guide](../scripts/simulation/README.md).
 
 ```toml
 [simulation]
@@ -921,9 +931,10 @@ config, construction, `ModelSpec`, training, and inference boundaries.
 `ptycho/config/config.py`. Torch-only extensions—including
 `rect_s1s2_init` and the generator-specific rows marked below—are defined by
 `ptycho_torch.config_params.ModelConfig`. Consult both dataclasses for the full
-field lists and `docs/specs/spec-ptycho-config-bridge.md` §3 for ownership.
-The shared `architecture` field's authoritative 14-value `Literal` lives on
-the public dataclass.
+field lists for ownership.
+Both model dataclasses use the shared architecture `Literal` in
+`ptycho/_architecture_names.py`; its public enumeration is documented in the
+configuration bridge spec.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -931,13 +942,12 @@ the public dataclass.
 | `gridsize` | `int` | `1` | For PINN models, the number of neighboring patches to process together (e.g., 2 for a 2×2 grid). For supervised models, this defines the input channel depth. |
 | `n_filters_scale` | `int` | `2` | A multiplier for the number of filters in the U-Net's convolutional layers. |
 | `model_type` | `Literal['pinn', 'supervised']` | `'pinn'` | The type of model to use. 'pinn' is the main physics-informed model. |
-| `architecture` | `ModelConfig.architecture` literal | `'cnn'` | The generator architecture for PINN models. The authoritative literal set lives in `ModelConfig` in `ptycho/config/config.py` and is mirrored in `docs/specs/spec-ptycho-config-bridge.md` §3. Common PyTorch options include `ffno`, `fno`, `hybrid`, `stable_hybrid`, `fno_vanilla`, `neuralop_uno`, `hybrid_resnet`, and the spectral/hybrid bottleneck variants. See `docs/architecture_torch.md` §4.1. |
-| `fno_modes` | `int` | `12` | Number of spectral modes retained in FNO/Hybrid spectral convolutions (PyTorch only). |
-| `fno_width` | `int` | `32` | Hidden channel width for FNO/Hybrid blocks (PyTorch only). |
-| `fno_blocks` | `int` | `4` | Number of spectral blocks in the FNO/Hybrid encoder (PyTorch only). |
+| `architecture` | Shared architecture literal | `'cnn'` | Select `cnn`, `ffno`, `fno`, `fno_vanilla`, `fno_li`, `neuralop_uno`, or `vit`; see `ptycho/_architecture_names.py`. |
+| `fno_modes` | `int` | `12` | Number of spectral modes retained in FNO spectral convolutions (PyTorch only). |
+| `fno_width` | `int` | `32` | Hidden channel width for FNO blocks (PyTorch only). |
+| `fno_blocks` | `int` | `4` | Number of spectral blocks in the FNO encoder (PyTorch only). |
 | `fno_cnn_blocks` | `int` | `2` | Number of local CNN refiner blocks for PyTorch FNO-family generators. For `architecture='fno'`, this is the Cascaded FNO refiner count. For `architecture='ffno'`, positive values create a local-refiner proxy after the factorized Fourier stack; paper-facing pure FFNO rows must set `fno_cnn_blocks=0`. |
-| `fno_input_transform` | `Literal['none','sqrt','log1p','instancenorm']` | `'none'` | Optional input dynamic-range transform for FNO/Hybrid lifter (PyTorch only). |
-| `resnet_width` | `Optional[int]` | `None` | Fixed bottleneck width for `hybrid_resnet`. Must be divisible by 4 when set (PyTorch only). |
+| `fno_input_transform` | `Literal['none','sqrt','log1p','instancenorm']` | `'none'` | Optional input dynamic-range transform for FNO lifter (PyTorch only). |
 | `amp_activation` | `str` | `'sigmoid'` | The activation function for the amplitude output layer. Choices: 'sigmoid', 'swish', 'softplus', 'relu'. |
 | `object_layout` | `Optional[Literal['single_patch','grouped_patches']]` | `None` | Public component-layout policy. Must be supplied with `training_canvas`; omitted fields resolve through the compatibility policy. |
 | `training_canvas` | `Optional[Literal['independent','relative_overlap']]` | `None` | Public training-canvas policy paired with `object_layout`. |
@@ -945,7 +955,7 @@ the public dataclass.
 | `object_big` | `Optional[bool]` | `None` | **Deprecated alias.** `False` maps to `single_patch`/`independent`; `True` maps to `grouped_patches`/`relative_overlap`. Contradictory dual input is rejected. |
 | `probe_big` | `bool` | `True` | Historical name for the CNN decoder's learned complementary outer spatial support. It does not resize or extend the physical probe. See `docs/model_baselines.md`. |
 | `probe_mask` | `bool` | `False` | If true, applies an additional model-time circular support mask inside the forward model. A simulation-time mask is already baked into dataset `probeGuess`. |
-| `rect_s1s2_init` | `Literal['ones','dose_closure']` | `'ones'` | **PyTorch only.** Rectangular-scale initialization defined in `ptycho_torch/config_params.py`. `dose_closure` fails closed outside the coherent CI contract and uses the fixed representative 256-slot solve defined by the [core contract](specs/spec-ptycho-core.md#ci-rectangular-gauge-initialization-normative). The training-only and `ptycho_synthetic` CI profiles override this raw default to `dose_closure`; other `ptycho_train` and synthetic profiles retain `ones` unless explicitly overridden. |
+| `rect_s1s2_init` | `Literal['ones','dose_closure']` | `'ones'` | **PyTorch only.** Rectangular-scale initialization defined in `ptycho_torch/config_params.py`. `dose_closure` fails closed outside the coherent CI contract and uses the fixed representative 256-slot solve defined by the [core contract](../specs/data_contracts.md). The training-only and `ptycho_synthetic` CI profiles override this raw default to `dose_closure`; other `ptycho_train` and synthetic profiles retain `ones` unless explicitly overridden. |
 | `pad_object` | `bool` | `True` | Controls padding behavior in the model. |
 | `probe_scale` | `float` | `4.0` | A normalization factor for the probe's amplitude. |
 | `gaussian_smoothing_sigma` | `float` | `0.0` | TensorFlow `ProbeIllumination` applies this Gaussian smoothing to the illuminated exit wave after multiplying object and probe; `0.0` disables it. Canonical Torch carries and seals the field for shared identity but does not currently consume it in model construction or the forward path. |
@@ -1068,7 +1078,8 @@ so `groups × C` is not a distinct-row count. Training group count cannot
 exceed the selected candidate-row count.
 
 The deprecated `n_images` input still aliases `training_groups` or
-`inference_groups`, according to the workflow, and emits a warning.
+`inference_groups`, according to the workflow, and emits a warning. Unified
+Torch inference rejects the resulting count; omit it for full-scan reconstruction.
 
 #### Example Scenarios
 
@@ -1143,9 +1154,8 @@ ptycho_train --config configs/my_experiment_config.yaml --nepochs 10
 
 ## Configuration Best Practices
 
-1. Start from the project-recommended values in
-   [docs/model_baselines.md](model_baselines.md); this catalog defines fields and
-   raw defaults, not the best combination for a run.
+1. Check supported combinations in the [PyTorch workflow](workflows/pytorch.md).
+   Raw defaults are not evidence of the best combination for a run.
 2. **Use YAML files** for reproducible experiments and parameter sets you want to reuse.
 3. **Use `training_groups` / `inference_groups`;** reserve deprecated `n_images` for migration tests.
 4. **Use `object_layout`, `training_canvas`, and `training_patch_weighting`**

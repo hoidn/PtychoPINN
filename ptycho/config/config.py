@@ -64,6 +64,7 @@ State Dependencies:
 """
 
 from collections.abc import Mapping
+from ptycho._architecture_names import _Architecture
 from dataclasses import dataclass, asdict, field, replace
 from pathlib import Path
 from typing import Annotated, Dict, Any, List, Optional, Literal, Union
@@ -556,7 +557,7 @@ class ModelConfig:
     n_filters_scale: _StrictPositiveInt = 2
     model_type: Annotated[Literal['pinn', 'supervised'], BeforeValidator(_require_exact_str)] = 'pinn'
     architecture: Annotated[
-        Literal['cnn', 'ffno', 'fno', 'fno_vanilla', 'neuralop_uno'],
+        _Architecture,
         BeforeValidator(_require_exact_str),
     ] = 'cnn'
     fno_modes: _StrictPositiveInt = 12
@@ -908,7 +909,9 @@ def validate_model_config(config: ModelConfig) -> None:
         'ffno',
         'fno',
         'fno_vanilla',
+        'fno_li',
         'neuralop_uno',
+        'vit',
     }
     if config.architecture not in valid_arches:
         raise ValueError(

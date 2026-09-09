@@ -28,21 +28,28 @@ def pad(imgs, size):
     )
 
 
-def translate(imgs, offsets, interpolation="bilinear"):
+def translate(imgs, offsets, interpolation="bilinear", output_shape=None):
     """Translate an NHWC image stack by ``offsets`` (B, 2) = [dx, dy] pixels.
 
     Matches ``ptycho.tf_helper.translate``'s projective-warp convention
-    (positive offsets move content in the positive direction).  Returns an
-    array with the same dtype as ``imgs``.
+    (positive offsets move content in the positive direction). ``output_shape``
+    may request only the top-left output crop. Returns an array with the same
+    dtype as ``imgs``.
     """
     imgs = np.asarray(imgs)
     offsets = np.asarray(offsets, dtype=np.float64)
     B, H, W, C = imgs.shape
+    if output_shape is None:
+        output_height, output_width = H, W
+    else:
+        if len(output_shape) != 2 or any(int(value) <= 0 for value in output_shape):
+            raise ValueError("output_shape must contain two positive integers")
+        output_height, output_width = (int(value) for value in output_shape)
     dx = -offsets[:, 0]
     dy = -offsets[:, 1]
 
-    y = np.arange(H, dtype=np.float64)
-    x = np.arange(W, dtype=np.float64)
+    y = np.arange(output_height, dtype=np.float64)
+    x = np.arange(output_width, dtype=np.float64)
     yy, xx = np.meshgrid(y, x, indexing="ij")
     sx = xx[None] + dx[:, None, None]  # (B, H, W) source x
     sy = yy[None] + dy[:, None, None]  # (B, H, W) source y

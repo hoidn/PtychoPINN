@@ -100,6 +100,21 @@ def test_translate_zero_fills_vacated_background():
     assert got[0, 1, 1, 0] == 0
 
 
+def test_translate_cropped_output_matches_full_top_left_bytes():
+    img = _complex64_fixture()
+    offsets = np.array([[0.4, -0.6], [-1.1, 0.2], [0.0, 0.0]], dtype=np.float32)
+
+    got = translate(
+        img,
+        offsets,
+        interpolation="bilinear",
+        output_shape=(5, 7),
+    )
+    want = translate(img, offsets, interpolation="bilinear")[:, :5, :7]
+
+    np.testing.assert_array_equal(got, want)
+
+
 def test_generate_grouped_data_object_guess_without_y_is_tf_free():
     """Cold subprocess: the objectGuess-without-Y path never loads TensorFlow.
 

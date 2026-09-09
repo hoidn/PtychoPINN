@@ -1494,19 +1494,14 @@ class PtychoPINN(nn.Module):
 
         self.generator = resolved_generator
         self.generator_output = resolved_generator_output
-
-        # B5 (Task 2.6): rectangular_scaled scales the object's real/imag parts
-        # independently, which is only physically meaningful when the object is
-        # genuinely real/imag-derived (FNO/hybrid generators, or CNN with
-        # cnn_output_mode='real_imag'). Fail fast for amp/phase-derived objects.
-        if model_config.physics_forward_mode == 'rectangular_scaled' \
-                and self.generator_output != 'real_imag':
+        if (
+            self.model_config.physics_forward_mode == "rectangular_scaled"
+            and self.generator_output != "real_imag"
+        ):
             raise ValueError(
-                "physics_forward_mode='rectangular_scaled' requires real/imag-derived "
-                "object patches (FNO/hybrid real_imag generators, or the default CNN "
-                "with cnn_output_mode='real_imag'), but the resolved object output is "
-                f"'{self.generator_output}'. Set cnn_output_mode='real_imag' or use a "
-                "real_imag generator, or keep physics_forward_mode='amplitude'."
+                "physics_forward_mode='rectangular_scaled' requires an effective "
+                "generator output mode 'real_imag'; resolved "
+                f"{self.generator_output!r}"
             )
 
         self.n_filters_scale = self.model_config.n_filters_scale

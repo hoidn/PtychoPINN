@@ -8,10 +8,10 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Union
 
-from ptycho.config.config import InferenceConfig, PyTorchExecutionConfig, TrainingConfig
+from ptycho.config.config import TrainingConfig
 from ptycho.raw_data import RawData
 from ptycho_torch.scaling_contract import AmplitudePhysicsGainRecord
-from ptycho_torch.config_factory import InferencePayload, TrainingPayload
+from ptycho_torch.config_factory import TrainingPayload
 from ptycho_torch.data_container_bridge import PtychoDataContainerTorch
 from ptycho_torch.dataloader import PtychoDataset
 from . import containers, lightning_service
@@ -155,54 +155,6 @@ def run_cdi_example_torch(
     return recon_amp, recon_phase, train_results
 
 
-def _reassemble_cdi_image_torch_mmap(
-   test_data: PtychoDataset,
-   config: InferenceConfig,
-   payload: InferencePayload,
-   execution_config: PyTorchExecutionConfig,
-   train_results: Optional[Dict[str, Any]] = None,
-   verbose = True
-):
-    """
-    Reassemble CDI image using optimized CDI image functions from ptycho_torch library
-    """
-    
-    #Import 
-    try:
-        from ptycho_torch.reassembly import reconstruct_image_barycentric
-        from ptycho_torch.config_params import TrainingConfig
-    except Exception as e:
-        print(f"Could not import due to exception: {e}")
-    
-    #Getting proper configs
-    data_config = payload.pt_data_config
-    inference_config = payload.pt_inference_config
-    #Dummy argument to get reconstruct function tow ork
-    model_config = None
-
-    #Loading model
-    loaded_model = train_results['models']['diffraction_to_obj']
-    loaded_model.eval()
-    loaded_model.to(execution_config.accelerator)
-    loaded_model.training = True
-
-    #Workaround since the only use of training_config is for device
-    #Will pass in PyTorch TrainingConfig so we don't need to modify reconstruct_image_baryecentric
-    training_config = TrainingConfig(device = execution_config.accelerator)
-
-    #Reconstructing. Automatically puts dataset into dataloader, so don't worry about it
-    if verbose:
-        print(f"Data config: {data_config}")
-        print(f"Inference config: {inference_config}")
-
-    #Call optimized reconstruction method
-
-    result, recon_dataset, _ = reconstruct_image_barycentric(loaded_model, test_data,
-                           training_config, data_config, model_config, inference_config, gpu_ids = None,
-                           use_mixed_precision=True, verbose = False)
-    
-    
-    return result.to('cpu')
     
 
 
@@ -513,4 +465,3 @@ def train_cdi_model_torch(
         results['intensity_scale'] = intensity_scale
 
     return results
-

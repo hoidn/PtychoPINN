@@ -413,7 +413,9 @@ def test_cdi_display_metrics_uses_corrected_ffno_labels():
                         "mae": [0.35, 0.07],
                         "mse": [0.20, 0.007],
                         "ssim": [0.27, 0.90],
-                    }
+                    },
+                    "parameter_count": 136355,
+                    "inference_samples_per_second": 321.5,
                 },
             }
         }
@@ -425,6 +427,8 @@ def test_cdi_display_metrics_uses_corrected_ffno_labels():
     assert rows_by_id["pinn_ffno"]["training"] == "PINN"
     assert rows_by_id["supervised_ffno"]["model"] == "FFNO"
     assert rows_by_id["supervised_ffno"]["training"] == "supervised"
+    assert rows_by_id["supervised_ffno"]["parameter_count"] == 136355
+    assert rows_by_id["supervised_ffno"]["inference_samples_per_second"] == 321.5
 
 
 def test_default_cdi_phase_zoom_recon_paths_use_corrected_ffno_root():
@@ -547,6 +551,54 @@ def test_write_cdi_extended_assets_records_per_row_active_ffno_provenance(tmp_pa
     non_ffno_pinn = rows_by_id["pinn"]
     assert "final_ffno_pair_key" not in non_ffno_pinn
     assert "claim_boundary" not in non_ffno_pinn
+
+
+def test_write_cdi_extended_assets_uses_corrected_rows_without_withdrawn_cnn_pair(
+    tmp_path,
+    paper_cdi_results_fixture,
+):
+    from scripts.studies import paper_results_refresh as results
+
+    def row(value, throughput):
+        return {
+            "metrics": {
+                "mae": [value, value],
+                "mse": [value, value],
+                "ssim": [1.0 - value, 1.0 - value],
+            },
+            "inference_samples_per_second": throughput,
+        }
+
+    results.CDI_UNO_METRICS_JSON.write_text(
+        json.dumps(
+            {
+                "schema_version": "lines128-corrected-table-v1",
+                "claim_boundary": "corrected-lines128",
+                "rows": {
+                    "pinn": row(0.1, 100.0),
+                    "pinn_ffno": row(0.2, 200.0),
+                    "supervised_ffno": row(0.3, 300.0),
+                    "pinn_neuralop_uno": row(0.4, 400.0),
+                    "supervised_neuralop_uno": row(0.5, 500.0),
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    write_cdi_extended_assets(
+        output_dir=tmp_path,
+        final_ffno_pair=paper_cdi_results_fixture,
+    )
+
+    objective = (tmp_path / "cdi_lines128_objective_comparison.tex").read_text()
+    payload = json.loads(
+        (tmp_path / "cdi_lines128_metrics_extended.json").read_text()
+    )
+    assert "CNN" not in objective
+    assert "FFNO" in objective and "U-NO" in objective
+    assert "final_ffno_pair" not in payload
+    assert payload["claim_boundary"] == "corrected-lines128"
 
 
 def _write_brdt_sample255_source_arrays(root):
@@ -709,7 +761,7 @@ def test_render_cdi_pinn_metrics_table_keeps_only_pinn_rows():
     assert "Amp MAE" not in tex
     assert "Phase MAE" not in tex
     assert "Amp MSE" in tex
-    assert "Patches/s" in tex
+    assert "Throughput (frames/s)" in tex
     assert "1.2k" in tex
     assert r"\textbf{456.7}" in tex
     assert "0.0100" in tex
@@ -840,15 +892,45 @@ def test_render_cdi_objective_comparison_table_emits_all_paired_active_models():
 
     tex = render_cdi_objective_comparison_table(rows)
 
-    assert r"\multicolumn{5}{l}{\textit{CNN}}" in tex
-    assert r"\multicolumn{5}{l}{\textit{FFNO}}" in tex
-    assert r"\multicolumn{5}{l}{\textit{U-NO}}" in tex
+    assert r"\multicolumn{6}{l}{\textit{CNN}}" in tex
+    assert r"\multicolumn{6}{l}{\textit{FFNO}}" in tex
+    assert r"\multicolumn{6}{l}{\textit{U-NO}}" in tex
     assert "Amp MSE" not in tex
     assert "Phase MSE" not in tex
     assert "Physics-consistency" in tex
     assert "PINN" not in tex
     assert "Supervised" in tex
     assert "SRU-Net" not in tex
+    assert "Throughput (frames/s)" in tex
+
+
+def test_render_cdi_objective_comparison_can_exclude_withdrawn_cnn_pair():
+    rows = [
+        {
+            "row_id": f"{training}_{model.lower()}",
+            "model": model,
+            "training": training,
+            "amp_mae": 0.1,
+            "phase_mae": 0.2,
+            "amp_mse": 0.01,
+            "phase_mse": 0.04,
+            "amp_ssim": 0.9,
+            "phase_ssim": 0.8,
+            "inference_samples_per_second": 100.0,
+        }
+        for model in ("FFNO", "U-NO")
+        for training in ("PINN", "supervised")
+    ]
+
+    tex = render_cdi_objective_comparison_table(
+        rows,
+        active_models=("FFNO", "U-NO"),
+    )
+
+    assert "CNN" not in tex
+    assert "FFNO" in tex
+    assert "U-NO" in tex
+    assert "Throughput (frames/s)" in tex
 
 
 def test_render_cdi_objective_comparison_table_raises_when_active_pair_missing():

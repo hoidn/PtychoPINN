@@ -40,6 +40,11 @@ from ptycho_torch.reassembly_accumulators import (
     VectorizedBarycentricAccumulator,
     VectorizedWeightedAccumulator,
 )
+from ptycho_torch.reassembly_phase_alignment import (
+    PHASE_ALIGNMENT_METHODS,
+    PatchBatch,
+    align_calibrated_stitch,
+)
 
 #Default casting
 torch.set_default_dtype(torch.float32)
@@ -591,6 +596,7 @@ def reconstruct_image_barycentric(model: nn.Module,
                      structured_diagnostics: bool = False,
                      precision: Optional[InferencePrecision] = None,
                      compute_count_metrics: bool = True,
+                     patch_phase_alignment: str = "none",
                      ) -> ReassemblyReturn:
     """
     Multi-GPU ptychography reconstruction using probe-weighted barycentric
@@ -622,6 +628,14 @@ def reconstruct_image_barycentric(model: nn.Module,
             run the fitted count-space evaluation. Defaults to True for
             backwards compatibility. Canonical runtimes may defer this pass
             until after production checkpoint reload.
+        patch_phase_alignment: ``'none'`` (default) stitches the patches as
+            emitted. ``'overlap'`` first fits one phase constant per patch
+            from the patch overlaps (``reassembly_phase_alignment``) and
+            stitches the rotated, VarPro-calibrated patches instead; a
+            per-patch constant leaves detector intensity unchanged, so the
+            fitted ``s1``/``s2`` stay valid. The weight canvas is identical
+            either way and ``prescale_canvas`` remains the unaligned texture
+            canvas. Runtime-only: it is never part of the persisted bundle.
 
     Returns:
         If return_diagnostics is False:
@@ -745,6 +759,12 @@ def reconstruct_image_barycentric(model: nn.Module,
         raise ValueError("patch_weighting must be 'uniform' or 'probe'")
     uniform_weighting = (patch_weighting == 'uniform')
     varpro_scaling = getattr(inference_config, 'varpro_scaling', True)
+    if patch_phase_alignment not in PHASE_ALIGNMENT_METHODS:
+        raise ValueError(
+            f"patch_phase_alignment must be one of {PHASE_ALIGNMENT_METHODS}, "
+            f"got {patch_phase_alignment!r}"
+        )
+    retained_batches: List[PatchBatch] = []
 
     # Profiles only govern rectangular_scaled. Amplitude mode retains its
     # historical unscaled-probe behavior even though DataConfig defaults to CI.
@@ -940,6 +960,10 @@ def reconstruct_image_barycentric(model: nn.Module,
                                         canvas_positions, probe_mag_sq,
                                         patch_size = inference_config.middle_trim,
                                         uniform_weighting = uniform_weighting)
+            if patch_phase_alignment == "overlap":
+                retained_batches.append(
+                    PatchBatch(O_tilde, canvas_positions, probe_mag_sq)
+                )
 
             _synchronize_cuda_for_timing(primary_device)
             assembly_time = time.time() - assembly_start
@@ -1002,6 +1026,16 @@ def reconstruct_image_barycentric(model: nn.Module,
         ),
     )
     scaler_solve_time_end = time.time() - scaler_solve_time_start
+
+    if patch_phase_alignment == "overlap":
+        alignment_start = time.time()
+        scaled_canvas = align_calibrated_stitch(
+            retained_batches, canvas_size, s1=s1, s2=s2,
+            channels_swapped=channels_swapped,
+            patch_size=inference_config.middle_trim,
+            uniform_weighting=uniform_weighting, verbose=verbose,
+        )
+        total_assembly_time += time.time() - alignment_start
 
     if verbose:
         print(f"Scalars solved: S1 = {s1}, S2 = {s2} (effective output_scale = {output_scale})")

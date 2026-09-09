@@ -2,7 +2,7 @@
 Test suite for ptycho_torch.api deprecation warnings per ADR-003 Phase E.C1.
 
 Validates that legacy API entry points emit DeprecationWarning with migration
-guidance steering users toward factory-driven workflows documented in
+guidance steering users toward public train/reconstruct workflows documented in
 docs/workflows/pytorch.md.
 
 Reference:
@@ -11,15 +11,15 @@ Reference:
 - ARCH: plans/active/ADR-003-BACKEND-API/reports/2025-10-20T134500Z/
         phase_e_governance_adr_addendum/adr_addendum.md:295-334
   (defers legacy API decision to Phase E.C1)
-- WORKFLOW: docs/workflows/pytorch.md:188-196 flags ptycho_torch/api as
+- WORKFLOW: docs/workflows/pytorch.md flags ptycho_torch/api as
             deprecated surface needing migration instructions
 
 Test Strategy:
 - RED Phase: Import legacy modules expecting DeprecationWarning via
   warnings.catch_warnings context manager (stacklevel=2 ensures caller sees
   accurate origin).
-- GREEN Phase: After warn_legacy_api_import implementation, validate warning
-  message content includes migration keywords (ptycho_train_torch, config_factory).
+- GREEN Phase: Validate that migration guidance names the current native CLIs
+  and public train/reconstruct APIs.
 - No behavior changes: legacy modules remain functional; only messaging added.
 """
 
@@ -48,8 +48,8 @@ class TestLegacyAPIDeprecation:
         GREEN Expectation:
         - Exactly one DeprecationWarning captured
         - Warning message contains migration guidance keywords:
-          * 'ptycho_train_torch' or 'CLI'
-          * 'config_factory' or 'factory'
+          * native Torch CLI module commands
+          * public train/reconstruct APIs
           * 'deprecated' or 'legacy'
 
         Evidence Parameter Validation:
@@ -91,12 +91,11 @@ class TestLegacyAPIDeprecation:
             assert 'deprecated' in warning_message or 'legacy' in warning_message, (
                 f"Warning message missing 'deprecated' or 'legacy': {warning_message}"
             )
-            assert 'ptycho_train_torch' in warning_message or 'cli' in warning_message, (
-                f"Warning message missing CLI entry point guidance: {warning_message}"
-            )
-            assert 'config_factory' in warning_message or 'factory' in warning_message, (
-                f"Warning message missing factory workflow guidance: {warning_message}"
-            )
+            for entry in ('python -m ptycho_torch.train',
+                          'python -m ptycho_torch.inference',
+                          'ptycho_torch.train.train',
+                          'ptycho_torch.inference.reconstruct'):
+                assert entry in warning_message, f"Missing current migration door: {entry}"
 
     def test_api_package_import_is_idempotent(self):
         """

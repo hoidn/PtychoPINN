@@ -182,6 +182,17 @@ def test_decode_acquisition_retains_optional_contract_fields(tmp_path):
     assert record.experiment_id == 11
 
 
+def test_generated_truth_falls_back_to_supervised_label(tmp_path):
+    from ptycho.acquisition import decode_acquisition, inspect_acquisition
+
+    path = tmp_path / "generated_truth.npz"
+    truth = np.full((3, 4, 4), 2 + 3j, dtype=np.complex64)
+    np.savez(path, **_valid_acquisition_arrays(), Y=truth)
+
+    assert inspect_acquisition(path).label_shape == truth.shape
+    np.testing.assert_array_equal(decode_acquisition(path).label, truth)
+
+
 @pytest.mark.parametrize(
     ("version", "domain"),
     [

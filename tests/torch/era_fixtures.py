@@ -293,6 +293,11 @@ def v5_bundle(tmp_path: Path) -> Path:
 
     spec, data, training, inference = _identity_parts()
     model = build_ptychopinn_application(spec, data, training, inference)
+    # Synthetic frozen statistics make this saved-weight fixture serveable.
+    model.register_ci_statistics({
+        "rms_input_scale": torch.tensor([0.375]),
+        "mean_measured_intensity": torch.tensor([9.0]),
+    })
     bundle_dir = tmp_path / "era-v5"
     bundle_dir.mkdir(parents=True, exist_ok=True)
     base_path = bundle_dir / "wts.h5"

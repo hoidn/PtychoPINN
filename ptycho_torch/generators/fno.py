@@ -21,7 +21,7 @@ See also:
 import math
 import torch
 import torch.nn as nn
-from typing import Dict, Any, Optional
+from typing import Optional
 
 # Check if neuraloperator is available
 try:
@@ -213,6 +213,62 @@ class _FallbackSpectralConv2d(nn.Module):
         return torch.fft.irfft2(out_ft, s=(H, W))
 
 
+class LiFnoBlock(nn.Module):
+    """Original FNO update: GELU(W_1x1 x + K x), without an outer residual."""
+
+    def __init__(self, channels: int, modes: int = 12):
+        super().__init__()
+        if HAS_NEURALOPERATOR:
+            self.spectral = SpectralConv(channels, channels, n_modes=(modes, modes))
+        else:
+            self.spectral = _FallbackSpectralConv2d(channels, channels, modes)
+        self.pointwise = nn.Conv2d(channels, channels, kernel_size=1)
+        self.act = nn.GELU()
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.act(self.spectral(x) + self.pointwise(x))
+
+
+class LiFnoGeneratorModule(nn.Module):
+    """Constant-resolution Li-style FNO with only pointwise spatial maps."""
+
+    def __init__(
+        self,
+        in_channels: int = 1,
+        out_channels: int = 2,
+        hidden_channels: int = 32,
+        n_blocks: int = 4,
+        modes: int = 12,
+        C: int = 4,
+        input_transform: str = "none",
+        output_mode: str = "real_imag",
+    ):
+        super().__init__()
+        self.C = C
+        self.output_mode = output_mode
+        self.input_transform = InputTransform(input_transform, channels=in_channels * C)
+        self.lifter = nn.Conv2d(in_channels * C, hidden_channels, kernel_size=1)
+        self.blocks = nn.ModuleList(
+            [LiFnoBlock(hidden_channels, modes=modes) for _ in range(n_blocks)]
+        )
+        if output_mode == "amp_phase":
+            self.output_amp = nn.Conv2d(hidden_channels, C, kernel_size=1)
+            self.output_phase = nn.Conv2d(hidden_channels, C, kernel_size=1)
+        else:
+            self.output_proj = nn.Conv2d(hidden_channels, out_channels * C, kernel_size=1)
+
+    def forward(self, x: torch.Tensor):
+        batch, _, height, width = x.shape
+        x = self.lifter(self.input_transform(x))
+        for block in self.blocks:
+            x = block(x)
+        if self.output_mode == "amp_phase":
+            return (
+                torch.sigmoid(self.output_amp(x)),
+                math.pi * torch.tanh(self.output_phase(x)),
+            )
+        x = self.output_proj(x)
+        return x.view(batch, 2, self.C, height, width).permute(0, 3, 4, 2, 1)
 class CascadedFNOGenerator(nn.Module):
     """Cascaded FNO → CNN generator (Arch A).
 
@@ -298,24 +354,3 @@ class CascadedFNOGenerator(nn.Module):
         x = x.view(B, 2, self.C, H, W)
         x = x.permute(0, 3, 4, 2, 1)
         return x
-
-
-class FnoGenerator:
-    """Generator class for Cascaded FNO architecture (Arch A).
-
-    Implements the generator interface expected by the registry.
-    """
-    name = 'fno'
-
-    def __init__(self, config):
-        """Initialize the FNO generator.
-
-        Args:
-            config: TrainingConfig or InferenceConfig with model settings
-        """
-        self.config = config
-
-    def build_model(self, pt_configs: Dict[str, Any]) -> 'nn.Module':
-        from ptycho_torch.application_factory import build_ptychopinn_from_configs
-
-        return build_ptychopinn_from_configs(pt_configs)

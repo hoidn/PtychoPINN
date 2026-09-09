@@ -40,6 +40,7 @@ GENERATOR_CLASS_BY_ARCHITECTURE = {
     "fno": "CascadedFNOGenerator",
     "fno_vanilla": "FnoVanillaGeneratorModule",
     "neuralop_uno": "NeuralopUnoGeneratorModule",
+    "vit": "VitGeneratorModule",
 }
 
 
@@ -285,6 +286,7 @@ class TestLightningCheckpointSerialization:
             "fno",
             "fno_vanilla",
             "neuralop_uno",
+            "vit",
         ],
     )
     def test_generator_architecture_checkpoint_rebuilds_without_manual_injection(
@@ -312,12 +314,12 @@ class TestLightningCheckpointSerialization:
         assert type(loaded_module.model.autoencoder).__name__ == GENERATOR_CLASS_BY_ARCHITECTURE[architecture]
 
     @pytest.mark.parametrize("invalid_output_mode", ["amp_phase", "amp_phase_logits"])
-    def test_neuralop_uno_checkpoint_rejects_invalid_saved_output_mode(
+    def test_neuralop_uno_checkpoint_validates_saved_output_mode(
         self,
         tmp_path,
         invalid_output_mode,
     ):
-        """neuralop_uno checkpoint reload must fail closed on unsupported output modes."""
+        """Reload accepts amplitude/phase and rejects unsupported logits."""
         data_cfg, model_cfg, train_cfg, infer_cfg = self._build_generator_checkpoint_config(
             tmp_path,
             architecture="neuralop_uno",
@@ -336,8 +338,12 @@ class TestLightningCheckpointSerialization:
         checkpoint["hyper_parameters"]["generator_output"] = invalid_output_mode
         torch.save(checkpoint, ckpt_path)
 
-        with pytest.raises(ValueError, match="real_imag"):
-            PtychoPINN_Lightning.load_from_checkpoint(str(ckpt_path))
+        if invalid_output_mode == "amp_phase":
+            loaded = PtychoPINN_Lightning.load_from_checkpoint(str(ckpt_path))
+            assert loaded.model_config.generator_output_mode == "amp_phase"
+        else:
+            with pytest.raises(ValueError, match="real_imag"):
+                PtychoPINN_Lightning.load_from_checkpoint(str(ckpt_path))
 
     @staticmethod
     def _save_checkpoint(lightning_module, ckpt_path, root_dir):
@@ -356,7 +362,7 @@ class TestLightningCheckpointSerialization:
 
     @staticmethod
     def _build_generator_checkpoint_config(tmp_path, *, architecture, mode):
-        image_size = 128 if architecture == "neuralop_uno" else 64
+        image_size = 128 if architecture in {"neuralop_uno", "vit"} else 64
         data_cfg = DataConfig(
             N=image_size,
             gridsize=1,
@@ -369,6 +375,9 @@ class TestLightningCheckpointSerialization:
             object_big=False,
             probe_big=False,
             loss_function="MAE" if mode == "Supervised" else "Poisson",
+            vit_width=16,
+            vit_depth=1,
+            vit_heads=4,
         )
         train_cfg = TrainingConfig(
             epochs=0,

@@ -1093,11 +1093,6 @@ def _resolve_model(
                 "simulation.gridsize must be 1 when "
                 "model.architecture='neuralop_uno'"
             )
-        if model.generator_output_mode != "real_imag":
-            raise ValueError(
-                "model.generator_output_mode must be 'real_imag' when "
-                "model.architecture='neuralop_uno'"
-            )
     if gridsize > 1 and model.architecture != "cnn":
         raise ValueError(
             f"model.architecture={model.architecture!r} does not support "
@@ -1113,15 +1108,20 @@ def _validate_sampling(
     test_patterns: int,
     training: SyntheticTrainingConfig,
 ) -> None:
-    if training.neighbor_count < C:
+    if training.neighbor_count < C - 1:
         raise ValueError(
-            f"training.neighbor_count must be >= C={C}, got "
+            f"training.neighbor_count must be >= C-1={C - 1}, got "
             f"{training.neighbor_count}"
         )
     if training.neighbor_count > training.train_raw_selection:
         raise ValueError(
             "training.train_raw_selection must be >= training.neighbor_count, "
             f"got {training.train_raw_selection} < {training.neighbor_count}"
+        )
+    if training.train_raw_selection < C:
+        raise ValueError(
+            f"training.train_raw_selection must be >= C={C}, got "
+            f"{training.train_raw_selection}"
         )
     if training.train_raw_selection > train_patterns:
         raise ValueError(
@@ -1347,11 +1347,6 @@ def _validate_scaling(
         raise ValueError(
             "training.torch_loss_mode must be 'poisson' for the CI "
             "count-intensity rectangular forward"
-        )
-    if model.cnn_output_mode != "real_imag":
-        raise ValueError(
-            "model.cnn_output_mode must be 'real_imag' when "
-            "model.physics_forward_mode='rectangular_scaled'"
         )
     if not inference.varpro_scaling:
         raise ValueError(
@@ -1851,6 +1846,16 @@ def synthetic_workflow_digest_input(
         training.pop("batch_order_recipe")
     if inference.get("metric_crop_border") == 0:
         inference.pop("metric_crop_border")
+    # These topology defaults reproduce the pre-field models sealed in v3.
+    for name, default in {
+        "vit_patch_size": 4,
+        "vit_width": 256,
+        "vit_depth": 12,
+        "vit_heads": 4,
+        "hybrid_upsampler": "cyclegan_transpose",
+    }.items():
+        if payload["model"].get(name) == default:
+            payload["model"].pop(name)
     for split in ("train", "test"):
         split_config = simulation.get(split)
         if not isinstance(split_config, dict) or not isinstance(

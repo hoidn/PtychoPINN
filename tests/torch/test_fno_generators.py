@@ -4,17 +4,9 @@ import math
 import pytest
 import torch
 
-from ptycho_torch.generators.fno import (
-    InputTransform,
-    SpatialLifter,
-    PtychoBlock,
-    StablePtychoBlock,
-    CascadedFNOGenerator,
-    FnoGenerator,
-)
+from ptycho_torch.generators.fno import InputTransform, SpatialLifter, PtychoBlock, StablePtychoBlock, CascadedFNOGenerator, LiFnoBlock, LiFnoGeneratorModule
 from ptycho_torch.generators.fno_vanilla import FnoVanillaGeneratorModule
-from ptycho_torch.generators.registry import resolve_generator
-from ptycho.config.config import TrainingConfig, ModelConfig
+from ptycho_torch.application_factory import build_ptychopinn_from_configs
 
 
 class TestSpatialLifter:
@@ -75,6 +67,39 @@ class TestPtychoBlock:
         assert torch.allclose(out, x, atol=1e-5)
 
 
+class TestLiFno:
+    def test_block_is_pointwise_plus_spectral_without_outer_residual(self):
+        block = LiFnoBlock(channels=8, modes=4)
+
+        assert block.pointwise.kernel_size == (1, 1)
+        assert not hasattr(block, "local_conv")
+
+        x = torch.randn(2, 8, 16, 16)
+        with torch.no_grad():
+            for parameter in block.parameters():
+                parameter.zero_()
+
+        assert torch.count_nonzero(block(x)) == 0
+
+    def test_generator_preserves_cdi_output_shape_without_spatial_convolutions(self):
+        model = LiFnoGeneratorModule(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=8,
+            n_blocks=2,
+            modes=4,
+            C=1,
+        )
+        x = torch.randn(2, 1, 16, 16)
+
+        assert model(x).shape == (2, 16, 16, 1, 2)
+        assert all(
+            module.kernel_size == (1, 1)
+            for module in model.modules()
+            if isinstance(module, torch.nn.Conv2d)
+        )
+
+
 class TestCascadedFNOGenerator:
     """Tests for the CascadedFNOGenerator model."""
 
@@ -87,6 +112,7 @@ class TestCascadedFNOGenerator:
             fno_blocks=2,
             cnn_blocks=1,
             modes=8,
+            C=4,
         )
         x = torch.randn(2, 4, 64, 64)
         out = model(x)
@@ -121,33 +147,23 @@ class TestFnoVanillaGenerator:
             hidden_channels=16,
             n_blocks=2,
             modes=8,
+            C=4,
         )
         x = torch.randn(2, 4, 32, 32)
         out = model(x)
         assert out.shape == (2, 32, 32, 4, 2)
 
+class TestGeneratorConstruction:
+    """Tests for application construction with FNO/Hybrid generators."""
 
-class TestGeneratorRegistry:
-    """Tests for generator registry with FNO generators."""
 
-    @pytest.fixture
-    def fno_config(self):
-        """Create config for FNO generator."""
-        return TrainingConfig(
-            model=ModelConfig(architecture='fno', N=64, gridsize=1)
-        )
 
-    def test_resolve_fno_generator(self, fno_config):
-        """Registry should resolve FNO generator."""
-        gen = resolve_generator(fno_config)
-        assert gen.name == 'fno'
-        assert isinstance(gen, FnoGenerator)
 
-    def test_fno_generator_builds_model(self, fno_config):
+
+    def test_fno_generator_builds_model(self):
         """FNO generator should build a model."""
         from ptycho_torch.config_params import DataConfig, ModelConfig as PTModelConfig, TrainingConfig as PTTrainingConfig
 
-        gen = resolve_generator(fno_config)
 
         from ptycho_torch.config_params import InferenceConfig as PTInferenceConfig
         from ptycho_torch.model import PtychoPINN_Lightning
@@ -159,9 +175,12 @@ class TestGeneratorRegistry:
             "inference_config": PTInferenceConfig(),
         }
 
-        model = gen.build_model(pt_configs)
+        model = build_ptychopinn_from_configs(pt_configs)
         assert isinstance(model, PtychoPINN_Lightning)
         assert isinstance(model.model.generator, CascadedFNOGenerator)
+
+
+
 
 class TestStablePtychoBlock:
     """Tests for the StablePtychoBlock module.
@@ -210,5 +229,3 @@ class TestStablePtychoBlock:
         loss.backward()
         assert block.layerscale.grad is not None
         assert block.layerscale.grad.norm().item() > 0
-
-

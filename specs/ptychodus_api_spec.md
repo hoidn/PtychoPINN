@@ -27,13 +27,10 @@ These dataclasses, defined in `config/config.py`, are the primary way to specify
   - `N`: The size of the input diffraction patterns (e.g., 64, 128).
   - `gridsize`: The number of adjacent scan positions to process simultaneously (e.g., `gridsize=2` means a 2x2 group).
   - `model_type`: The type of model, either `'pinn'` or `'supervised'`.
-  - `architecture`: `Literal` selecting the generator/model architecture — 14 values (`'cnn'`, `'ffno'`, `'fno'`,
-    `'hybrid'`, `'stable_hybrid'`, `'fno_vanilla'`, `'neuralop_uno'`, `'hybrid_resnet'`,
-    `'hybrid_resnet_ffno_ptychoblock_encoder'`, `'hybrid_resnet_ptychoblock_ffno_encoder'`,
-    `'spectral_resnet_bottleneck_net'`, `'spectral_resnet_bottleneck_linear_decoder'`,
-    `'hybrid_resnet_ffno_bottleneck'`, `'hybrid_resnet_convnext_bottleneck'`), default `'cnn'`
-    (`ptycho.config.config.ModelConfig`). Routes generator resolution on the PyTorch backend
-    (`ptycho_torch.generators.registry.resolve_generator`); the TensorFlow backend does not branch on it.
+  - `architecture`: `Literal` selecting the generator/model architecture, default `'cnn'`.
+    The accepted names are enumerated in [the config bridge spec](../docs/CONFIGURATION.md).
+    The PyTorch core builder in `ptycho_torch/model.py` dispatches on this field;
+    the TensorFlow backend does not branch on it.
     Dependent fields (`fno_modes`, `fno_width`, `fno_blocks`, `resnet_width`, `generator_output_mode`, …)
     are conditionally enforced by `validate_model_config` for non-`'cnn'` architectures.
   - `amp_activation`: The activation function for the amplitude decoder.
@@ -91,7 +88,7 @@ This is the most critical part of the configuration API. It translates modern da
 
 - **`update_legacy_dict(cfg: dict, dataclass_obj: Any)`**:
   - **Purpose**: To populate the legacy `ptycho.params.cfg` dictionary from a modern configuration dataclass (`TrainingConfig` or `InferenceConfig`).
-  - **Mechanism**: It calls `dataclass_to_legacy_dict()` to perform the translation and then updates the global `cfg` dictionary. This is the **only supported way** to configure `ptychopinn` from an external caller like `ptychodus`.
+  - **Mechanism**: It calls `dataclass_to_legacy_dict()` to perform the translation and then updates the global `cfg` dictionary. This is the supported projection at a TensorFlow/legacy boundary; direct Torch callers use resolved owners without populating `params.cfg`.
 
 - **`dataclass_to_legacy_dict(obj: Any)`**:
   - **Purpose**: Translates a dataclass instance into a flat dictionary with legacy key names.
@@ -108,7 +105,7 @@ This is the most critical part of the configuration API. It translates modern da
     5.  It automatically converts `pathlib.Path` objects to strings, as the legacy system expects string paths.
 
 - **PyTorch Configuration Adapters (`ptycho_torch.config_bridge`):**
-  - **Purpose**: Translate PyTorch singleton configuration objects to TensorFlow dataclass instances when a caller must cross into a legacy consumer and therefore populate `params.cfg` via the standard `update_legacy_dict` function.
+  - **Purpose**: Translate PyTorch configuration dataclasses to TensorFlow dataclass instances when a caller must cross into a legacy consumer and therefore populate `params.cfg` via the standard `update_legacy_dict` function.
   - **Key Functions**:
     - `to_model_config(data: DataConfig, model: ModelConfig, overrides=None) -> TFModelConfig`: Converts PyTorch `DataConfig` and `ModelConfig` to TensorFlow `ModelConfig`, handling critical transformations such as `mode` enum → `model_type` enum and activation name normalization.
     - `to_training_config(model: TFModelConfig, data: DataConfig, pt_model: ModelConfig, training: TrainingConfig, overrides=None) -> TFTrainingConfig`: Translates PyTorch training parameters to TensorFlow `TrainingConfig`, converting `epochs` → `nepochs` and `nll` bool → `nll_weight` float, and requiring explicit `overrides` for fields missing in PyTorch configs (e.g., `train_data_file`, `training_groups`).
@@ -331,12 +328,13 @@ Archive identification and backend tagging
   and defaults to `'tensorflow'`. Per-model config projections are stored as `params.json` (PyTorch) rather than `params.dill`.
   Pre-JSON PyTorch archives (`manifest.dill` + per-model `params.dill`) are supported exclusively via
   `python -m ptycho_torch.migrate_bundle`, which migrates the manifest, params, and sealed identity together.
-- Contents: TensorFlow archives contain Keras/SavedModel payloads and serialized custom objects; PyTorch archives contain Lightning
-  `.ckpt` payload(s) and serialized hyperparameters required for state-free reload. The outer archive structure remains identical.
+- Contents: TensorFlow archives contain Keras/SavedModel payloads and serialized custom objects; PyTorch archives contain per-role
+  `model.pth` state dictionaries, JSON configuration projections, and sealed model/data identity for state-free reload. The outer archive structure remains identical.
+  Sibling Lightning `.ckpt` files are training-recovery artifacts, not required serving-archive members.
 - PyTorch object-policy identity: newly written PyTorch archives use
   `artifact_schema_version='torch-artifact-v5'` (the current write era), carry
   the `grouping_contract='centered-nearest-v1'` marker, and a nested
-  `torch-model-spec-v3`. The outer archive version remains `2.0-pytorch`
+  `torch-model-spec-v4`. The outer archive version remains `2.0-pytorch`
   and the exact model roles remain `autoencoder` and `diffraction_to_obj`.
   The root `manifest.json` MAY include `rescaled_source_sha256` only for a
   metadata-free training NPZ converted because the caller supplied
@@ -371,7 +369,7 @@ Archive identification and backend tagging
 
 **PyTorch Path:**
 - The PyTorch backend (`ptycho_torch/`) MUST use PyTorch Lightning (`lightning.pytorch.Trainer`) for training orchestration and checkpoint management. Implementations SHALL instantiate `PtychoPINN_Lightning` modules from resolved owner records and the resolved runtime carrier defined in §4.9.
-- Checkpoint persistence MUST produce `wts.h5.zip` archives compatible with the TensorFlow persistence contract (§4.6), containing both Lightning `.ckpt` state and bundled hyperparameters for state-free reload.
+- Serving persistence MUST produce `wts.h5.zip` archives under §4.6, containing `model.pth` state dictionaries and sealed identity for strict, state-free reload. Lightning `.ckpt` recovery files remain separate.
 - CLI entrypoints (`ptycho_torch/train.py`, `ptycho_torch/inference.py`) use
   shared syntax helpers for path validation and pure execution-request
   construction, then delegate once to public `train` or `reconstruct`.
@@ -526,7 +524,7 @@ updated in lockstep.
 | `gridsize` | `gridsize` | `RawData.generate_grouped_data`, `PtychoDataContainer`, model constructors | Determines group cardinality (`gridsize²`), tensor channel layout, and model input signature. |
 | `n_filters_scale` | `n_filters_scale` | model constructors | Scales convolution filter widths throughout encoder/decoder stacks. |
 | `model_type` | `model_type` | training/export workflows | Selects physics-informed vs supervised workflows and annotates saved artifacts. |
-| `architecture` | `architecture` | `resolve_generator`, `to_model_config` | Selects the generator/model architecture (14-value `Literal`, default `'cnn'`); PyTorch-only routing field consumed by `resolve_generator` — TensorFlow backend ignores it. `validate_model_config` conditionally enforces dependent fields (`fno_blocks`, `resnet_width`, …) for non-`'cnn'` architectures. |
+| `architecture` | `architecture` | Core builder, `to_model_config` | Selects the generator/model architecture (default `'cnn'`); TensorFlow ignores it. Accepted names follow the config bridge spec §3. `validate_model_config` conditionally enforces dependent fields (`fno_blocks`, `resnet_width`, …) for non-`'cnn'` architectures. |
 | `amp_activation` | `amp_activation` | model amplitude head | Chooses activation function for the reconstructed amplitude head. |
 | `object_layout` | `object_layout` | model construction and Torch structural identity | Canonical component layout: `'single_patch'` or `'grouped_patches'`. |
 | `training_canvas` | `training_canvas` | model construction and Torch structural identity | Canonical canvas policy paired with `object_layout`: `'independent'` or `'relative_overlap'`. |
@@ -563,6 +561,15 @@ updated in lockstep.
 | `sequential_sampling` | `sequential_sampling` | workflow components, `RawData.generate_grouped_data` | Forces deterministic sequential grouping instead of random sampling. |
 
 #### 5.3. `InferenceConfig` fields (excluding nested `model`)
+
+The group-count/sampling fields below retain their TensorFlow semantics. The
+unified Torch CLI SHALL reject explicit `inference_groups` (including `--n_groups`
+and `--n_images` aliases or configured values) and TF sampling options, rather
+than ignore them. Torch reconstructs the full scan; `groups_per_center` is not
+a count alias. Both Torch CLIs resolve execution settings and validated inference
+knobs, then call `reconstruct`; the checkpoint owns model/data and probe identity.
+Native inference probe-mask flags and the inference payload/factory API are
+retired without compatibility wrappers. Training/legacy bridge APIs are unchanged.
 
 | Field | Legacy `params.cfg` key | Primary consumers | Notes |
 | :----- | :---------------------- | :----------------- | :----- |

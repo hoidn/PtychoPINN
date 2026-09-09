@@ -1112,9 +1112,8 @@ def stitch_predictions_explicit(
     # Calculate number of segments
     nsegments = int(np.sqrt((processed.size / nimgs_effective) / (N**2)))
 
-    img_recon = np.reshape(
-        norm_Y_I * processed, (-1, nsegments, nsegments, N, N, 1)
-    )
+    scale = 1.0 if part == "phase" else norm_Y_I
+    img_recon = np.reshape(scale * processed, (-1, nsegments, nsegments, N, N, 1))
 
     # Border clipping (from data_preprocessing.get_clip_sizes)
     bordersize = (N - outer_offset_test / 2) / 2

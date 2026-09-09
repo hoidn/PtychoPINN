@@ -32,12 +32,10 @@ import shutil
 # Factory functions under test (stubs in Phase B2)
 from ptycho_torch.config_factory import (
     create_training_payload,
-    create_inference_payload,
     infer_probe_size,
     simulation_from_datagen_config,
     datagen_config_from_simulation,
     TrainingPayload,
-    InferencePayload,
 )
 
 # Config dataclasses for assertions
@@ -467,42 +465,11 @@ class TestTrainingPayloadStructure:
         assert payload.tf_training_config.model.model_type == 'supervised'
 
 
-class TestInferencePayloadStructure:
-    """Verify create_inference_payload() returns InferencePayload with all required fields."""
+class TestTrainingInferenceKnobs:
+    """Training preserves its inference defaults."""
 
-    def test_inference_payload_returns_dataclass(self, mock_checkpoint_dir, mock_test_npz, temp_output_dir):
-        """Factory returns InferencePayload dataclass instance."""
-        payload = create_inference_payload(
-            model_path=mock_checkpoint_dir,
-            test_data_file=mock_test_npz,
-            output_dir=temp_output_dir,
-            overrides={'training_groups': 128},
-        )
-        # GREEN phase:
-        assert isinstance(payload, InferencePayload)
 
-    def test_inference_payload_contains_tf_config(self, mock_checkpoint_dir, mock_test_npz, temp_output_dir):
-        """Payload contains TensorFlow InferenceConfig instance."""
-        payload = create_inference_payload(
-            model_path=mock_checkpoint_dir,
-            test_data_file=mock_test_npz,
-            output_dir=temp_output_dir,
-            overrides={'training_groups': 128},
-        )
-        # GREEN phase:
-        assert isinstance(payload.tf_inference_config, TFInferenceConfig)
 
-    def test_inference_payload_contains_pytorch_configs(self, mock_checkpoint_dir, mock_test_npz, temp_output_dir):
-        """Payload contains PyTorch inference config instances."""
-        payload = create_inference_payload(
-            model_path=mock_checkpoint_dir,
-            test_data_file=mock_test_npz,
-            output_dir=temp_output_dir,
-            overrides={'training_groups': 128},
-        )
-        # GREEN phase assertions:
-        assert isinstance(payload.pt_data_config, PTDataConfig)
-        assert isinstance(payload.pt_inference_config, PTInferenceConfig)
 
     def test_create_training_payload_propagates_varpro_scaling(self, mock_train_npz, temp_output_dir):
         """Training payload preserves torch-only VarPro scaling override."""
@@ -514,16 +481,6 @@ class TestInferencePayloadStructure:
 
         assert payload.pt_inference_config.varpro_scaling is False
 
-    def test_create_inference_payload_propagates_varpro_scaling(self, mock_checkpoint_dir, mock_test_npz, temp_output_dir):
-        """Inference payload preserves torch-only VarPro scaling override."""
-        payload = create_inference_payload(
-            model_path=mock_checkpoint_dir,
-            test_data_file=mock_test_npz,
-            output_dir=temp_output_dir,
-            overrides={'training_groups': 128, 'varpro_scaling': False},
-        )
-
-        assert payload.pt_inference_config.varpro_scaling is False
 
 
 # ============================================================================
@@ -694,18 +651,6 @@ class TestFactoryValidation:
                 overrides={'training_groups': 512},
             )
 
-    def test_missing_checkpoint_raises_error(self, mock_test_npz, temp_output_dir):
-        """Factory raises ValueError if model_path missing wts.h5.zip."""
-        bad_checkpoint_dir = temp_output_dir / "no_checkpoint"
-        bad_checkpoint_dir.mkdir()
-
-        with pytest.raises(ValueError, match="Model archive not found"):
-            payload = create_inference_payload(
-                model_path=bad_checkpoint_dir,
-                test_data_file=mock_test_npz,
-                output_dir=temp_output_dir,
-                overrides={'training_groups': 128},
-            )
 
 
 # ============================================================================
@@ -718,7 +663,6 @@ class TestExecutionConfigOverrides:
 
     Expected behavior (Phase C2 GREEN):
         - TrainingPayload contains PyTorchExecutionConfig instance
-        - InferencePayload contains PyTorchExecutionConfig instance
         - Execution knobs (accelerator, deterministic, num_workers) accessible
         - Override precedence: explicit > execution_config > defaults
         - overrides_applied captures execution knob applications
@@ -741,33 +685,7 @@ class TestExecutionConfigOverrides:
         assert payload.execution_config is not None
         assert isinstance(payload.execution_config, PyTorchExecutionConfig)
 
-    def test_inference_payload_execution_config_not_none(self, mock_checkpoint_dir, mock_test_npz, temp_output_dir):
-        """Inference factory returns execution_config instance."""
-        from ptycho.config.config import PyTorchExecutionConfig
 
-        payload = create_inference_payload(
-            model_path=mock_checkpoint_dir,
-            test_data_file=mock_test_npz,
-            output_dir=temp_output_dir,
-            overrides={'training_groups': 128},
-        )
-        # GREEN phase:
-        assert payload.execution_config is not None
-        assert isinstance(payload.execution_config, PyTorchExecutionConfig)
-
-    def test_inference_payload_keeps_object_big_decoder_support_on_by_default(
-        self, mock_checkpoint_dir, mock_test_npz, temp_output_dir
-    ):
-        """Normal object-big inference must not silently disable outer support."""
-        payload = create_inference_payload(
-            model_path=mock_checkpoint_dir,
-            test_data_file=mock_test_npz,
-            output_dir=temp_output_dir,
-            overrides={"training_groups": 128, "object_big": True},
-        )
-
-        assert payload.tf_inference_config.model.object_big is True
-        assert payload.tf_inference_config.model.probe_big is True
 
     def test_execution_config_defaults_applied(self, mock_train_npz, temp_output_dir):
         """Execution config uses dataclass defaults when not overridden."""

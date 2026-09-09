@@ -5,9 +5,16 @@ models in PtychoPINN.
 
 ## Recommended: CLI Inference Path
 
-Use the CLI for the most reliable workflow. It performs config bridging, calls
-`update_legacy_dict(params.cfg, config)`, wires the generator registry, and runs
-batched inference with consistent output handling.
+The CLI resolves explicit Torch configuration and calls the public
+`ptycho_torch.inference.reconstruct` door. Direct Torch paths do not project
+configuration into `params.cfg`; strict bundle decoding restores any scoped
+legacy state.
+
+No inference payload factory is required or supported. The CLI validates
+stitching/VarPro/diagnostic knobs and resolves execution settings; the checkpoint
+owns model/data and probe identity. Native probe-mask overrides are removed.
+Unified Torch inference rejects explicit group counts (`--inference_groups`,
+`--n_groups`, `--n_images`); omit them to reconstruct the full scan.
 
 Minimal example:
 
@@ -18,8 +25,71 @@ python -m ptycho_torch.inference \
   --output_dir outputs/inference
 ```
 
-Use this when you have a full training directory (checkpoints, configs, metadata)
-and want a safe, supported inference path.
+Pass the training directory containing `wts.h5.zip`; serving does not require
+its sibling Lightning checkpoints.
+
+## Call paths: before and after the inference factory retirement
+
+Both frontends remain: `python -m ptycho_torch.inference` (native) and
+`ptycho_inference --backend pytorch` (unified). Commit `874a5d0e9` removed
+their duplicate configuration-building path, not a CLI or reconstruction algorithm.
+The diagrams omit path checks and ancillary arguments.
+
+### Before (historical, no longer supported)
+
+```text
+Native Torch CLI ──┐
+                  ├─→ create_inference_payload()
+Unified Torch CLI ┘     → _resolve_inference_payload()
+                          → normalize_inference_patch()
+                          → resolve_inference_bundle()
+                            • temporary model/data/inference configs
+                          → TensorFlow-style configuration projection
+                          → resolve runtime execution settings
+                          → InferencePayload
+                               │
+                               │ retain execution settings + four inference knobs
+                               │ discard temporary model/data configuration
+                               ▼
+                          reconstruct()
+                            → strict checkpoint identity + weights
+                            → load diffraction dataset
+                            → predict patches → stitch → return arrays
+                          → CLI saves PNGs
+```
+
+The factory's projected config was not reconstruction's model authority.
+`reconstruct()` loaded that identity from the checkpoint. The CLI used the
+projection for a misleading group-count status line, not scan selection.
+At this point the factory did not populate `params.cfg`; constructing a
+TensorFlow-style config and projecting it into that global dictionary are
+distinct operations.
+
+### Now
+
+```text
+Native Torch CLI ──┐
+                  ├─→ construct + validate inference knobs
+Unified Torch CLI ┘   → resolve runtime execution settings
+                      → reconstruct()
+                        → strict checkpoint identity + weights
+                        → load diffraction dataset
+                        → predict patches → stitch → return arrays
+                      → CLI saves PNGs
+```
+
+The four configuration overlays are `patch_weighting`, `varpro_scaling`,
+`log_patch_stats`, and `patch_stats_limit`. Other retained runtime arguments,
+such as `groups_per_center` and `patch_phase_alignment`, are passed separately.
+
+Also removed: the alternate `resolve_inference_payload()` entry point and the
+uncalled `_reassemble_cdi_image_torch_mmap()` wrapper, which consumed an
+`InferencePayload` and called barycentric reconstruction. No replacement
+payload or compatibility alias was added.
+
+Training factories, the three legacy config-bridge functions, TensorFlow
+inference, strict checkpoint schemas, and reconstruction physics are unchanged.
+The strict serving contract is documented in [PyTorch workflows](../docs/workflows/pytorch.md).
 
 ## Bundle Contract
 
@@ -30,10 +100,10 @@ from training.
 
 ## Pitfalls & Verification
 
-- **CONFIG-001**: Use the factory or CLI. Direct instantiation can silently mis-sync
-  gridsize and channel count.
-- **training_groups is required**: The factory rejects missing `training_groups`. Use test sample
-  count as a safe default.
+- **Configuration boundary**: Use `ptycho_torch.inference.reconstruct` or the
+  CLI; bundle identity owns model shape and scaling without legacy projection.
+- **Inference coverage**: Reconstruction covers the full scan;
+  `training_groups` is a training control, not a required inference setting.
 - **Output mode matters**: `generator_output_mode="amp_phase"` applies sigmoid/tanh
   inside the generator. Downstream consumers expect physical values.
 - **Bundle mismatches**: strict loading rejects architecture or scaling identity

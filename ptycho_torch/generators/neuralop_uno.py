@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import importlib
-from typing import Any, Dict
 
 import torch
 import torch.nn as nn
@@ -51,19 +50,30 @@ class NeuralopUnoGeneratorModule(nn.Module):
         *,
         C: int = 1,
         output_mode: str = "real_imag",
+        hidden_channels: int = 32,
+        modes: int = 12,
     ):
         super().__init__()
         if int(C) != 1:
             raise ValueError(
                 f"neuralop_uno only supports the locked C=1 CDI contract; got C={C}."
             )
-        if output_mode != "real_imag":
+        if output_mode not in {"real_imag", "amp_phase"}:
             raise ValueError(
-                "neuralop_uno only supports generator_output_mode='real_imag'."
+                "neuralop_uno supports generator_output_mode='real_imag' or 'amp_phase'."
             )
 
         uno_cls = _load_uno_class()
-        self.uno = uno_cls(**_LOCKED_UNO_KWARGS)
+        width = int(hidden_channels)
+        mode_count = int(modes)
+        kwargs = {
+            **_LOCKED_UNO_KWARGS,
+            "hidden_channels": width,
+            "uno_out_channels": [width, 2 * width, 2 * width, width],
+            "uno_n_modes": [[mode_count, mode_count]] * 4,
+        }
+        self.output_mode = output_mode
+        self.uno = uno_cls(**kwargs)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if x.ndim != 4:
@@ -88,18 +98,6 @@ class NeuralopUnoGeneratorModule(nn.Module):
                 "neuralop_uno expected raw UNO output shape "
                 f"{expected} but received {tuple(raw.shape)}."
             )
+        if self.output_mode == "amp_phase":
+            return torch.sigmoid(raw[:, :1]), torch.pi * torch.tanh(raw[:, 1:])
         return raw.permute(0, 2, 3, 1).unsqueeze(-2).contiguous()
-
-
-class NeuralopUnoGenerator:
-    """Generator-registry wrapper for the locked external U-NO CDI path."""
-
-    name = "neuralop_uno"
-
-    def __init__(self, config):
-        self.config = config
-
-    def build_model(self, pt_configs: Dict[str, Any]) -> nn.Module:
-        from ptycho_torch.application_factory import build_ptychopinn_from_configs
-
-        return build_ptychopinn_from_configs(pt_configs)

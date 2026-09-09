@@ -1644,7 +1644,7 @@ class TestStitching:
         p.set("nimgs_test", 2)
 
         preds = np.exp(1j * np.pi / 4) * np.ones((2, 64, 64, 1))
-        stitched = stitch_predictions(preds, norm_Y_I=1.0, part="phase")
+        stitched = stitch_predictions(preds, norm_Y_I=2.5, part="phase")
 
         # Phase should be close to pi/4
         assert stitched.shape[-1] == 1

@@ -665,16 +665,23 @@ def get_image_patches(gt_image, global_offsets, local_offsets, N=None, gridsize=
     offsets_c = (global_offsets + local_offsets).astype(np.float32)
     offsets_f = np.transpose(offsets_c, [0, 3, 1, 2]).reshape(-1, 1, 2, 1)
 
-    # Create a canvas to store the extracted patches
-    canvas = np.zeros((B, N, N, c), dtype=np.complex64)
+    # Translate only the retained N x N crop. The old path translated the full
+    # padded canvas once per patch and then discarded the rest.
+    patches = np.empty((B * c, N, N), dtype=np.complex64)
+    for start in range(0, B * c, 64):
+        stop = min(start + 64, B * c)
+        images = np.broadcast_to(
+            gt_padded,
+            (stop - start, *gt_padded.shape[1:]),
+        )
+        translated = pad_translate.translate(
+            images,
+            -offsets_f[start:stop, 0, :, 0],
+            output_shape=(N, N),
+        )
+        patches[start:stop] = translated[..., 0]
 
-    # Iterate over the combined offsets and extract patches one by one
-    for i in range(B * c):
-        offset = -offsets_f[i, :, :, 0]
-        translated_patch = pad_translate.translate(gt_padded, offset)
-        canvas[i // c, :, :, i % c] = np.asarray(translated_patch)[0, :N, :N, 0]
-
-    return canvas
+    return patches.reshape(B, c, N, N).transpose(0, 2, 3, 1)
 
 #@debug
 def get_relative_coords(coords_nn):

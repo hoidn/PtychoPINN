@@ -136,6 +136,16 @@ def test_exclusion_removes_listed_paths(tmp_path):
     assert "pkg/also_drop.py" not in files
 
 
+def test_exclusion_removes_symlink_after_its_target(tmp_path):
+    repo = _make_repo(tmp_path, {"keep.py": "x = 1\n", "target.md": "private\n"})
+    (repo / "link.md").symlink_to("target.md")
+    _git(repo, "add", "link.md")
+    _git(repo, "commit", "-qm", "symlink")
+
+    tree = _build(repo, tmp_path, exclude=["target.md", "link.md"])
+    assert _git(repo, "ls-tree", "-r", "--name-only", tree).splitlines() == ["keep.py"]
+
+
 def test_missing_exclude_entry_fails_loudly(tmp_path):
     repo = _make_repo(tmp_path, {"keep.py": "clean\n"})
     with pytest.raises(bmo.TransformError, match="does not exist"):

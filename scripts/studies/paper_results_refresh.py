@@ -63,13 +63,11 @@ BRDT_ERROR_CMAP = "inferno"
 CDI_UNO_METRICS_JSON = (
     REPO_ROOT
     / ".artifacts"
-    / "work"
     / "NEURIPS-HYBRID-RESNET-2026"
     / "backlog"
-    / "2026-04-30-cdi-lines128-uno-table-extension"
-    / "runs"
-    / "complete_table_plus_uno_20260504T100347Z"
-    / "metrics.json"
+    / "2026-09-02-lines128-correction"
+    / "attempt-0001"
+    / "table_metrics.json"
 )
 CDI_SUPERSEDED_SUPERVISED_FFNO_METRICS_JSON = CDI_HISTORICAL_SUPERVISED_PROXY_METRICS_JSON
 CDI_RECONS_ROOT = (
@@ -86,7 +84,7 @@ CDI_RECONS_ROOT = (
 CDI_PHASE_ZOOM_ROWS = [
     ("gt", "Target"),
     ("pinn", "CNN+PINN"),
-    ("pinn_fno_vanilla", "FNO+PINN"),
+    ("pinn_fno_vanilla", "Encoder ablation+PINN"),
     ("pinn_ffno", "FFNO+PINN"),
     ("pinn_neuralop_uno", "U-NO+PINN"),
     ("pinn_hybrid_resnet", "SRU-Net+PINN"),
@@ -226,7 +224,7 @@ CDI_ROW_ORDER = [
 CDI_LABELS = {
     "baseline": ("CNN", "supervised"),
     "pinn": ("CNN", "PINN"),
-    "pinn_fno_vanilla": ("FNO", "PINN"),
+    "pinn_fno_vanilla": ("Encoder-only ablation", "PINN"),
     "pinn_ffno": ("FFNO", "PINN"),
     "supervised_ffno": ("FFNO", "supervised"),
     "pinn_hybrid_resnet": ("SRU-Net", "PINN"),
@@ -1354,19 +1352,25 @@ def cdi_display_metrics(metrics_payload: Mapping[str, object]) -> list[dict[str,
         amp_mse, phase_mse = _pair(payload, "mse")
         amp_ssim, phase_ssim = _pair(payload, "ssim")
         model, training = CDI_LABELS[row_id]
-        rows.append(
-            {
-                "row_id": row_id,
-                "model": model,
-                "training": training,
-                "amp_mae": amp_mae,
-                "phase_mae": phase_mae,
-                "amp_mse": amp_mse,
-                "phase_mse": phase_mse,
-                "amp_ssim": amp_ssim,
-                "phase_ssim": phase_ssim,
-            }
-        )
+        display = {
+            "row_id": row_id,
+            "model": model,
+            "training": training,
+            "amp_mae": amp_mae,
+            "phase_mae": phase_mae,
+            "amp_mse": amp_mse,
+            "phase_mse": phase_mse,
+            "amp_ssim": amp_ssim,
+            "phase_ssim": phase_ssim,
+        }
+        for key in (
+            "parameter_count",
+            "inference_throughput_status",
+            "inference_samples_per_second",
+        ):
+            if key in payload:
+                display[key] = payload[key]
+        rows.append(display)
     return rows
 
 
@@ -1455,7 +1459,7 @@ def render_cdi_pinn_metrics_table(rows: Sequence[Mapping[str, object]]) -> str:
     lines = [
         r"\begin{tabular}{@{}lrrrrrr@{}}",
         r"\toprule",
-        r"Model & Amp MSE & Phase MSE & Amp SSIM & Phase SSIM & Params & Patches/s \\",
+        r"Model & Amp MSE & Phase MSE & Amp SSIM & Phase SSIM & Params & Throughput (frames/s) \\",
         r"\midrule",
     ]
     for row in pinn_rows:
@@ -1523,19 +1527,26 @@ def render_cdi_objective_comparison_table(
             f"{sorted(m for m, mr in rows_by_model.items() if 'PINN' in mr and 'supervised' in mr)}"
         )
     lines = [
-        r"\begin{tabular}{lrrrr}",
+        r"\begin{tabular}{lrrrrr}",
         r"\toprule",
-        r"Training & Amp MAE $\downarrow$ & Phase MAE $\downarrow$ & Amp SSIM $\uparrow$ & Phase SSIM $\uparrow$ \\",
+        r"Training & Amp MAE $\downarrow$ & Phase MAE $\downarrow$ & Amp SSIM $\uparrow$ & Phase SSIM $\uparrow$ & Throughput (frames/s) $\uparrow$ \\",
     ]
     for model in paired_models:
         model_rows = [rows_by_model[model]["PINN"], rows_by_model[model]["supervised"]]
         best = _cdi_best_values(model_rows, columns=CDI_OBJECTIVE_CONTROL_COLUMNS)
+        best_throughput = _cdi_best_throughput(model_rows)
         lines.append(r"\midrule")
-        lines.append(rf"\multicolumn{{5}}{{l}}{{\textit{{{_latex_escape(model)}}}}} \\")
+        lines.append(rf"\multicolumn{{6}}{{l}}{{\textit{{{_latex_escape(model)}}}}} \\")
         lines.append(r"\midrule")
         for row in model_rows:
             label = "Physics-consistency" if row["training"] == "PINN" else "Supervised"
             values = _formatted_cdi_values(row, best, columns=CDI_OBJECTIVE_CONTROL_COLUMNS)
+            values.append(
+                _format_cdi_throughput(
+                    row.get("inference_samples_per_second"),
+                    best=best_throughput,
+                )
+            )
             lines.append(f"{label} & {' & '.join(values)} \\\\")
     lines.extend([r"\bottomrule", r"\end{tabular}"])
     return "\n".join(lines) + "\n"
@@ -1609,23 +1620,29 @@ def write_cdi_extended_assets(
     final_output_stem: str | None = None,
 ) -> dict[str, str]:
     payload = _read_json(CDI_UNO_METRICS_JSON)
+    corrected = payload.get("schema_version") == "lines128-corrected-table-v1"
     source_rows = dict(payload["rows"])
-    source_rows["pinn_ffno"] = {"metrics": _read_json(final_ffno_pair.pinn_metrics_json)}
-    source_rows["supervised_ffno"] = {
-        "metrics": _read_json(final_ffno_pair.supervised_metrics_json)
-    }
+    if not corrected:
+        source_rows["pinn_ffno"] = {
+            "metrics": _read_json(final_ffno_pair.pinn_metrics_json)
+        }
+        source_rows["supervised_ffno"] = {
+            "metrics": _read_json(final_ffno_pair.supervised_metrics_json)
+        }
     payload = {**payload, "rows": source_rows}
     rows = cdi_display_metrics(payload)
     efficiency_by_id = cdi_efficiency_rows_by_id(final_ffno_pair=final_ffno_pair)
     rows = [
         {
-            **row,
             **efficiency_by_id.get(str(row.get("row_id")), {}),
+            **row,
         }
         for row in rows
     ]
 
-    active_ffno_provenance = final_ffno_pair.active_row_provenance()
+    active_ffno_provenance = (
+        {} if corrected else final_ffno_pair.active_row_provenance()
+    )
     rows_with_provenance: list[dict[str, object]] = []
     for row in rows:
         annotated = dict(row)
@@ -1653,7 +1670,10 @@ def write_cdi_extended_assets(
     )
     versioned_objective_tex = _write_text_with_versioned_copy(
         objective_tex_path,
-        render_cdi_objective_comparison_table(rows),
+        render_cdi_objective_comparison_table(
+            rows,
+            active_models=("FFNO", "U-NO") if corrected else CDI_OBJECTIVE_CONTROL_ACTIVE_MODELS,
+        ),
         final_output_stem=final_output_stem,
     )
     versioned_csv = _write_rows_csv_with_versioned_copy(
@@ -1662,23 +1682,12 @@ def write_cdi_extended_assets(
         final_output_stem=final_output_stem,
     )
     json_payload = {
-        "claim_boundary": final_ffno_pair.claim_boundary,
+        "claim_boundary": (
+            payload.get("claim_boundary") if corrected else final_ffno_pair.claim_boundary
+        ),
         "benchmark": "CDI",
         "source_metrics_json": str(CDI_UNO_METRICS_JSON.relative_to(REPO_ROOT)),
-        "pinn_ffno_source_metrics_json": str(
-            final_ffno_pair.pinn_metrics_json.relative_to(REPO_ROOT)
-        ),
-        "supervised_ffno_source_metrics_json": str(
-            final_ffno_pair.supervised_metrics_json.relative_to(REPO_ROOT)
-        ),
-        "historical_proxy_lineage": {
-            "supervised_ffno_metrics_json": str(
-                CDI_SUPERSEDED_SUPERVISED_FFNO_METRICS_JSON.relative_to(REPO_ROOT)
-            ),
-            "notes": "Historical fno_cnn_blocks=2 FFNO-local proxy lineage only.",
-        },
         "final_output_stem": final_output_stem,
-        "final_ffno_pair": final_ffno_pair.provenance_payload(),
         "versioned_outputs": {
             "tex": versioned_tex,
             "pinn_tex": versioned_pinn_tex,
@@ -1690,6 +1699,24 @@ def write_cdi_extended_assets(
         },
         "rows": rows_with_provenance,
     }
+    if not corrected:
+        json_payload.update(
+            {
+                "pinn_ffno_source_metrics_json": str(
+                    final_ffno_pair.pinn_metrics_json.relative_to(REPO_ROOT)
+                ),
+                "supervised_ffno_source_metrics_json": str(
+                    final_ffno_pair.supervised_metrics_json.relative_to(REPO_ROOT)
+                ),
+                "historical_proxy_lineage": {
+                    "supervised_ffno_metrics_json": str(
+                        CDI_SUPERSEDED_SUPERVISED_FFNO_METRICS_JSON.relative_to(REPO_ROOT)
+                    ),
+                    "notes": "Historical fno_cnn_blocks=2 FFNO-local proxy lineage only.",
+                },
+                "final_ffno_pair": final_ffno_pair.provenance_payload(),
+            }
+        )
     versioned_json = _write_json_with_versioned_copy(
         json_path,
         json_payload,

@@ -11,7 +11,6 @@ import torch
 from lightning.pytorch import Trainer
 
 from ptycho_torch.config_factory import (
-    create_inference_payload,
     create_training_payload,
 )
 from ptycho_torch.config_params import (
@@ -191,11 +190,8 @@ def test_factory_rejects_partial_or_contradictory_profile_overrides(
         )
 
 
-def test_factory_accepts_explicit_legacy_pair_for_training_and_inference(tmp_path):
+def test_factory_accepts_explicit_legacy_pair_for_training(tmp_path):
     data_npz = tmp_path / "data.npz"
-    model_dir = tmp_path / "model"
-    model_dir.mkdir()
-    (model_dir / "wts.h5.zip").write_bytes(b"placeholder")
     _write_npz(data_npz)
     profile = {
         "scale_contract_version": LEGACY_SCALE_CONTRACT,
@@ -207,17 +203,9 @@ def test_factory_accepts_explicit_legacy_pair_for_training_and_inference(tmp_pat
         output_dir=tmp_path / "train-output",
         overrides={"training_groups": 4, **profile},
     )
-    inference = create_inference_payload(
-        model_path=model_dir,
-        test_data_file=data_npz,
-        output_dir=tmp_path / "inference-output",
-        overrides={"training_groups": 4, **profile},
-    )
 
     assert training.pt_data_config.scale_contract_version == LEGACY_SCALE_CONTRACT
     assert training.pt_data_config.measurement_domain == NORMALIZED_AMPLITUDE
-    assert inference.pt_data_config.scale_contract_version == LEGACY_SCALE_CONTRACT
-    assert inference.pt_data_config.measurement_domain == NORMALIZED_AMPLITUDE
 
 
 def test_metadata_free_known_legacy_checkpoint_requires_both_overrides(tmp_path):
@@ -334,7 +322,7 @@ def test_ci_bundle_recovers_profile_configs_and_frozen_statistics(tmp_path):
     assert manifest["artifact_schema_version"] == "torch-artifact-v5"
     assert persisted_identity["schema_version"] == "torch-artifact-v5"
     assert persisted_identity["grouping_contract"] == "centered-nearest-v1"
-    assert persisted_identity["model_spec"]["schema_version"] == "torch-model-spec-v3"
+    assert persisted_identity["model_spec"]["schema_version"] == "torch-model-spec-v4"
 
     models, params = components.load_inference_bundle_torch(tmp_path / "bundle")
 

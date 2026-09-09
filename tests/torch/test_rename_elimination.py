@@ -28,7 +28,6 @@ from ptycho_torch.config_params import (
     TrainingConfig,
 )
 from ptycho_torch.config_resolution import (
-    normalize_inference_patch,
     normalize_training_patch,
 )
 from ptycho_torch.model_spec import derive_model_spec
@@ -67,30 +66,6 @@ def test_training_patch_accepts_training_groups_rejects_n_groups():
         normalize_training_patch({"n_groups": 4})
 
 
-def test_unknown_training_field_suggests_nearest_canonical_name():
-    with pytest.raises(ValueError) as exc_info:
-        normalize_training_patch(
-            {"training_groups": 4, "zzz": 1, "archtecture": "ffno"}
-        )
-
-    message = str(exc_info.value)
-    assert "unknown training input field(s): archtecture, zzz" in message
-    assert "archtecture: architecture" in message
-
-
-def test_inference_patch_accepts_new_spellings():
-    normalized = normalize_inference_patch({"neighbor_count": 3, "inference_groups": 2})
-    assert normalized.values["neighbor_count"] == 3
-    assert normalized.values["inference_groups"] == 2
-
-    # Legacy spelling is a permanently fenced alias (H2): it must normalize
-    # to the canonical key, not survive verbatim.
-    legacy = normalize_inference_patch({"training_groups": 2})
-    assert legacy.values["inference_groups"] == 2
-    assert "training_groups" not in legacy.values
-
-    with pytest.raises(ValueError, match="unknown inference input field"):
-        normalize_inference_patch({"K": 3})
 
 
 def test_encode_artifact_identity_emits_v5_spellings():

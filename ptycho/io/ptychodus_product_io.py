@@ -1,18 +1,17 @@
 from __future__ import annotations
 
 """
-Scaffold for exporting/importing the Ptychodus product format.
+Exporting/importing the Ptychodus product format.
 
-This module provides function signatures and a metadata container for writing
-and reading Ptychodus "product" files (HDF5) derived from RawData. The full
-implementation will adhere to docs/specs/spec-ptycho-interfaces.md and interop with
+This module writes and reads Ptychodus "product" files (HDF5) derived from
+RawData under specs/data_contracts.md and interoperates with
 ptychodus/src/ptychodus/plugins/h5_product_file.py.
 
 Notes
 -----
 - Coordinates in NPZ/RawData are treated as pixels (relative to object pixels).
 - HDF5 product stores coordinates in meters (object/world frame).
-- Loss history is intentionally not handled in this initial scaffold.
+- Export writes an empty required loss_values dataset; RawData carries no loss history.
 """
 
 from dataclasses import dataclass
@@ -72,7 +71,7 @@ def export_product_from_rawdata(
     - Writes an HDF5 file adhering to specs/data_contracts.md
     - Converts RawData pixel coordinates to meters using object pixel size
     - Writes probe/object arrays and required attributes
-    - Does not include losses
+    - Writes an empty loss_values dataset
 
     Parameters
     ----------
@@ -83,10 +82,6 @@ def export_product_from_rawdata(
     meta:
         Export metadata and pixel geometry. When None, defaults are used.
 
-    Raises
-    ------
-    NotImplementedError
-        This is a scaffold; implementation will be provided in a follow-up step.
     """
     m = meta or ExportMeta()
 
@@ -217,10 +212,6 @@ def import_product_to_rawdata(in_path: Path) -> "RawData":
     RawData
         A RawData instance with positions and guesses populated.
 
-    Raises
-    ------
-    NotImplementedError
-        This is a scaffold; implementation will be provided in a follow-up step.
     """
     in_path = Path(in_path)
 

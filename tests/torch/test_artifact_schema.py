@@ -244,7 +244,7 @@ def test_current_application_checkpoint_dual_writes_identity_and_reloads(tmp_pat
         "schema_version": CURRENT_ARTIFACT_SCHEMA_VERSION,
     }
     assert checkpoint["hyper_parameters"]["artifact_identity"]["model_spec"]["schema_version"] == (
-        "torch-model-spec-v3"
+        "torch-model-spec-v4"
     )
 
     loaded = PtychoPINN_Lightning.load_from_checkpoint(

@@ -18,10 +18,12 @@ from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
+
+from ptycho_torch.reconstruction_gauge import GlobalGauge, fit_global_gauge
 from skimage.metrics import structural_similarity as _structural_similarity
 
 
-METRIC_CONTRACT_VERSION = "synthetic-quality-metrics-v1"
+METRIC_CONTRACT_VERSION = "synthetic-quality-metrics-v3"
 RENDERER_VERSION = "synthetic-comparison-renderer-v1"
 PNG_WIDTH = 2100
 PNG_HEIGHT = 1350
@@ -151,6 +153,8 @@ class PreparedComparison:
     common_mask: NDArray[np.bool_]
     ssim_bounds: Bounds
     frc_bounds: Bounds
+    raw_reconstruction: NDArray[np.complexfloating[Any, Any]] | None = None
+    gauge: GlobalGauge | None = None
 
     def __post_init__(self) -> None:
         reconstruction = np.asarray(self.reconstruction)
@@ -190,9 +194,21 @@ class PreparedComparison:
             or self.frc_bounds.right > self.ssim_bounds.right
         ):
             raise AlignmentError("prepared FRC bounds must be nested in SSIM bounds")
+        raw = (
+            reconstruction
+            if self.raw_reconstruction is None
+            else np.asarray(self.raw_reconstruction)
+        )
+        if raw.shape != reconstruction.shape or not np.issubdtype(
+            raw.dtype, np.complexfloating
+        ):
+            raise AlignmentError("prepared raw reconstruction must match the image")
+        if self.gauge is not None and not isinstance(self.gauge, GlobalGauge):
+            raise AlignmentError("prepared gauge must be a GlobalGauge")
         object.__setattr__(self, "reconstruction", _readonly_copy(reconstruction))
         object.__setattr__(self, "target", _readonly_copy(target))
         object.__setattr__(self, "common_mask", _readonly_copy(mask))
+        object.__setattr__(self, "raw_reconstruction", _readonly_copy(raw))
 
 
 @dataclass(frozen=True)
@@ -243,6 +259,59 @@ def _anchor_values(
             "anchor canvas_origin_offset is incompatible with scan_com"
         )
     return scan_x, scan_y
+
+
+def canvas_positions(
+    xcoords: Any,
+    ycoords: Any,
+    anchor: Mapping[str, Any],
+    canvas_shape: tuple[int, int],
+) -> NDArray[np.float64]:
+    """Map acquisition coordinates to reassembly canvas centres ``(x, y)``."""
+    scan_x, scan_y = _anchor_values(anchor, canvas_shape)
+    x = np.asarray(xcoords, dtype=np.float64)
+    y = np.asarray(ycoords, dtype=np.float64)
+    if (
+        x.shape != y.shape
+        or x.ndim != 1
+        or not np.isfinite(x).all()
+        or not np.isfinite(y).all()
+    ):
+        raise AlignmentError("xcoords and ycoords must be matching finite vectors")
+    return np.column_stack(
+        (x - scan_x + canvas_shape[1] // 2, y - scan_y + canvas_shape[0] // 2)
+    )
+
+
+def probe_exposure_support(
+    canvas_weights: Any,
+    probe: Any,
+    threshold_fraction: float = 0.1,
+) -> NDArray[np.bool_]:
+    """Threshold aggregate stitch exposure against one probe's peak intensity."""
+    weights = np.asarray(canvas_weights)
+    probe_array = np.asarray(probe)
+    if weights.ndim != 2 or not np.isfinite(weights).all() or np.any(weights < 0):
+        raise AlignmentError("canvas_weights must be finite, nonnegative, and 2D")
+    if probe_array.ndim == 2:
+        intensity = np.abs(probe_array) ** 2
+    elif probe_array.ndim == 3:
+        intensity = np.sum(np.abs(probe_array) ** 2, axis=0)
+    else:
+        raise AlignmentError("probe must have shape (m, m) or (modes, m, m)")
+    if (
+        intensity.ndim != 2
+        or not np.isfinite(intensity).all()
+        or isinstance(threshold_fraction, (bool, np.bool_))
+        or not np.isfinite(threshold_fraction)
+        or threshold_fraction <= 0
+        or threshold_fraction > 1
+    ):
+        raise AlignmentError("probe and threshold_fraction must define finite support")
+    peak = float(np.max(intensity, initial=0.0))
+    if peak <= 0:
+        raise AlignmentError("probe intensity must have a positive peak")
+    return np.asarray(weights >= threshold_fraction * peak, dtype=bool)
 
 
 def _truth_origin_values(anchor: Mapping[str, Any]) -> tuple[int, int] | None:
@@ -371,8 +440,16 @@ def prepare_anchor_aligned(
     truth: Any,
     *,
     metric_crop_border: int = 0,
+    metric_support: Any | None = None,
+    gauge: str = "global",
 ) -> PreparedComparison:
-    """Align truth to a reconstruction and apply the declared metric border.
+    """Align truth to a reconstruction, apply the metric border, and fit the gauge.
+
+    ``gauge="global"`` fits one amplitude scale, phase constant, and linear
+    phase ramp on the common mask and applies it to the reconstruction, so
+    every downstream metric is scored in the global gauge quotient; the
+    ungauged canvas stays available as ``raw_reconstruction``. ``gauge="none"``
+    keeps the reconstruction as given (diagnostics only).
 
     ``truth_origin`` in the anchor names the source-origin of object
     coordinates in the truth array. When the exact canvas-sized truth slice at
@@ -415,6 +492,13 @@ def prepare_anchor_aligned(
             y = rows - math.floor(recon.shape[0] / 2) + scan_y + origin_y
             sampled, valid_truth = _bilinear_sample(target_source, y, x)
     common = (weights > 0) & valid_truth
+    if metric_support is not None:
+        support = np.asarray(metric_support)
+        if support.shape != recon.shape or support.dtype != np.bool_:
+            raise AlignmentError(
+                "metric_support must be boolean and match reconstruction"
+            )
+        common &= support
     if (
         isinstance(metric_crop_border, (bool, np.bool_))
         or not isinstance(metric_crop_border, (int, np.integer))
@@ -433,12 +517,22 @@ def prepare_anchor_aligned(
         common &= border_mask
     rectangle = largest_true_rectangle(common)
     square = centered_square_bounds(rectangle)
+    if gauge == "global":
+        fitted: GlobalGauge | None = fit_global_gauge(recon, sampled, common)
+        # Keep the input precision so an identity gauge is bit-exact.
+        aligned = fitted.apply(recon).astype(recon.dtype, copy=False)
+    elif gauge == "none":
+        fitted, aligned = None, recon
+    else:
+        raise AlignmentError("gauge must be 'global' or 'none'")
     return PreparedComparison(
-        reconstruction=recon,
+        reconstruction=aligned,
         target=sampled,
         common_mask=common,
         ssim_bounds=rectangle,
         frc_bounds=square,
+        raw_reconstruction=recon,
+        gauge=fitted,
     )
 
 
@@ -533,8 +627,9 @@ def global_phase_factor(
 
 
 def absolute_scale_metrics(prepared: PreparedComparison) -> dict[str, float]:
-    """Compute amplitude-absolute metrics with phase-only complex alignment."""
-    recon, target = _masked_points(prepared)
+    """Gauged ``amp_mae`` beside the pre-gauge absolute-scale diagnostics."""
+    gauged, target = _masked_points(prepared)
+    recon = prepared.raw_reconstruction[prepared.common_mask]
     recon_complex = np.asarray(recon, dtype=np.complex128)
     target_complex = np.asarray(target, dtype=np.complex128)
     recon_amp = _amplitude(recon_complex)
@@ -546,6 +641,7 @@ def absolute_scale_metrics(prepared: PreparedComparison) -> dict[str, float]:
     amp_error = recon_amp - target_amp
     aligned_error = factor * recon_complex - target_complex
     values = {
+        "amp_mae": _scaled_mean(np.abs(_amplitude(gauged) - target_amp)),
         "absolute_amp_mae": _scaled_mean(np.abs(amp_error)),
         "absolute_amp_nrmse": float(_rms(amp_error) / amp_rms),
         "absolute_complex_nrmse": float(_rms(aligned_error) / complex_rms),
@@ -702,6 +798,94 @@ def phase_similarity_inputs(
 def phase_ssim(prepared: PreparedComparison) -> float:
     prediction, target = phase_similarity_inputs(prepared)
     return _ssim(prediction, target, data_range=1.0)
+
+
+def _frc_curve(
+    prediction: NDArray[Any], target: NDArray[Any]
+) -> tuple[NDArray[np.float64], list[float | None]]:
+    if prediction.shape != target.shape or prediction.ndim != 2:
+        raise MetricError("FRC inputs must be equal 2D arrays")
+    if prediction.shape[0] != prediction.shape[1] or prediction.shape[0] < 2:
+        raise MetricError("FRC inputs must be equal nontrivial squares")
+    if not np.isfinite(prediction).all() or not np.isfinite(target).all():
+        raise MetricError("FRC inputs must be finite")
+    side = prediction.shape[0]
+    window = np.outer(np.hanning(side), np.hanning(side))
+    pred_fft = np.fft.fftshift(
+        np.fft.fft2((prediction - np.mean(prediction)) * window)
+    )
+    target_fft = np.fft.fftshift(
+        np.fft.fft2((target - np.mean(target)) * window)
+    )
+    frequency = np.fft.fftshift(np.fft.fftfreq(side))
+    radius = np.hypot(frequency[:, None], frequency[None, :])
+    edges = np.arange(0.0, 0.5000001, 0.01, dtype=np.float64)
+    centers = (edges[:-1] + edges[1:]) / 2.0
+    values: list[float | None] = []
+    for lower, upper in zip(edges[:-1], edges[1:], strict=True):
+        ring = (radius >= lower) & (radius < upper)
+        first = pred_fft[ring]
+        second = target_fft[ring]
+        denominator = math.sqrt(
+            float(np.sum(np.abs(first) ** 2))
+            * float(np.sum(np.abs(second) ** 2))
+        )
+        if denominator <= 0.0 or not math.isfinite(denominator):
+            values.append(None)
+            continue
+        correlation = float(np.real(np.sum(first * np.conj(second))) / denominator)
+        values.append(float(np.clip(correlation, -1.0, 1.0)))
+    return centers, values
+
+
+def _last_frc50_frequency(frequencies: Any, correlations: Any) -> float | None:
+    frequency = np.asarray(frequencies, dtype=np.float64)
+    correlation = np.asarray(correlations, dtype=np.float64)
+    if frequency.ndim != 1 or correlation.shape != frequency.shape:
+        raise MetricError("FRC frequencies and correlations must be matching vectors")
+    passing = frequency[np.isfinite(correlation) & (correlation >= 0.5)]
+    return None if passing.size == 0 else float(passing[-1])
+
+
+def frc50_metrics(prepared: PreparedComparison) -> dict[str, Any]:
+    """Return amplitude and circular-phase FRC50 on the prepared square."""
+    bounds = prepared.frc_bounds
+    reconstruction = prepared.reconstruction[bounds.row_slice, bounds.col_slice]
+    target = prepared.target[bounds.row_slice, bounds.col_slice]
+    factor = global_phase_factor(
+        prepared.reconstruction,
+        prepared.target,
+        prepared.common_mask,
+    )
+    frequencies, amplitude_curve = _frc_curve(
+        np.abs(reconstruction),
+        np.abs(target),
+    )
+    _, phase_curve = _frc_curve(
+        np.exp(1j * np.angle(factor * reconstruction)),
+        np.exp(1j * np.angle(target)),
+    )
+    amplitude_frequency = _last_frc50_frequency(frequencies, amplitude_curve)
+    phase_frequency = _last_frc50_frequency(frequencies, phase_curve)
+    # No ring at or above 0.5 means no correlated scale at all: the frequency
+    # column records 0.0 cycles/px and the resolution in pixels is undefined.
+    return {
+        "amplitude_frc50_frequency": (
+            0.0 if amplitude_frequency is None else amplitude_frequency
+        ),
+        "phase_frc50_frequency": 0.0 if phase_frequency is None else phase_frequency,
+        "amplitude_frc50_pixels": (
+            None if amplitude_frequency is None else 1.0 / amplitude_frequency
+        ),
+        "phase_frc50_pixels": (
+            None if phase_frequency is None else 1.0 / phase_frequency
+        ),
+        "frc_curves": {
+            "frequency": frequencies.tolist(),
+            "amplitude": amplitude_curve,
+            "phase": phase_curve,
+        },
+    }
 
 
 def image_quality_metrics(prepared: PreparedComparison) -> ImageQualityMetrics:
@@ -1008,24 +1192,26 @@ def _validate_channel_indices(
     )
 
 
-def _four_metrics(prepared: PreparedComparison) -> dict[str, float]:
-    quality = image_quality_metrics(prepared)
+def _quality_metrics(prepared: PreparedComparison) -> dict[str, Any]:
     recon, target = _masked_points(prepared)
-    amp_mae = _scaled_mean(np.abs(_amplitude(recon) - _amplitude(target)))
-    values = {
-        "amplitude_ssim": float(quality.amplitude_ssim),
-        "phase_ssim": float(quality.phase_ssim),
-        "absolute_amp_mae": float(amp_mae),
-        "phase_wrapped_mae": float(quality.phase_wrapped_mae),
+    raw = prepared.raw_reconstruction[prepared.common_mask]
+    target_amp = _amplitude(target)
+    values: dict[str, Any] = {
+        "amplitude_ssim": float(amplitude_ssim(prepared)),
+        "phase_ssim": float(phase_ssim(prepared)),
+        "absolute_amp_mae": float(_scaled_mean(np.abs(_amplitude(raw) - target_amp))),
+        "amp_mae": float(_scaled_mean(np.abs(_amplitude(recon) - target_amp))),
+        "phase_wrapped_mae": float(phase_wrapped_mae(prepared)),
     }
     for name in ("amplitude_ssim", "phase_ssim"):
         value = values[name]
         if not math.isfinite(value) or not -1.0 - 1e-12 <= value <= 1.0 + 1e-12:
             raise MetricError(f"{name} must be finite and in [-1, 1]")
         values[name] = float(np.clip(value, -1.0, 1.0))
-    for name in ("absolute_amp_mae", "phase_wrapped_mae"):
+    for name in ("absolute_amp_mae", "amp_mae", "phase_wrapped_mae"):
         if not math.isfinite(values[name]) or values[name] < 0.0:
             raise MetricError(f"{name} must be finite and nonnegative")
+    values.update(frc50_metrics(prepared))
     return values
 
 
@@ -1033,10 +1219,11 @@ def _prescale_diagnostic_metrics(
     prepared: PreparedComparison,
 ) -> tuple[dict[str, float], dict[str, Any]]:
     """Return finite prescale diagnostics without turning them into a gate."""
-    recon, target = _masked_points(prepared)
+    _, target = _masked_points(prepared)
+    raw = prepared.raw_reconstruction[prepared.common_mask]
     values = {
         "absolute_amp_mae": float(
-            _scaled_mean(np.abs(_amplitude(recon) - _amplitude(target)))
+            _scaled_mean(np.abs(_amplitude(raw) - _amplitude(target)))
         )
     }
     undefined: dict[str, str] = {}
@@ -1297,6 +1484,7 @@ def evaluate_reconstruction_quality(
     expected_channels: int = 4,
     measurement_domain: str = "normalized_amplitude",
     metric_crop_border: int = 0,
+    metric_support: Any | None = None,
 ) -> ReconstructionEvaluationResult:
     """Score raw arrays, render diagnostics, and publish two stage artifacts."""
     if measurement_domain not in {"normalized_amplitude", "count_intensity"}:
@@ -1353,6 +1541,7 @@ def evaluate_reconstruction_quality(
         canvas_anchor,
         target,
         metric_crop_border=metric_crop_border,
+        metric_support=metric_support,
     )
     prescale_prepared = prepare_anchor_aligned(
         prescale,
@@ -1360,6 +1549,7 @@ def evaluate_reconstruction_quality(
         canvas_anchor,
         target,
         metric_crop_border=metric_crop_border,
+        metric_support=metric_support,
     )
     if min(prepared.ssim_bounds.height, prepared.ssim_bounds.width) < 7:
         raise MetricError("SSIM rectangle must be at least 7-by-7")
@@ -1383,7 +1573,7 @@ def evaluate_reconstruction_quality(
             "groups_per_center=1 requires complete scan and center utilization"
         )
 
-    post_metrics = _four_metrics(prepared)
+    post_metrics = _quality_metrics(prepared)
     # Prescale values are diagnostic-only: they must have a finite JSON
     # representation, but undefined components use declared sentinels rather
     # than passing through collapse, utilization, or quality gates.
@@ -1407,11 +1597,8 @@ def evaluate_reconstruction_quality(
         "method": alignment_method,
         "translation_registration": "none",
         "object_center_crop": False,
-        "valid_mask_policy": (
-            "positive_weights_and_in_bounds_truth_then_symmetric_metric_crop"
-            if metric_crop_border
-            else "positive_weights_and_in_bounds_truth"
-        ),
+        "valid_mask_policy": "positive_weights_and_in_bounds_truth"
+        + ("_then_symmetric_metric_crop" if metric_crop_border else ""),
         "aligned_shape": [int(size) for size in prepared.reconstruction.shape],
         "valid_pixel_count": valid_pixel_count,
         "metric_crop_border": int(metric_crop_border),
@@ -1428,18 +1615,15 @@ def evaluate_reconstruction_quality(
     }
     if truth_origin is not None:
         alignment["truth_origin"] = [int(item) for item in truth_origin]
-    gauge = {
-        "method": "unit_global_complex_phase",
-        "real": float(factor.real),
-        "imag": float(factor.imag),
-        "magnitude": float(abs(factor)),
-    }
+    if prepared.gauge is None:
+        raise MetricError("quality evaluation requires the global gauge")
+    gauge = prepared.gauge.to_jsonable(prepared.reconstruction.shape)
     metrics: dict[str, Any] = {
         "metric_contract_version": METRIC_CONTRACT_VERSION,
         **post_metrics,
         "valid_pixel_count": valid_pixel_count,
         "alignment": alignment,
-        "gauge_factor": gauge,
+        "gauge": gauge,
     }
     metric_validity: dict[str, Any] = {
         "metric_contract_version": METRIC_CONTRACT_VERSION,
@@ -1520,8 +1704,10 @@ __all__ = [
     "amplitude_pearson",
     "amplitude_similarity_inputs",
     "amplitude_ssim",
+    "canvas_positions",
     "centered_square_bounds",
     "evaluate_reconstruction_quality",
+    "frc50_metrics",
     "global_phase_factor",
     "image_quality_metrics",
     "largest_true_rectangle",
@@ -1529,6 +1715,7 @@ __all__ = [
     "phase_ssim",
     "phase_wrapped_mae",
     "prepare_anchor_aligned",
+    "probe_exposure_support",
     "render_comparison",
     "scan_utilization_metrics",
     "valid_mask_diagnostics",

@@ -35,6 +35,7 @@ import numpy as np
 from ptycho.config.legacy_state import scoped_legacy_params
 from ptycho.reconstruction_policy import resolve_cli_reconstruction_policy
 from ptycho_torch.reconstruction_ports import present_reconstruction_canvas
+from ptycho_torch.reassembly_phase_alignment import PHASE_ALIGNMENT_METHODS
 from ptycho_torch.inference_validation import (
     _require_record_fields_agree,
     _validate_authentic_channels,
@@ -95,14 +96,26 @@ def save_individual_reconstructions(obj_amp, obj_phase, output_dir):
     print(f"Saved phase reconstruction to: {phase_path}")
 
 
-def _describe_requested_knobs(patch_weighting, varpro_scaling):
+def _describe_requested_knobs(
+    patch_weighting, varpro_scaling, patch_phase_alignment="none"
+):
     """Human-readable list of the non-default stitching/scaling knobs."""
     requested = []
     if patch_weighting != 'uniform':
         requested.append(f"patch_weighting={patch_weighting!r}")
     if varpro_scaling:
         requested.append("varpro_scaling=True")
+    if patch_phase_alignment != "none":
+        requested.append(f"patch_phase_alignment={patch_phase_alignment!r}")
     return ", ".join(requested)
+
+
+def _require_phase_alignment_method(patch_phase_alignment: str) -> None:
+    if patch_phase_alignment not in PHASE_ALIGNMENT_METHODS:
+        raise ValueError(
+            f"patch_phase_alignment must be one of {PHASE_ALIGNMENT_METHODS}, "
+            f"got {patch_phase_alignment!r}"
+        )
 
 
 def _require_ci_varpro_scaling(model, inference_config):
@@ -284,7 +297,9 @@ class ReconstructionRuntimeParams:
     ``PtychoDataset``); ``training_config`` and ``inference_config`` are the
     runtime (loader) configs. ``source_metadata`` is the NPZ-side
     coordinate/scale metadata the wrapper read during load, threaded through
-    to the frozen result.
+    to the frozen result. ``patch_phase_alignment`` selects the per-patch
+    phase fit before the final stitch (``'none'`` or ``'overlap'``); like
+    ``precision`` it is a runtime choice, not bundle identity.
     """
 
     data_config: Any
@@ -295,6 +310,7 @@ class ReconstructionRuntimeParams:
     quiet: bool = False
     enforce_ci_varpro: bool = True
     compute_count_metrics: bool = True
+    patch_phase_alignment: str = "none"
 
 
 
@@ -389,9 +405,11 @@ def reconstruct_from_dataset(
 
     if runtime_params.enforce_ci_varpro:
         _require_ci_varpro_scaling(model, inference_config)
+    _require_phase_alignment_method(runtime_params.patch_phase_alignment)
     requested = _describe_requested_knobs(
         inference_config.patch_weighting,
         inference_config.varpro_scaling,
+        runtime_params.patch_phase_alignment,
     )
     if not quiet:
         print(f"Reassembly route: barycentric ({requested})")
@@ -417,6 +435,7 @@ def reconstruct_from_dataset(
                 structured_diagnostics=True,
                 precision=precision,
                 compute_count_metrics=runtime_params.compute_count_metrics,
+                patch_phase_alignment=runtime_params.patch_phase_alignment,
             )
         )
         if not isinstance(diagnostics, ReassemblyDiagnostics):
@@ -516,12 +535,19 @@ def reconstruct(
     inference_batch_size: Optional[int] = None,
     precision: str = "32-true",
     quiet: bool = False,
+    patch_phase_alignment: str = "none",
 ) -> BarycentricReconstructionResult:
-    """Strictly reload one bundle and reconstruct one flat NPZ through mmap."""
+    """Strictly reload one bundle and reconstruct one flat NPZ through mmap.
+
+    ``patch_phase_alignment='overlap'`` fits one phase constant per patch from
+    the patch overlaps before the final stitch (see
+    ``ptycho_torch.reassembly_phase_alignment``). Runtime-only, default off.
+    """
     from ptycho.config.legacy_state import isolated_archived_params_scope
     from ptycho_torch.config_params import InferenceConfig
     from ptycho_torch.workflows.bundle_io import load_inference_bundle_torch
 
+    _require_phase_alignment_method(patch_phase_alignment)
     if isinstance(groups_per_center, bool) or not isinstance(groups_per_center, int):
         raise TypeError("groups_per_center must be a positive integer")
     if groups_per_center <= 0:
@@ -683,6 +709,7 @@ def reconstruct(
                 source_metadata=source_metadata,
                 precision=precision,
                 quiet=quiet,
+                patch_phase_alignment=patch_phase_alignment,
             ),
         )
         del dataset
@@ -1217,6 +1244,17 @@ Examples:
         ),
     )
     parser.add_argument(
+        '--patch-phase-alignment',
+        choices=list(PHASE_ALIGNMENT_METHODS),
+        default='none',
+        dest='patch_phase_alignment',
+        help=(
+            "Fit one phase constant per patch from the patch overlaps before "
+            "the final stitch: 'none' (default) or 'overlap'. Runtime-only; "
+            "the checkpoint is not modified."
+        ),
+    )
+    parser.add_argument(
         '--device',
         type=str,
         choices=['cpu', 'cuda'],
@@ -1238,33 +1276,6 @@ Examples:
         type=int,
         default=None,
         help='Maximum number of batches to log for patch stats (default: no limit)'
-    )
-    parser.add_argument(
-        '--probe-mask',
-        dest='probe_mask',
-        action='store_true',
-        default=False,
-        help='Enable Torch probe masking during inference normalization/forward pass (default: disabled).'
-    )
-    parser.add_argument(
-        '--no-probe-mask',
-        dest='probe_mask',
-        action='store_false',
-        help='Disable Torch probe masking during inference.'
-    )
-    parser.add_argument(
-        '--probe-mask-sigma',
-        type=float,
-        default=1.0,
-        dest='probe_mask_sigma',
-        help='Gaussian sigma (pixels) for probe-mask edge smoothing (default: 1.0 smooth edge).'
-    )
-    parser.add_argument(
-        '--probe-mask-diameter',
-        type=float,
-        default=None,
-        dest='probe_mask_diameter',
-        help='Probe-mask disk diameter in pixels (default: N/2).'
     )
     parser.add_argument(
         '--scale-contract-version',
@@ -1313,13 +1324,6 @@ Examples:
 
     args = parser.parse_args()
 
-    # The barycentric kernel is the sole reconstruction entry; the deprecated
-    # uniform-stitching route was deleted at the Phase 4 closeout.
-    if args.probe_mask:
-        raise ValueError(
-            "--probe-mask cannot be honored on the barycentric kernel path "
-            "(the kernel uses the checkpoint's own probe configuration)."
-        )
 
     # --- Phase D.C C3: Validate paths using shared helper ---
     from ptycho_torch.cli.shared import validate_paths
@@ -1333,7 +1337,7 @@ Examples:
         print(f"ERROR: {e}")
         sys.exit(1)
 
-    # Preserve raw-option suppliedness until the factory resolves runtime.
+    # Preserve raw-option suppliedness until runtime resolution.
     from ptycho_torch.cli.shared import build_execution_request_from_args
     try:
         execution_request = build_execution_request_from_args(
@@ -1357,69 +1361,33 @@ Examples:
             f"Import error: {e}"
         )
 
-    # Delegate to factory for CONFIG-001 compliance (config-factory contract; docs/specs/spec-ptycho-config-bridge.md)
-    # Replaces manual checkpoint loading and config construction with centralized
-    # factory pattern. The factory handles:
-    # 1. Path validation and checkpoint discovery
-    # 2. CONFIG-001 bridging (update_legacy_dict before any IO)
-    # 3. Config translation (PyTorch → TensorFlow canonical dataclasses)
-    # 4. Execution config merging with override precedence
-
-    from ptycho_torch.config_factory import create_inference_payload
+    from ptycho_torch.config_params import InferenceConfig
+    from ptycho_torch.config_resolution import _validate_inference_domains
+    from ptycho_torch.execution_request import resolve_runtime_execution_request
+    import warnings
 
     # Convert paths to Path objects
     model_path = Path(args.model_path)
     test_data_path = Path(args.test_data)
     output_dir = Path(args.output_dir)
 
-    # Build overrides dict for factory
-    overrides = {
-        # inference_groups is the canonical inference group-count key; the
-        # barycentric kernel reconstructs the full scan and ignores this count.
-        'inference_groups': 32,
-        'probe_mask': args.probe_mask,
-        'probe_mask_sigma': args.probe_mask_sigma,
-        'probe_mask_diameter': args.probe_mask_diameter,
-        'log_patch_stats': args.log_patch_stats,
-        'patch_stats_limit': args.patch_stats_limit,
-        # docs/specs/spec-ptycho-conformance.md (D4): thread the stitching/scaling knobs so the resolved
-        # pt_inference_config matches the routing decision above.
-        'patch_weighting': args.patch_weighting,
-        'varpro_scaling': args.varpro_scaling,
-    }
-    if args.scale_contract_version is not None:
-        overrides['scale_contract_version'] = args.scale_contract_version
-    if args.measurement_domain is not None:
-        overrides['measurement_domain'] = args.measurement_domain
+    inference_config = InferenceConfig(
+        patch_weighting=args.patch_weighting,
+        varpro_scaling=args.varpro_scaling,
+        log_patch_stats=args.log_patch_stats,
+        patch_stats_limit=args.patch_stats_limit,
+    )
+    _validate_inference_domains(inference_config)
+    runtime = resolve_runtime_execution_request(execution_request, mode="inference")
+    for notice in runtime.notices:
+        warnings.warn(notice.message, notice.category, stacklevel=2)
+    execution_config = runtime.config
 
-    # Resolve the Torch-owned configs without mutating legacy params.cfg.
-    try:
-        payload = create_inference_payload(
-            model_path=model_path,
-            test_data_file=test_data_path,
-            output_dir=output_dir,
-            overrides=overrides,
-            execution_config=execution_request,
-        )
-
-        # Reuse the factory-owned resolved records.
-        tf_inference_config = payload.tf_inference_config
-        execution_config = payload.execution_config
-
-        if not args.quiet:
-            print("Loaded configuration from model checkpoint")
-            print(f"Test data: {test_data_path}")
-            print(f"Output directory: {output_dir}")
-            print(f"N groups: {tf_inference_config.inference_groups}")
-            print(f"Execution config: accelerator={execution_config.accelerator}, "
-                  f"num_workers={execution_config.num_workers}")
-
-    except Exception as e:
-        raise RuntimeError(
-            f"Failed to create inference payload.\n"
-            f"Error: {e}\n"
-            "Ensure model_path contains wts.h5.zip and test_data conforms to DATA-001."
-        )
+    if not args.quiet:
+        print(f"Test data: {test_data_path}")
+        print(f"Output directory: {output_dir}")
+        print(f"Execution config: accelerator={execution_config.accelerator}, "
+              f"num_workers={execution_config.num_workers}")
 
     try:
         import torch
@@ -1430,9 +1398,10 @@ Examples:
             test_data_path,
             work_dir=output_dir,
             groups_per_center=args.groups_per_center,
+            patch_phase_alignment=args.patch_phase_alignment,
             scale_contract_version=args.scale_contract_version,
             measurement_domain=args.measurement_domain,
-            inference_config=payload.pt_inference_config,
+            inference_config=inference_config,
             device=device,
             num_workers=int(execution_config.num_workers or 0),
             inference_batch_size=execution_config.inference_batch_size,
@@ -1441,14 +1410,14 @@ Examples:
         )
         amplitude, phase = result.amplitude, result.phase
         save_individual_reconstructions(amplitude, phase, output_dir)
-        if payload.pt_inference_config.log_patch_stats:
+        if inference_config.log_patch_stats:
             from ptycho_torch.patch_stats_instrumentation import PatchStatsLogger
 
             amp_tensor = torch.as_tensor(amplitude).unsqueeze(0).unsqueeze(0)
             logger = PatchStatsLogger(
                 output_dir=output_dir / "analysis",
                 enabled=True,
-                limit=payload.pt_inference_config.patch_stats_limit,
+                limit=inference_config.patch_stats_limit,
             )
             logger.log_batch(amp_tensor, phase="inference", batch_idx=0)
             logger.finalize()

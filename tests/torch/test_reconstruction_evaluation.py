@@ -120,6 +120,42 @@ def test_prepare_anchor_aligned_supports_integer_and_half_pixel_sampling():
     assert half.common_mask.all()
 
 
+def test_prepare_anchor_aligned_applies_the_global_gauge():
+    from ptycho_torch.reconstruction_evaluation import (
+        absolute_scale_metrics,
+        phase_wrapped_mae,
+        prepare_anchor_aligned,
+    )
+
+    truth = _truth((14, 14))
+    rows, cols = np.indices((10, 10), dtype=np.float64)
+    reconstruction = 3.0 * truth[:10, :10] * np.exp(1j * (0.7 + 0.03 * cols - 0.02 * rows))
+    weights = np.ones((10, 10), dtype=np.float32)
+    weights[0, :] = 0.0
+    anchor = _anchor((5.0, 5.0), reconstruction.shape)
+
+    prepared = prepare_anchor_aligned(reconstruction, weights, anchor, truth)
+    assert prepared.gauge is not None
+    assert prepared.gauge.scale == pytest.approx(1.0 / 3.0, rel=1e-6)
+    assert prepared.gauge.ramp_x == pytest.approx(-0.03, abs=1e-6)
+    assert prepared.gauge.ramp_y == pytest.approx(0.02, abs=1e-6)
+    mask = prepared.common_mask
+    np.testing.assert_allclose(prepared.reconstruction[mask], truth[:10, :10][mask], atol=1e-6)
+    np.testing.assert_allclose(prepared.raw_reconstruction, reconstruction)
+    assert phase_wrapped_mae(prepared) == pytest.approx(0.0, abs=1e-6)
+    absolute = absolute_scale_metrics(prepared)
+    assert absolute["amp_mae"] == pytest.approx(0.0, abs=1e-6)
+    assert absolute["absolute_amp_mae"] == pytest.approx(
+        float(np.mean(2.0 * np.abs(truth[:10, :10])[mask]))
+    )
+    assert absolute["amp_mean_ratio"] == pytest.approx(3.0, rel=1e-6)
+
+    ungauged = prepare_anchor_aligned(reconstruction, weights, anchor, truth, gauge="none")
+    assert ungauged.gauge is None
+    np.testing.assert_allclose(ungauged.reconstruction, reconstruction)
+    assert phase_wrapped_mae(ungauged) > 0.05
+
+
 def test_prepare_anchor_aligned_supports_exact_truth_origin_and_metric_crop():
     from ptycho_torch.reconstruction_evaluation import prepare_anchor_aligned
 
@@ -145,6 +181,72 @@ def test_prepare_anchor_aligned_supports_exact_truth_origin_and_metric_crop():
         "right": 6,
     }
     assert int(np.count_nonzero(prepared.common_mask)) == 16
+
+
+def test_canvas_positions_follow_reassembly_placement():
+    from ptycho_torch.reconstruction_evaluation import canvas_positions
+
+    anchor = _anchor((10.5, 20.25), (40, 60))
+    actual = canvas_positions(
+        np.asarray([10.5, 12.0]),
+        np.asarray([20.25, 19.0]),
+        anchor,
+        (40, 60),
+    )
+    np.testing.assert_allclose(actual, [[30.0, 20.0], [31.5, 18.75]])
+
+
+def test_prepare_anchor_aligned_intersects_acquisition_metric_support():
+    from ptycho_torch.reconstruction_evaluation import prepare_anchor_aligned
+
+    truth = _truth((12, 12))
+    reconstruction = np.array(truth[:9, :9], copy=True)
+    weights = np.ones(reconstruction.shape, dtype=np.float32)
+    support = np.zeros(reconstruction.shape, dtype=bool)
+    support[1:8, 2:9] = True
+    prepared = prepare_anchor_aligned(
+        reconstruction,
+        weights,
+        _anchor((4.5, 4.5), reconstruction.shape),
+        truth,
+        metric_support=support,
+    )
+    np.testing.assert_array_equal(prepared.common_mask, support)
+
+
+def test_probe_exposure_support_uses_stitch_denominator_and_single_probe_peak():
+    from ptycho_torch.reconstruction_evaluation import probe_exposure_support
+
+    weights = np.asarray([[0.0, 0.09, 0.1, 0.4]], dtype=np.float32)
+    probe = np.ones((2, 2), dtype=np.complex64)
+    np.testing.assert_array_equal(
+        probe_exposure_support(weights, probe),
+        np.asarray([[False, False, True, True]]),
+    )
+
+
+def test_frc50_uses_last_ring_above_threshold_and_reports_resolution():
+    from ptycho_torch.reconstruction_evaluation import (
+        _last_frc50_frequency,
+        frc50_metrics,
+        prepare_anchor_aligned,
+    )
+
+    assert _last_frc50_frequency(
+        [0.05, 0.15, 0.25, 0.35], [0.8, 0.4, 0.7, 0.3]
+    ) == pytest.approx(0.25)
+    truth = _truth((128, 128))
+    prepared = prepare_anchor_aligned(
+        truth,
+        np.ones(truth.shape, dtype=np.float32),
+        _anchor((64.0, 64.0), truth.shape),
+        truth,
+    )
+    metrics = frc50_metrics(prepared)
+    assert metrics["amplitude_frc50_frequency"] == pytest.approx(0.495)
+    assert metrics["phase_frc50_frequency"] == pytest.approx(0.495)
+    assert metrics["amplitude_frc50_pixels"] == pytest.approx(1.0 / 0.495)
+    assert metrics["phase_frc50_pixels"] == pytest.approx(1.0 / 0.495)
 
 
 def test_truth_origin_selects_scanned_object_region_for_metrics():
@@ -225,48 +327,32 @@ def test_evaluate_quality_writes_raw_metrics_and_fixed_six_panel_png(tmp_path):
         "phase_ssim",
         "absolute_amp_mae",
         "phase_wrapped_mae",
+        "amplitude_frc50_frequency",
+        "phase_frc50_frequency",
+        "amplitude_frc50_pixels",
+        "phase_frc50_pixels",
+        "frc_curves",
         "valid_pixel_count",
         "alignment",
-        "gauge_factor",
+        "amp_mae",
+        "gauge",
     }
     target = values["truth"][:9, :9]
-    expected_amp_mae = float(
-        np.mean(np.abs(np.abs(values["complex_canvas"]) - np.abs(target)))
-    )
-    assert payload["absolute_amp_mae"] == pytest.approx(expected_amp_mae)
-    assert payload["absolute_amp_mae"] != pytest.approx(0.0)
-    reconstruction = np.asarray(values["complex_canvas"], dtype=np.complex128)
-    target_complex = np.asarray(target, dtype=np.complex128)
-    scaled_reconstruction = reconstruction / np.max(np.abs(reconstruction))
-    scaled_target = target_complex / np.max(np.abs(target_complex))
-    correlation = np.mean(np.conj(scaled_reconstruction) * scaled_target)
-    factor = correlation / abs(correlation)
-    residual = np.angle(factor * values["complex_canvas"] * np.conj(target))
-    assert payload["phase_wrapped_mae"] == pytest.approx(
-        float(np.mean(np.abs(residual)))
-    )
-    assert payload["gauge_factor"]["real"] == pytest.approx(factor.real)
-    assert payload["gauge_factor"]["imag"] == pytest.approx(factor.imag)
-    assert payload["gauge_factor"]["magnitude"] == pytest.approx(1.0)
-    prediction_amplitude = np.abs(reconstruction)
-    target_amplitude = np.abs(target_complex)
-    mean_matched_amplitude = prediction_amplitude * (
-        np.mean(target_amplitude) / np.mean(prediction_amplitude)
-    )
-    expected_amplitude_ssim = structural_similarity(
-        mean_matched_amplitude,
-        target_amplitude,
-        data_range=float(np.ptp(target_amplitude)),
-        win_size=7,
-    )
-    expected_phase_ssim = structural_similarity(
-        (np.angle(factor * reconstruction) + np.pi) / (2 * np.pi),
-        (np.angle(target_complex) + np.pi) / (2 * np.pi),
-        data_range=1.0,
-        win_size=7,
-    )
-    assert payload["amplitude_ssim"] == pytest.approx(expected_amplitude_ssim)
-    assert payload["phase_ssim"] == pytest.approx(expected_phase_ssim)
+    # The canvas is 2 * truth * exp(i * (0.35 + ramp)); the global gauge
+    # removes the scale, the constant, and the ramp, so the gauged metrics are
+    # exact and the absolute amplitude diagnostic keeps the scale error.
+    assert payload["absolute_amp_mae"] == pytest.approx(float(np.mean(np.abs(target))))
+    assert payload["amp_mae"] == pytest.approx(0.0, abs=1e-6)
+    assert payload["phase_wrapped_mae"] == pytest.approx(0.0, abs=1e-6)
+    assert payload["amplitude_ssim"] == pytest.approx(1.0, abs=1e-6)
+    assert payload["phase_ssim"] == pytest.approx(1.0, abs=1e-6)
+    gauge = payload["gauge"]
+    assert gauge["method"] == "global_scale_affine_phase_v1"
+    assert gauge["scale"] == pytest.approx(0.5, rel=1e-6)
+    assert gauge["phase_offset"] == pytest.approx(-0.15, abs=1e-6)  # 0.35 + ramp origin -0.2
+    assert gauge["ramp_x_rad_per_px"] == pytest.approx(-0.005, abs=1e-6)
+    assert gauge["ramp_y_rad_per_px"] == pytest.approx(-0.045, abs=1e-6)
+    assert gauge["ramp_span_rad"] == pytest.approx(math.hypot(8 * 0.005, 8 * 0.045), rel=1e-5)
 
     prescale = result.metric_validity["prescale_metrics"]
     assert set(prescale) == {
@@ -281,7 +367,13 @@ def test_evaluate_quality_writes_raw_metrics_and_fixed_six_panel_png(tmp_path):
             "amplitude_ssim",
             "phase_ssim",
             "absolute_amp_mae",
+            "amp_mae",
             "phase_wrapped_mae",
+            "amplitude_frc50_frequency",
+            "phase_frc50_frequency",
+            "amplitude_frc50_pixels",
+            "phase_frc50_pixels",
+            "frc_curves",
         )
     }
     assert result.metric_validity["valid"] is True

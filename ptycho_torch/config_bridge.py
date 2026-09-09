@@ -2,12 +2,12 @@
 Configuration bridge adapter for PyTorch → TensorFlow dataclass translation.
 
 This module implements Phase B.B3 of INTEGRATE-PYTORCH-001, providing translation
-functions that convert PyTorch singleton configs to TensorFlow dataclass configs,
+functions that convert PyTorch configuration dataclasses to TensorFlow dataclass configs,
 enabling population of the legacy params.cfg dictionary through the standard
 update_legacy_dict() function.
 
-Architecture:
-    PyTorch config_params singletons → config_bridge → TensorFlow config dataclasses → update_legacy_dict() → params.cfg
+Legacy-consumer boundary (direct Torch paths do not project params.cfg):
+    PyTorch config_params dataclasses → config_bridge → TensorFlow config dataclasses → update_legacy_dict() → params.cfg
 
 MVP Scope (9 fields):
     - Model essentials: N, gridsize, model_type
@@ -29,7 +29,7 @@ Critical Transformations:
     - neighbor_count: int → neighbor_count: int (identity)
     - nll: bool → nll_weight: float (bool→float conversion: True→1.0, False→0.0)
 
-Usage:
+Usage at a TensorFlow/legacy consumer boundary:
     ```python
     from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig
     from ptycho_torch.config_bridge import to_model_config, to_training_config

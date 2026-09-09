@@ -37,7 +37,14 @@ from ptycho_torch.rect_s1s2_initialization import (
 STAGE_ORDER = ("simulate", "train", "reconstruct", "evaluate")
 STAGE_MANIFEST_SCHEMA = "synthetic-stage-manifest-v2"
 DIAGNOSTICS_SCHEMA = "synthetic-reconstruction-diagnostics-v1"
-METRIC_CONTRACT_VERSION = "synthetic-quality-metrics-v1"
+METRIC_CONTRACT_VERSION = "synthetic-quality-metrics-v3"
+# Every contract a sealed stage manifest may legitimately carry. A recorded
+# root keeps the version it was evaluated under; evaluation-stage reuse across
+# versions is refused separately, so identity checks accept any known version.
+METRIC_CONTRACT_VERSIONS = (
+    "synthetic-quality-metrics-v1",
+    METRIC_CONTRACT_VERSION,
+)
 RECONSTRUCTION_SCHEMA = "synthetic-reconstruction-v2"
 _FLAT_ACQUISITION_MANIFEST_SCHEMAS = frozenset(
     {
@@ -3061,6 +3068,7 @@ def run_synthetic_pipeline(
 __all__ = [
     "DIAGNOSTICS_SCHEMA",
     "METRIC_CONTRACT_VERSION",
+    "METRIC_CONTRACT_VERSIONS",
     "RECONSTRUCTION_SCHEMA",
     "STAGE_MANIFEST_SCHEMA",
     "STAGE_ORDER",

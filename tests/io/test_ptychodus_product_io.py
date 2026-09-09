@@ -112,6 +112,23 @@ def test_import_reads_hdf5_to_rawdata(tmp_path: Path):
     # assert raw.xcoords.shape[0] == 4 and raw.ycoords.shape[0] == 4
 
 
+def test_validator_accepts_legacy_loss_alias(tmp_path: Path):
+    import h5py
+    from scripts.tools.validate_ptychodus_product import validate_file
+
+    product = tmp_path / "product.h5"
+    export_product_from_rawdata(_make_synthetic_rawdata(), product, include_raw=False)
+    assert validate_file(product).ok
+
+    with h5py.File(product, "r+") as f:
+        f.move("loss_values", "costs")
+    assert validate_file(product).ok
+
+    with h5py.File(product, "r+") as f:
+        del f["costs"]
+    assert "missing dataset: loss_values" in validate_file(product).errors
+
+
 @pytest.mark.slow
 def test_cli_convert_run1084_smoke(tmp_path: Path):
     # Smoke: convert the provided Run1084 dataset (if present) to HDF5 product

@@ -281,7 +281,7 @@ def test_bundle_loader_returns_modules(tmp_path, data_file, cuda_gpu_env):
         "--test_data_file", str(data_file),
         "--output_dir", str(training_output_dir),
         "--max_epochs", "1",  # Minimal training for faster test
-        "--n_images", "32",
+        "--n_images", "256",  # Dose closure requires 256 detector-pattern slots.
         "--gridsize", "1",
         "--batch_size", "16",
         "--accelerator", "cuda",

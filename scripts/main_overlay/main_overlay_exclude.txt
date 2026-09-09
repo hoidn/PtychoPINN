@@ -1,145 +1,241 @@
-# main_overlay_exclude.txt
-#
-# Path list for the deterministic main-overlay transform
-# (scripts/main_overlay/build_main_overlay.py). Every path here is DELETED
-# from the materialized tree before patches and gates run. Companion content
-# edits (family entries stripped from KEPT files) live as unified diffs in
-# main_overlay_patches/.
-#
-# Grammar (repo-relative, POSIX):
-#   dir/        recursively delete a directory (must exist)
-#   a/b.py      exact file or directory (must exist -> drift detection)
-#   a/b*.py     glob (zero matches tolerated)
-#
-# See docs/plans/2026-07-07-rebase-fno-stable-onto-main.md (Task 2) for the
-# EXCLUDE / PATCH / ALLOW classification and rationale.
+# Code and documentation exclusions for main (source d78ccb5c6).
+# See scripts/main_overlay/README.md. Missing exact paths fail closed.
+# The target's publishing machinery is excluded here and grafted back.
 
-# --- Generator family core + schematics -----------------------------------
+.artifacts
+.superpowers
+AGENTS.md
+CLAUDE.md
+Change_history.md
+DDP_SPAWN.md
+archive
+configs/baseline_config.yaml
+configs/comparison_config_gs1.yaml
+configs/comparison_config_gs2.yaml
+configs/comparison_config_gs2_quick.yaml
+configs/comparison_config_run1084.yaml
+configs/gridsize2_minimal.yaml
+datasets/convention_test_results
+datasets/coord_test_results
+datasets/final_reconstruction_fixed_pos.png
+datasets/final_reconstruction_poisson.png
+datasets/fly
+datasets/fly64
+datasets/reconstruction_fixed_probe_300iter.png
+datasets/reconstruction_fly001.png
+datasets/reconstruction_with_probe.png
+datasets/tike2.py
+docs/CI_TARGET_SCALE_AND_STALE_PROBE.tex
+docs/DATA_GENERATION_GUIDE.md
+docs/DATA_MANAGEMENT_GUIDE.md
+docs/DEVELOPER_GUIDE.md
+docs/FLY001_128_DATASET_GUIDE.md
+docs/FLY64_GENERALIZATION_STUDY_ANALYSIS.md
+docs/GRIDSIZE_N_GROUPS_GUIDE.md
+docs/PROGRAMMATIC_TORCH_API.md
+docs/TESTING_GUIDE.md
+docs/WORKFLOW_GUIDE.md
+docs/adr
+docs/analysis
+docs/architecture.md
+docs/architecture_tf.md
+docs/architecture_torch.md
+docs/archive
+docs/backlog
+docs/bugs
+docs/ci.md
+docs/debugging
+docs/development
+docs/evidence
+docs/findings.md
+docs/fix_plan.md
+docs/fix_plan_archive.md
+docs/forward_model_invertibility_note.pdf
+docs/forward_model_invertibility_note.tex
+docs/index.md
+docs/initiatives
+docs/litsurvey.md
+docs/logging
+docs/migration
+docs/model_baselines.md
+docs/models
+docs/patch_phase_alignment_note.pdf
+docs/patch_phase_alignment_note.tex
+docs/performance
+docs/plans
+docs/s1_s2_scaling_note.pdf
+docs/s1_s2_scaling_note.tex
+docs/sampling
+docs/specs
+docs/steering.md
+docs/strategy
+docs/studies
+docs/superpowers
+docs/templates
+docs/workflow_queue
+docs/workflows/agent_orchestration_backlog_loop.md
+docs/workflows/hydra_studies.md
+docs/workflows/neurips_steered_backlog_drain.md
+docs/workflows/orchestration_start_here.md
+docs/workflows/ptychovit.md
+history
+plans
+prompts
 ptycho_torch/generators/hybrid_resnet.py
 ptycho_torch/generators/hybrid_resnet_ffno_bottleneck.py
-ptycho_torch/generators/spectral_resnet_bottleneck.py
-ptycho_torch/generators/spectral_resnet_bottleneck_linear_decoder.py
 ptycho_torch/generators/resnet_components.py
 ptycho_torch/generators/schematic_manifest.py
 ptycho_torch/generators/schematic_render.py
-
-# --- Benchmark suites (import the family core directly; Decision 4) --------
-scripts/studies/wavebench_shared_encoder/
-scripts/studies/pdebench_swe/
-scripts/studies/pdebench_image128/
-scripts/studies/openfwi_flatvel_a/
-scripts/studies/born_rytov_dt/
-
-# --- Family-only study scripts ---------------------------------------------
+ptycho_torch/generators/spectral_resnet_bottleneck.py
+ptycho_torch/generators/spectral_resnet_bottleneck_linear_decoder.py
+scripts/main_overlay
+scripts/studies/ablation
+scripts/studies/born_rytov_dt
+scripts/studies/broad_cross_model_panels.py
+scripts/studies/broad_phase_gauge_study.py
+scripts/studies/broad_srunet_arms.py
+scripts/studies/broad_synthetic_ptycho_dataset.py
+scripts/studies/broad_twin_rows.py
+scripts/studies/cameraman_hybrid_resnet_dataset.py
+scripts/studies/cdi_block_diagnostics.py
+scripts/studies/ci_compat_materializer_lib.py
 scripts/studies/lines128_srunet_ablation_bundle.py
 scripts/studies/lines128_srunet_convnext_bottleneck_ablation.py
+scripts/studies/materialize_ci_compatibility_datasets.py
+scripts/studies/materialize_object_family_repro_inputs.py
+scripts/studies/openfwi_flatvel_a
+scripts/studies/openfwi_srunet
+scripts/studies/pdebench_image128
+scripts/studies/pdebench_swe
 scripts/studies/render_hybrid_resnet_schematics.py
-scripts/studies/validate_wavebench_shared_encoder_contract.py
-
-# NOTE: compose_varpro_comparison_grid does not import the family core; family
-# appears only in arm/label/string tables. It is kept and its family entries are
-# stripped by a patch, per Decision 3.
-
-# --- Wrappers / runbooks that exist SOLELY to run an excluded family suite ---
-# (Decision 4 completion: the wrapped suite dirs above are excluded wholesale,
-#  so these importers are dangling and are excluded too.)
-scripts/studies/run_wavebench_shared_encoder_benchmark.py
+scripts/studies/render_study_comparison.py
+scripts/studies/run_broad_objective_factorial.py
+scripts/studies/run_broad_srunet_loss_comparison.py
+scripts/studies/run_broad_synthetic_ptycho_benchmark.py
+scripts/studies/run_cameraman_hybrid_resnet.py
+scripts/studies/run_cdi_curved_probe_objective_factorial.py
 scripts/studies/run_openfwi_flatvel_a_smoke.py
+scripts/studies/run_openfwi_srunet_benchmark.py
 scripts/studies/run_pdebench_image128_suite.py
 scripts/studies/run_pdebench_swe_longer.py
 scripts/studies/run_pdebench_swe_smoke.py
-
-# --- Family tests (torch) --------------------------------------------------
-tests/torch/test_spectral_resnet_bottleneck.py
-tests/torch/test_hybrid_resnet_schematics.py
-tests/torch/test_hybres_extension_preconditions.py
-tests/torch/test_compose_varpro_comparison_grid.py
-
-# --- Family tests (studies) ------------------------------------------------
+scripts/studies/run_wavebench_shared_encoder_benchmark.py
+scripts/studies/run_wavebench_srunet_established_baselines.py
+scripts/studies/specs
+scripts/studies/torch_ablation_driver.py
+scripts/studies/validate_wavebench_shared_encoder_contract.py
+scripts/studies/wavebench_shared_encoder
+specs/compare_models_spec.md
+specs/overlap_metrics.md
+studies
+tests/README_NPHOTONS_INTEGRATION_TEST.md
+tests/README_PERSISTENCE_TESTS.md
+tests/fixtures/config/README.md
+tests/fixtures/config/pydantic_pre_migration_torch_tensor_mask.json
+tests/fixtures/generic_runner_hybrid_resnet_c4_ci_5ep_metrics.json
+tests/fixtures/generic_runner_hybrid_resnet_c4_ci_centered_nearest_v1_5ep_metrics.json
+tests/fixtures/generic_runner_hybrid_resnet_c4_ci_centered_nearest_v1_5ep_metrics_v3.json
+tests/fixtures/generic_runner_hybrid_resnet_gs1_5ep_metrics.json
+tests/fixtures/generic_runner_hybrid_resnet_gs1_centered_nearest_v1_5ep_metrics.json
+tests/fixtures/generic_runner_hybrid_resnet_gs1_centered_nearest_v1_5ep_metrics_v3.json
+tests/fixtures/generic_runner_hybrid_resnet_gs2_5ep_metrics.json
+tests/fixtures/generic_runner_hybrid_resnet_gs2_centered_nearest_v1_5ep_metrics.json
+tests/fixtures/generic_runner_hybrid_resnet_gs2_centered_nearest_v1_5ep_metrics_v3.json
+tests/fixtures/studies
+tests/scripts/test_synthetic_pipeline_cli.py
+tests/studies/ablation_dataset_fixtures.py
+tests/studies/conftest.py
+tests/studies/paper_evidence_fixtures.py
 tests/studies/test_born_rytov_dt_adapters.py
+tests/studies/test_born_rytov_dt_dataset.py
 tests/studies/test_born_rytov_dt_preflight.py
+tests/studies/test_born_rytov_dt_validation.py
+tests/studies/test_broad_cross_model_panels.py
+tests/studies/test_broad_objective_factorial.py
+tests/studies/test_broad_phase_gauge_study.py
+tests/studies/test_broad_srunet_arms.py
+tests/studies/test_broad_srunet_loss_comparison.py
+tests/studies/test_broad_synthetic_ptycho_benchmark.py
+tests/studies/test_broad_synthetic_ptycho_dataset.py
+tests/studies/test_broad_twin_rows.py
+tests/studies/test_cameraman_hybrid_resnet_runner.py
+tests/studies/test_cdi_block_diagnostics.py
+tests/studies/test_cdi_curved_probe_objective_factorial.py
+tests/studies/test_ci_compatibility_materializer.py
+tests/studies/test_legacy_gain_calibration.py
 tests/studies/test_lines128_srunet_ablation_bundle.py
 tests/studies/test_lines128_srunet_convnext_bottleneck_ablation.py
+tests/studies/test_materialize_object_family_repro_inputs.py
+tests/studies/test_object_family_repro_conf.py
+tests/studies/test_object_family_repro_e2e.py
+tests/studies/test_openfwi_flatvel_a_data.py
+tests/studies/test_openfwi_flatvel_a_manifest.py
+tests/studies/test_openfwi_flatvel_a_metrics.py
 tests/studies/test_openfwi_flatvel_a_models.py
 tests/studies/test_openfwi_flatvel_a_reporting.py
 tests/studies/test_openfwi_flatvel_a_run_config.py
 tests/studies/test_openfwi_flatvel_a_smoke_cli.py
-tests/studies/test_pdebench_image128_models.py
-tests/studies/test_pdebench_image128_runner.py
-tests/studies/test_pdebench_swe_longer_cli.py
-tests/studies/test_pdebench_swe_models.py
-tests/studies/test_pdebench_swe_reporting.py
-tests/studies/test_pdebench_swe_run_config.py
-tests/studies/test_pdebench_swe_smoke_cli.py
-tests/studies/test_wavebench_shared_encoder_contract.py
-tests/studies/test_wavebench_shared_encoder_data.py
-tests/studies/test_wavebench_shared_encoder_models.py
-
-# --- Sibling tests of excluded suites (import excluded suite modules) -------
-# Completes Decision 4: every tests/studies file that imports a module inside an
-# excluded benchmark suite (born_rytov_dt, openfwi_flatvel_a, pdebench_image128,
-# pdebench_swe) or an excluded family study script must go too.
-tests/studies/test_born_rytov_dt_dataset.py
-tests/studies/test_born_rytov_dt_validation.py
-tests/studies/test_openfwi_flatvel_a_data.py
-tests/studies/test_openfwi_flatvel_a_manifest.py
-tests/studies/test_openfwi_flatvel_a_metrics.py
+tests/studies/test_openfwi_srunet_benchmark.py
 tests/studies/test_pdebench_cfd_cns_data.py
 tests/studies/test_pdebench_cfd_cns_metrics.py
 tests/studies/test_pdebench_darcy_data.py
 tests/studies/test_pdebench_darcy_metrics.py
 tests/studies/test_pdebench_image128_distributed.py
+tests/studies/test_pdebench_image128_models.py
 tests/studies/test_pdebench_image128_preflight.py
 tests/studies/test_pdebench_image128_rollout_video.py
+tests/studies/test_pdebench_image128_runner.py
 tests/studies/test_pdebench_image128_visualization.py
 tests/studies/test_pdebench_physics_losses.py
+tests/studies/test_pdebench_swe_longer_cli.py
 tests/studies/test_pdebench_swe_manifest.py
 tests/studies/test_pdebench_swe_metrics.py
+tests/studies/test_pdebench_swe_models.py
+tests/studies/test_pdebench_swe_reporting.py
+tests/studies/test_pdebench_swe_run_config.py
+tests/studies/test_pdebench_swe_smoke_cli.py
 tests/studies/test_pdebench_swe_splits_data.py
-# Tests that import an excluded run_* wrapper (or assert its file exists):
-tests/studies/test_wavebench_shared_encoder_runner.py
-tests/studies/test_studies_index_entries.py
-
-# --- Retired Phase-4 grid-lines and family-study surfaces ------------------
-.artifacts/bridge_ladder/
-.artifacts/reference_qualification/
-scripts/studies/ablation/legacy_gain_calibration.py
-scripts/studies/specs/grid_lines_ci_convergence.toml
-scripts/studies/specs/hybrid_resnet_ci_compatibility.toml
-tests/studies/test_legacy_gain_calibration.py
-
-# The fixed object-family matrix and renderer compare CNN against the excluded
-# family; they are one study unit rather than public workflow infrastructure.
-studies/object_family_repro/
-scripts/studies/materialize_object_family_repro_inputs.py
-scripts/studies/render_study_comparison.py
-tests/fixtures/studies/object_family_repro_arm_configs/
-tests/studies/test_materialize_object_family_repro_inputs.py
-tests/studies/test_object_family_repro_conf.py
-tests/studies/test_object_family_repro_e2e.py
 tests/studies/test_render_study_comparison.py
-
-# Direct family architecture integration/structure coverage.
-tests/fixtures/generic_runner_hybrid_resnet_gs1_5ep_metrics.json
-tests/fixtures/generic_runner_hybrid_resnet_gs2_5ep_metrics.json
-tests/torch/test_structural_config_ownership.py
-tests/torch/test_synthetic_hybrid_resnet_gs2_integration.py
-
-# Mixed family-era fixtures/tests are removed as coherent units instead of
-# carrying brittle test-only rewrite patches on the public overlay.
-tests/fixtures/config/
-tests/torch/test_config_pydantic_artifacts.py
-tests/scripts/test_synthetic_pipeline_cli.py
+tests/studies/test_studies_index_entries.py
+tests/studies/test_torch_ablation_artifacts.py
 tests/studies/test_torch_ablation_configuration.py
+tests/studies/test_torch_ablation_dataset_compatibility.py
+tests/studies/test_torch_ablation_dataset_content.py
+tests/studies/test_torch_ablation_dataset_provenance.py
+tests/studies/test_torch_ablation_dataset_schema.py
+tests/studies/test_torch_ablation_dataset_task10.py
+tests/studies/test_torch_ablation_datasets.py
 tests/studies/test_torch_ablation_driver_integration.py
 tests/studies/test_torch_ablation_manifest.py
+tests/studies/test_torch_ablation_metrics.py
 tests/studies/test_torch_ablation_reporting.py
 tests/studies/test_torch_ablation_runtime.py
+tests/studies/test_torch_ablation_runtime_records.py
 tests/studies/test_torch_ablation_verdicts.py
+tests/studies/test_wavebench_shared_encoder_contract.py
+tests/studies/test_wavebench_shared_encoder_data.py
+tests/studies/test_wavebench_shared_encoder_models.py
+tests/studies/test_wavebench_shared_encoder_runner.py
+tests/studies/test_wavebench_srunet_established_baselines.py
 tests/test_public_config_pydantic_adoption.py
 tests/test_public_config_resolution.py
 tests/test_synthetic_workflow_config.py
+tests/torch/synthetic_quality_contracts.py
+tests/torch/synthetic_quality_evaluation.py
+tests/torch/synthetic_quality_identity.py
+tests/torch/synthetic_quality_profiles.py
+tests/torch/synthetic_quality_runtime.py
+tests/torch/test_compose_varpro_comparison_grid.py
+tests/torch/test_config_pydantic_artifacts.py
 tests/torch/test_config_resolution_internal_transaction.py
 tests/torch/test_construction_consolidation.py
+tests/torch/test_hybres_extension_preconditions.py
+tests/torch/test_hybrid_resnet_schematics.py
 tests/torch/test_model_spec.py
-tests/torch/test_public_barycentric_workflow.py
+tests/torch/test_module_size_gates.py
+tests/torch/test_spectral_resnet_bottleneck.py
+tests/torch/test_structural_config_ownership.py
+tests/torch/test_synthetic_hybrid_resnet_gs2_integration.py
+tests/torch/test_synthetic_quality_c4_ci_contract.py
+tests/torch/test_synthetic_quality_fit_count.py
+tests/torch/test_synthetic_registered_architectures_integration.py

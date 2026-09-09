@@ -208,8 +208,8 @@ def _build_generator_module_from_config(
     generator_output: str,
     generator_overrides: Optional[Dict[str, Any]] = None,
 ) -> Optional[nn.Module]:
-    """Rebuild a registered generator core from saved config state."""
-    architecture = getattr(model_config, "architecture", "cnn")
+    """Build a generator core from resolved config state."""
+    architecture = model_config.architecture
     if architecture == "cnn":
         return None
 
@@ -217,13 +217,12 @@ def _build_generator_module_from_config(
     if architecture != "neuralop_uno":
         generator_mode = _generator_output_mode_for_core(generator_output)
     common_kwargs = {
-        "in_channels": getattr(model_config, "learned_input_channels", 1),
+        "in_channels": model_config.learned_input_channels,
         "out_channels": 2,
-        "hidden_channels": getattr(model_config, "fno_width", 32),
-        "modes": getattr(model_config, "fno_modes", 12),
+        "hidden_channels": model_config.fno_width,
+        "modes": model_config.fno_modes,
         "C": data_config.gridsize * data_config.gridsize,
-
-        "input_transform": getattr(model_config, "fno_input_transform", "none"),
+        "input_transform": model_config.fno_input_transform,
         "output_mode": generator_mode,
     }
 
@@ -232,8 +231,9 @@ def _build_generator_module_from_config(
 
         return FfnoGeneratorModule(
             **common_kwargs,
-            n_blocks=getattr(model_config, "fno_blocks", 4),
-            cnn_blocks=getattr(model_config, "fno_cnn_blocks", 2),
+            n_blocks=model_config.fno_blocks,
+            cnn_blocks=model_config.fno_cnn_blocks,
+            share_spectral_weights=model_config.ffno_encoder_share_weights,
         )
 
     if architecture == "fno":
@@ -241,8 +241,8 @@ def _build_generator_module_from_config(
 
         return CascadedFNOGenerator(
             **common_kwargs,
-            fno_blocks=getattr(model_config, "fno_blocks", 4),
-            cnn_blocks=getattr(model_config, "fno_cnn_blocks", 2),
+            fno_blocks=model_config.fno_blocks,
+            cnn_blocks=model_config.fno_cnn_blocks,
         )
 
     if architecture == "fno_vanilla":
@@ -250,27 +250,61 @@ def _build_generator_module_from_config(
 
         return FnoVanillaGeneratorModule(
             **common_kwargs,
-            n_blocks=getattr(model_config, "fno_blocks", 4),
+            n_blocks=model_config.fno_blocks,
+        )
+
+    if architecture == "fno_li":
+        from ptycho_torch.generators.fno import LiFnoGeneratorModule
+
+        return LiFnoGeneratorModule(
+            **common_kwargs,
+            n_blocks=model_config.fno_blocks,
         )
 
     if architecture == "neuralop_uno":
         from ptycho_torch.generators.neuralop_uno import NeuralopUnoGeneratorModule
 
-        if int(getattr(data_config, "N", 128)) != 128:
+        if int(data_config.N) != 128:
             raise ValueError(
                 "neuralop_uno checkpoint rebuild only supports the locked Lines128 "
-                f"CDI contract (N=128); got N={getattr(data_config, 'N', None)}."
+                f"CDI contract (N=128); got N={data_config.N}."
             )
-        if int(getattr(data_config, "gridsize", 1)) != 1:
+        if int(data_config.gridsize) != 1:
             raise ValueError(
                 "neuralop_uno checkpoint rebuild only supports the locked "
-                f"gridsize=1 CDI contract; got gridsize={getattr(data_config, 'gridsize', None)}."
+                f"gridsize=1 CDI contract; got gridsize={data_config.gridsize}."
             )
         return NeuralopUnoGeneratorModule(
             C=data_config.gridsize * data_config.gridsize,
             output_mode=generator_mode,
+            hidden_channels=model_config.fno_width,
+            modes=model_config.fno_modes,
         )
 
+    if architecture == "vit":
+        from ptycho_torch.generators.vit import VitGeneratorModule
+
+        if int(data_config.N) != 128:
+            raise ValueError(
+                "vit only supports the locked CDI contract "
+                f"(N=128); got N={data_config.N}"
+            )
+        if int(data_config.gridsize) != 1:
+            raise ValueError(
+                "vit only supports the locked gridsize=1 CDI contract; "
+                f"got gridsize={data_config.gridsize}"
+            )
+        return VitGeneratorModule(
+            in_channels=model_config.learned_input_channels,
+            out_channels=2,
+            patch_size=model_config.vit_patch_size,
+            width=model_config.vit_width,
+            depth=model_config.vit_depth,
+            heads=model_config.vit_heads,
+            C=1,
+            input_transform=model_config.fno_input_transform,
+            output_mode=generator_mode,
+        )
 
     raise ValueError(
         f"Unsupported generator architecture '{architecture}' for checkpoint rebuild."
@@ -304,4 +338,3 @@ def _resolve_generator_from_config(
             generator_overrides=generator_overrides,
         )
     return generator, resolved_output
-

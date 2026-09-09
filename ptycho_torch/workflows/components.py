@@ -10,7 +10,7 @@ resolve exactly as before the split.
 Lifecycle (authored -> resolved payload -> sealed identity -> restored identity):
 
     authored config (TrainingConfig / InferenceConfig)
-      -> resolved payload (TrainingPayload / InferencePayload)   [config_factory]
+      -> resolved training payload                             [config_factory]
       -> sealed identity (ModelSpec)                             [application_factory]
       -> restored identity (strict bundle/checkpoint decode)     [bundle_io / checkpoint_decode]
 
@@ -91,7 +91,6 @@ from .lightning_service import (
 )
 from .legacy import (
     _reassemble_cdi_image_torch,
-    _reassemble_cdi_image_torch_mmap,
     run_cdi_example_torch,
     train_cdi_model_torch,
 )
@@ -104,5 +103,5 @@ __all__ = [
     '_publish_training_summary_and_barrier', '_rebuild_rect_s1s2_loader', '_rect_s1s2_attach_identities', '_rect_s1s2_batch_axes', '_rect_s1s2_indexable_dataset', '_rect_s1s2_training_loader', '_rect_s1s2_verify_collated_identities', '_write_training_summary_atomic',
     '_CHECKPOINT_SELECTION_SCHEMA', '_FinalModelSelectionCallback', '_LossHistoryCallback', '_MilestoneCheckpointCallback', '_ServingModelCheckpoint', '_ServingModelCheckpointMixin', '_TrainingSummaryCallback', '_checkpoint_artifact_path',
     '_checkpoint_file_sha256', '_checkpoint_score_value', '_in_memory_checkpoint_selection', '_publish_checkpoint_selection_and_barrier', '_rank_shared_checkpoint_selection_token', '_read_checkpoint_selection', '_resolve_checkpoint_monitor', '_train_with_lightning',
-    '_validate_training_execution_input', '_write_checkpoint_selection_atomic', '_reassemble_cdi_image_torch', '_reassemble_cdi_image_torch_mmap', 'run_cdi_example_torch', 'train_cdi_model_torch',
+    '_validate_training_execution_input', '_write_checkpoint_selection_atomic', '_reassemble_cdi_image_torch', 'run_cdi_example_torch', 'train_cdi_model_torch',
 ]

@@ -7,8 +7,37 @@ or image-to-image models belong behind task-specific adapters.
 
 Direct `nn.Module` injection into `PtychoPINN` is useful only for a disposable
 spike: the artifact cannot reconstruct an injected module. A saved architecture
-must be registered, represented in configuration, and sealed in `ModelSpec`.
+must be selectable by the core builder, represented in configuration, and sealed in `ModelSpec`.
 Arbitrary import-path plugins are not supported.
+
+## Start here
+
+Adding a generator means adding a network to the existing PyTorch backend,
+not implementing another training pipeline. The shortest supported path is:
+
+1. [Implement an `nn.Module`](#2-implement-the-module) with the existing
+   input/output contract.
+2. [Declare its architecture name](#31-configuration-and-strict-resolution)
+   once in the shared Literal; no wrapper class or registry entry is needed.
+3. [Add a core-builder branch](#32-core-builder) so training and reload can
+   construct the same module from configuration.
+4. [Persist topology settings](#33-modelspec-and-artifact-migration).
+   Reusing suitable existing fields avoids adding schema fields; new topology
+   fields need validation, configuration wiring, and a versioned upgrade.
+5. [Verify the lifecycle](#4-required-verification): construction, gradients,
+   short training, save, fresh-process reload, and inference.
+
+Configuration and checkpoint compatibility are the main integration work
+beyond the network itself. Do not reuse an unrelated field merely to avoid
+adding a correctly owned topology setting.
+
+### Generator or framework backend?
+
+A new CNN, operator network, or transformer implemented in PyTorch follows
+this guide. A genuinely new framework backend (for example, JAX) does not:
+it needs a separate design for training, physics, data integration, persistence,
+and inference. Define those framework boundaries before implementation. A task-specific supervised or PDE model is likewise not a CDI
+generator merely because it reuses one of these network modules.
 
 ## 1. Contract and Ownership
 
@@ -20,7 +49,7 @@ public config + ExecutionRequest
   -> Torch configs + ModelSpec
   -> application factory
   -> PtychoPINN_Lightning
-  -> registered generator
+  -> core builder -> generator module
   -> shared physics, loss, and reassembly
 ```
 
@@ -31,11 +60,11 @@ or unsealed input normalization. Changes to `ptycho/model.py`, `ptycho/diffsim.p
 
 | Concern | Location |
 |---|---|
+| Shared architecture names | `ptycho/_architecture_names.py::_Architecture` |
 | Public architecture and fields | `ptycho/config/config.py::ModelConfig` |
 | Resolved Torch architecture and fields | `ptycho_torch/config_params.py::ModelConfig` |
 | Public/Torch translation | `ptycho_torch/config_bridge.py`, `ptycho_torch/config_factory.py` |
 | Strict architecture domain and patch fields | `ptycho_torch/config_resolution.py::SUPPORTED_TORCH_ARCHITECTURES`, `_TRAINING_INPUTS_BY_OWNER` |
-| Registry | `ptycho_torch/generators/registry.py` |
 | Application composition | `ptycho_torch/application_factory.py` |
 | Core module construction | `ptycho_torch/model.py::_build_generator_module_from_config` |
 | Complex output adaptation | `ptycho_torch/model.py::_predict_complex_patches` |
@@ -43,9 +72,9 @@ or unsealed input normalization. Changes to `ptycho/model.py`, `ptycho/diffsim.p
 | Training and bundle loading | `ptycho_torch/workflows/components.py` |
 | Inference | `ptycho_torch/inference.py` |
 
-The registry is a name catalog, not a second constructor. Registry wrappers
-delegate to `build_ptychopinn_from_configs()`, which derives `ModelSpec` and
-enters the shared application factory. Resolved training enters
+Advanced callers with four Torch config sections use
+`build_ptychopinn_from_configs()`, which derives `ModelSpec` and enters the
+shared application factory. Resolved training enters
 `build_ptychopinn_application()` directly. Both routes reach the same core
 builder.
 
@@ -75,15 +104,15 @@ Prefer `real_imag` for a new unsupervised architecture. It is required by the
 to complex `(B,C,H,W)`. Do not return `(B,2*C,H,W)` and rely on downstream shape
 guessing.
 
-## 2. Implement the Module and Wrapper
+## 2. Implement the Module
 
-Use architecture-specific field names. This minimal example adds
-`tiny_residual_width` and `tiny_residual_blocks`:
+Use architecture-specific names for new fields. This illustrative architecture
+adds `tiny_residual_width` and `tiny_residual_blocks`; it is not an installed
+model. The examples require the configuration and persistence wiring below
+before training or reload will work.
 
 ```python
 # ptycho_torch/generators/tiny_residual.py
-from typing import Any
-
 import torch
 import torch.nn as nn
 
@@ -132,74 +161,42 @@ class TinyResidualGeneratorModule(nn.Module):
             .permute(0, 3, 4, 2, 1)
             .contiguous()
         )
-
-
-class TinyResidualGenerator:
-    name = "tiny_residual"
-
-    def __init__(self, config):
-        self.config = config
-
-    def build_model(self, pt_configs: dict[str, Any]) -> nn.Module:
-        from ptycho_torch.application_factory import build_ptychopinn_from_configs
-
-        return build_ptychopinn_from_configs(pt_configs)
 ```
 
-`TinyResidualGeneratorModule` is the trainable network.
-`TinyResidualGenerator` is only the registry adapter: `resolve_generator()`
-selects it from `config.model.architecture`, then its `build_model()` delegates
-the complete Torch config bundle to the application factory. The wrapper must
-not construct the module or `PtychoPINN_Lightning` directly; training and reload
-must converge on the same application/core builder.
+`TinyResidualGeneratorModule` is the trainable network. No wrapper class or
+registry entry is needed; training and reload use the same application/core builder.
 
-## 3. Register and Persist the Architecture
+## 3. Select and Persist the Architecture
 
 ### 3.1 Configuration and strict resolution
 
-Update all of these surfaces:
+Add the architecture name in step 1. Steps 2–6 apply when introducing new
+topology settings; touch public/Torch joins only for shared fields:
 
-1. In `ptycho/config/config.py::ModelConfig`, add the architecture literal and
-   topology fields; update `validate_model_config()`.
-2. Add the same literal and fields to
-   `ptycho_torch/config_params.py::ModelConfig`; validate their domains in its
-   `__post_init__()`.
-3. Map shared fields in `ptycho_torch/config_bridge.py` and forward them through
-   `ptycho_torch/workflows/components.py::_train_with_lightning`.
-4. Add the architecture value to
-   `ptycho_torch/config_resolution.py::SUPPORTED_TORCH_ARCHITECTURES`.
-5. Add each new topology patch name to the `model` owner in
+1. Add the name once to `ptycho/_architecture_names.py::_Architecture`.
+   Both ModelConfigs and the resolver use that domain.
+2. Add new topology fields to `ptycho_torch/config_params.py::ModelConfig`
+   and validate their domains. Add shared fields to the public ModelConfig only
+   when the approved field ownership requires them.
+3. Map shared fields in `ptycho_torch/config_bridge.py`; keep Torch-only fields
+   on their Torch owner. Do not add architecture branches to the trainer.
+4. Add each new topology patch name to the `model` owner in
    `_TRAINING_INPUTS_BY_OWNER`; `TRAINING_INPUT_RULES` is declared from this
    explicit allowlist.
-6. Add public/Torch joins to
+5. Add public/Torch joins to
    `ptycho_torch/model_spec.py::_CANONICAL_TO_TORCH`.
-7. Verify that supported explicit overrides accept the new fields.
+6. Verify that supported explicit overrides accept the new fields.
 
-Architecture values and patch names are separate explicit resolver domains;
-neither is derived from the dataclasses. Topology belongs to `ModelConfig`, not
+The resolver derives architecture values from the shared Literal, while patch
+names remain an explicit allowlist. Topology belongs to `ModelConfig`, not
 `TrainingConfig`, `ExecutionRequest`, or `PyTorchExecutionConfig`.
 
 Update the exact architecture domain in
-`docs/specs/spec-ptycho-config-bridge.md` and
 `specs/ptychodus_api_spec.md`. Search maintained docs, designs, catalogs, and
 tests for duplicated architecture literals or counts; update current
 restatements and leave explicitly historical records unchanged.
 
-### 3.2 Registry and core builder
-
-Register the wrapper in `ptycho_torch/generators/registry.py`:
-
-```python
-from ptycho_torch.generators.tiny_residual import TinyResidualGenerator
-
-_REGISTRY = {
-    # existing entries...
-    "tiny_residual": TinyResidualGenerator,
-}
-```
-
-The registry key, wrapper `name`, public literal, Torch literal, and strict
-resolver value must match.
+### 3.2 Core builder
 
 Add the module branch to
 `ptycho_torch/model.py::_build_generator_module_from_config`:
@@ -214,9 +211,9 @@ if architecture == "tiny_residual":
         raise ValueError("tiny_residual requires generator_output_mode='real_imag'")
     return TinyResidualGeneratorModule(
         input_channels=(
-            int(model_config.learned_input_channels) * int(data_config.C)
+            model_config.learned_input_channels * data_config.gridsize**2
         ),
-        component_channels=int(data_config.C),
+        component_channels=data_config.gridsize**2,
         width=int(model_config.tiny_residual_width),
         blocks=int(model_config.tiny_residual_blocks),
         output_mode=generator_mode,
@@ -233,18 +230,12 @@ topology must be in `ModelSpec`.
 
 Adding only an architecture value does not change the field set because
 `architecture` is already sealed. Adding topology fields does require a schema
-bump. For the current v2-to-v3 case:
-
-1. materialize the existing `MODEL_SPEC_V2_MODEL_FIELDS` as an explicit frozen
-   field set before adding fields to the live dataclass;
-2. add a v3 field set and make `torch-model-spec-v3` current;
-3. retain exact v1/v2 decoders and upgrade with literal historical values;
-4. reject missing and unknown fields;
-5. update `derive_model_spec()`;
-6. update `PtychoPINN_Lightning.__init__` so its dual-written legacy
-   `model_config` receives the same explicit migration before comparison;
-7. update `ptycho_torch/artifact_schema.py` field-shape classification and
-   compatibility paths.
+bump. Read `CURRENT_MODEL_SPEC_VERSION` and its explicit field sets in
+`ptycho_torch/model_spec.py`; do not infer the current era from old examples.
+Preserve frozen historical schemas and add explicit upgrades through the
+existing model-spec/artifact/checkpoint codecs. Keep missing/unknown-field
+rejection and shared-field agreement checks. The current checkpoint path seals
+identity; do not reintroduce dual-written config dictionaries.
 
 Do not read migration values from current dataclass defaults. The enclosing
 artifact schema changes only if its own envelope or section semantics change;
@@ -257,7 +248,8 @@ state-dict topology becomes incompatible.
 ### Module and adapter
 
 ```python
-x = torch.randn(2, input_channels, 64, 64)
+module = module.to("cuda")
+x = torch.randn(2, input_channels, 64, 64, device="cuda")
 y = module(x)
 assert y.shape == (2, 64, 64, C, 2)
 assert y.dtype == x.dtype
@@ -277,41 +269,17 @@ Required coverage:
 - `tests/torch/test_config_resolution_internal_transaction.py`: exact
   architecture domain and model-owned patch fields; keep test names
   count-neutral.
-- `tests/torch/test_generator_registry.py`: focused name resolution.
-- `tests/torch/test_construction_consolidation.py`: every `_REGISTRY` entry
-  delegates to the application factory and matches sealed construction.
+- `tests/torch/test_construction_consolidation.py`: every supported architecture
+  constructs through the config and sealed-identity application paths.
 - `tests/torch/test_generator_adapter.py`: only when adaptation changes.
 - `tests/torch/test_config_bridge.py`: public/Torch agreement.
-- `tests/torch/test_model_spec.py`: structural identity.
+- `tests/torch/test_model_spec_v2.py`: structural identity.
 - `tests/torch/test_lightning_checkpoint.py`: strict checkpoint reload with no
   manual kwargs.
 
-Run the core selectors:
-
-```bash
-pytest \
-  tests/torch/test_config_resolution_internal_transaction.py \
-  tests/torch/test_generator_registry.py \
-  tests/torch/test_construction_consolidation.py \
-  tests/torch/test_config_bridge.py \
-  tests/torch/test_model_spec.py \
-  tests/torch/test_lightning_checkpoint.py -q
-```
-
-When the `ModelSpec` field set changes, also update and run:
-
-```bash
-pytest \
-  tests/torch/test_model_spec_v2.py \
-  tests/torch/test_artifact_schema.py \
-  tests/torch/test_artifact_schema_v2.py \
-  tests/torch/test_config_pydantic_artifacts.py \
-  tests/torch/test_absolute_scaling_entrypoints.py -q
-```
-
-Search maintained code, tests, and fixtures for `torch-model-spec-v2`,
-`MODEL_SPEC_V2_MODEL_FIELDS`, and `CURRENT_MODEL_SPEC_VERSION`. Preserve frozen
-v2 input checks; update assertions that treat v2 as the current produced schema.
+Select claim-matched checks from these modules. Run CPU-only checks with
+`python -m pytest -n 8 --dist loadfile`; model forwards/training use CUDA serially.
+When identity changes, test exact old/current schemas and strict bundle reload.
 
 ## 5. Train, Reload, and Infer
 
@@ -368,14 +336,23 @@ and bundle save, fresh reload, inference, and fresh-versus-reloaded output
 agreement. If DDP support is claimed, add a two-process smoke test through the
 established mmap/Lightning data path.
 
+### Integration success versus reconstruction quality
+
+A passing lifecycle test proves the new architecture is usable and reloadable,
+not that it reconstructs well. For a quality claim, reconstruct a complete
+same-object acquisition and use the established SSIM/MAE evaluator.
+Do not calibrate the new architecture against another model's quality fixture
+or adjust existing models' thresholds to make an architecture addition pass.
+Recalibration requires a separately approved protocol.
+
 ## 6. Completion Checklist
 
 - [ ] Input/output shapes and complex adaptation are exact for every supported
   `C`.
-- [ ] Public config, Torch config, strict resolver, bridge, registry, and core
+- [ ] Shared name declaration, config, strict resolver, bridge, and core
   builder contain the architecture and topology fields.
 - [ ] Maintained specs, docs, catalogs, and exact-domain tests agree.
-- [ ] Registry and sealed construction use one application path and have the
+- [ ] Config and sealed construction use one application path and have the
   same state-dict signature.
 - [ ] `ModelSpec`, checkpoint compatibility, and artifact codecs preserve exact
   old/current schemas.
@@ -387,8 +364,4 @@ established mmap/Lightning data path.
 
 - [Configuration Guide](../CONFIGURATION.md)
 - [PyTorch Workflow](pytorch.md)
-- [Torch Loader and Batch Contract](../specs/spec-ptycho-interfaces.md)
-- [PtychoPINN Core Contract](../specs/spec-ptycho-core.md)
-- [Configuration Bridge Specification](../specs/spec-ptycho-config-bridge.md)
 - [Ptychodus API Specification](../../specs/ptychodus_api_spec.md)
-- [Testing Guide](../TESTING_GUIDE.md)

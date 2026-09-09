@@ -2,7 +2,7 @@
 
 This guide is the authority for configuring and running the PyTorch backend of
 PtychoPINN: the Lightning-based training stack under `ptycho_torch/` with a generator
-registry for architecture selection. PyTorch (torch ≥ 2.2) is a mandatory dependency.
+core builder for architecture selection. PyTorch (torch ≥ 2.2) is a mandatory dependency.
 
 ## 1. Overview
 
@@ -17,11 +17,10 @@ There are four ways to run the backend, from highest-level to lowest:
 
 Key properties:
 
-- **Configuration** is resolved by the existing Torch factory. Direct callers
+- **Training configuration** is resolved by the existing Torch factory. Direct callers
   pass its canonical keys in the `settings` mapping; the complete checked table
   is in [Configuration](../CONFIGURATION.md#canonical-programmatic-torch-training-settings).
   A legacy projection is created only for a remaining legacy consumer.
-  Normative field mapping: <doc-ref type="spec">docs/specs/spec-ptycho-config-bridge.md</doc-ref>.
 - **Training** runs through `PtychoPINN_Lightning` (`ptycho_torch/model.py`) with
   deterministic settings, Lightning checkpointing, and the full physics loss for every
   architecture.
@@ -29,26 +28,24 @@ Key properties:
   supporting both legacy normalized-amplitude measurements and
   `ci_intensity_v2` count-intensity measurements. The resolved configuration
   must match the stored measurement domain; normative schema:
-  <doc-ref type="contract">docs/specs/spec-ptycho-core.md</doc-ref>.
-- **Recommended parameter baselines** live in
-  [docs/model_baselines.md](../model_baselines.md); this guide documents the available
-  knobs, not the current best-practice combination.
+  <doc-ref type="contract">specs/data_contracts.md</doc-ref>.
+- **Configuration is not a quality ranking.** This guide documents supported
+  settings; validate reconstruction quality on the intended acquisition.
 
 ### Configuration and identity lifecycle
 
-Every Torch run passes through the same four stages:
+Training seals identity; inference restores it:
 
 ```text
-authored settings / inference request
-  -> resolved payload (TrainingPayload / InferencePayload)   [create_training_payload / create_inference_payload]
+authored training settings
+  -> resolved payload (TrainingPayload)                     [create_training_payload]
   -> sealed identity (ModelSpec)                             [checkpoint / bundle write]
   -> restored identity (strict bundle/checkpoint decode)     [decode_checkpoint_hparams + load_inference_bundle_torch]
 ```
 
-The resolved payload is the single configuration currency at the four
-consumption points: `_train_with_lightning` (training service), loader
-construction, `PtychoPINN_Lightning.__init__` (module construction), and the
-inference kernel (decoded bundle identity + explicit runtime argument).
+Training consumers use the resolved payload. Inference calls `reconstruct`
+with the strict bundle identity, validated inference knobs, and separately
+resolved runtime settings; it does not construct another payload or model config.
 
 ### Training entry-point convergence
 
@@ -74,7 +71,7 @@ bundle. It returns the nonempty `wts.h5.zip` path directly.
 - `pip install .` installs torch ≥ 2.2, `lightning`, and `tensordict` automatically.
   For a specific CUDA build, install PyTorch manually first
   ([instructions](https://pytorch.org/get-started/locally/)), then `pip install .`
-- Input NPZ files conforming to `docs/specs/spec-ptycho-core.md`. Legacy files
+- Input NPZ files conforming to `specs/data_contracts.md`. Legacy files
   store normalized amplitude; CI files store count-intensity measurements.
   In both cases the resolved measurement contract must agree with the NPZ.
 
@@ -128,37 +125,25 @@ the expected count scale. Supply positive finite `nphotons` when the stored
 values are normalized amplitudes that must be converted. Declared CI counts
 are never scaled twice.
 
-### 3.2. Architecture Selection (Generator Registry)
+### 3.2. Architecture Selection
 
-`config.model.architecture` routes through the generator registry
-(`ptycho_torch/generators/registry.py`, `resolve_generator`). Every architecture
-trains through `PtychoPINN_Lightning` with the same physics pipeline. Registered
+`config.model.architecture` routes through the core builder in
+`ptycho_torch/model.py`. Every architecture
+trains through `PtychoPINN_Lightning` with the same physics pipeline. Selectable
 architectures:
 
 - `cnn` (default) — U-Net-style CNN encoder/decoder pair
 - `fno`, `fno_vanilla`, `ffno` — Fourier-operator stacks (see `fno_modes`,
   `fno_width`, `fno_blocks`, `fno_cnn_blocks`, `fno_input_transform`)
-- `hybrid`, `stable_hybrid` — FNO/CNN hybrids (`stable_hybrid` adds
-  InstanceNorm-stabilized Norm-Last residual blocks)
 - `neuralop_uno` — wraps external `neuraloperator==2.0.0` U-NO (locked to the
   Lines128 CDI path: `N=128`, `gridsize=1`, `C=1`, `real_imag`)
-- `hybrid_resnet` and variants (`hybrid_resnet_ffno_bottleneck`,
-  `hybrid_resnet_convnext_bottleneck`, `hybrid_resnet_ffno_ptychoblock_encoder`,
-  `hybrid_resnet_ptychoblock_ffno_encoder`) — FNO encoder + ResNet decoder family
-- `spectral_resnet_bottleneck_net`, `spectral_resnet_bottleneck_linear_decoder` —
-  Hybrid-ResNet shell with spectral ResNet bottleneck
+- `fno_li` — Li-style FNO with a pointwise linear path
+- `vit` — isotropic ViT (`vit_patch_size`, `vit_width`, `vit_depth`, `vit_heads`)
 
 To implement, configure, train, save, and reload a new architecture, follow the
 [Custom PyTorch CDI Architecture Guide](custom_torch_architecture.md). The
 generator-package README is a lower-level reference for existing modules.
-Structural search knobs for the hybrid/ResNet family (`hybrid_downsample_steps`,
-`hybrid_downsample_op`, `hybrid_resnet_blocks`, `hybrid_skip_style`,
-`hybrid_encoder_*`, `spectral_bottleneck_*`, `ffno_encoder_blocks`) live on
-Torch `ModelConfig` and are intentionally not owned by execution configuration.
-
-**CNN geometry requirement:** use the canonical geometry/scaling matrix in
-`docs/model_baselines.md`. In particular, a grouped `object_big=True` CNN must
-keep `probe_big=True` so the decoder learns the full patch support.
+Topology settings live on Torch `ModelConfig`, not execution configuration.
 
 ### 3.3. Loss, Scheduler, and Sampling
 
@@ -219,8 +204,8 @@ or loader path remains.
 (diameter `N/2`, Gaussian edge `sigma=1 px`) on the probe. Overrides:
 `probe_mask_tensor` (explicit `(N, N)` mask; enables masking even when
 `probe_mask=False`), `probe_mask_sigma`, `probe_mask_diameter`. CLI:
-`--probe-mask/--no-probe-mask`, `--probe-mask-sigma`, `--probe-mask-diameter` on both
-native CLIs.
+`--probe-mask/--no-probe-mask`, `--probe-mask-sigma`, `--probe-mask-diameter` on the
+native training CLI. Inference uses the checkpoint's probe configuration.
 
 ### 3.4.1. Public object policy and legacy migration
 
@@ -248,50 +233,52 @@ and old configuration files. `False` maps to
 Boolean is derived from `object_layout` and is written to legacy
 `params.cfg['object.big']`. New code should not set `object_big`.
 
-New Torch checkpoints and bundles use `torch-model-spec-v3` inside
-`torch-artifact-v4`. The runtime load paths accept `torch-artifact-v3` and
-`torch-artifact-v4`; pre-v3 bundles are recovered through
-`python -m ptycho_torch.migrate_bundle`, which deterministically upgrades them
-to the current era. The bundle version remains `2.0-pytorch` with exactly
+New Torch checkpoints and bundles use `torch-model-spec-v4` inside
+`torch-artifact-v5`. Runtime loading accepts artifact v3 through v5; v1/v2
+bundles require `python -m ptycho_torch.migrate_bundle`. Every pre-v5 upgrade
+is C1-only; pre-v5 C>1 payloads fail closed under the centered-nearest
+contract. See the [persistence contract](../../specs/ptychodus_api_spec.md).
+The bundle version remains `2.0-pytorch` with exactly
 `autoencoder` and `diffraction_to_obj`; TensorFlow bundle version `1.0` is
 unchanged.
 
 ### 3.5. CNN Output and Physics-Forward Knobs
 
-Four torch-`ModelConfig` knobs port the legacy-main CNN representation and physics as
-opt-in modes. All default to the values that keep existing CNN/FNO/hybrid behavior
+Five torch-`ModelConfig` knobs port the legacy-main CNN representation and physics as
+opt-in modes. All default to the values that keep existing CNN/FNO behavior
 unchanged:
 
 | Knob | Default | Opt-in value | Effect |
 |---|---|---|---|
-| `cnn_output_mode` | `'amp_phase'` | `'real_imag'` (Unsupervised-only) | CNN emits `(real, imag)` via `ScaledTanh` boxes (real ∈ (−0.8, 1.2), imag ∈ (−1.2, 1.2)); prerequisite for `rectangular_scaled`. Representability limit: unit-amplitude objects near `|phase| → π` are unreconstructable in this mode. |
+| `cnn_output_mode` | `'amp_phase'` | `'real_imag'` (Unsupervised-only) | CNN emits `(real, imag)` via `ScaledTanh` boxes (real ∈ (−0.8, 1.2), imag ∈ (−1.2, 1.2)). Representability limit: unit-amplitude objects near `|phase| → π` are unreconstructable in this mode. |
 | `use_shared_decoder` | `False` | `True` | Single shared decoder emitting `2*C_out` channels, split per branch; architecture-only knob. |
 | `training_patch_weighting` | `'central_mask'` | `'probe'` (or `'uniform'`) | Public training-forward assembly policy for grouped patches: binary center mask vs `Σ|probe|²`-weighted (`'uniform'` isolates the code-path change without probe weighting). Distinct from the inference-only `InferenceConfig.patch_weighting`. |
-| `physics_forward_mode` | `'amplitude'` | `'rectangular_scaled'` | Routes patches through `RectangularScaledDiffraction` (analytic real/imag intensity model with per-dataset trainable `s1`/`s2` unless `rect_s1s2_trainable=False`). Requires an effective `real_imag` generator output; for the CNN, select `cnn_output_mode='real_imag'`. Matching intensity-domain losses are selected automatically. |
-| `rect_s1s2_init` | `'ones'` | `'dose_closure'` | Before fitting, either keep `s1=s2=1` or solve one shared startup gauge from the fixed representative 256-slot sample. `dose_closure` fails closed outside CI; the [core contract](../specs/spec-ptycho-core.md#ci-rectangular-gauge-initialization-normative) owns the sampling mechanics. |
+| `physics_forward_mode` | `'amplitude'` | `'rectangular_scaled'` | Routes directly learned real/imag textures through `RectangularScaledDiffraction`; effective `real_imag` output is required. `s1`/`s2` scale object-plane components before probe multiplication and the FFT. Matching intensity-domain losses are selected automatically. |
+| `rect_s1s2_init` | `'ones'` | `'dose_closure'` | Before fitting, either keep `s1=s2=1` or solve one shared startup gauge from the fixed representative 256-slot sample. `dose_closure` fails closed outside CI; the [core contract](../../specs/data_contracts.md) owns the sampling mechanics. |
 
-`cnn_output_mode` and `physics_forward_mode` are coupled but are not aliases.
-The first controls how the CNN decoder parameterizes the object. Other
-architectures use `generator_output_mode` for the equivalent generator-output
-contract. Either representation is normalized to one complex object before the
-second control selects the differentiable diffraction calculation and detector
-prediction domain:
-
-```text
-generator output representation       complex object       physics forward
-amp/phase or real/imaginary  ────────► x              ────► amplitude or intensity
-```
+`cnn_output_mode` and `physics_forward_mode` are distinct but compatibility is
+constrained. The first controls how the CNN decoder parameterizes the object;
+its choices are `amp_phase` and `real_imag`. Other architectures use
+`generator_output_mode`, which additionally supports `amp_phase_logits`. The
+model resolves the effective output first and fails construction if it is
+incompatible with the selected forward.
 
 The supported combinations are:
 
 | Effective generator output | `physics_forward_mode='amplitude'` | `physics_forward_mode='rectangular_scaled'` |
 |---|---|---|
-| `amp_phase` | Supported legacy amplitude-domain path | Rejected: independent real/imaginary scaling would not match the generator heads |
+| `amp_phase` | Supported legacy amplitude-domain path | Rejected: CI requires directly learned real/imag textures |
+| `amp_phase_logits` | Supported amplitude/phase-derived registered-generator path | Rejected: CI requires directly learned real/imag textures |
 | `real_imag` | Supported representation ablation using the amplitude-domain forward | Supported rectangular intensity path used by CI |
 
-The CI profiles select `real_imag` and `rectangular_scaled` together because
-that is their coherent scientific contract, not because the two fields have
-the same meaning.
+`rectangular_scaled` defines `O = s1*a_tilde + i*s2*b_tilde`, where the
+generator directly learns normalized object-plane real and imaginary textures.
+Both `amp_phase` and `amp_phase_logits` are amplitude/phase-derived. Converting
+their learned `A, phi` fields into `A*exp(i*phi)` does not produce those
+independent rectangular textures. The scales act before probe multiplication
+and the FFT; their effect on detector intensity is downstream and depends on
+the acquisition gauge and probe normalization. The CI profiles select the
+required `real_imag` pairing.
 
 Physical semantics of `s1`/`s2` and known residual differences: see the
 rectangular-scaled diffraction entry in `docs/findings.md`.
@@ -327,235 +314,46 @@ route general NPZ reconstruction through public
 `ptycho_torch.inference.reconstruct`; fixed-pitch synthetic tiled
 reconstruction retains its specialized path.
 
-### 3.6. CNN Parity Diagnostic Knobs (Not A Baseline)
+With `patch_weighting='probe'`, barycentric stitching overlap-adds predicted
+object patches with the cropped probe intensity `sum_modes(|P|^2)` and divides
+by that accumulated weight canvas. This is reconstruction weighting, not a
+downstream metric weight: ordinary object metrics consume the finalized canvas
+unweighted unless their own contract says otherwise. A study that locks probe
+weighting should serialize and verify the setting and weight canvas; it must
+reject a uniform or implicit fallback rather than silently score it.
 
-These knobs remain available for controlled parity diagnostics, but they do not
-replace the canonical baseline in `docs/model_baselines.md`:
-
-Here "preset" in older references describes an informal bundle of controls,
-not a named configuration profile or registry entry.
-
-| Knob | Where | Diagnostic value | Default |
-|---|---|---|---|
-| `cbam_encoder` | torch `ModelConfig` | `False` | `True` |
-| `parity_init_scheme` | `PtychoPINN_Lightning` kwarg (`"default"` \| `"tf_glorot"`) | `"tf_glorot"` | `"default"` (kaiming) |
-| `scheduler` | `TrainingConfig` | `"ReduceLROnPlateau"` | `"Default"` |
-
-An additional default-off mechanism, `parity_scale_mode`
-(`PtychoPINN_Lightning` kwarg; `"off"` \| `"tied"` \| `"input"` \| `"output"` \|
-`"fixed"`), controls the TF-parity global intensity scale; resolved study
-records carry it through the exact payload adapter into the shared service. It
-is driven from
-`scripts/studies/varpro_probe_ablation_runner.py`
-(`--cbam-encoder on|off`, `--parity-init-scheme`, `--scheduler`).
-
-These controls, and evidence produced by `hybrid_resnet`, do not establish a
-quality threshold or baseline for a count-Poisson `cnn`; architecture-specific
-claims require evidence from a run under that exact contract.
-
-Cautions:
-- CBAM-off did not fix the unrelated support-on Task 30 failure. In the N=128
-  count-Poisson parity study, however, CBAM-off was the dominant control (3/5
-  escapes alone); the complete controls reached 6/10 while retaining a 2/10
-  flat-collapse tail.
-- Do NOT set `intensity_scale_trainable=True` alongside the parity kwargs — the dead
-  `IntensityScalerModule` machinery silently overwrites the input-side parity scale
-  (see the dead intensity-scaler entry in `docs/findings.md`).
-- Root-cause record: the N=128 flat-amplitude collapse entry in `docs/findings.md`;
-  evidence: `docs/plans/2026-07-08-cnn-n128-tf-parity.md`.
+A third, runtime-only knob lives outside `InferenceConfig` because it is not
+bundle identity: `patch_phase_alignment` (`reconstruct(...,
+patch_phase_alignment='overlap')`, `ReconstructionRuntimeParams`, CLI
+`--patch-phase-alignment overlap` on both the native and unified inference
+doors; default `'none'`). A diffraction pattern cannot see the constant phase
+of its own patch, so the network's patches carry independent phase constants
+and the plain stitch averages them away. With `'overlap'` the assembler fits
+one constant per patch from the patch overlaps (seeded by spectral
+synchronisation of the pairwise overlaps, then Jacobi refinement of the
+probe-weighted patch-versus-consensus disagreement until the RMS wrapped step
+is below 1e-3 rad, gauge fixed to zero mean rotation) and
+stitches the rotated, VarPro-calibrated patches; the weight
+canvas is unchanged and `prescale_canvas` stays unaligned. It holds every
+cropped patch in memory during the fit. See
+`ptycho_torch/reassembly_phase_alignment.py` and the reassembly clause in
+`docs/specs/spec-ptycho-workflow.md`.
 
 ## 4. User-Facing Workflows
 
-### 4.1. Synthetic Generation Through Evaluation (Recommended)
+### 4.1. Synthetic Generation Through Evaluation
 
-`ptycho_synthetic` is the supported entry point for new synthetic PyTorch
-work. With no stage selection it runs all four stages in order:
-
-```text
-simulate -> train -> strict bundle reload -> mmap barycentric reconstruct -> evaluate
-```
-
-The detector simulation leaf still uses TensorFlow, but it runs in a
-CUDA-hidden child process. Object/probe/coordinate production and workflow
-orchestration use NumPy/Python, while all model training, inference, and
-reassembly are PyTorch.
-
-The complete coherent default profile is a 50-epoch GS1 CNN run with
-an ideal probe:
+`ptycho_synthetic` runs simulation, training, strict bundle reload, and reconstruction.
+Use `ptycho_synthetic --help` for stage selection and dataset settings.
 
 ```bash
-ptycho_synthetic \
-  --profile synthetic-lines \
-  --output-root outputs/synthetic_hybrid_resnet_gs1
+ptycho_synthetic --profile synthetic-lines --output-root outputs/synthetic_lines
 ```
 
-Important default-profile values are:
-
-| Area | Default |
-| --- | --- |
-| Geometry/model | `N=128`, `gridsize=1`, `C=1`, `hybrid_resnet`, real/imag output |
-| Generated data | 4,096 train and 1,024 test raw patterns, lines object, seed 3, normalized-amplitude legacy contract |
-| Training sampling | select all 4,096 train frames; 1,024 train groups; 1,024 validation groups |
-| Training | 50 epochs, batch 16, Adam `2e-4`, `ReduceLROnPlateau`, MAE |
-| Probe | ideal probe, `smooth:0.5|pad_preserve:128`; simulation and model masks off |
-| Reconstruction | probe-weighted barycentric assembly, VarPro on, `groups_per_center=1` |
-| Runtime | accelerator auto, one device, FP32, deterministic, zero workers, CSV logger |
-
-For the sealed CNN GS1/C1 five-epoch recipe with the checked-in
-Run1084 probe, use:
-
-```bash
-ptycho_synthetic \
-  --profile synthetic-lines \
-  --output-root outputs/synthetic_hybrid_resnet_gs1_5ep_quality \
-  --gridsize 1 \
-  --epochs 5 \
-  --batch-size 16 \
-  --seed 3 \
-  --probe-source custom \
-  --probe-path datasets/Run1084_recon3_postPC_shrunk_3.npz \
-  --probe-transform 'pad_extrapolate:128|smooth:0.5' \
-  --train-patterns 4489 \
-  --test-patterns 729 \
-  --train-raw-selection 4489 \
-  --training-groups 4489 \
-  --validation-groups 729 \
-  --neighbor-count 1 \
-  --groups-per-center 1 \
-  --accelerator cuda \
-  --devices 1 \
-  --precision 32-true \
-  --workers 0 \
-  --logger csv \
-  --deterministic
-```
-
-The GS2/C4 normalized-amplitude and C4-CI count-intensity sealed recipes use
-the same workflow; their exact contracts and selectors are in
-`docs/TESTING_GUIDE.md`.
-
-The same run may be expressed as a structured JSON, TOML, or YAML file. For
-example, save this as `configs/synthetic_gs1.yaml`:
-
-```yaml
-profile: synthetic-lines
-simulation:
-  gridsize: 1
-  train_patterns: 4489
-  test_patterns: 729
-  probe:
-    source: custom
-    source_path: datasets/Run1084_recon3_postPC_shrunk_3.npz
-    transform_pipeline: "pad_extrapolate:128|smooth:0.5"
-training:
-  epochs: 5
-  train_raw_selection: 4489
-  training_groups: 4489
-  validation_groups: 729
-  neighbor_count: 1
-inference:
-  groups_per_center: 1
-workflow:
-  output_root: outputs/synthetic_hybrid_resnet_gs1_5ep_quality
-  accelerator: cuda
-  devices: 1
-  precision: 32-true
-  num_workers: 0
-  logger_backend: csv
-  deterministic: true
-```
-
-CLI values override file values, and file values override the named profile.
-Stage selection supports reproducible partial execution. For example, train
-first and reconstruct later with exactly the same scientific configuration:
-
-```bash
-ptycho_synthetic --config configs/synthetic_gs1.yaml \
-  --stages simulate,train
-
-ptycho_synthetic --config configs/synthetic_gs1.yaml \
-  --stages reconstruct,evaluate
-```
-
-Stages must be a duplicate-free ordered subsequence of `simulate`, `train`,
-`reconstruct`, and `evaluate`. A skipped predecessor must already be marked
-complete in `stage_manifest.json`; the configuration namespaces consumed by a
-required reused stage must match `resolved_workflow.json`. A required identity
-mismatch or partial selected-stage artifact fails closed and should be run
-under a new output root rather than overwritten. An incompatible completed
-downstream stage not required by the current selection is pruned from the
-manifest.
-
-The current `synthetic-stage-manifest-v2` training contract includes both the
-bundle and `training/training_summary.json`. That summary is strictly parsed as
-a v1 or v2 initialization record, compared with the backend result on fresh
-completion, and checked against the resolved mode on reuse. Fresh runs write
-v2; historical v1 records remain strict prefix-era history. Version-1 manifest
-roots lack the summary artifact and require a new output root or retraining.
-
-The output contract is:
-
-```text
-OUTPUT/
-  invocation.json
-  invocation.sh
-  resolved_workflow.json
-  stage_manifest.json
-  stage_logs/
-    simulate_request.json
-    simulate.log
-  datasets/
-    source.npz
-    train.npz
-    test.npz
-    manifest.json
-  training/
-    wts.h5.zip
-    training_summary.json
-    effective_runtime.json
-    checkpoint_selection.json
-    checkpoints/
-      <monitored-best>.ckpt
-      last.ckpt
-    lightning_logs/
-  reconstruction/
-    reconstruction.npz
-    metrics.json
-    diagnostics.json
-    comparison.png
-```
-
-#### Sampling and reconstruction identity
-
-Synthetic NPZs use `flat_acquisition_v1`: each row is one raw scan position,
-even when `gridsize > 1`. The shared generic loader is the sole owner that
-forms `C = gridsize ** 2` channels. The four similarly named controls are
-independent:
-
-| Control | Meaning |
-| --- | --- |
-| `--train-raw-selection` | Raw train frames selected before grouping; persisted as the training `DataConfig.n_raw_frames_selected` |
-| `--training-groups` | Exact grouped samples built for the train container |
-| `--validation-groups` | Exact grouped samples built independently from the complete test acquisition |
-| `--groups-per-center` | Reconstruction-only repeated neighbor groups per valid scan center |
-
-`--training-groups` and `--validation-groups` need not be equal. The former is
-always bounded by the selected train-frame count; the latter is bounded by the
-test raw-pattern count. Reconstruction starts from the strictly loaded
-persisted `DataConfig` and threads `groups_per_center` to the dataset
-constructor as an explicit runtime argument (no dataclass field round-trip).
-It never rewrites training identity.
-
-The synthetic training request always calls the shared generic trainer with
-`do_stitching=False`. Generic stitching reduces grouped predictions at their
-centers, which loses the global all-C-channel evidence needed for a valid GS2
-quality reconstruction. The separate reconstruction stage strictly reloads
-`training/wts.h5.zip`, stages only the held-out NPZ into a fresh mmap
-workspace, and performs probe-weighted barycentric/VarPro assembly across all
-channels and coordinates.
-
-For parameterized multi-arm execution, `ptycho_study` composes public synthetic
-workflow configurations as described in §9.
+Use a CUDA device for training. For reconstruction-quality validation, acquire
+many overlapping patterns from one object, stitch its reconstruction, and compare
+amplitude and phase against that object's truth. Mixed-object patches are not an
+object-quality benchmark.
 
 ### 4.2. Unified CLI (backend selection)
 
@@ -666,7 +464,7 @@ mmaps remain separate from the training validation split.
   `unit_default_no_solve`, and zero patterns, while `dose_closure` records
   `dose_closure_seeded_uniform_unit_object` and exactly 256 detector slots.
   Strict v1 reading is retained for prefix-era records. The
-  [core contract](../specs/spec-ptycho-core.md#ci-rectangular-gauge-initialization-normative)
+  [core contract](../../specs/data_contracts.md)
   owns the full schema and sampling rules. Under DDP, only global rank zero publishes it, using atomic
   replacement, and every rank enters the live strategy barrier before fitting.
 - **Synthetic strict reload:** the synthetic reconstruct stage requires a
@@ -695,13 +493,18 @@ CUDA_VISIBLE_DEVICES="0" python -m ptycho_torch.inference \
 ```
 
 Additional flags: `--num-workers`, `--inference-batch-size` (default: reuse training
-batch size), probe-mask flags, `--log-patch-stats`. A legacy MLflow-run mode
+batch size), `--log-patch-stats`, and `--patch-stats-limit`. A legacy MLflow-run mode
 (`--run_id`, `--infer_dir`, `--file_index`) still exists but is not the default path.
 The CLI routes through `reconstruct`, which strictly reloads the bundle,
 reconstructs the full held-out scan through mmap, and calls the barycentric
 reassembler.
 `--groups-per-center` controls only that runtime route and does not alter the
 persisted training selection.
+
+The unified Torch door rejects `--inference_groups`, `--n_groups`, `--n_images`,
+and configured inference counts: omit them for full-scan reconstruction. These
+counts remain TensorFlow controls, not aliases for `--groups-per-center`.
+The native probe-mask flags and inference payload factory API are retired.
 
 The ordinary Python flow is:
 
@@ -810,8 +613,7 @@ Validated by `pytest tests/torch/test_backend_selection.py -vv`.
 `ptycho_study` is the public multi-arm composer. It writes each resolved arm
 configuration and delegates the arm to the configured public runner; it does
 not provide a parallel training implementation. See
-[`hydra_studies.md`](hydra_studies.md) for composition, resume, and provenance
-semantics.
+[study runners](../../scripts/studies/README.md) for the retained entry points.
 
 Retained study-specific CLIs have narrower roles:
 
@@ -834,12 +636,8 @@ Use `ptycho_synthetic` for a single supported synthetic run.
   `label_phase` keys in the NPZ; experimental datasets lack them and fail dataloader
   validation. Use PINN mode or generate labeled synthetic data.
 - **Gridsize > 1 support** is architecture-gated in the public synthetic
-  workflow (`cnn`, `hybrid_resnet`); `ptycho_study` arms that delegate to that
+  workflow (`cnn`); `ptycho_study` arms that delegate to that
   workflow enforce the same restriction.
-- **N=128 count-Poisson CNN is collapse-prone.** The complete TF-parity
-  controls reduce but do not eliminate the risk; `hybrid_resnet` remains the
-  recommended alternative (§3.6).
-- **`intensity_scale_trainable=True`** conflicts with the parity scale path (§3.6).
 - Shape mismatches in a TensorFlow or explicitly legacy component may mean its
   `update_legacy_dict(params.cfg, config)` bridge was skipped; direct Torch
   `train`/`reconstruct` does not use that bridge. See
@@ -856,53 +654,25 @@ python -m ptycho_torch.migrate_bundle SOURCE_DIR OUT_DIR
 ```
 
 Both arguments are directories holding a `wts.h5.zip`. The migrator detects
-the source era (metadata-free legacy, ci-entrypoints-v1, v1, v2, v3), rebuilds
+the source era, rebuilds
 the model from the archived weights, seals a fresh current-era
-(`torch-artifact-v4`) identity, and writes the migrated archive to `OUT_DIR`.
+(`torch-artifact-v5`) identity, and writes the migrated archive to `OUT_DIR`.
+Pre-v5 recovery is C1-only; C>1 identities require retraining under the
+centered-nearest contract and are rejected rather than relabeled.
 Migrating an already-current bundle is a no-op. Errors name the missing
 bundle or the offending member; the module import itself is torch/dill-free.
 
 ## 12. Testing
 
-- Fast suite: `pytest tests/torch -m "not slow"` (this is what the public-main CI
-  gate runs).
-- End-to-end regression (train→save→load→infer, GPU-pinned):
+Run the CPU gate with eight workers:
 
 ```bash
-CUDA_VISIBLE_DEVICES="0" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv
+bash ci/run_ci_tests.sh
 ```
 
-- Synthetic fast contracts:
+Run CUDA integration tests serially. The public train/reload/reconstruct lifecycle
+is covered in `tests/torch/test_integration_workflow_torch.py`; architecture
+checkpoint round trips are in `tests/torch/test_lightning_checkpoint.py`.
 
-```bash
-python -m pytest tests/scripts/test_cli_entrypoint_bootstrap.py \
-  tests/torch/test_synthetic_hybrid_resnet_gs2_integration.py \
-  -m "not integration" -q
-```
-
-- Hybrid GS1, GS2, and C4-CI quality changes must pass their respective
-  one-epoch public-command preflight before calibration. Each fixture update
-  uses exactly two fitting runs and one unchanged holdout, scores raw
-  reconstruction arrays, and requires both automated `comparison.png`
-  integrity checks and recorded manual visual adjudication. The fixtures are
-  immutable at test runtime and apply only to their recorded CUDA/software
-  fingerprint. Exact preflight, candidate, and sealed five-epoch selectors
-  plus the fail-closed debugging order live in `docs/TESTING_GUIDE.md`. The
-  separate CNN C4/count-intensity one-epoch smoke remains operational
-  coverage; the Hybrid-ResNet C4-CI contract carries its own sealed envelope.
-
-- Visual parity evidence for pipeline changes:
-  `python scripts/tools/patch_parity_helper.py --tf-npz ... --torch-npz ...`
-  (aligns shared `sample_indices`, writes comparison grids under `tmp/patch_parity/`).
-
-Commands, selectors, and evidence requirements: `docs/TESTING_GUIDE.md`.
-
----
-
-**Related Documentation:**
-- <doc-ref type="guide">docs/DEVELOPER_GUIDE.md</doc-ref> — architectural principles and anti-patterns
-- <doc-ref type="guide">docs/architecture_torch.md</doc-ref> — torch architecture and component contracts
-- <doc-ref type="spec">docs/specs/spec-ptycho-config-bridge.md</doc-ref> — TF ↔ torch config mapping
-- <doc-ref type="spec">specs/ptychodus_api_spec.md</doc-ref> — backend dispatch and execution-config contracts (§4.8–4.9)
-- <doc-ref type="contract">docs/specs/spec-ptycho-core.md</doc-ref> — NPZ data contract
-- <doc-ref type="guide">docs/findings.md</doc-ref> — known-issue registry for the entries cited above
+Publishing exclusions are documented in
+[Public Branch Port Exclusions](../../scripts/main_overlay/README.md).

@@ -128,6 +128,40 @@ class VectorizedBarycentricAccumulator:
 
 
 
+def bilinear_placement(
+    positions_px: torch.Tensor,
+    patch_size: int,
+    canvas_shape: Tuple[int, int],
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Integer corner and bilinear corner weights for placing patches at sub-pixel positions.
+
+    Returns ``(xmin_wh, ymin_wh, corner_weights, valid_mask)`` where
+    ``corner_weights`` is ``(4, N)`` in the corner order ``(dy, dx) = (0, 0),
+    (0, 1), (1, 0), (1, 1)`` relative to ``(ymin_wh, xmin_wh)``. The splat in
+    ``VectorizedWeightedAccumulator`` and the gather in
+    ``reassembly_phase_alignment`` share this placement, so the gather is the
+    exact adjoint of the splat.
+    """
+    half_size = patch_size / 2
+    xmin = positions_px[:, 0] - half_size
+    ymin = positions_px[:, 1] - half_size
+    xmin_wh, ymin_wh = xmin.floor().long(), ymin.floor().long()
+    xmin_fr, ymin_fr = xmin - xmin_wh.float(), ymin - ymin_wh.float()
+    valid_mask = (
+        (xmin_wh >= 0) & (ymin_wh >= 0) &
+        (xmin_wh + patch_size + 1 < canvas_shape[1]) &
+        (ymin_wh + patch_size + 1 < canvas_shape[0])
+    )
+    xmin_fr_c, ymin_fr_c = 1.0 - xmin_fr, 1.0 - ymin_fr
+    corner_weights = torch.stack((
+        ymin_fr_c * xmin_fr_c,
+        ymin_fr_c * xmin_fr,
+        ymin_fr * xmin_fr_c,
+        ymin_fr * xmin_fr,
+    ))
+    return xmin_wh, ymin_wh, corner_weights, valid_mask
+
+
 class VectorizedWeightedAccumulator:
     """
     Vectorized barycentric accumulation with probe-intensity confidence weighting.
@@ -167,19 +201,11 @@ class VectorizedWeightedAccumulator:
         """
         N, H, W = patches.shape
         self.total_patches += int(N)
-        half_size = patch_size / 2
 
-        # 1. Coordinate and Bounds Logic (Identical to original)
-        xmin = positions_px[:, 0] - half_size
-        ymin = positions_px[:, 1] - half_size
-
-        xmin_wh, ymin_wh = xmin.floor().long(), ymin.floor().long()
-        xmin_fr, ymin_fr = xmin - xmin_wh.float(), ymin - ymin_wh.float()
-
-        valid_mask = (
-            (xmin_wh >= 0) & (ymin_wh >= 0) &
-            (xmin_wh + patch_size + 1 < self.canvas_shape[1]) &
-            (ymin_wh + patch_size + 1 < self.canvas_shape[0])
+        # 1. Coordinate, bounds, and bilinear corner weights (shared with the
+        # phase-alignment gather so the two stay exact adjoints)
+        xmin_wh, ymin_wh, corner_weights, valid_mask = bilinear_placement(
+            positions_px, patch_size, self.canvas_shape
         )
 
         if not valid_mask.all():
@@ -203,17 +229,13 @@ class VectorizedWeightedAccumulator:
                 return
             patches = patches[valid_idx]
             xmin_wh, ymin_wh = xmin_wh[valid_idx], ymin_wh[valid_idx]
-            xmin_fr, ymin_fr = xmin_fr[valid_idx], ymin_fr[valid_idx]
+            corner_weights = corner_weights[:, valid_idx]
             N = len(valid_idx)
         else:
             self.accepted_patches += int(N)
 
-        # 2. Bilinear Weights (Identical to original)
-        xmin_fr_c, ymin_fr_c = 1.0 - xmin_fr, 1.0 - ymin_fr
-        w00 = (ymin_fr_c * xmin_fr_c).view(N, 1, 1)
-        w01 = (ymin_fr_c * xmin_fr).view(N, 1, 1)
-        w10 = (ymin_fr * xmin_fr_c).view(N, 1, 1)
-        w11 = (ymin_fr * xmin_fr).view(N, 1, 1)
+        # 2. Bilinear Weights
+        w00, w01, w10, w11 = (w.view(N, 1, 1) for w in corner_weights)
 
         # 3. Apply Probe Intensity Weighting (|p|^2)
         if uniform_weighting:

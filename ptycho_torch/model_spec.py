@@ -29,7 +29,8 @@ from ptycho_torch.object_compatibility import (
 MODEL_SPEC_V1_VERSION = "torch-model-spec-v1"
 MODEL_SPEC_V2_VERSION = "torch-model-spec-v2"
 MODEL_SPEC_V3_VERSION = "torch-model-spec-v3"
-CURRENT_MODEL_SPEC_VERSION = MODEL_SPEC_V3_VERSION
+MODEL_SPEC_V4_VERSION = "torch-model-spec-v4"
+CURRENT_MODEL_SPEC_VERSION = MODEL_SPEC_V4_VERSION
 
 # Permanent cross-stack bridge conversion (docs/findings.md "Cross-stack
 # naming policy"): the torch ``mode`` enum values map to the canonical TF
@@ -101,6 +102,10 @@ TORCH_EXTENSION_FIELDS = frozenset(
         "ffno_encoder_gate_init",
         "ffno_encoder_norm",
         "ffno_encoder_mlp_ratio",
+        "vit_patch_size",
+        "vit_width",
+        "vit_depth",
+        "vit_heads",
         "cnn_output_mode",
         "use_shared_decoder",
         "intensity_scale_trainable",
@@ -183,6 +188,15 @@ MODEL_SPEC_V3_MODEL_FIELDS = (
     "rect_s1s2_trainable", "rect_s1s2_init", "amplitude_physics_gain",
     "pad_object", "gaussian_smoothing_sigma", "loss_function", "amp_loss",
     "phase_loss", "amp_loss_coeff", "phase_loss_coeff",
+)
+
+# v4 adds the explicit structural identity of the matched global-attention arm.
+MODEL_SPEC_V4_MODEL_FIELDS = (
+    *MODEL_SPEC_V3_MODEL_FIELDS,
+    "vit_patch_size",
+    "vit_width",
+    "vit_depth",
+    "vit_heads",
 )
 
 # Import-time totality/inverse tripwires for the manual ownership layer.
@@ -269,7 +283,7 @@ class ModelSpec:
                 f"unsupported current ModelSpec schema {self.schema_version!r}; "
                 f"expected {CURRENT_MODEL_SPEC_VERSION!r}"
             )
-        expected = set(MODEL_SPEC_V3_MODEL_FIELDS)
+        expected = set(MODEL_SPEC_V4_MODEL_FIELDS)
         received = set(self._model_fields)
         if received != expected:
             missing = sorted(expected - received)
@@ -393,11 +407,21 @@ class ModelSpec:
                     f"unknown={sorted(received_v3 - expected_v3)}"
                 )
             values = dict(model_fields)
+        elif schema_version == MODEL_SPEC_V4_VERSION:
+            expected_v4 = set(MODEL_SPEC_V4_MODEL_FIELDS)
+            received_v4 = set(model_fields)
+            if received_v4 != expected_v4:
+                raise ValueError(
+                    "torch-model-spec-v4 model fields are not exact; "
+                    f"missing={sorted(expected_v4 - received_v4)}, "
+                    f"unknown={sorted(received_v4 - expected_v4)}"
+                )
+            values = dict(model_fields)
         else:
             raise ValueError(
                 f"unsupported ModelSpec schema {schema_version!r}; expected "
                 f"{MODEL_SPEC_V1_VERSION!r}, {MODEL_SPEC_V2_VERSION!r}, or "
-                f"{MODEL_SPEC_V3_VERSION!r}"
+                f"{MODEL_SPEC_V3_VERSION!r}, or {MODEL_SPEC_V4_VERSION!r}"
             )
         if schema_version in (MODEL_SPEC_V1_VERSION, MODEL_SPEC_V2_VERSION):
             c_model = model_fields["C_model"]
@@ -415,6 +439,10 @@ class ModelSpec:
             for name, value in values.items()
             if name not in {"C_model", "C_forward"}
         }
+        if schema_version != MODEL_SPEC_V4_VERSION:
+            defaults = ModelConfig()
+            for name in ("vit_patch_size", "vit_width", "vit_depth", "vit_heads"):
+                values[name] = getattr(defaults, name)
         return cls(
             schema_version=CURRENT_MODEL_SPEC_VERSION,
             _model_fields=values,
