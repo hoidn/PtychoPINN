@@ -8,6 +8,15 @@ and the real-space overlap between neighbouring scan positions ties the patches
 together. Once trained, a reconstruction is a single forward pass per diffraction
 pattern, orders of magnitude faster than iterative solvers.
 
+![Ground truth, PtychoPINN, and LSQ-ML phase of a synthetic test object](diagram/synthetic_phase_pinn_vs_lsqml.png)
+
+*Phase of one synthetic test object (2,048 diffraction patterns, 128×128
+pixels, a measured probe, Poisson counts) reconstructed by a PtychoPINN CNN in
+a single forward pass and by 100 iterations of LSQ-ML (Pty-Chi) with the same
+probe; the CNN was trained without seeing this object or any ground truth.
+Wrapped-phase MAE against the truth on the illuminated support: 0.045 rad and
+0.013 rad. The object's amplitude is within 0.4 % of unity and is not shown.*
+
 ![Architecture diagram](diagram/lett.png)
 
 ## Papers
